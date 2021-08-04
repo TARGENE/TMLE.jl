@@ -67,6 +67,14 @@ end
 ###############################################################################
 
 
+"""
+    MLJ.fit(tmle::ATEEstimator, 
+            verbosity::Int, 
+            t::CategoricalVector{Bool}, 
+            W, 
+            y::Union{CategoricalVector{Bool}, Vector{<:Real}})
+"""
+
 function MLJ.fit(tmle::ATEEstimator, 
              verbosity::Int, 
              t::CategoricalVector{Bool}, 

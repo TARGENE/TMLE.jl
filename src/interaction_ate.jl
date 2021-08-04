@@ -80,6 +80,13 @@ end
 ###############################################################################
 
 
+"""
+    MLJ.fit(tmle::InteractionATEEstimator, 
+                 verbosity::Int, 
+                 T,
+                 W, 
+                 y::Union{CategoricalVector{Bool}, Vector{<:Real}}
+"""
 function MLJ.fit(tmle::InteractionATEEstimator, 
                  verbosity::Int, 
                  T,
