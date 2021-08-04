@@ -41,7 +41,7 @@ Average Treatment Effect (ATE) and the Interaction Average
 Treatment Effect (IATE). For both quantities, a graphical representation of the 
 underlying causal model in presented bellow.
 
-![causal_model.png](img/causal_model.png)
+![causal_model.png](assets/causal_model.png)
 
 TMLE is a two steps procedure, it first starts by estimating nuisance 
 parameters that will be used to build the final estimator. They are called nuisance parameters
