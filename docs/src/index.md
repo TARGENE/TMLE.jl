@@ -76,7 +76,7 @@ expit(X) = 1 ./ (1 .+ exp.(-X))
 Let's consider the following example:
 
 - W = [W_1, W_2, W_3] is a set of binary confounding variables, ``W \sim Bernoulli(0.5)``
-- T is a Binary variable, ``p(T=1|W=w) = expit(0.5W_1 + 1.5W_2 - W_3)``
+- T is a Binary variable, ``p(T=1|W=w) = \text{expit}(0.5W_1 + 1.5W_2 - W_3)``
 - Y is a Continuous variable, ``Y = T + 2W_1 + 3W_2 - 4W_3 + \epsilon(0, 1)``
 
 For which the ATE can be computed explicitely and is equal to 1. In Julia such dataset
@@ -132,9 +132,8 @@ In this case, the treatment variable T is a vector, for instance for two treatme
 Let's consider the following example for which again the IATE is known:
 
 - W is a binary outcome confounding variable, ``W \sim Bernoulli(0.4)``
-- ``T =(T_1, T_2)`` are independent binary variables sampled from an expit model.
-``p(T_1=1|W=w) = expit(0.5w - 1)`` and, ``p(T_2=1|W=w) = expit(-0.5w - 1)``
-- Y is a binary variable sampled from an expit model. ``p(Y=1|t_1, t_2, w) = expit(-2w + 3t_1 - 3t_2 - 1)``
+- ``T =(T_1, T_2)`` are independent binary variables sampled from an expit model. ``p(T_1=1|W=w) = \text{expit}(0.5w - 1)`` and, ``p(T_2=1|W=w) = \text{expit}(-0.5w - 1)``
+- Y is a binary variable sampled from an expit model. ``p(Y=1|t_1, t_2, w) = \text{expit}(-2w + 3t_1 - 3t_2 - 1)``
 
 In Julia:
 
