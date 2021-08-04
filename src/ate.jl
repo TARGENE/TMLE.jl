@@ -12,12 +12,12 @@ where:
 
 - Y is the target variable (Binary)
 - T is the treatment variable (Binary)
-- W is a confounder variable
+- W are confounder variables
 
 The TMLE procedure relies on plugin estimation. Here, the ATE requires an 
-estimator of t,w → E[Y|T=t, W=w], an estimator of and w → p(T|w) and an estimator
+estimator of t,w → E[Y|T=t, W=w], an estimator of w → p(T|w) and an estimator
 of w → p(w). The empirical distribution will be used for w → p(w) all along. 
-The estimator t,w → E[Y|T=t, W=w] is then fluctuated to solve the efficient influence
+The estimator of t,w → E[Y|T=t, W=w] is then fluctuated to solve the efficient influence
 curve equation. 
 
 More information can be found about TMLE in "Causal Inference for Observational and Experimental Data"
