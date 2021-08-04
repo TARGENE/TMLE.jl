@@ -20,4 +20,6 @@ makedocs(;
 
 deploydocs(;
     repo="github.com/olivierlabayle/TMLE.jl",
+    devbranch="main",
+    push_preview=true
 )
