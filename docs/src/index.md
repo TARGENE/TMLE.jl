@@ -6,7 +6,7 @@ CurrentModule = TMLE
 
 The purpose of this package is to provide convenience methods for 
 Targeted Minimum Loss-Based Estimation (TMLE). TMLE is a framework for
-efficient estimation that was first proposed by Van der Laan et al.
+efficient estimation that was first proposed by Van der Laan et al in 2006.
 If you are new to TMLE, this [review paper](https://www.hindawi.com/journals/as/2014/502678/) 
 gives a nice overview to the field. Because TMLE requires nuisance parameters 
 to be learnt by machine learning algorithms, this package is built on top of 
