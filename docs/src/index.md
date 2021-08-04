@@ -67,15 +67,20 @@ using Random
 using Distributions
 using MLJ
 using TMLE
+
+expit(X) = 1 ./ (1 .+ exp.(-X))
 ```
 
 ### ATE
 
 Let's consider the following example:
 
-- W = [W_1, W_2, W_3] is a set of binary confounding variables, W ~ Bernoulli(0.5)
-- T is a Binary variable, p(T=1|W=w) = expit(0.5W_1_ + 1.5W_2 - W_3)
-- Y is a Continuous variable, Y = T + 2W_1 + 3W_2 - 4W_3 + \epsilon(0, 1)
+- W = [W_1, W_2, W_3] is a set of binary confounding variables, ``W \sim Bernoulli(0.5)``
+- T is a Binary variable, ``p(T=1|W=w) = expit(0.5W_1 + 1.5W_2 - W_3)``
+- Y is a Continuous variable, ``Y = T + 2W_1 + 3W_2 - 4W_3 + \epsilon(0, 1)``
+
+For which the ATE can be computed explicitely and is equal to 1. In Julia such dataset
+can be generated like this:
 
 ```julia
 n = 10000
@@ -100,13 +105,11 @@ for the fluctuation. This is done by specifying a Normal distribution for the
 Generalized Linear Model.
 
 ```julia
-
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 
 tmle = ATEEstimator(LogisticClassifier(),
                     MLJ.DeterministicConstantRegressor(),
                     Normal())
-
 ```
 
 Now, all there is to do is to fit the estimator:
@@ -115,13 +118,82 @@ Now, all there is to do is to fit the estimator:
 fitresult, _, _ = MLJ.fit(tmle, 0, t, W, y)
 ```
 
-The `fitresult` contains the estimate and the associated standard error.
+The `fitresult` contains the estimate and the associated standard error. We can see 
+that even if one nuisance parameter is misspecified, the double robustness of TMLE
+enables correct estimation of our target.
 
-### IATE
 
-TODO.
+### IATE
 
-## API 
+The IATE measures the effect of interacting causes on a target variable, it was 
+defined by Beentjes and Khamseh [in this paper](https://link.aps.org/doi/10.1103/PhysRevE.102.053314).
+In this case, the treatment variable T is a vector, for instance for two treatments T=(T_1, T_2).
+
+Let's consider the following example for which again the IATE is known:
+
+- W is a binary outcome confounding variable, ``W \sim Bernoulli(0.4)``
+- ``T =(T_1, T_2)`` are independent binary variables sampled from an expit model.
+``p(T_1=1|W=w) = expit(0.5w - 1)`` and, ``p(T_2=1|W=w) = expit(-0.5w - 1)``
+- Y is a binary variable sampled from an expit model. ``p(Y=1|t_1, t_2, w) = expit(-2w + 3t_1 - 3t_2 - 1)``
+
+In Julia:
+
+```julia
+n = 10000
+rng = MersenneTwister(0)
+p_w() = 0.4
+pt1_given_w(w) = expit(0.5w .- 1)
+pt2_given_w(w) = expit(-0.5w .- 1)
+py_given_t1t2w(t1, t2, w) = expit(-2w .+ 3t1 .- 3t2 .- 1)
+# Sampling
+Unif = Uniform(0, 1)
+w = rand(rng, Unif, n) .< p_w()
+t₁ = rand(rng, Unif, n) .< pt1_given_w(w)
+t₂ = rand(rng, Unif, n) .< pt2_given_w(w)
+y = rand(rng, Unif, n) .< py_given_t1t2w(t₁, t₂, w)
+# W should be a table
+# T should be a table of binary categorical variables
+# Y should be a binary categorical variable
+W = (W=convert(Array{Float64}, w),)
+T = (t₁ = categorical(t₁), t₂ = categorical(t₂))
+y = categorical(y)
+# Compute the theoretical IATE
+IATE₁ = (py_given_t1t2w(1, 1, 1) - py_given_t1t2w(1, 0, 1) - py_given_t1t2w(0, 1, 1) + py_given_t1t2w(0, 0, 1))*p_w()
+IATE₀ = (py_given_t1t2w(1, 1, 0) - py_given_t1t2w(1, 0, 0) - py_given_t1t2w(0, 1, 0) + py_given_t1t2w(0, 0, 0))*(1 - p_w())
+IATE = IATE₁ + IATE₀
+```
+
+Again, we need to estimate the 2 nuisance parameters, this time let's use the 
+Stack with a few learning algorithms. The fluctuation will be a Logistic Regression,
+this is done by specifying a Bernoulli distribution for the 
+Generalized Linear Model.
+
+```julia
+LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
+DecisionTreeClassifier = @load DecisionTreeClassifier pkg=DecisionTree verbosity=0
+KNNClassifier = @load KNNClassifier pkg=NearestNeighborModels verbosity=0
+
+stack = Stack(;metalearner=LogisticClassifier(),
+                resampling=CV(),
+                lr=LogisticClassifier(),
+                tree_2=DecisionTreeClassifier(max_depth=2),
+                tree_3=DecisionTreeClassifier(max_depth=3),
+                knn=KNNClassifier())
+
+tmle = ATEEstimator(stack,
+                    stack,
+                    Bernoulli())
+```
+
+And fit it!
+
+```julia
+fitresult, _, _ = MLJ.fit(tmle, 0, t, W, y)
+```
+
+
+## API 
+
 
 ```@autodocs
 Modules = [TMLE]
