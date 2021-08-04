@@ -13,6 +13,10 @@ to be learnt by machine learning algorithms, this package is built on top of
 [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/). This means that any model 
 respecting the MLJ interface can be used to estimate the nuisance parameters.
 
+!!! note 
+    This package is still experimental and documentation under construction
+
+
 ## Installation
 
 The package is not yet part of the registry and must be installed via github:
@@ -59,6 +63,7 @@ conditional extectation of the target variable.
 For those examples, we will need the following packages:
 
 ```julia
+using Random
 using Distributions
 using MLJ
 using TMLE
@@ -73,6 +78,8 @@ Let's consider the following example:
 - Y is a Continuous variable, Y = T + 2W_1 + 3W_2 - 4W_3 + \epsilon(0, 1)
 
 ```julia
+n = 10000
+rng = MersenneTwister(0)
 # Sampling
 Unif = Uniform(0, 1)
 W = float(rand(rng, Bernoulli(0.5), n, 3))
@@ -87,7 +94,8 @@ t = categorical(t)
 We need to define 2 estimators for the nuisance parameters, usually this is 
 done using the Stack but here because we know the generating process we can 
 cheat a bit. We will use a Logistic Classifier for p(T|W) and a Constant Regressor
-for p(Y|W, T). The target is continuous thus we will use a Linear regression model 
+for p(Y|W, T). This means one estimator is well specified and the other not. 
+The target is continuous thus we will use a Linear regression model 
 for the fluctuation. This is done by specifying a Normal distribution for the 
 Generalized Linear Model.
 
@@ -101,7 +109,17 @@ tmle = ATEEstimator(LogisticClassifier(),
 
 ```
 
+Now, all there is to do is to fit the estimator:
+
+```julia
+fitresult, _, _ = MLJ.fit(tmle, 0, t, W, y)
+```
+
+The `fitresult` contains the estimate and the associated standard error.
+
 ### IATE
+
+TODO.
 
 ## API 
 
