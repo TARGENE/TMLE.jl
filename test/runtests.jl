@@ -1,6 +1,8 @@
-using TMLE
 using Test
 
-@testset "TMLE.jl" begin
-    # Write your tests here.
+
+
+@time begin
+    @test include("ate.jl")
+    @test include("interaction_ate.jl")
 end
