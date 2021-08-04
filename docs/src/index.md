@@ -4,10 +4,6 @@ CurrentModule = TMLE
 
 # TMLE
 
-
-```@contents
-```
-
 The purpose of this package is to provide convenience methods for 
 Targeted Minimum Loss-Based Estimation (TMLE). TMLE is a framework for
 efficient estimation that was first proposed by Van der Laan et al in 2006.
@@ -16,6 +12,9 @@ gives a nice overview to the field. Because TMLE requires nuisance parameters
 to be learnt by machine learning algorithms, this package is built on top of 
 [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/). This means that any model 
 respecting the MLJ interface can be used to estimate the nuisance parameters.
+
+```@contents
+```
 
 !!! note 
     This package is still experimental and documentation under construction
@@ -46,7 +45,7 @@ Treatment Effect (IATE). For both quantities, a graphical representation of the
 underlying causal model in presented bellow.
 
 ```@raw html
-<img src="assets/causal_model.png" alt="Causal Model" style="width:100px;"/>
+<img src="assets/causal_model.png" alt="Causal Model" style="width:150px;"/>
 ```
 
 TMLE is a two steps procedure, it first starts by estimating nuisance 
