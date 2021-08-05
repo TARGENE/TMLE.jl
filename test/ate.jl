@@ -125,13 +125,13 @@ end
 grid = (
     (problem=continuous_problem, 
     family=Normal(), 
-    subgrid=((LinearRegressor(), ConstantClassifier(), [0.19, 0.04, 0.017, 0.005], [0.04, 0.0004, 0.0003, 2e-5]),
-             (MLJ.DeterministicConstantRegressor(), LogisticClassifier(), [0.7, 0.09, 0.04, 0.008], [0.18, 0.003, 0.0008, 3e-5]))
+    subgrid=((LinearRegressor(), ConstantClassifier(), [19, 4, 1.7, 0.5], [0.07, 0.003, 0.0006, 4.7e-5]),
+             (MLJ.DeterministicConstantRegressor(), LogisticClassifier(), [64, 8.7, 3.5, 0.8], [0.33, 0.02, 0.002, 9.7e-5]))
     ),
     (problem=categorical_problem, 
     family=Bernoulli(), 
-    subgrid=((LogisticClassifier(), ConstantClassifier(), [0.08, 0.02, 0.0095, 0.003], [0.005, 0.0002, 3.9e-5, 2.5e-6]),
-             (ConstantClassifier(), LogisticClassifier(), [0.07, 0.03, 0.009, 0.003], [0.003, 0.0005, 3.1e-5, 2.7e-6]))
+    subgrid=((LogisticClassifier(), ConstantClassifier(), [14, 4, 2, 0.4], [0.009, 0.0006, 0.0002, 6.1e-6]),
+             (ConstantClassifier(), LogisticClassifier(), [11, 4.3, 1.5, 0.6], [0.007, 0.002, 0.0002, 1.2e-5]))
     )
 )
 rng = StableRNG(1234)
@@ -145,15 +145,15 @@ Ns = [100, 1000, 10000, 100000]
             t_model,
             problem_set.family
             )
-        abs_mean_errors, abs_var_errors = asymptotics(
+        abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
             problem_set.problem,
             rng,
             Ns
             )
         # Check the bias and variance are converging to 0
-        @test all(abs_mean_errors .< expected_bias_upb)
-        @test all(abs_var_errors .< expected_var_upb)
+        @test all(abs_mean_rel_errors .< expected_bias_upb)
+        @test all(abs_vars .< expected_var_upb)
 end);
 
 
