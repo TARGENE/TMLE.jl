@@ -51,6 +51,7 @@ function continuous_problem(rng;n=100)
     return t, W, y, 1
 end
 
+
 @testset "Test target/treatment types" begin
     ate_estimator = ATEEstimator(
             LogisticClassifier(),
@@ -119,57 +120,41 @@ end
                     atol = 1e-4))
 end
 
-
-@testset "Test ATE TMLE fit asymptotic behavior on binary target" begin
-    ate_estimator = ATEEstimator(
-        LogisticClassifier(),
-        LogisticClassifier(),
-        Bernoulli()
-                        )
-    
-    abs_mean_errors, abs_var_errors = asymptotics(ate_estimator, categorical_problem)
-
-    # Check the average and variances decrease with n 
-    @test abs_mean_errors == sort(abs_mean_errors, rev=true)
-    @test abs_var_errors == sort(abs_var_errors, rev=true)
-    # Check the error's close to the target for large samples
-    @test all(abs_mean_errors .< [0.2, 0.02, 0.006, 0.003])
-end
-
-@testset "Test ATE TMLE fit asymptotic behavior on continuous target" begin
-
-    ate_estimator = ATEEstimator(
-        LinearRegressor(),
-        LogisticClassifier(),
-        Normal()
+# Here I illustrate the Double Robust behavior by
+# misspecifying one of the models and the TMLE still converges
+grid = (
+    (problem=continuous_problem, 
+    family=Normal(), 
+    subgrid=((LinearRegressor(), ConstantClassifier(), [0.19, 0.04, 0.017, 0.005], [0.04, 0.0004, 0.0003, 2e-5]),
+             (MLJ.DeterministicConstantRegressor(), LogisticClassifier(), [0.7, 0.09, 0.04, 0.008], [0.18, 0.003, 0.0008, 3e-5]))
+    ),
+    (problem=categorical_problem, 
+    family=Bernoulli(), 
+    subgrid=((LogisticClassifier(), ConstantClassifier(), [0.08, 0.02, 0.0095, 0.003], [0.005, 0.0002, 3.9e-5, 2.5e-6]),
+             (ConstantClassifier(), LogisticClassifier(), [0.07, 0.03, 0.009, 0.003], [0.003, 0.0005, 3.1e-5, 2.7e-6]))
     )
-    
-    abs_mean_errors, abs_var_errors = asymptotics(ate_estimator, continuous_problem)
-
-    # Check the average and variances decrease with n 
-    @test abs_mean_errors == sort(abs_mean_errors, rev=true)
-    @test abs_var_errors == sort(abs_var_errors, rev=true)
-    # Check the error's close to the target for large samples
-    @test all(abs_mean_errors .< [0.2, 0.06, 0.02, 0.006])
-end
-
-@testset "Non regression test of ATE for continuous target" begin
-    ate_estimator = ATEEstimator(
-        LinearRegressor(),
-        LogisticClassifier(),
-        Normal()
-                        )
-    n = 1000
-    estimates = []
-    for i in 1:1000
-        rng = StableRNG(i)
-        t, W, y, ATE = continuous_problem(rng; n=n)
-        fitresult, _, _ = MLJ.fit(ate_estimator, 0, t, W, y)
-        push!(estimates, fitresult.estimate)
-    end
-    @test mean(estimates) ≈ 1.0000 atol=1e-4
-    @test var(estimates) ≈ 0.0063 atol=1e-4
-end
+)
+rng = StableRNG(1234)
+Ns = [100, 1000, 10000, 100000]
+@testset "ATE TMLE Double Robustness on $(replace(string(problem_set.problem), '_' => ' '))
+            - E[Y|W,T] is a $(string(typeof(y_model)))
+            - p(T|W) is a $(string(typeof(t_model)))" (
+    for problem_set in grid, (y_model, t_model, expected_bias_upb, expected_var_upb) in problem_set.subgrid
+        tmle = ATEEstimator(
+            y_model,
+            t_model,
+            problem_set.family
+            )
+        abs_mean_errors, abs_var_errors = asymptotics(
+            tmle,                                 
+            problem_set.problem,
+            rng,
+            Ns
+            )
+        # Check the bias and variance are converging to 0
+        @test all(abs_mean_errors .< expected_bias_upb)
+        @test all(abs_var_errors .< expected_var_upb)
+end);
 
 
 end
