@@ -97,7 +97,7 @@ function MLJ.fit(tmle::InteractionATEEstimator,
     # Get T as a target and convert to float so that it will not be hot encoded
     # by the target_expectation_mach
     t_target = tomultivariate(T)
-    Tnames = Tables.columnnames(T)
+    Tnames = Tuple(Tables.columnnames(T))
     T = NamedTuple{Tnames}([float(Tables.getcolumn(T, colname)) for colname in Tnames])
 
     # Maybe check T and X don't have the same column names?
