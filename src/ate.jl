@@ -122,6 +122,7 @@ function MLJ.fit(tmle::ATEEstimator,
     fitresult = (
         estimate=estimate,
         stderror=sqrt(var(inf_curve)/n),
+        mean_inf_curve=mean(inf_curve),
         target_expectation_mach=target_expectation_mach,
         treatment_likelihood_mach=treatment_likelihood_mach,
         fluctuation=fluctuator

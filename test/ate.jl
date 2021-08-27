@@ -70,6 +70,22 @@ end
 
 end
 
+@testset "Test machine API" begin
+    ate_estimator = ATEEstimator(
+        LogisticClassifier(),
+        LogisticClassifier(),
+        Bernoulli()
+        )
+    t, W, y, _ = categorical_problem(StableRNG(123);n=100)
+    # Fit with the machine
+    mach = machine(ate_estimator, t, W, y)
+    fit!(mach)
+    # Fit using basic API
+    fitresult, _, _ = TMLE.fit(ate_estimator, 0, t, W, y)
+    @test fitresult.estimate == mach.fitresult.estimate
+    @test fitresult.stderror == mach.fitresult.stderror
+    @test fitresult.mean_inf_curve == mach.fitresult.mean_inf_curve
+end
 
 @testset "Testing the various intermediate functions" begin
     # Let's process the different functions in order of call by fit! 

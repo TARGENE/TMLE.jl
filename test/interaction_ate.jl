@@ -148,7 +148,22 @@ end
 
 end
 
-
+@testset "Test machine API" begin
+    tmle = InteractionATEEstimator(
+            LinearRegressor(),
+            LogisticClassifier(),
+            Normal()
+            )
+    T, W, y, _ = continuous_problem(StableRNG(123);n=100)
+    # Fit with the machine
+    mach = machine(tmle, T, W, y)
+    fit!(mach)
+    # Fit using basic API
+    fitresult, _, _ = TMLE.fit(tmle, 0, T, W, y)
+    @test fitresult.estimate == mach.fitresult.estimate
+    @test fitresult.stderror == mach.fitresult.stderror
+    @test fitresult.mean_inf_curve == mach.fitresult.mean_inf_curve
+end
 # Here I illustrate the Double Robust behavior by
 # misspecifying one of the models and the TMLE still converges
 cont_interacter = @pipeline InteractionTransformer LinearRegressor name="ContInteracter"
