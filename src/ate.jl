@@ -25,9 +25,9 @@ by Mark J. van der Laan and Sherri Rose.
 
 # Arguments:
 
-- target_cond_expectation_estimator::MLJ.Supervised : The learner to be used
+- target_cond_expectation_estimator::MLJBase.Supervised : The learner to be used
 for E[Y|W, T]. Typically a `MLJ.Stack`.
-- treatment_cond_likelihood_estimator::MLJ.Supervised : The learner to be used
+- treatment_cond_likelihood_estimator::MLJBase.Supervised : The learner to be used
 for p(T|W). Typically a `MLJ.Stack`.
 - fluctuation_family::Distribution : This will be used to build the fluctuation 
 using a GeneralizedLinearModel. Typically `Normal` for a continuous target 
@@ -39,8 +39,8 @@ TODO
 
 """
 mutable struct ATEEstimator <: TMLEstimator 
-    target_cond_expectation_estimator::MLJ.Supervised
-    treatment_cond_likelihood_estimator::MLJ.Supervised
+    target_cond_expectation_estimator::MLJBase.Supervised
+    treatment_cond_likelihood_estimator::MLJBase.Supervised
     fluctuation_family::Distribution
 end
 
@@ -68,13 +68,13 @@ end
 
 
 """
-    MLJ.fit(tmle::ATEEstimator, 
+    MLJBase.fit(tmle::ATEEstimator, 
             verbosity::Int, 
             t::CategoricalVector{Bool}, 
             W, 
             y::Union{CategoricalVector{Bool}, Vector{<:Real}})
 """
-function MLJ.fit(tmle::ATEEstimator, 
+function MLJBase.fit(tmle::ATEEstimator, 
              verbosity::Int, 
              t::CategoricalVector{Bool}, 
              W, 
@@ -122,6 +122,7 @@ function MLJ.fit(tmle::ATEEstimator,
     fitresult = (
         estimate=estimate,
         stderror=sqrt(var(inf_curve)/n),
+        mean_inf_curve=mean(inf_curve),
         target_expectation_mach=target_expectation_mach,
         treatment_likelihood_mach=treatment_likelihood_mach,
         fluctuation=fluctuator
