@@ -5,7 +5,6 @@ using Distributions: expectation
 using Tables
 using Distributions
 using CategoricalArrays
-using MLJ
 using GLM
 using MLJBase
 
@@ -13,7 +12,7 @@ using MLJBase
 # OVERLOADED METHODS
 # #############################################################################
 
-import MLJ.fit
+import MLJBase.fit
 import MLJBase.check
 
 # #############################################################################

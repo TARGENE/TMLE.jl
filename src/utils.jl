@@ -21,13 +21,13 @@ GLM.checky(y, d::Bernoulli) = nothing
 function compute_offset(y_cond_exp_estimate::Machine{<:Probabilistic}, X)
     # The machine is an estimate of a probability distribution
     # In the binary case, the expectation is assumed to be the probability of the second class
-    expectation = MLJ.predict(y_cond_exp_estimate, X).prob_given_ref[2]
+    expectation = MLJBase.predict(y_cond_exp_estimate, X).prob_given_ref[2]
     return logit(expectation)
 end
 
 
 function compute_offset(y_cond_exp_estimate::Machine{<:Deterministic}, X)
-    return MLJ.predict(y_cond_exp_estimate, X)
+    return MLJBase.predict(y_cond_exp_estimate, X)
 end
 
 
@@ -43,7 +43,7 @@ function compute_covariate(t_likelihood_estimate::Machine, W, T, t_target)
         res .*= (2Tables.getcolumn(T, colname) .- 1)
     end
 
-    tpred = MLJ.predict(t_likelihood_estimate, W)
+    tpred = MLJBase.predict(t_likelihood_estimate, W)
     likelihood = pdf.(tpred, t_target)
     # truncate predictions, is this really necessary/suitable?
     likelihood = min.(0.995, max.(0.005, likelihood))
