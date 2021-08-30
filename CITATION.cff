@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Labayle"
+  given-names: "Olivier"
+- family-names: "Beentjes"
+  given-names: "Sjoerd"
+- family-names: "Khamseh"
+  given-names: "Ava"
+- family-names: "Ponting"
+  given-names: "Chris"
+title: "TMLE.jl"
+url: "https://github.com/olivierlabayle/TMLE.jl"
