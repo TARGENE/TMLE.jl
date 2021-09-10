@@ -152,30 +152,32 @@ end
     tmle = InteractionATEEstimator(
             LinearRegressor(),
             LogisticClassifier(),
-            Normal()
+            ContinuousFluctuation()
             )
     T, W, y, _ = continuous_problem(StableRNG(123);n=100)
     # Fit with the machine
     mach = machine(tmle, T, W, y)
-    fit!(mach)
+    fit!(mach, verbosity=0)
     # Fit using basic API
     fitresult, _, _ = TMLE.fit(tmle, 0, T, W, y)
     @test fitresult.estimate == mach.fitresult.estimate
     @test fitresult.stderror == mach.fitresult.stderror
     @test fitresult.mean_inf_curve == mach.fitresult.mean_inf_curve
 end
+
+
 # Here I illustrate the Double Robust behavior by
 # misspecifying one of the models and the TMLE still converges
 cont_interacter = @pipeline InteractionTransformer LinearRegressor name="ContInteracter"
 cat_interacter = @pipeline InteractionTransformer LogisticClassifier name="CatInteracter"
 grid = (
     (problem=continuous_problem, 
-    family=Normal(), 
+    fluctuation=ContinuousFluctuation(), 
     subgrid=((cont_interacter, ConstantClassifier(), [3.7, 1.6, 0.46, 0.1], [0.009, 0.002, 8.5e-5, 5.9e-6]),
              (MLJ.DeterministicConstantRegressor(), LogisticClassifier(), [118, 58, 18, 8.7], [7.7, 2.5, 0.16, 0.009]))
     ),
     (problem=categorical_problem, 
-    family=Bernoulli(), 
+    fluctuation=BinaryFluctuation(), 
     subgrid=((cat_interacter, ConstantClassifier(), [80, 37, 10, 1.5], [0.02, 0.004, 0.0009, 3.6e-5]),
             (ConstantClassifier(), LogisticClassifier(), [167, 79, 33, 14], [0.27, 0.095, 0.017, 0.002]))
     )
@@ -189,7 +191,7 @@ Ns = [100, 1000, 10000, 100000]
         tmle = InteractionATEEstimator(
             y_model,
             t_model,
-            problem_set.family
+            problem_set.fluctuation
             )
         abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -202,7 +204,18 @@ Ns = [100, 1000, 10000, 100000]
         @test all(abs_vars .< expected_var_upb)
 end);
 
+# T, W, y, ATE = continuous_problem(StableRNG(123);n=100)
+
+# iate = InteractionATEEstimator(
+#     LinearRegressor(),
+#     LogisticClassifier(),
+#     ContinuousFluctuation())
+
+# mach = machine(iate, T, W, y)
+# fit!(mach)
+
 
 end
+
 
 true

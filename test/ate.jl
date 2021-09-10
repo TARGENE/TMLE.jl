@@ -79,7 +79,7 @@ end
     t, W, y, _ = categorical_problem(StableRNG(123);n=100)
     # Fit with the machine
     mach = machine(ate_estimator, t, W, y)
-    fit!(mach)
+    fit!(mach, verbosity=0)
     # Fit using basic API
     fitresult, _, _ = TMLE.fit(ate_estimator, 0, t, W, y)
     @test fitresult.estimate == mach.fitresult.estimate

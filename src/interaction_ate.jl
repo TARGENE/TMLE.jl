@@ -28,9 +28,9 @@ curve equation.
 
 # Arguments:
 
-- target_cond_expectation_estimator::MLJBase.Supervised : The learner to be used
+- target_cond_expectation_estimator::MLJ.Supervised : The learner to be used
 for E[Y|W, T]. Typically a `MLJ.Stack`.
-- treatment_cond_likelihood_estimator::MLJBase.Supervised : The learner to be used
+- treatment_cond_likelihood_estimator::MLJ.Supervised : The learner to be used
 for p(T|W). Typically a `MLJ.Stack`.
 - fluctuation_family::Distribution : This will be used to build the fluctuation 
 using a GeneralizedLinearModel. Typically `Normal` for a continuous target 
@@ -41,9 +41,9 @@ and `Bernoulli` for a Binary target.
 TODO
 """
 mutable struct InteractionATEEstimator <: TMLEstimator 
-    target_cond_expectation_estimator::MLJBase.Supervised
-    treatment_cond_likelihood_estimator::MLJBase.Supervised
-    fluctuation_family::Distribution
+    target_cond_expectation_estimator::MLJ.Supervised
+    treatment_cond_likelihood_estimator::MLJ.Supervised
+    fluctuation::Fluctuation
 end
 
 function tomultivariate(T)
@@ -62,7 +62,7 @@ end
 ## Fluctuation
 ###############################################################################
 
-function compute_fluctuation(fitted_fluctuator::GeneralizedLinearModel, 
+function compute_fluctuation(fitted_fluctuator::Machine, 
                             target_expectation_mach::Machine, 
                             treatment_likelihood_mach::Machine, 
                             W, 
@@ -71,7 +71,8 @@ function compute_fluctuation(fitted_fluctuator::GeneralizedLinearModel,
     X = merge(T, W)
     offset = compute_offset(target_expectation_mach, X)
     cov = compute_covariate(treatment_likelihood_mach, W, T, t_target)
-    return  GLM.predict(fitted_fluctuator, reshape(cov, :, 1); offset=offset)
+    Xfluct = (covariate=cov, offset=offset)
+    return  MLJ.predict_mean(fitted_fluctuator, Xfluct)
 end
 
 
@@ -81,13 +82,13 @@ end
 
 
 """
-    MLJBase.fit(tmle::InteractionATEEstimator, 
+    MLJ.fit(tmle::InteractionATEEstimator, 
                  verbosity::Int, 
                  T,
                  W, 
                  y::Union{CategoricalVector{Bool}, Vector{<:Real}}
 """
-function MLJBase.fit(tmle::InteractionATEEstimator, 
+function MLJ.fit(tmle::InteractionATEEstimator, 
                  verbosity::Int, 
                  T,
                  W, 
@@ -116,7 +117,10 @@ function MLJBase.fit(tmle::InteractionATEEstimator,
     # on the covariate and the offset 
     offset = compute_offset(target_expectation_mach, X)
     covariate = compute_covariate(treatment_likelihood_mach, W, T, t_target)
-    fluctuator = glm(reshape(covariate, :, 1), y, tmle.fluctuation_family; offset=offset)
+    Xfluct = (covariate=covariate, offset=offset)
+    
+    fluct_mach = machine(tmle.fluctuation, Xfluct, y)
+    fit!(fluct_mach, verbosity=verbosity)
 
     # Compute the final estimate 
     # InteractionATE = 1/n ∑ [ Fluctuator(t₁=1, t₂=1, W=w) - Fluctuator(t₁=1, t₂=0, W=w)
@@ -129,7 +133,7 @@ function MLJBase.fit(tmle::InteractionATEEstimator,
     for (t₁, t₂, sign) in counterfactual_treatments
         counterfactualT = NamedTuple{Tnames}([t₁(n), t₂(n)])
         counterfactual_t_target = tomultivariate(counterfactualT)
-        fluct .+= sign*compute_fluctuation(fluctuator, 
+        fluct .+= sign*compute_fluctuation(fluct_mach, 
                                 target_expectation_mach, 
                                 treatment_likelihood_mach, 
                                 W, 
@@ -140,7 +144,7 @@ function MLJBase.fit(tmle::InteractionATEEstimator,
     estimate = mean(fluct)
 
     # Standard error from the influence curve
-    observed_fluct = GLM.predict(fluctuator, reshape(covariate, n, 1); offset=offset)
+    observed_fluct = MLJ.predict_mean(fluct_mach, Xfluct)
     inf_curve = covariate .* (float(y) .- observed_fluct) .+ fluct .- estimate
 
     fitresult = (
@@ -149,7 +153,7 @@ function MLJBase.fit(tmle::InteractionATEEstimator,
     mean_inf_curve=mean(inf_curve),
     target_expectation_mach=target_expectation_mach,
     treatment_likelihood_mach=treatment_likelihood_mach,
-    fluctuation=fluctuator
+    fluctuation=fluct_mach
     )
 
     cache = nothing

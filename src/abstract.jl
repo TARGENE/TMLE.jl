@@ -1,4 +1,4 @@
-abstract type TMLEstimator <: MLJBase.Model end
+abstract type TMLEstimator <: MLJ.Model end
 
 """
 
