@@ -37,6 +37,7 @@ include("fluctuations.jl")
 include("abstract.jl")
 include("ate.jl")
 include("interaction_ate.jl")
+include("jointmodels.jl")
 
 
 ### Test
