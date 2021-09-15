@@ -17,7 +17,7 @@ end
 function MLJ.fit(model::FullCategoricalJoint, verbosity::Int, X, Y::CategoricalArray)
     # Define the Encoding
     ncols = size(Y)[2]
-    joint_levels_it = Base.Iterators.product((levels(Y[:, i]) for i in 1:ncols)...)
+    joint_levels_it = Iterators.product((levels(Y[:, i]) for i in 1:ncols)...)
     encoding = Dict(Tuple(jl) => i for (i, jl) in enumerate(joint_levels_it))
 
     # Fit the underlying model

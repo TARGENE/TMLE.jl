@@ -17,7 +17,7 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
     X = rand(n, 4)
     Y = categorical(sample(rng, ["A", "G", "C"], (n, 2)))
 
-    jointmodel = TMLE.FullCategoricalJoint(LogisticClassifier())
+    jointmodel = FullCategoricalJoint(LogisticClassifier())
     mach = machine(jointmodel, MLJ.table(X), Y)
     fit!(mach)
 

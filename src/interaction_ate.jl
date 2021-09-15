@@ -1,7 +1,7 @@
 
 """
-    InteractionATEEstimator(target_cond_expectation_estimator,
-                            treatment_cond_likelihood_estimator,
+    InteractionATEEstimator(Q̅,
+                            G,
                             fluctuation_family)
 
 # Scope:
@@ -28,9 +28,9 @@ curve equation.
 
 # Arguments:
 
-- target_cond_expectation_estimator::MLJ.Supervised : The learner to be used
+- Q̅::MLJ.Supervised : The learner to be used
 for E[Y|W, T]. Typically a `MLJ.Stack`.
-- treatment_cond_likelihood_estimator::MLJ.Supervised : The learner to be used
+- G::MLJ.Supervised : The learner to be used
 for p(T|W). Typically a `MLJ.Stack`.
 - fluctuation_family::Distribution : This will be used to build the fluctuation 
 using a GeneralizedLinearModel. Typically `Normal` for a continuous target 
@@ -41,19 +41,9 @@ and `Bernoulli` for a Binary target.
 TODO
 """
 mutable struct InteractionATEEstimator <: TMLEstimator 
-    target_cond_expectation_estimator::MLJ.Supervised
-    treatment_cond_likelihood_estimator::MLJ.Supervised
+    Q̅::MLJ.Supervised
+    G::MLJ.Supervised
     fluctuation::Fluctuation
-end
-
-function tomultivariate(T)
-    t = []
-    mapping = Dict((true, true)=>1, (true, false)=>2, (false, true)=>3, (false, false)=>4)
-    features = Tables.schema(T).names
-    for row in Tables.rows(T)
-        push!(t, mapping[(row[features[1]], row[features[2]])])
-    end
-    return categorical(t)
 end
 
 
@@ -62,17 +52,18 @@ end
 ## Fluctuation
 ###############################################################################
 
-function compute_fluctuation(fitted_fluctuator::Machine, 
-                            target_expectation_mach::Machine, 
-                            treatment_likelihood_mach::Machine, 
-                            W, 
-                            T, 
-                            t_target)
-    X = merge(T, W)
-    offset = compute_offset(target_expectation_mach, X)
-    cov = compute_covariate(treatment_likelihood_mach, W, T, t_target)
+function compute_fluctuation(Fmach::Machine, 
+                             Q̅mach::Machine, 
+                             Gmach::Machine, 
+                             Hmach::Machine,
+                             W, 
+                             T)
+    Thot = transform(Hmach, T)
+    X = merge(Thot, W)
+    offset = compute_offset(Q̅mach, X)
+    cov = compute_covariate(Gmach, W, T, Fmach.model.query)
     Xfluct = (covariate=cov, offset=offset)
-    return  MLJ.predict_mean(fitted_fluctuator, Xfluct)
+    return  MLJ.predict_mean(Fmach, Xfluct)
 end
 
 
@@ -94,66 +85,73 @@ function MLJ.fit(tmle::InteractionATEEstimator,
                  W, 
                  y::Union{CategoricalVector{Bool}, Vector{<:Real}})
     n = nrows(y)
+    Tnames = [t for t in Tables.columnnames(T)]
 
-    # Get T as a target and convert to float so that it will not be hot encoded
-    # by the target_expectation_mach
-    t_target = tomultivariate(T)
-    Tnames = Tuple(Tables.columnnames(T))
-    T = NamedTuple{Tnames}([float(Tables.getcolumn(T, colname)) for colname in Tnames])
+    # Initial estimate of E[Y|T, W]:
+    #   - The treatment variables are hot-encoded  
+    #   - W and T are merged
+    #   - The machine is implicitely fit
+    # (Maybe check T and X don't have the same column names?)
+    Hmach = machine(OneHotEncoder(features=Tnames, drop_last=true), T)
+    fit!(Hmach, verbosity=verbosity)
+    Thot = transform(Hmach, T)
 
-    # Maybe check T and X don't have the same column names?
     W = Tables.columntable(W)
-    X = merge(T, W)
+
+    X = merge(Thot, W)
     
-    # Initial estimate of E[Y|A, W]
-    target_expectation_mach = machine(tmle.target_cond_expectation_estimator, X, y)
-    fit!(target_expectation_mach, verbosity=verbosity)
+    Q̅mach = machine(tmle.Q̅, X, y)
+    fit!(Q̅mach, verbosity=verbosity)
 
-    # Estimate of P(A|W)
-    treatment_likelihood_mach = machine(tmle.treatment_cond_likelihood_estimator, W, t_target)
-    fit!(treatment_likelihood_mach, verbosity=verbosity)
+    # Initial estimate of P(T|W)
+    #   - T is converted to an Array
+    #   - The machine is implicitely fit
+    Ttarget = hcat(Tables.columns(T)...)
+    Gmach = machine(tmle.G, W, Ttarget)
+    fit!(Gmach, verbosity=verbosity)
 
-    # Fluctuate E[Y|A, W] 
+    # Fluctuate E[Y|T, W] 
     # on the covariate and the offset 
-    offset = compute_offset(target_expectation_mach, X)
-    covariate = compute_covariate(treatment_likelihood_mach, W, T, t_target)
+    offset = compute_offset(Q̅mach, X)
+    covariate = compute_covariate(Gmach, W, T, tmle.fluctuation.query)
     Xfluct = (covariate=covariate, offset=offset)
     
-    fluct_mach = machine(tmle.fluctuation, Xfluct, y)
-    fit!(fluct_mach, verbosity=verbosity)
+    Fmach = machine(tmle.fluctuation, Xfluct, y)
+    fit!(Fmach, verbosity=verbosity)
 
     # Compute the final estimate 
+    # Example if the order of Interaction is 2
     # InteractionATE = 1/n ∑ [ Fluctuator(t₁=1, t₂=1, W=w) - Fluctuator(t₁=1, t₂=0, W=w)
     #                        - Fluctuator(t₁=0, t₂=1, W=w) + Fluctuator(t₁=0, t₂=0, W=w)]
-    counterfactual_treatments = [(ones, ones, 1), 
-                                 (ones, zeros, -1), 
-                                 (zeros, ones, -1), 
-                                 (zeros, zeros, 1)]
+    indicators = indicator_fns(tmle.fluctuation.query)
+
     fluct = zeros(n)
-    for (t₁, t₂, sign) in counterfactual_treatments
-        counterfactualT = NamedTuple{Tnames}([t₁(n), t₂(n)])
-        counterfactual_t_target = tomultivariate(counterfactualT)
-        fluct .+= sign*compute_fluctuation(fluct_mach, 
-                                target_expectation_mach, 
-                                treatment_likelihood_mach, 
+    for (ct, sign) in indicators 
+        names = keys(ct)
+        counterfactualT = NamedTuple{names}(
+            [categorical(repeat([ct[name]], n), levels=levels(Tables.getcolumn(T, name)))
+                            for name in names])
+        fluct .+= sign*compute_fluctuation(Fmach, 
+                                Q̅mach, 
+                                Gmach, 
+                                Hmach,
                                 W, 
-                                counterfactualT,
-                                counterfactual_t_target)
+                                counterfactualT)
     end
 
     estimate = mean(fluct)
 
     # Standard error from the influence curve
-    observed_fluct = MLJ.predict_mean(fluct_mach, Xfluct)
+    observed_fluct = MLJ.predict_mean(Fmach, Xfluct)
     inf_curve = covariate .* (float(y) .- observed_fluct) .+ fluct .- estimate
 
     fitresult = (
     estimate=estimate,
     stderror=sqrt(var(inf_curve)/n),
     mean_inf_curve=mean(inf_curve),
-    target_expectation_mach=target_expectation_mach,
-    treatment_likelihood_mach=treatment_likelihood_mach,
-    fluctuation=fluct_mach
+    Q̅mach=Q̅mach,
+    Gmach=Gmach,
+    Fmach=Fmach
     )
 
     cache = nothing

@@ -14,6 +14,26 @@ Remove default check for y to be binary
 GLM.checky(y, d::Bernoulli) = nothing
 
 
+function interaction_combinations(query::NamedTuple{names,}) where names
+    return (NamedTuple{names}(query) for query in Iterators.product(query...))
+end
+
+
+"""
+    indicator_fns(query::NamedTuple{names,})
+
+Implements the (-1)^{n-j} formula representing the cross-value of
+indicator functions,  where:
+    - n is the order of interaction considered
+    - j is the number of treatment variables different from the "case" value
+"""
+function indicator_fns(query::NamedTuple{nms,}) where nms
+    case = NamedTuple{nms}([v[1] for v in query])
+    interactionorder = length(query)
+    return Dict(q => (-1)^(interactionorder - sum(q[key] == case[key] for key in nms)) 
+                for q in interaction_combinations(query))
+end
+
 ###############################################################################
 ## Offset and covariate
 ###############################################################################
@@ -32,20 +52,25 @@ end
 
 
 """
-Computes: ∏ᵢ (2tᵢ - 1) / likelihood
-Which seems to cover all cases covered so far with a joint categorical treatment.
+For each data point, computes: (-1)^(interaction-oder - j)
+Where j is the number of treatments different from the reference in the query.
 """
-function compute_covariate(t_likelihood_estimate::Machine, W, T, t_target)
-    # tpred is an estimate of a probability distribution
-    # we need to extract the observed likelihood out of it
-    res = ones(size(t_target)[1])
-    for colname in Tables.columnnames(T)
-        res .*= (2Tables.getcolumn(T, colname) .- 1)
+function compute_covariate(Gmach::Machine, W, T, query)
+    # Build the Indicator function dictionary
+    indicators = indicator_fns(query)
+    
+    # Compute the indicator value
+    Trow = Tables.rowtable(T)
+    covariate = zeros(nrows(T))
+    for (i, row) in enumerate(Tables.rows(Trow))
+        if haskey(indicators, row)
+            covariate[i] = indicators[row]
+        end
     end
 
-    tpred = MLJ.predict(t_likelihood_estimate, W)
-    likelihood = pdf.(tpred, t_target)
-    # truncate predictions, is this really necessary/suitable?
-    likelihood = min.(0.995, max.(0.005, likelihood))
-    return res ./ likelihood
+    # Compute density and truncate
+    d = density(Gmach, W, Tables.matrix(T))
+    # is this really necessary/suitable?
+    d = min.(0.995, max.(0.005, d))
+    return covariate ./ d
 end

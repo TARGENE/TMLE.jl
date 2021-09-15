@@ -1,6 +1,6 @@
 module TestATE
 
-include("utils.jl")
+include("helper_fns.jl")
 
 using TMLE
 using Random
