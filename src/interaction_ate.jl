@@ -47,26 +47,6 @@ mutable struct InteractionATEEstimator <: TMLEstimator
 end
 
 
-
-###############################################################################
-## Fluctuation
-###############################################################################
-
-function compute_fluctuation(Fmach::Machine, 
-                             Q̅mach::Machine, 
-                             Gmach::Machine, 
-                             Hmach::Machine,
-                             W, 
-                             T)
-    Thot = transform(Hmach, T)
-    X = merge(Thot, W)
-    offset = compute_offset(Q̅mach, X)
-    cov = compute_covariate(Gmach, W, T, Fmach.model.query)
-    Xfluct = (covariate=cov, offset=offset)
-    return  MLJ.predict_mean(Fmach, Xfluct)
-end
-
-
 ###############################################################################
 ## Fit
 ###############################################################################
@@ -106,8 +86,7 @@ function MLJ.fit(tmle::InteractionATEEstimator,
     # Initial estimate of P(T|W)
     #   - T is converted to an Array
     #   - The machine is implicitely fit
-    Ttarget = hcat(Tables.columns(T)...)
-    Gmach = machine(tmle.G, W, Ttarget)
+    Gmach = machine(tmle.G, W, T)
     fit!(Gmach, verbosity=verbosity)
 
     # Fluctuate E[Y|T, W] 

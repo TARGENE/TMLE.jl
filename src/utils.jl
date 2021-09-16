@@ -14,6 +14,15 @@ Remove default check for y to be binary
 GLM.checky(y, d::Bernoulli) = nothing
 
 
+###############################################################################
+## Interactions Generation
+###############################################################################
+
+"""
+    interaction_combinations(query::NamedTuple{names,})
+Returns a generator over the different combinations of interactions that
+can be built from a query.
+"""
 function interaction_combinations(query::NamedTuple{names,}) where names
     return (NamedTuple{names}(query) for query in Iterators.product(query...))
 end
@@ -34,20 +43,21 @@ function indicator_fns(query::NamedTuple{nms,}) where nms
                 for q in interaction_combinations(query))
 end
 
+
 ###############################################################################
 ## Offset and covariate
 ###############################################################################
 
-function compute_offset(y_cond_exp_estimate::Machine{<:Probabilistic}, X)
+function compute_offset(Q̅mach::Machine{<:Probabilistic}, X)
     # The machine is an estimate of a probability distribution
     # In the binary case, the expectation is assumed to be the probability of the second class
-    expectation = MLJ.predict(y_cond_exp_estimate, X).prob_given_ref[2]
+    expectation = MLJ.predict(Q̅mach, X).prob_given_ref[2]
     return logit(expectation)
 end
 
 
-function compute_offset(y_cond_exp_estimate::Machine{<:Deterministic}, X)
-    return MLJ.predict(y_cond_exp_estimate, X)
+function compute_offset(Q̅mach::Machine{<:Deterministic}, X)
+    return MLJ.predict(Q̅mach, X)
 end
 
 
@@ -60,17 +70,35 @@ function compute_covariate(Gmach::Machine, W, T, query)
     indicators = indicator_fns(query)
     
     # Compute the indicator value
-    Trow = Tables.rowtable(T)
     covariate = zeros(nrows(T))
-    for (i, row) in enumerate(Tables.rows(Trow))
+    for (i, row) in enumerate(Tables.namedtupleiterator(T))
         if haskey(indicators, row)
             covariate[i] = indicators[row]
         end
     end
 
     # Compute density and truncate
-    d = density(Gmach, W, Tables.matrix(T))
+    d = density(Gmach, W, T)
     # is this really necessary/suitable?
     d = min.(0.995, max.(0.005, d))
     return covariate ./ d
+end
+
+
+###############################################################################
+## Fluctuation
+###############################################################################
+
+function compute_fluctuation(Fmach::Machine, 
+                             Q̅mach::Machine, 
+                             Gmach::Machine, 
+                             Hmach::Machine,
+                             W, 
+                             T)
+    Thot = transform(Hmach, T)
+    X = merge(Thot, W)
+    offset = compute_offset(Q̅mach, X)
+    cov = compute_covariate(Gmach, W, T, Fmach.model.query)
+    Xfluct = (covariate=cov, offset=offset)
+    return  MLJ.predict_mean(Fmach, Xfluct)
 end

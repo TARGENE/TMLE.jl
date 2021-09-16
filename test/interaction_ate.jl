@@ -122,29 +122,6 @@ function continuous_problem(rng;n=100)
 end
 
 
-@testset "Test Helper functions" begin
-    T = (t₁ = categorical([true, false, false, true, true, true, false]),
-         t₂ = categorical([true, true, true, true, true, false, false]))
-    
-    W = MLJ.table(rand(7, 3))
-
-    # Test compute_covariate
-    Gmach = machine(FullCategoricalJoint(ConstantClassifier()), 
-                    W, 
-                    hcat(Tables.columns(T)...))
-    fit!(Gmach, verbosity=0)
-    query = (t₁=[true, false], t₂ = [true, false])
-    cov = TMLE.compute_covariate(Gmach, W, T, query)
-    @test cov == [2.3333333333333335,
-                 -3.5,
-                 -3.5,
-                 2.3333333333333335,
-                 2.3333333333333335,
-                 -7.0,
-                 7.0]
-
-end
-
 @testset "Test machine API" begin
     query = (T₁=[true, false], T₂ = [true, false])
     tmle = InteractionATEEstimator(

@@ -2,6 +2,8 @@ module TestUtils
 
 using Test
 using TMLE
+using MLJ
+
 
 @testset "Test interaction_combinations" begin
     query = (t₁=["a", "b"], t₂ = ["c", "d"], t₃ = [true, false])
@@ -46,6 +48,136 @@ end
         (t₁ = "b", t₂ = "d", t₃ = 1) => 1   # (-1)^{2}=1
     )
 end
+
+
+@testset "Test compute_covariate" begin
+    # First case: 2 binary variables
+    # Using a trivial classifier
+    # that outputs the proportions of of the classes
+    T = (t₁ = categorical([1, 0, 0, 1, 1, 1, 0]),
+         t₂ = categorical([1, 1, 1, 1, 1, 0, 0]))
+    W = MLJ.table(rand(7, 3))
+
+    Gmach = machine(FullCategoricalJoint(ConstantClassifier()), 
+                    W, 
+                    T)
+    fit!(Gmach, verbosity=0)
+
+    query = (t₁=[1, 0], t₂ = [1, 0])
+    cov = TMLE.compute_covariate(Gmach, W, T, query)
+    @test cov == [2.3333333333333335,
+                 -3.5,
+                 -3.5,
+                 2.3333333333333335,
+                 2.3333333333333335,
+                 -7.0,
+                 7.0]
+
+    # Second case: 3 mixed categorical variables
+    # Using a trivial classifier
+    # that outputs the proportions of of the classes
+    T = (t₁ = categorical(["a", "a", "b", "b", "b", "b", "b"]),
+         t₂ = categorical([1, 2, 1, 1, 2, 2, 2]),
+         t₃ = categorical([true, false, true, true, false, false, false]))
+    W = MLJ.table(rand(7, 3))
+
+    Gmach = machine(FullCategoricalJoint(ConstantClassifier()), 
+                    W, 
+                    T)
+    fit!(Gmach, verbosity=0)
+
+    query = (t₁=["a", "b"], t₂ = [1, 2], t₃ = [true, false])
+    cov = TMLE.compute_covariate(Gmach, W, T, query)
+    @test cov == [7.0,
+                  7.0,
+                 -3.5,
+                 -3.5,
+                 -2.3333333333333335,
+                 -2.3333333333333335,
+                 -2.3333333333333335]
+end
+
+@testset "Test compute_offset" begin
+    n = 10
+    X = rand(n, 3)
+
+    # When Y is binary
+    y = categorical([1, 1, 1, 1, 0, 0, 0, 0, 0, 0])
+    mach = machine(ConstantClassifier(), MLJ.table(X), y)
+    fit!(mach)
+    # Should be equal to logit(Ê[Y|X])= logit(4/10) = -0.4054651081081643
+    @test TMLE.compute_offset(mach, X) == repeat([-0.4054651081081643], n)
+
+    # When Y is continuous
+    y = [1., 2., 3, 4, 5, 6, 7, 8, 9, 10]
+    mach = machine(MLJ.DeterministicConstantRegressor(), MLJ.table(X), y)
+    fit!(mach)
+    # Should be equal to Ê[Y|X] = 5.5
+    @test TMLE.compute_offset(mach, X) == repeat([5.5], n)
+    
+end
+
+@testset "Test logit" begin
+    @test TMLE.logit([0.4, 0.8, 0.2]) ≈ [
+        -0.40546510810,
+        1.38629436112,
+        -1.38629436112
+    ]
+    @test TMLE.logit([1, 0]) == [Inf, -Inf]
+end
+
+
+@testset "Test compute_fluctuation" begin
+    n = 10
+    W = (w₁=ones(n),)
+    T = (t₁=categorical([1, 1, 1, 0, 0, 0, 0, 1, 1, 0]),
+         t₂=categorical([0, 0, 1, 0, 0, 1, 1, 1, 0, 0]))
+    y = categorical([1, 1, 0, 0, 1, 0 , 1, 0, 0, 0])
+    query = (t₁=[1, 0], t₂ = [1, 0])
+
+    # Fit encoder
+    Hmach = machine(OneHotEncoder(features=[:t₁, :t₂], drop_last=true), T)
+    fit!(Hmach)
+    Thot = transform(Hmach)
+    # Fit Q̅
+    X = merge(Thot, W)
+    Q̅mach = machine(ConstantClassifier(), X, y)
+    fit!(Q̅mach)
+    # Fit G
+    Gmach = machine(FullCategoricalJoint(ConstantClassifier()), W, T)
+    fit!(Gmach)
+    # Fit Fluctuation
+    offset = TMLE.compute_offset(Q̅mach, X)
+    covariate = TMLE.compute_covariate(Gmach, W, T, query)
+    Xfluct = (covariate=covariate, offset=offset)
+    Fmach = machine(BinaryFluctuation(query=query), Xfluct, y)
+    fit!(Fmach)
+
+    # We are using constant classifiers
+    # The offset is equal to: -0.40546510810 all the time
+    # The covariate is ≈ [-3.3, -3.3, 5., 3.3, 3.3, -5., -5., 5., -3.3, 3.3]
+    # The fluctuation value is equal to Ê[Y|W, T] where Ê is computed via Fmach
+    # The coefficient for the fluctuation seems to be -0.222835 here 
+    expected_mean(cov) = TMLE.expit(-0.40546510 - 0.22283549318*cov)
+    # Let's look at the different counterfactual treatments
+    # T₁₁: cov=5.
+    T₁₁ = (t₁=categorical(ones(n), levels=levels(T[1])), t₂=categorical(ones(n), levels=levels(T[2])))
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, W, T₁₁)
+    @test fluct ≈ repeat([expected_mean(5.)], n) atol=1e-5
+    # T₁₀: cov=-3.333333
+    T₁₀ = (t₁=categorical(ones(n), levels=[0, 1]), t₂=categorical(zeros(n), levels=[0, 1]))
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, W, T₁₀)
+    @test fluct ≈ repeat([expected_mean(-3.333333)], n) atol=1e-5
+    # T₀₁: cov=-5.
+    T₀₁ = (t₁=categorical(zeros(n), levels=[0, 1]), t₂=categorical(ones(n), levels=[0, 1]))
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, W, T₀₁)
+    @test fluct ≈ repeat([expected_mean(-5.)], n) atol=1e-5
+    # T₀₀: cov=3.333333
+    T₀₀ = (t₁=categorical(zeros(n), levels=[0, 1]), t₂=categorical(zeros(n), levels=[0, 1]))
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, W, T₀₀)
+    @test fluct ≈ repeat([expected_mean(3.333333)], n) atol=1e-5
+end
+
 
 end;
 
