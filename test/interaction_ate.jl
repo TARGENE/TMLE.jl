@@ -159,7 +159,7 @@ grid = (
     )
 )
 rng = StableRNG(1234)
-Ns = [100, 1000, 10000, 100000, 500000]
+Ns = [100, 1000, 10000, 100000]
 @testset "IATE TMLE Double Robustness on $(replace(string(problem_set.problem), '_' => ' '))
             - E[Y|W,T] is a $(string(typeof(y_model)))
             - p(T|W) is a $(string(typeof(t_model)))" (

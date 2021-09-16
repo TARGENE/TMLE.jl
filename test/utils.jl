@@ -176,6 +176,19 @@ end
     T₀₀ = (t₁=categorical(zeros(n), levels=[0, 1]), t₂=categorical(zeros(n), levels=[0, 1]))
     fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, W, T₀₀)
     @test fluct ≈ repeat([expected_mean(3.333333)], n) atol=1e-5
+
+    # Now look at the full counterfactual treatment
+    ct_fluct = TMLE.counterfactual_fluctuations(query, 
+                                                Fmach,
+                                                Q̅mach,
+                                                Gmach,
+                                                Hmach,
+                                                W,
+                                                T)
+    
+    expected_ct_fluct = (expected_mean(5.) + expected_mean(3.333333)
+                        -expected_mean(-3.333333)-expected_mean(-5.))
+    @test ct_fluct ≈ repeat([expected_ct_fluct], n) atol=1e-5
 end
 
 

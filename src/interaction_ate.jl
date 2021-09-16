@@ -99,30 +99,19 @@ function MLJ.fit(tmle::InteractionATEEstimator,
     fit!(Fmach, verbosity=verbosity)
 
     # Compute the final estimate 
-    # Example if the order of Interaction is 2
-    # InteractionATE = 1/n ∑ [ Fluctuator(t₁=1, t₂=1, W=w) - Fluctuator(t₁=1, t₂=0, W=w)
-    #                        - Fluctuator(t₁=0, t₂=1, W=w) + Fluctuator(t₁=0, t₂=0, W=w)]
-    indicators = indicator_fns(tmle.fluctuation.query)
+    ct_fluct = counterfactual_fluctuations(tmle.fluctuation.query, 
+                                     Fmach,
+                                     Q̅mach,
+                                     Gmach,
+                                     Hmach,
+                                     W,
+                                     T)
 
-    fluct = zeros(n)
-    for (ct, sign) in indicators 
-        names = keys(ct)
-        counterfactualT = NamedTuple{names}(
-            [categorical(repeat([ct[name]], n), levels=levels(Tables.getcolumn(T, name)))
-                            for name in names])
-        fluct .+= sign*compute_fluctuation(Fmach, 
-                                Q̅mach, 
-                                Gmach, 
-                                Hmach,
-                                W, 
-                                counterfactualT)
-    end
-
-    estimate = mean(fluct)
+    estimate = mean(ct_fluct)
 
     # Standard error from the influence curve
     observed_fluct = MLJ.predict_mean(Fmach, Xfluct)
-    inf_curve = covariate .* (float(y) .- observed_fluct) .+ fluct .- estimate
+    inf_curve = covariate .* (float(y) .- observed_fluct) .+ ct_fluct .- estimate
 
     fitresult = (
     estimate=estimate,

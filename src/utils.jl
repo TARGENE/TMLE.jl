@@ -102,3 +102,42 @@ function compute_fluctuation(Fmach::Machine,
     Xfluct = (covariate=cov, offset=offset)
     return  MLJ.predict_mean(Fmach, Xfluct)
 end
+
+"""
+    counterfactual_fluctuations(query, 
+                                Fmach,
+                                Q̅mach,
+                                Gmach,
+                                Hmach,
+                                W,
+                                T)
+                                
+Computes the Counterfactual value of the fluctuation.
+If the order of Interaction is 2 with binary variables, this is:
+ 1/n ∑ [ Fluctuation(t₁=1, t₂=1, W=w) - Fluctuation(t₁=1, t₂=0, W=w)
+        - Fluctuation(t₁=0, t₂=1, W=w) + Fluctuation(t₁=0, t₂=0, W=w)]
+"""
+function counterfactual_fluctuations(query, 
+                                     Fmach,
+                                     Q̅mach,
+                                     Gmach,
+                                     Hmach,
+                                     W,
+                                     T)
+    indicators = indicator_fns(query)
+    n = nrows(T)
+    ct_fluct = zeros(n)
+    for (ct, sign) in indicators 
+        names = keys(ct)
+        counterfactualT = NamedTuple{names}(
+            [categorical(repeat([ct[name]], n), levels=levels(Tables.getcolumn(T, name)))
+                            for name in names])
+        ct_fluct += sign*compute_fluctuation(Fmach, 
+                                Q̅mach, 
+                                Gmach, 
+                                Hmach,
+                                W, 
+                                counterfactualT)
+    end
+    return ct_fluct
+end
