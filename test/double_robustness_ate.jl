@@ -52,7 +52,7 @@ function continuous_target_binary_treatment_pb(rng;n=100)
     return t, W, y, 1
 end
 
-@testset "Test Double Robustness on binary_target_binary_treatment_pb" begin
+@testset "Test Double Robustness ATE on binary_target_binary_treatment_pb" begin
     # When Q̅ is misspecified but G is well specified
     query = (t=[true, false],)
     Q̅ = ConstantClassifier()
@@ -87,7 +87,7 @@ end
 end
 
 
-@testset "Test Double Robustness on continuous_target_binary_treatment_pb" begin
+@testset "Test Double Robustness ATE on continuous_target_binary_treatment_pb" begin
     # When Q̅ is misspecified but G is well specified
     query = (t=[true, false],)
     Q̅ = MLJ.DeterministicConstantRegressor()

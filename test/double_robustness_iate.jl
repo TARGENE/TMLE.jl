@@ -32,6 +32,10 @@ end
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
 
+cont_interacter = @pipeline InteractionTransformer LinearRegressor name="ContInteracter"
+cat_interacter = @pipeline InteractionTransformer LogisticClassifier name="CatInteracter"
+Ns = [100, 1000, 10000, 100000]
+
 
 function binary_target_binary_treatment_pb(rng;n=100)
     μy_fn(W, T₁, T₂) = TMLE.expit(2W[:, 1] .+ 1W[:, 2] .- 2W[:, 3] .- T₁ .+ T₂ .+ 2*T₁ .* T₂)
@@ -199,50 +203,81 @@ end
 end
 
 
-# Here I illustrate the Double Robust behavior by
-# misspecifying one of the models and the TMLE still converges
-cont_interacter = @pipeline InteractionTransformer LinearRegressor name="ContInteracter"
-cat_interacter = @pipeline InteractionTransformer LogisticClassifier name="CatInteracter"
-query = (T₁=[true, false], T₂ = [true, false])
-grid = (
-    (problem=continuous_target_binary_treatment_pb, 
-    fluctuation=ContinuousFluctuation(query=query), 
-    subgrid=((cont_interacter, FullCategoricalJoint(ConstantClassifier()), [3.7, 1.6, 0.46, 0.1], [0.009, 0.002, 8.5e-5, 5.9e-6]),
-             (MLJ.DeterministicConstantRegressor(), FullCategoricalJoint(LogisticClassifier()), [118, 58, 18, 8.7], [7.7, 2.5, 0.16, 0.009]))
-    ),
-    (problem=binary_target_binary_treatment_pb, 
-    fluctuation=BinaryFluctuation(query=query), 
-    subgrid=((cat_interacter, FullCategoricalJoint(ConstantClassifier()), [80, 37, 10, 1.5], [0.02, 0.004, 0.0009, 3.6e-5]),
-            (ConstantClassifier(), FullCategoricalJoint(LogisticClassifier()), [167, 79, 33, 14], [0.27, 0.095, 0.017, 0.002]))
-    )
-)
-rng = StableRNG(1234)
-Ns = [100, 1000, 10000, 100000]
-@testset "IATE TMLE Double Robustness on $(replace(string(problem_set.problem), '_' => ' '))
-            - E[Y|W,T] is a $(string(typeof(y_model)))
-            - p(T|W) is a $(string(typeof(t_model)))" (
-    for problem_set in grid, (y_model, t_model, expected_bias_upb, expected_var_upb) in problem_set.subgrid
-        tmle = TMLEstimator(
-            y_model,
-            t_model,
-            problem_set.fluctuation
-            )
-        abs_mean_rel_errors, abs_vars = asymptotics(
+@testset "Test Double Robustness IATE on binary_target_binary_treatment_pb" begin
+    # When Q̅ is misspecified but G is well specified
+    query = (T₁=[true, false], T₂=[true, false])
+    Q̅ = ConstantClassifier()
+    G = FullCategoricalJoint(LogisticClassifier())
+    F = BinaryFluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
+    
+
+    abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
-            problem_set.problem,
-            rng,
+            binary_target_binary_treatment_pb,
+            StableRNG(123),
             Ns
             )
-        println("--Next--")
-        println(abs_mean_rel_errors)
-        println(expected_bias_upb)
-        # Check the bias and variance are converging to 0
-        # @test all(abs_mean_rel_errors .< expected_bias_upb)
-        # @test all(abs_vars .< expected_var_upb)
-end);
+    @test all(abs_mean_rel_errors .< [214, 110, 34, 22])
+    @test all(abs_vars .< [0.6, 0.2, 0.02, 0.002])
 
-@testset "Test TMLE on binary_target_categorical_treatment_pb" begin
-    # (CC, AT) against (CG, AA)
+    # When Q̅ is well specified  but G is misspecified
+    query = (T₁=[true, false], T₂=[true, false])
+    Q̅ = cat_interacter
+    G = FullCategoricalJoint(ConstantClassifier())
+    F = BinaryFluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
+    
+    abs_mean_rel_errors, abs_vars = asymptotics(
+            tmle,                                 
+            binary_target_binary_treatment_pb,
+            StableRNG(123),
+            Ns
+            )
+    @test all(abs_mean_rel_errors .< [96, 24, 7.8, 1.5])
+    @test all(abs_vars .< [0.07, 0.003, 0.0008, 3.5e-5])
+
+end
+
+@testset "Test Double Robustness IATE on continuous_target_binary_treatment_pb" begin
+    # When Q̅ is misspecified but G is well specified
+    query = (T₁=[true, false], T₂=[true, false])
+    Q̅ = MLJ.DeterministicConstantRegressor()
+    G = FullCategoricalJoint(LogisticClassifier())
+    F = ContinuousFluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
+    
+
+    abs_mean_rel_errors, abs_vars = asymptotics(
+            tmle,                                 
+            continuous_target_binary_treatment_pb,
+            StableRNG(123),
+            Ns
+            )
+    @test all(abs_mean_rel_errors .< [207, 60, 22, 7])
+    @test all(abs_vars .< [29, 1.2, 0.4, 0.03])
+
+    # When Q̅ is well specified  but G is misspecified
+    query = (T₁=[true, false], T₂=[true, false])
+    Q̅ = cont_interacter
+    G = FullCategoricalJoint(ConstantClassifier())
+    F = ContinuousFluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
+    
+    abs_mean_rel_errors, abs_vars = asymptotics(
+            tmle,                                 
+            continuous_target_binary_treatment_pb,
+            StableRNG(123),
+            Ns
+            )
+    @test all(abs_mean_rel_errors .< [5, 1.1, 0.6, 0.1])
+    @test all(abs_vars .< [0.02, 0.0006, 0.0002, 5.8e-6])
+
+end
+
+
+@testset "Test Double Robustness IATE on binary_target_categorical_treatment_pb" begin
+    # When Q̅ is misspecified but G is well specified
     query = (T₁=["CC", "CG"], T₂=["AT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(LogisticClassifier())
@@ -257,6 +292,22 @@ end);
             )
     @test all(abs_mean_rel_errors .< [31, 8, 2, 0.6])
     @test all(abs_vars .< [0.03, 0.006, 0.0004, 2.7e-5])
+
+    # When Q̅ is well specified but G is misspecified
+    query = (T₁=["CC", "CG"], T₂=["AT", "AA"])
+    Q̅ = cat_interacter
+    G = FullCategoricalJoint(ConstantClassifier())
+    F = BinaryFluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
+
+    abs_mean_rel_errors, abs_vars = asymptotics(
+            tmle,                                 
+            binary_target_categorical_treatment_pb,
+            StableRNG(123),
+            Ns
+            )
+    @test all(abs_mean_rel_errors .< [22, 7, 2.1, 0.7])
+    @test all(abs_vars .< [0.04, 0.005, 0.0004, 3.5e-5])
 end
 
 
