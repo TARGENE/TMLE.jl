@@ -5,7 +5,6 @@ using TMLE
 using MLJ
 using StatsBase
 using StableRNGs
-using CategoricalArrays
 
 
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
@@ -20,7 +19,7 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
     
     jointmodel = FullCategoricalJoint(LogisticClassifier())
     mach = machine(jointmodel, MLJ.table(X), Y)
-    fit!(mach)
+    fit!(mach, verbosity=0)
 
     # The encoding should reflect all combinations
     @test mach.fitresult.encoding == Dict(

@@ -1,5 +1,5 @@
 """
-This model is just a thin wrapper around a GLM to be used in A TMLE. 
+This model is just a thin wrapper around a GLM to be used in A TMLEstimator. 
 The query hyperparameter enables that the fit procedure will only re-fit 
 this model when the query is changed. Indeed a top level hyper parameter would lead to 
 a re-fit of the whole TMLE procedure.

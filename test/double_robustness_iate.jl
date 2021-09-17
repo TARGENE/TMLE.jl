@@ -182,7 +182,7 @@ end
 
 @testset "Test machine API" begin
     query = (T₁=[true, false], T₂ = [true, false])
-    tmle = InteractionATEEstimator(
+    tmle = TMLEstimator(
             LinearRegressor(),
             FullCategoricalJoint(LogisticClassifier()),
             ContinuousFluctuation(query=query)
@@ -222,7 +222,7 @@ Ns = [100, 1000, 10000, 100000]
             - E[Y|W,T] is a $(string(typeof(y_model)))
             - p(T|W) is a $(string(typeof(t_model)))" (
     for problem_set in grid, (y_model, t_model, expected_bias_upb, expected_var_upb) in problem_set.subgrid
-        tmle = InteractionATEEstimator(
+        tmle = TMLEstimator(
             y_model,
             t_model,
             problem_set.fluctuation
@@ -247,7 +247,7 @@ end);
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(LogisticClassifier())
     F = BinaryFluctuation(query=query)
-    tmle = InteractionATEEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -260,7 +260,7 @@ end);
 end
 
 
-end
+end;
 
 
 true

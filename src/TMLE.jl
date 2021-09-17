@@ -24,7 +24,7 @@ import MLJBase.check
 # EXPORTS
 # #############################################################################
 
-export ATEEstimator, InteractionATEEstimator
+export TMLEstimator
 export ContinuousFluctuation, BinaryFluctuation
 export FullCategoricalJoint
 export fit
@@ -36,9 +36,7 @@ export confint, pvalue
 
 include("utils.jl")
 include("fluctuations.jl")
-include("abstract.jl")
-include("ate.jl")
-include("interaction_ate.jl")
+include("api.jl")
 include("jointmodels.jl")
 
 end

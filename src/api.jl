@@ -1,8 +1,5 @@
-
 """
-    InteractionATEEstimator(Q̅,
-                            G,
-                            fluctuation_family)
+    TMLEstimator(Q̅, G, F)
 
 # Scope:
 
@@ -20,7 +17,7 @@ where:
 - T = T₁, T₂ are the treatment variables (Binary)
 - W are confounder variables
 
-The TMLE procedure relies on plugin estimation. Like the ATE, the IATE 
+The TMLEstimator procedure relies on plugin estimation. Like the ATE, the IATE 
 requires an estimator of t,w → E[Y|T=t, W=w], an estimator of  w → p(T|w) 
 and an estimator of w → p(w). The empirical distribution will be used for w → p(w) all along. 
 The estimator of t,w → E[Y|T=t, W=w] is then fluctuated to solve the efficient influence
@@ -40,12 +37,23 @@ and `Bernoulli` for a Binary target.
 
 TODO
 """
-mutable struct InteractionATEEstimator <: TMLEstimator 
+mutable struct TMLEstimator <: MLJ.Model 
     Q̅::MLJ.Supervised
     G::MLJ.Supervised
     fluctuation::Fluctuation
 end
 
+
+
+"""
+
+Let's default to no warnings for now.
+"""
+MLJBase.check(model::TMLEstimator, args... ; full=false) = true
+
+pvalue(tmle::TMLEstimator, estimate, stderror) = 2*(1 - cdf(Normal(0, 1), abs(estimate/stderror)))
+
+confint(tmle::TMLEstimator, estimate, stderror) = (estimate - 1.96stderror, estimate + 1.96stderror)
 
 ###############################################################################
 ## Fit
@@ -53,13 +61,13 @@ end
 
 
 """
-    MLJ.fit(tmle::InteractionATEEstimator, 
+    MLJ.fit(tmle::TMLEstimator, 
                  verbosity::Int, 
                  T,
                  W, 
                  y::Union{CategoricalVector{Bool}, Vector{<:Real}}
 """
-function MLJ.fit(tmle::InteractionATEEstimator, 
+function MLJ.fit(tmle::TMLEstimator, 
                  verbosity::Int, 
                  T,
                  W, 
@@ -84,8 +92,7 @@ function MLJ.fit(tmle::InteractionATEEstimator,
     # Initial estimate of P(T|W)
     #   - T is converted to an Array
     #   - The machine is implicitely fit
-    T = adapt(T)
-    Gmach = machine(tmle.G, W, T)
+    Gmach = machine(tmle.G, W, adapt(T))
     fit!(Gmach, verbosity=verbosity)
 
     # Fluctuate E[Y|T, W] 

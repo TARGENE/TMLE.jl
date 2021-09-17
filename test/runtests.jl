@@ -2,9 +2,10 @@ using Test
 
 
 @time begin
-    println("WARNING: ATE tests are bypassed for now")
-    # @test include("ate.jl")
+    @test include("fluctuations.jl")
+    @test include("jointmodels.jl")
     @test include("utils.jl")
-    @test include("interaction_ate.jl")
+    @test include("double_robustness_ate.jl")
+    @test include("double_robustness_iate.jl")
 
 end
