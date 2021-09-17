@@ -64,28 +64,27 @@ function MLJ.fit(tmle::InteractionATEEstimator,
                  T,
                  W, 
                  y::Union{CategoricalVector{Bool}, Vector{<:Real}})
-    n = nrows(y)
-    Tnames = [t for t in Tables.columnnames(T)]
+    # Converting all tables to NamedTuples
+    T = Tables.columntable(T)
+    W = Tables.columntable(W)
+    intersect(keys(T), keys(W)) == [] || throw("T and W should have different column names")
 
     # Initial estimate of E[Y|T, W]:
     #   - The treatment variables are hot-encoded  
     #   - W and T are merged
     #   - The machine is implicitely fit
-    # (Maybe check T and X don't have the same column names?)
-    Hmach = machine(OneHotEncoder(features=Tnames, drop_last=true), T)
+    Hmach = machine(OneHotEncoder(drop_last=true), T)
     fit!(Hmach, verbosity=verbosity)
     Thot = transform(Hmach, T)
 
-    W = Tables.columntable(W)
-
     X = merge(Thot, W)
-    
     Q̅mach = machine(tmle.Q̅, X, y)
     fit!(Q̅mach, verbosity=verbosity)
 
     # Initial estimate of P(T|W)
     #   - T is converted to an Array
     #   - The machine is implicitely fit
+    T = adapt(T)
     Gmach = machine(tmle.G, W, T)
     fit!(Gmach, verbosity=verbosity)
 
@@ -115,7 +114,7 @@ function MLJ.fit(tmle::InteractionATEEstimator,
 
     fitresult = (
     estimate=estimate,
-    stderror=sqrt(var(inf_curve)/n),
+    stderror=sqrt(var(inf_curve)/nrows(y)),
     mean_inf_curve=mean(inf_curve),
     Q̅mach=Q̅mach,
     Gmach=Gmach,

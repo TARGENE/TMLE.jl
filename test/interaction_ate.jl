@@ -243,8 +243,7 @@ end);
 
 @testset "Test TMLE on binary_target_categorical_treatment_pb" begin
     # (CC, AT) against (CG, AA)
-    query = (T₁=categorical(["CC", "CG"], levels=levels(T.T₁)), 
-             T₂=categorical(["AT", "AA"], levels=levels(T.T₂)))
+    query = (T₁=["CC", "CG"], T₂=["AT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(LogisticClassifier())
     F = BinaryFluctuation(query=query)

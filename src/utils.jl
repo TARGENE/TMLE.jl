@@ -13,6 +13,12 @@ Remove default check for y to be binary
 """
 GLM.checky(y, d::Bernoulli) = nothing
 
+"""
+
+Adapts the type of the treatment variable passed to the G learner
+"""
+adapt(T::NamedTuple{<:Any, NTuple{1, Z}}) where Z = T[1]
+adapt(T) = T
 
 ###############################################################################
 ## Interactions Generation

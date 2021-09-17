@@ -6,6 +6,16 @@ using MLJ
 
 
 @testset "Test interaction_combinations" begin
+    # With 1 treatment variable
+    query = (t₁=["a", "b"],)
+    combinations = TMLE.interaction_combinations(query)
+    expected_comb = [(t₁ = "a",),
+                     (t₁ = "b",)]
+    for (i, comb) in enumerate(combinations)
+        @test comb == expected_comb[i]
+    end
+
+    # With 3 treatment variables
     query = (t₁=["a", "b"], t₂ = ["c", "d"], t₃ = [true, false])
     combinations = TMLE.interaction_combinations(query)
     expected_comb = [(t₁ = "a", t₂ = "c", t₃ = true),
@@ -22,6 +32,14 @@ using MLJ
 end
 
 @testset "Test indicator_fns" begin
+    # For 1 treatment variable
+    query = (t₁=["a", "b"],)
+    indicators = TMLE.indicator_fns(query)
+    @test indicators == Dict(
+        (t₁ = "b",) => -1,
+        (t₁ = "a",) => 1
+    )
+
     # For 2 treatment variables:
     # The "case" treatment is: (true, false) 
     query = (t₁=[true, false], t₂ = [false, true])
@@ -49,9 +67,37 @@ end
     )
 end
 
+@testset "Test adapt" begin
+    T = (a=1,)
+    @test TMLE.adapt(T) == 1
+
+    T = (a=1, b=2)
+    @test TMLE.adapt(T) == T
+end
 
 @testset "Test compute_covariate" begin
-    # First case: 2 binary variables
+    # First case: 1 categorical variable
+    # Using a trivial classifier
+    # that outputs the proportions of of the classes
+    T = (t₁ = categorical(["a", "b", "c", "a", "a", "b", "a"]),)
+    W = MLJ.table(rand(7, 3))
+
+    Gmach = machine(ConstantClassifier(), 
+                    W, 
+                    TMLE.adapt(T))
+    fit!(Gmach, verbosity=0)
+
+    query = (t₁=["a", "b"],)
+    cov = TMLE.compute_covariate(Gmach, W, T, query)
+    @test cov == [1.75,
+                 -3.5,
+                 0.0,
+                 1.75,
+                 1.75,
+                 -3.5,
+                 1.75]
+
+    # Second case: 2 binary variables
     # Using a trivial classifier
     # that outputs the proportions of of the classes
     T = (t₁ = categorical([1, 0, 0, 1, 1, 1, 0]),
@@ -73,12 +119,12 @@ end
                  -7.0,
                  7.0]
 
-    # Second case: 3 mixed categorical variables
+    # Third case: 3 mixed categorical variables
     # Using a trivial classifier
     # that outputs the proportions of of the classes
-    T = (t₁ = categorical(["a", "a", "b", "b", "b", "b", "b"]),
-         t₂ = categorical([1, 2, 1, 1, 2, 2, 2]),
-         t₃ = categorical([true, false, true, true, false, false, false]))
+    T = (t₁ = categorical(["a", "a", "b", "b", "c", "b", "b"]),
+         t₂ = categorical([3, 2, 1, 1, 2, 2, 2]),
+         t₃ = categorical([true, false, true, false, false, false, false]))
     W = MLJ.table(rand(7, 3))
 
     Gmach = machine(FullCategoricalJoint(ConstantClassifier()), 
@@ -88,13 +134,13 @@ end
 
     query = (t₁=["a", "b"], t₂ = [1, 2], t₃ = [true, false])
     cov = TMLE.compute_covariate(Gmach, W, T, query)
-    @test cov == [7.0,
+    @test cov == [0,
                   7.0,
+                 -7,
+                  7,
+                  0,
                  -3.5,
-                 -3.5,
-                 -2.3333333333333335,
-                 -2.3333333333333335,
-                 -2.3333333333333335]
+                 -3.5]
 end
 
 @testset "Test compute_offset" begin
@@ -104,14 +150,14 @@ end
     # When Y is binary
     y = categorical([1, 1, 1, 1, 0, 0, 0, 0, 0, 0])
     mach = machine(ConstantClassifier(), MLJ.table(X), y)
-    fit!(mach)
+    fit!(mach, verbosity=0)
     # Should be equal to logit(Ê[Y|X])= logit(4/10) = -0.4054651081081643
     @test TMLE.compute_offset(mach, X) == repeat([-0.4054651081081643], n)
 
     # When Y is continuous
     y = [1., 2., 3, 4, 5, 6, 7, 8, 9, 10]
     mach = machine(MLJ.DeterministicConstantRegressor(), MLJ.table(X), y)
-    fit!(mach)
+    fit!(mach, verbosity=0)
     # Should be equal to Ê[Y|X] = 5.5
     @test TMLE.compute_offset(mach, X) == repeat([5.5], n)
     
@@ -137,21 +183,21 @@ end
 
     # Fit encoder
     Hmach = machine(OneHotEncoder(features=[:t₁, :t₂], drop_last=true), T)
-    fit!(Hmach)
+    fit!(Hmach, verbosity=0)
     Thot = transform(Hmach)
     # Fit Q̅
     X = merge(Thot, W)
     Q̅mach = machine(ConstantClassifier(), X, y)
-    fit!(Q̅mach)
+    fit!(Q̅mach, verbosity=0)
     # Fit G
     Gmach = machine(FullCategoricalJoint(ConstantClassifier()), W, T)
-    fit!(Gmach)
+    fit!(Gmach, verbosity=0)
     # Fit Fluctuation
     offset = TMLE.compute_offset(Q̅mach, X)
     covariate = TMLE.compute_covariate(Gmach, W, T, query)
     Xfluct = (covariate=covariate, offset=offset)
     Fmach = machine(BinaryFluctuation(query=query), Xfluct, y)
-    fit!(Fmach)
+    fit!(Fmach, verbosity=0)
 
     # We are using constant classifiers
     # The offset is equal to: -0.40546510810 all the time

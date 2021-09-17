@@ -40,3 +40,12 @@ function density(m::Machine{FullCategoricalJoint,}, X, Y)
     y_multi = encode(Y, m.fitresult.encoding;levels=m.fitresult.levels)
     pdf.(ypred, y_multi)
 end
+
+"""
+Fallback for classic probablistic models used when 
+the treatment is a single variable
+"""
+function density(m::Machine, X, y)
+    ypred = MLJ.predict(m, X)
+    pdf.(ypred, adapt(y))
+end
