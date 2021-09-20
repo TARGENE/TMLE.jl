@@ -254,8 +254,8 @@ end
             StableRNG(123),
             Ns
             )
-    @test all(abs_mean_rel_errors .< [207, 60, 22, 7])
-    @test all(abs_vars .< [29, 1.2, 0.4, 0.03])
+    @test all(abs_mean_rel_errors .< [215, 60, 22, 6.5])
+    @test all(abs_vars .< [30, 1.2, 0.4, 0.03])
 
     # When Q̅ is well specified  but G is misspecified
     query = (T₁=[true, false], T₂=[true, false])
