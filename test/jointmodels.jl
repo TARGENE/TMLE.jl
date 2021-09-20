@@ -47,10 +47,30 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 
     d = TMLE.density(mach, X, Y)
     @test d == [pdf(p, y_multi[i]) for (i, p) in enumerate(ypred)]
-
-    println("WARNING: Need to add a further test as pdf will not work if the query is itself categorical")
-
 end
+
+@testset "Test density fallback" begin
+    rng = StableRNG(123)
+    n = 10
+    X = rand(rng, n, 4)
+    y = categorical(sample(rng, ["A", "G", "C"], n))
+    mach = machine(LogisticClassifier(), MLJ.table(X), y)
+    fit!(mach, verbosity=0)
+
+    d = TMLE.density(mach, X, y)
+
+    @test d ≈ [0.565,
+                0.218,
+                0.256,
+                0.573,
+                0.286,
+                0.612,
+                0.599,
+                0.604,
+                0.295,
+                0.656] atol=1e-2
+end
+
 end
 
 true
