@@ -8,7 +8,7 @@ mutable struct FullCategoricalJoint <: Supervised
 end
 
 
-function encode(Y, encoding; levels=nothing)
+function encode(Y, encoding, levels)
     y_multi = Vector{Int}(undef, nrows(Y))
     for (i, row) in enumerate(Tables.namedtupleiterator(Y))
         y_multi[i] = encoding[values(row)]
@@ -24,7 +24,7 @@ function MLJ.fit(model::FullCategoricalJoint, verbosity::Int, X, Y)
     encoding = Dict(Tuple(jl) => i for (i, jl) in enumerate(joint_levels_it))
 
     # Fit the underlying model
-    y_multi = encode(Y, encoding)
+    y_multi = encode(Y, encoding, collect(values(encoding)))
     fitresult, cache, report = MLJ.fit(model.model, verbosity, X, y_multi)
 
     return (encoding=encoding, levels=levels(y_multi), model_fitresult=fitresult), cache, report
@@ -37,7 +37,7 @@ MLJ.predict(model::FullCategoricalJoint, fitresult, Xnew) =
 
 function density(m::Machine{FullCategoricalJoint,}, X, Y)
     ypred = MLJ.predict(m, X)
-    y_multi = encode(Y, m.fitresult.encoding;levels=m.fitresult.levels)
+    y_multi = encode(Y, m.fitresult.encoding, m.fitresult.levels)
     pdf.(ypred, y_multi)
 end
 
