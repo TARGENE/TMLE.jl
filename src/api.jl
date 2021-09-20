@@ -98,7 +98,7 @@ function MLJ.fit(tmle::TMLEstimator,
     # Fluctuate E[Y|T, W] 
     # on the covariate and the offset 
     offset = compute_offset(Q̅mach, X)
-    covariate = compute_covariate(Gmach, W, T, tmle.fluctuation.query)
+    covariate = compute_covariate(Gmach, W, T, tmle.fluctuation.query; verbosity=verbosity)
     Xfluct = (covariate=covariate, offset=offset)
     
     Fmach = machine(tmle.fluctuation, Xfluct, y)
@@ -111,7 +111,8 @@ function MLJ.fit(tmle::TMLEstimator,
                                      Gmach,
                                      Hmach,
                                      W,
-                                     T)
+                                     T;
+                                     verbosity=verbosity)
 
     estimate = mean(ct_fluct)
 

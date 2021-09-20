@@ -13,6 +13,9 @@ Remove default check for y to be binary
 """
 GLM.checky(y, d::Bernoulli) = nothing
 
+
+idx_under_threshold(d, t) = findall
+
 """
 
 Adapts the type of the treatment variable passed to the G learner
@@ -71,7 +74,8 @@ end
 For each data point, computes: (-1)^(interaction-oder - j)
 Where j is the number of treatments different from the reference in the query.
 """
-function compute_covariate(Gmach::Machine, W, T, query)
+function compute_covariate(Gmach::Machine, W, T, query; verbosity=1)
+    threshold = 0.005
     # Build the Indicator function dictionary
     indicators = indicator_fns(query)
     
@@ -85,8 +89,14 @@ function compute_covariate(Gmach::Machine, W, T, query)
 
     # Compute density and truncate
     d = density(Gmach, W, T)
-    # is this really necessary/suitable?
-    d = min.(0.995, max.(0.005, d))
+
+    # Log indices for which p(T|W) < threshold as this indicates very rare events.
+    d = max.(threshold, d)
+    if verbosity > 0
+        idx_under_threshold = findall(x -> x <= threshold, d)
+        length(idx_under_threshold) > 0 && @info "p(T|W) evaluated under $threshold at indices: $idx_under_threshold"
+    end
+    
     return covariate ./ d
 end
 
@@ -100,11 +110,12 @@ function compute_fluctuation(Fmach::Machine,
                              Gmach::Machine, 
                              Hmach::Machine,
                              W, 
-                             T)
+                             T; 
+                             verbosity=1)
     Thot = transform(Hmach, T)
     X = merge(Thot, W)
     offset = compute_offset(Q̅mach, X)
-    cov = compute_covariate(Gmach, W, T, Fmach.model.query)
+    cov = compute_covariate(Gmach, W, T, Fmach.model.query; verbosity=verbosity)
     Xfluct = (covariate=cov, offset=offset)
     return  MLJ.predict_mean(Fmach, Xfluct)
 end
@@ -129,7 +140,8 @@ function counterfactual_fluctuations(query,
                                      Gmach,
                                      Hmach,
                                      W,
-                                     T)
+                                     T; 
+                                     verbosity=1)
     indicators = indicator_fns(query)
     n = nrows(T)
     ct_fluct = zeros(n)
@@ -143,7 +155,8 @@ function counterfactual_fluctuations(query,
                                 Gmach, 
                                 Hmach,
                                 W, 
-                                counterfactualT)
+                                counterfactualT; 
+                                verbosity=verbosity)
     end
     return ct_fluct
 end

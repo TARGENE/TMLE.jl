@@ -64,6 +64,21 @@ end
 
 end
 
+
+@testset "Test Log p(T|W) is under threshold" begin
+    n = 1000
+    T = vcat(repeat([false], n), [true])
+    T = (t₁=categorical(T),)
+    W = MLJ.table(rand(n+1, 2))
+
+    Gmach = machine(ConstantClassifier(), W, TMLE.adapt(T))
+    fit!(Gmach, verbosity=0)
+
+    query = (t₁=[true, false],)
+    @test_logs (:info, "p(T|W) evaluated under 0.005 at indices: [1001]") TMLE.compute_covariate(Gmach, W, T, query; verbosity=1)
+
+end
+
 end;
 
 true
