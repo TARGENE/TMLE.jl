@@ -43,9 +43,7 @@ function binary_target_binary_treatment_pb(rng;n=100)
     W = rand(rng, Bernoulli(0.5), n, 3)
 
     # Sampling T₁, T₂ from W: Softmax
-    θ = [1 2 -3 -2; 
-         -2 4 6 0 ;
-         3 -1 -4 2]
+    θ = rand(rng, 3, 4)
     softmax = exp.(W*θ) ./ sum(exp.(W*θ), dims=2)
     T = [sample(rng, [1, 2, 3, 4], Weights(softmax[i, :])) for i in 1:n]
     T₁ = [t in (1,2) ? true : false for t in T]
@@ -146,9 +144,7 @@ function continuous_target_binary_treatment_pb(rng;n=100)
     W = rand(rng, Bernoulli(0.5), n, 3)
 
     # Sampling T₁, T₂ from W: Softmax
-    θ = [1 2 -3 -2; 
-         -2 4 6 0 ;
-         3 -1 -4 2]
+    θ = rand(rng, 3, 4)
     softmax = exp.(W*θ) ./ sum(exp.(W*θ), dims=2)
     T = [sample(rng, [1, 2, 3, 4], Weights(softmax[i, :])) for i in 1:n]
     T₁ = [t in (1,2) ? true : false for t in T]
@@ -218,8 +214,8 @@ end
             StableRNG(123),
             Ns
             )
-    @test all(abs_mean_rel_errors .< [214, 110, 34, 22])
-    @test all(abs_vars .< [0.6, 0.2, 0.02, 0.002])
+    @test all(abs_mean_rel_errors .< [69, 14, 5, 1.5])
+    @test all(abs_vars .< [0.05, 0.002, 0.0003, 3.5e-5])
 
     # When Q̅ is well specified  but G is misspecified
     query = (T₁=[true, false], T₂=[true, false])
@@ -234,8 +230,8 @@ end
             StableRNG(123),
             Ns
             )
-    @test all(abs_mean_rel_errors .< [96, 24, 7.8, 1.5])
-    @test all(abs_vars .< [0.07, 0.003, 0.0008, 3.5e-5])
+    @test all(abs_mean_rel_errors .< [53, 13, 4.5, 1.4])
+    @test all(abs_vars .< [0.03, 0.002, 0.0003, 2.7e-5])
 
 end
 
@@ -254,8 +250,8 @@ end
             StableRNG(123),
             Ns
             )
-    @test all(abs_mean_rel_errors .< [215, 60, 22, 6.5])
-    @test all(abs_vars .< [30, 1.2, 0.4, 0.03])
+    @test all(abs_mean_rel_errors .< [18, 1.6, 0.5, 0.2])
+    @test all(abs_vars .< [0.08, 0.002, 0.0002, 1.5e-5])
 
     # When Q̅ is well specified  but G is misspecified
     query = (T₁=[true, false], T₂=[true, false])
@@ -270,8 +266,8 @@ end
             StableRNG(123),
             Ns
             )
-    @test all(abs_mean_rel_errors .< [5, 1.1, 0.6, 0.1])
-    @test all(abs_vars .< [0.02, 0.0006, 0.0002, 5.8e-6])
+    @test all(abs_mean_rel_errors .< [2.3, 0.6, 0.3, 0.06])
+    @test all(abs_vars .< [0.003, 0.0003, 2.5e-5, 2e-6])
 
 end
 
