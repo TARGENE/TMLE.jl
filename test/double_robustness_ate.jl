@@ -8,6 +8,7 @@ using Test
 using Distributions
 using MLJ
 using StableRNGs
+using StatsBase
 
 
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
@@ -50,6 +51,60 @@ function continuous_target_binary_treatment_pb(rng;n=100)
     W = MLJ.table(W)
     t = (t=categorical(t),)
     return t, W, y, 1
+end
+
+
+function continuous_target_categorical_treatment_pb(rng;n=100)
+    ft(T) = (T .== "AA") - (T .== "AT") + 2(T .== "TT")
+    fw(W) = 2W[:, 1] + 3W[:, 2] - 4W[:, 3]
+
+    W = float(rand(rng, Bernoulli(0.5), n, 3))
+    θ = rand(rng, 3, 3)
+    softmax = exp.(W*θ) ./ sum(exp.(W*θ), dims=2)
+    T = [sample(rng, ["TT", "AA", "AT"], Weights(softmax[i, :])) for i in 1:n]
+    y = ft(T) + fw(W) + rand(rng, Normal(0,1), n)
+
+    # Ew[E[Y|t,w]] = ∑ᵤ (ft(T) + fw(w))p(w) = ft(t) + 0.5
+    ATE = (ft("AA") + 0.5) -  (ft("TT") + 0.5)
+    # Type coercion
+    W = MLJ.table(W)
+    T = (T=categorical(T),)
+    return T, W, y, ATE
+end
+
+
+@testset "Test Double Robustness ATE on continuous_target_categorical_treatment_pb" begin
+    # When Q̅ is misspecified but G is well specified
+    query = (T=["AA", "TT"],)
+    Q̅ = MLJ.DeterministicConstantRegressor()
+    G = LogisticClassifier()
+    F = ContinuousFluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
+
+    abs_mean_rel_errors, abs_vars = asymptotics(
+            tmle,                                 
+            continuous_target_categorical_treatment_pb,
+            StableRNG(123),
+            Ns
+            )
+    @test all(abs_mean_rel_errors .< [26, 9, 3.5, 0.6])
+    @test all(abs_vars .< [0.09, 0.02, 0.002, 3.9e-5])
+
+    # When Q̅ is well specified but G is misspecified
+    query = (T=["AA", "TT"],)
+    Q̅ = LinearRegressor()
+    G = ConstantClassifier()
+    F = ContinuousFluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
+
+    abs_mean_rel_errors, abs_vars = asymptotics(
+            tmle,                                 
+            continuous_target_categorical_treatment_pb,
+            StableRNG(123),
+            Ns
+            )
+    @test all(abs_mean_rel_errors .< [12, 9.1, 3.4, 0.5])
+    @test all(abs_vars .< [0.03, 0.02, 0.002, 3.5e-5])
 end
 
 @testset "Test Double Robustness ATE on binary_target_binary_treatment_pb" begin
