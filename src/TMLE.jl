@@ -7,19 +7,26 @@ using Distributions
 using CategoricalArrays
 using GLM
 using MLJBase
+using MLJ
+using Base: Iterators
+
+LinearRegressor = @load LinearRegressor pkg=GLM verbosity=0
+LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
 
 # #############################################################################
 # OVERLOADED METHODS
 # #############################################################################
 
-import MLJBase.fit
+import MLJ.fit
 import MLJBase.check
 
 # #############################################################################
 # EXPORTS
 # #############################################################################
 
-export ATEEstimator, InteractionATEEstimator
+export TMLEstimator
+export ContinuousFluctuation, BinaryFluctuation
+export FullCategoricalJoint
 export fit
 export confint, pvalue
 
@@ -28,8 +35,8 @@ export confint, pvalue
 # #############################################################################
 
 include("utils.jl")
-include("abstract.jl")
-include("ate.jl")
-include("interaction_ate.jl")
+include("fluctuations.jl")
+include("api.jl")
+include("jointmodels.jl")
 
 end
