@@ -237,12 +237,14 @@ end
 
 @testset "Test Double Robustness IATE on continuous_target_binary_treatment_pb" begin
     # When Q̅ is misspecified but G is well specified
-    query = (T₁=[true, false], T₂=[true, false])
+    
+    # If the order of the variables in the query do no match
+    # the order in T it shouldn't matter
+    query = (T₂=[true, false], T₁=[true, false])
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = FullCategoricalJoint(LogisticClassifier())
     F = ContinuousFluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
-    
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 

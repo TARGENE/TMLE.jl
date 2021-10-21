@@ -44,7 +44,6 @@ mutable struct TMLEstimator <: MLJ.Model
 end
 
 
-
 """
 
 Let's default to no warnings for now.
@@ -73,7 +72,7 @@ function MLJ.fit(tmle::TMLEstimator,
                  W, 
                  y::Union{CategoricalVector{Bool}, Vector{<:Real}})
     # Converting all tables to NamedTuples
-    T = Tables.columntable(T)
+    T = NamedTuple{keys(tmle.fluctuation.query)}(Tables.columntable(T))
     W = Tables.columntable(W)
     intersect(keys(T), keys(W)) == [] || throw("T and W should have different column names")
 

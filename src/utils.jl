@@ -14,8 +14,6 @@ Remove default check for y to be binary
 GLM.checky(y, d::Bernoulli) = nothing
 
 
-idx_under_threshold(d, t) = findall
-
 """
 
 Adapts the type of the treatment variable passed to the G learner
