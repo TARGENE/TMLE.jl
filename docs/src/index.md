@@ -22,10 +22,8 @@ respecting the MLJ interface can be used to estimate the nuisance parameters.
 
 ## Installation
 
-The package is not yet part of the registry and must be installed via github:
-
 ```julia
-julia> ]add https://github.com/olivierlabayle/TMLE.jl
+julia> add TMLE
 ```
 
 ## Get in touch
@@ -95,15 +93,14 @@ Unif = Uniform(0, 1)
 W = float(rand(rng, Bernoulli(0.5), n, 3))
 t = rand(rng, Unif, n) .< expit(0.5W[:, 1] + 1.5W[:, 2] - W[:,3])
 y = t + 2W[:, 1] + 3W[:, 2] - 4W[:, 3] + rand(rng, Normal(0, 1), n)
-# W needs to respect the Tables.jl interface.
-# t is a binary categorical vector
+# W and T need to respect the Tables.jl interface.
 W = MLJ.table(W)
-t = categorical(t)
+T = (T=categorical(t),)
 ```
 
 We need to define 2 estimators for the nuisance parameters, usually this is 
-done using the Stack but here because we know the generating process we can 
-cheat a bit. We will use a Logistic Classifier for p(T|W) and a Constant Regressor
+done using the [Stack](https://alan-turing-institute.github.io/MLJ.jl/dev/model_stacking/#Model-Stacking) 
+but here because we know the generating process we can cheat a bit. We will use a Logistic Classifier for p(T|W) and a Constant Regressor
 for p(Y|W, T). This means one estimator is well specified and the other not. 
 The target is continuous thus we will use a Linear regression model 
 for the fluctuation. This is done by specifying a Normal distribution for the 
@@ -112,18 +109,23 @@ Generalized Linear Model.
 ```julia
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 
-tmle = ATEEstimator(LogisticClassifier(),
-                    MLJ.DeterministicConstantRegressor(),
-                    Normal())
+query = (T=[1, 0],)
+Q̅ = MLJ.DeterministicConstantRegressor()
+G = LogisticClassifier()
+F = ContinuousFluctuation(query=query)
+tmle = TMLEstimator(Q̅, G, F)
 ```
 
 Now, all there is to do is to fit the estimator:
 
 ```julia
-fitresult, _, _ = MLJ.fit(tmle, 0, t, W, y)
+mach = machine(tmle, T, W, y)
+fit!(mach)
+
+results = fitted_params(mach)
 ```
 
-The `fitresult` contains the estimate and the associated standard error. We can see 
+The `results` variable contains the estimate and the associated standard error. We can see 
 that even if one nuisance parameter is misspecified, the double robustness of TMLE
 enables correct estimation of our target.
 
@@ -184,15 +186,21 @@ stack = Stack(;metalearner=LogisticClassifier(),
                 tree_3=DecisionTreeClassifier(max_depth=3),
                 knn=KNNClassifier())
 
-tmle = ATEEstimator(stack,
-                    stack,
-                    Bernoulli())
+query = (t₁ = [1, 0], t₂ = [1, 0])
+Q̅ = stack
+G = FullCategoricalJoint(stack)
+F = ContinuousFluctuation(query=query)
+tmle = TMLEstimator(Q̅, G, F)
+
 ```
 
 And fit it!
 
 ```julia
-fitresult, _, _ = MLJ.fit(tmle, 0, t, W, y)
+mach = machine(tmle, T, W, y)
+fit!(mach)
+
+results = fitted_params(mach)
 ```
 
 
