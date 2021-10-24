@@ -19,8 +19,8 @@ using Distributions
     query = (t₁=["CC", "CG"], t₂=["AT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
-    F = BinaryFluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+
+    tmle = TMLEstimator(Q̅, G, "binary", query)
 
     mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
@@ -54,8 +54,7 @@ end
     query = (t₁=["CC", "CG"], t₂=["AT", "AA"], t₃=["CC", "GG"], t₄=["TT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
-    F = BinaryFluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, "binary", query)
 
     mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
@@ -75,8 +74,37 @@ end
     fit!(Gmach, verbosity=0)
 
     query = (t₁=[true, false],)
-    @test_logs (:info, "p(T|W) evaluated under 0.005 at indices: [1001]") TMLE.compute_covariate(Gmach, W, T, query; verbosity=1)
+    tmle = TMLEstimator(ConstantClassifier(),
+                        ConstantClassifier(),
+                        "binary", 
+                        query)
+    @test_logs (:info, "p(T|W) evaluated under 0.005 at indices: [1001]") TMLE.compute_covariate(tmle, Gmach, W, T; verbosity=1)
 
+end
+
+
+@testset "Test setproperty!(query) sets indicator functions" begin
+    query = (t₁=[true, false],)
+    tmle = TMLEstimator(ConstantClassifier(),
+            ConstantClassifier(),
+            "binary", 
+            query)
+
+    @test tmle.indicators == Dict(
+        (t₁ = 1,) => 1,
+        (t₁ = 0,) => -1
+    )
+
+    tmle.query = (t₁=[false, true], t₂=["a", "b"])
+
+    @test tmle.indicators == Dict(
+        (t₁ = 1, t₂ = "a") => -1,
+        (t₁ = 0, t₂ = "b") => -1,
+        (t₁ = 0, t₂ = "a") => 1,
+        (t₁ = 1, t₂ = "b") => 1
+    )
+
+    @test_throws ArgumentError tmle.indicators = Dict()
 end
 
 end;

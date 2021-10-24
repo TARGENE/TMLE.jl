@@ -40,7 +40,35 @@ TODO
 mutable struct TMLEstimator <: MLJ.Model 
     Q̅::MLJ.Supervised
     G::MLJ.Supervised
-    fluctuation::Fluctuation
+    F::Union{LinearRegressor, LinearBinaryClassifier}
+    query::NamedTuple
+    indicators::Dict
+    threshold::Float64
+end
+
+
+function TMLEstimator(Q̅, G, F, query; threshold=0.005)
+    indicators = indicator_fns(query)
+    if F == "continuous"
+        fluct = LinearRegressor(fit_intercept=false, offsetcol=:offset)
+        return TMLEstimator(Q̅, G, fluct, query, indicators, threshold)
+    elseif F == "binary"
+        fluct = LinearBinaryClassifier(fit_intercept=false, offsetcol=:offset)
+        return TMLEstimator(Q̅, G, fluct, query, indicators, threshold)
+    else
+        throw(ArgumentError("Unsuported fluctuation mode."))
+    end
+    
+end
+
+
+function Base.setproperty!(tmle::TMLEstimator, name::Symbol, x)
+    name == :indicators && throw(ArgumentError("This field must not be changed manually."))
+    name != :query && setfield!(tmle, name, x)
+
+    indicators = indicator_fns(x)
+    setfield!(tmle, :query, x)
+    setfield!(tmle, :indicators, indicators)
 end
 
 
@@ -72,7 +100,7 @@ function MLJ.fit(tmle::TMLEstimator,
                  W, 
                  y::Union{CategoricalVector{Bool}, Vector{<:Real}})
     # Converting all tables to NamedTuples
-    T = NamedTuple{keys(tmle.fluctuation.query)}(Tables.columntable(T))
+    T = NamedTuple{keys(tmle.query)}(Tables.columntable(T))
     W = Tables.columntable(W)
     intersect(keys(T), keys(W)) == [] || throw("T and W should have different column names")
 
@@ -97,14 +125,14 @@ function MLJ.fit(tmle::TMLEstimator,
     # Fluctuate E[Y|T, W] 
     # on the covariate and the offset 
     offset = compute_offset(Q̅mach, X)
-    covariate = compute_covariate(Gmach, W, T, tmle.fluctuation.query; verbosity=verbosity)
+    covariate = compute_covariate(tmle, Gmach, W, T; verbosity=verbosity)
     Xfluct = (covariate=covariate, offset=offset)
     
-    Fmach = machine(tmle.fluctuation, Xfluct, y)
+    Fmach = machine(tmle.F, Xfluct, y)
     fit!(Fmach, verbosity=verbosity)
 
     # Compute the final estimate 
-    ct_fluct = counterfactual_fluctuations(tmle.fluctuation.query, 
+    ct_fluct = counterfactual_fluctuations(tmle, 
                                      Fmach,
                                      Q̅mach,
                                      Gmach,

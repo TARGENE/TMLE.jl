@@ -72,16 +72,12 @@ end
 For each data point, computes: (-1)^(interaction-oder - j)
 Where j is the number of treatments different from the reference in the query.
 """
-function compute_covariate(Gmach::Machine, W, T, query; verbosity=1)
-    threshold = 0.005
-    # Build the Indicator function dictionary
-    indicators = indicator_fns(query)
-    
+function compute_covariate(tmle::TMLEstimator, Gmach::Machine, W, T; verbosity=1)
     # Compute the indicator value
     covariate = zeros(nrows(T))
     for (i, row) in enumerate(Tables.namedtupleiterator(T))
-        if haskey(indicators, row)
-            covariate[i] = indicators[row]
+        if haskey(tmle.indicators, row)
+            covariate[i] = tmle.indicators[row]
         end
     end
 
@@ -89,10 +85,10 @@ function compute_covariate(Gmach::Machine, W, T, query; verbosity=1)
     d = density(Gmach, W, T)
 
     # Log indices for which p(T|W) < threshold as this indicates very rare events.
-    d = max.(threshold, d)
+    d = max.(tmle.threshold, d)
     if verbosity > 0
-        idx_under_threshold = findall(x -> x <= threshold, d)
-        length(idx_under_threshold) > 0 && @info "p(T|W) evaluated under $threshold at indices: $idx_under_threshold"
+        idx_under_threshold = findall(x -> x <= tmle.threshold, d)
+        length(idx_under_threshold) > 0 && @info "p(T|W) evaluated under $(tmle.threshold) at indices: $idx_under_threshold"
     end
     
     return covariate ./ d
@@ -103,7 +99,8 @@ end
 ## Fluctuation
 ###############################################################################
 
-function compute_fluctuation(Fmach::Machine, 
+function compute_fluctuation(tmle::TMLEstimator,
+                             Fmach::Machine, 
                              Q̅mach::Machine, 
                              Gmach::Machine, 
                              Hmach::Machine,
@@ -113,7 +110,7 @@ function compute_fluctuation(Fmach::Machine,
     Thot = transform(Hmach, T)
     X = merge(Thot, W)
     offset = compute_offset(Q̅mach, X)
-    cov = compute_covariate(Gmach, W, T, Fmach.model.query; verbosity=verbosity)
+    cov = compute_covariate(tmle, Gmach, W, T; verbosity=verbosity)
     Xfluct = (covariate=cov, offset=offset)
     return  MLJ.predict_mean(Fmach, Xfluct)
 end
@@ -132,7 +129,7 @@ If the order of Interaction is 2 with binary variables, this is:
  1/n ∑ [ Fluctuation(t₁=1, t₂=1, W=w) - Fluctuation(t₁=1, t₂=0, W=w)
         - Fluctuation(t₁=0, t₂=1, W=w) + Fluctuation(t₁=0, t₂=0, W=w)]
 """
-function counterfactual_fluctuations(query, 
+function counterfactual_fluctuations(tmle::TMLEstimator, 
                                      Fmach,
                                      Q̅mach,
                                      Gmach,
@@ -140,21 +137,21 @@ function counterfactual_fluctuations(query,
                                      W,
                                      T; 
                                      verbosity=1)
-    indicators = indicator_fns(query)
     n = nrows(T)
     ct_fluct = zeros(n)
-    for (ct, sign) in indicators 
+    for (ct, sign) in tmle.indicators 
         names = keys(ct)
         counterfactualT = NamedTuple{names}(
             [categorical(repeat([ct[name]], n), levels=levels(Tables.getcolumn(T, name)))
                             for name in names])
-        ct_fluct += sign*compute_fluctuation(Fmach, 
-                                Q̅mach, 
-                                Gmach, 
-                                Hmach,
-                                W, 
-                                counterfactualT; 
-                                verbosity=verbosity)
+        ct_fluct += sign*compute_fluctuation(tmle,
+                                             Fmach, 
+                                             Q̅mach, 
+                                             Gmach, 
+                                             Hmach,
+                                             W, 
+                                             counterfactualT; 
+                                             verbosity=verbosity)
     end
     return ct_fluct
 end

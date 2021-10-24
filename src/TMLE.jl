@@ -1,7 +1,5 @@
 module TMLE
 
-using Tables: columnnames
-using Distributions: expectation
 using Tables
 using Distributions
 using CategoricalArrays
@@ -25,7 +23,6 @@ import MLJBase.check
 # #############################################################################
 
 export TMLEstimator
-export ContinuousFluctuation, BinaryFluctuation
 export FullCategoricalJoint
 export fit
 export confint, pvalue
@@ -34,9 +31,8 @@ export confint, pvalue
 # INCLUDES
 # #############################################################################
 
-include("utils.jl")
-include("fluctuations.jl")
 include("api.jl")
 include("jointmodels.jl")
+include("utils.jl")
 
 end
