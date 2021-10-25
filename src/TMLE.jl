@@ -17,6 +17,8 @@ LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
 
 import MLJ.fit
 import MLJBase.check
+import Distributions.estimate
+import Distributions.stderror
 
 # #############################################################################
 # EXPORTS
@@ -25,7 +27,7 @@ import MLJBase.check
 export TMLEstimator
 export FullCategoricalJoint
 export fit
-export confint, pvalue
+export confinterval, pvalue, estimate, briefreport, stderror
 
 # #############################################################################
 # INCLUDES
@@ -35,6 +37,5 @@ include("report.jl")
 include("api.jl")
 include("jointmodels.jl")
 include("utils.jl")
-
 
 end

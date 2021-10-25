@@ -20,7 +20,7 @@ using Distributions
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
 
-    tmle = TMLEstimator(Q̅, G, "binary", query)
+    tmle = TMLEstimator(Q̅, G, :binary, query)
 
     mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
@@ -40,7 +40,7 @@ using Distributions
 end
 
 
-@testset "Test 4-points estimation run" begin
+@testset "Test 4-points estimation non regression" begin
     rng = StableRNG(123)
     n = 100
     T = (t₁=categorical(sample(rng, ["CG", "CC"], Weights([0.7, 0.3]), n)),
@@ -54,13 +54,26 @@ end
     query = (t₁=["CC", "CG"], t₂=["AT", "AA"], t₃=["CC", "GG"], t₄=["TT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
-    tmle = TMLEstimator(Q̅, G, "binary", query)
+    tmle = TMLEstimator(Q̅, G, :binary, query)
 
     mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
 
-    @test fitted_params(mach).R.fitresult.estimate isa Number
+    # Test the various api results functions
 
+    @test estimate(mach) ≈ -1.59 atol=1e-2
+    @test stderror(mach) ≈ 1.32 atol=1e-2
+
+    res = briefreport(mach)
+    @test res.estimate ≈ -1.59 atol=1e-2
+    @test res.stderror ≈ 1.32 atol=1e-2
+    @test res.mean_inf_curve ≈ -1.52e-8 atol=1e-2
+
+    @test pvalue(mach) ≈ 0.23 atol=1e-2
+    
+    (lb, ub) = confinterval(mach)
+    @test lb ≈ -4.18 atol=1e-2
+    @test ub ≈ 1.01 atol=1e-2
 end
 
 
@@ -76,7 +89,7 @@ end
     query = (t₁=[true, false],)
     tmle = TMLEstimator(ConstantClassifier(),
                         ConstantClassifier(),
-                        "binary", 
+                        :binary, 
                         query)
     @test_logs (:info, "p(T|W) evaluated under 0.005 at indices: [1001]") TMLE.compute_covariate(tmle, Gmach, W, T; verbosity=1)
 
@@ -87,7 +100,7 @@ end
     query = (t₁=[true, false],)
     tmle = TMLEstimator(ConstantClassifier(),
             ConstantClassifier(),
-            "binary", 
+            :binary, 
             query)
 
     @test tmle.indicators == Dict(

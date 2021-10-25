@@ -93,7 +93,7 @@ end
     # This is a dummy TMLE used to access the query
     tmle = TMLEstimator(ConstantClassifier(),
                         ConstantClassifier(),
-                        "binary", 
+                        :binary, 
                         query)
     cov = TMLE.compute_covariate(tmle, Gmach, W, T)
     @test cov == [1.75,
@@ -193,7 +193,7 @@ end
     query = (t₁=[1, 0], t₂ = [1, 0])
     tmle = TMLEstimator(ConstantClassifier(),
                         FullCategoricalJoint(ConstantClassifier()),
-                        "binary", 
+                        :binary, 
                         query)
 
     # Fit encoder

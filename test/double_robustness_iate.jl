@@ -186,7 +186,7 @@ end
     query = (T₁=[true, false], T₂=[true, false])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(LogisticClassifier())
-    tmle = TMLEstimator(Q̅, G, "binary", query)
+    tmle = TMLEstimator(Q̅, G, :binary, query)
     
 
     abs_mean_rel_errors, abs_vars = asymptotics(
@@ -202,7 +202,7 @@ end
     query = (T₁=[true, false], T₂=[true, false])
     Q̅ = cat_interacter
     G = FullCategoricalJoint(ConstantClassifier())
-    tmle = TMLEstimator(Q̅, G, "binary", query)
+    tmle = TMLEstimator(Q̅, G, :binary, query)
     
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -223,7 +223,7 @@ end
     query = (T₂=[true, false], T₁=[true, false])
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = FullCategoricalJoint(LogisticClassifier())
-    tmle = TMLEstimator(Q̅, G, "continuous", query)
+    tmle = TMLEstimator(Q̅, G, :continuous, query)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -238,7 +238,7 @@ end
     query = (T₁=[true, false], T₂=[true, false])
     Q̅ = cont_interacter
     G = FullCategoricalJoint(ConstantClassifier())
-    tmle = TMLEstimator(Q̅, G, "continuous", query)
+    tmle = TMLEstimator(Q̅, G, :continuous, query)
     
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -257,7 +257,7 @@ end
     query = (T₁=["CC", "CG"], T₂=["AT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(LogisticClassifier())
-    tmle = TMLEstimator(Q̅, G, "binary", query)
+    tmle = TMLEstimator(Q̅, G, :binary, query)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -272,7 +272,7 @@ end
     query = (T₁=["CC", "CG"], T₂=["AT", "AA"])
     Q̅ = cat_interacter
     G = FullCategoricalJoint(ConstantClassifier())
-    tmle = TMLEstimator(Q̅, G, "binary", query)
+    tmle = TMLEstimator(Q̅, G, :binary, query)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 

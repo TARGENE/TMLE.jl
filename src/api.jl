@@ -1,12 +1,24 @@
+mutable struct TMLEstimator <: MLJ.DeterministicComposite 
+    Q̅::MLJ.Supervised
+    G::MLJ.Supervised
+    F::Union{LinearRegressor, LinearBinaryClassifier}
+    R::Report
+    query::NamedTuple
+    indicators::Dict
+    threshold::Float64
+end
+
+
 """
-    TMLEstimator(Q̅, G, F)
+    TMLEstimator(Q̅, G, F, query; threshold=0.005)
 
-# Scope:
+Implements the Targeted Minimum Loss-Based Estimator introduced by
+van der Laan in https://pubmed.ncbi.nlm.nih.gov/22611591/. Two functionals of the 
+data generating distribution can currently be estimated:
 
-Implements the Targeted Minimum Loss-Based Estimator for the Interaction 
-Average Treatment Effect (IATE) defined by Beentjes and Khamseh in
-https://link.aps.org/doi/10.1103/PhysRevE.102.053314.
-For instance, The IATE is defined for two treatment variables as: 
+- The classic Average Treatment Effect (ATE)
+- The Interaction Average Treatment Effect (IATE) defined by Beentjes and Khamseh in
+https://link.aps.org/doi/10.1103/PhysRevE.102.053314. For instance, The IATE is defined for two treatment variables as: 
 
 IATE = E[E[Y|T₁=1, T₂=1, W=w] - E[E[Y|T₁=1, T₂=0, W=w]
         - E[E[Y|T₁=0, T₂=1, W=w] + E[E[Y|T₁=0, T₂=0, W=w]
@@ -25,35 +37,20 @@ curve equation.
 
 # Arguments:
 
-- Q̅::MLJ.Supervised : The learner to be used
-for E[Y|W, T]. Typically a `MLJ.Stack`.
-- G::MLJ.Supervised : The learner to be used
-for p(T|W). Typically a `MLJ.Stack`.
-- fluctuation_family::Distribution : This will be used to build the fluctuation 
-using a GeneralizedLinearModel. Typically `Normal` for a continuous target 
-and `Bernoulli` for a Binary target.
-
-# Examples:
-
-TODO
+- Q̅: A Supervised learner for E[Y|W, T]
+- G: A Supervised learner for p(T | W)
+- F: A symbol, :binary or :continuous
+- query: A NamedTuple defining the reference categories for the targeted step.
+For isntance, query = (col₁=[true, false], col₂=["a", "b"]) defines the interaction 
+between col₁ and col₂ where (true, "a") are the `case` categories and (false, "b") are the control categories.
+- threshold: p(T | W) is truncated to this value to avoid division overflows.
 """
-mutable struct TMLEstimator <: MLJ.DeterministicComposite 
-    Q̅::MLJ.Supervised
-    G::MLJ.Supervised
-    F::Union{LinearRegressor, LinearBinaryClassifier}
-    R::Report
-    query::NamedTuple
-    indicators::Dict
-    threshold::Float64
-end
-
-
 function TMLEstimator(Q̅, G, F, query; threshold=0.005)
     indicators = indicator_fns(query)
-    if F == "continuous"
+    if F == :continuous
         fluct = LinearRegressor(fit_intercept=false, offsetcol=:offset)
         return TMLEstimator(Q̅, G, fluct, Report(), query, indicators, threshold)
-    elseif F == "binary"
+    elseif F == :binary
         fluct = LinearBinaryClassifier(fit_intercept=false, offsetcol=:offset)
         return TMLEstimator(Q̅, G, fluct, Report(), query, indicators, threshold)
     else
@@ -79,14 +76,50 @@ Let's default to no warnings for now.
 """
 MLJBase.check(model::TMLEstimator, args... ; full=false) = true
 
-pvalue(tmle::TMLEstimator, estimate, stderror) = 2*(1 - cdf(Normal(0, 1), abs(estimate/stderror)))
+"""
+    briefreport(m::Machine{TMLEstimator})
 
-confint(tmle::TMLEstimator, estimate, stderror) = (estimate - 1.96stderror, estimate + 1.96stderror)
+Returns the reported results, see Report.
+"""
+briefreport(m::Machine{TMLEstimator}) = fitted_params(m).R.fitresult
+
+"""
+    Distributions.estimate(m::Machine{TMLEstimator})
+
+Returns the estimated quantity from a fitted machines.
+"""
+Distributions.estimate(m::Machine{TMLEstimator}) = briefreport(m).estimate
+
+"""
+    Distributions.stderror(m::Machine{TMLEstimator})
+
+Returns the standard error associated with the estimate from a fitted machines. 
+"""
+Distributions.stderror(m::Machine{TMLEstimator}) = briefreport(m).stderror
+
+"""
+    pvalue(m::Machine{TMLEstimator})
+
+Computes the p-value associated with the estimated quantity.
+"""
+function pvalue(m::Machine{TMLEstimator})
+    res = briefreport(m)
+    return 2*(1 - cdf(Normal(0, 1), abs(res.estimate/res.stderror)))
+end
+
+"""
+    confinterval(m::Machine{TMLEstimator})
+
+Provides a 95% confidence interval for the true quantity of interest.
+"""
+function confinterval(m::Machine{TMLEstimator})
+    res = briefreport(m)
+    return (res.estimate - 1.96res.stderror, res.estimate + 1.96res.stderror)
+end
 
 ###############################################################################
 ## Fit
 ###############################################################################
-
 
 """
     MLJ.fit(tmle::TMLEstimator, 
