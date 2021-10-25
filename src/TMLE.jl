@@ -31,8 +31,10 @@ export confint, pvalue
 # INCLUDES
 # #############################################################################
 
+include("report.jl")
 include("api.jl")
 include("jointmodels.jl")
 include("utils.jl")
+
 
 end

@@ -37,10 +37,11 @@ and `Bernoulli` for a Binary target.
 
 TODO
 """
-mutable struct TMLEstimator <: MLJ.Model 
+mutable struct TMLEstimator <: MLJ.DeterministicComposite 
     Q̅::MLJ.Supervised
     G::MLJ.Supervised
     F::Union{LinearRegressor, LinearBinaryClassifier}
+    R::Report
     query::NamedTuple
     indicators::Dict
     threshold::Float64
@@ -51,10 +52,10 @@ function TMLEstimator(Q̅, G, F, query; threshold=0.005)
     indicators = indicator_fns(query)
     if F == "continuous"
         fluct = LinearRegressor(fit_intercept=false, offsetcol=:offset)
-        return TMLEstimator(Q̅, G, fluct, query, indicators, threshold)
+        return TMLEstimator(Q̅, G, fluct, Report(), query, indicators, threshold)
     elseif F == "binary"
         fluct = LinearBinaryClassifier(fit_intercept=false, offsetcol=:offset)
-        return TMLEstimator(Q̅, G, fluct, query, indicators, threshold)
+        return TMLEstimator(Q̅, G, fluct, Report(), query, indicators, threshold)
     else
         throw(ArgumentError("Unsuported fluctuation mode."))
     end
@@ -99,37 +100,37 @@ function MLJ.fit(tmle::TMLEstimator,
                  T,
                  W, 
                  y::Union{CategoricalVector{Bool}, Vector{<:Real}})
+    Ts = source(T)
+    Ws = source(W)
+    ys = source(y)
+
     # Converting all tables to NamedTuples
-    T = NamedTuple{keys(tmle.query)}(Tables.columntable(T))
-    W = Tables.columntable(W)
-    intersect(keys(T), keys(W)) == [] || throw("T and W should have different column names")
+    T = node(t->NamedTuple{keys(tmle.query)}(Tables.columntable(t)), Ts)
+    W = node(w->Tables.columntable(w), Ws)
+    # intersect(keys(T), keys(W)) == [] || throw("T and W should have different column names")
 
     # Initial estimate of E[Y|T, W]:
     #   - The treatment variables are hot-encoded  
     #   - W and T are merged
     #   - The machine is implicitely fit
     Hmach = machine(OneHotEncoder(drop_last=true), T)
-    fit!(Hmach, verbosity=verbosity)
     Thot = transform(Hmach, T)
 
-    X = merge(Thot, W)
-    Q̅mach = machine(tmle.Q̅, X, y)
-    fit!(Q̅mach, verbosity=verbosity)
+    X = node((t, w) -> merge(t, w), Thot, W)
+    Q̅mach = machine(tmle.Q̅, X, ys)
 
     # Initial estimate of P(T|W)
     #   - T is converted to an Array
     #   - The machine is implicitely fit
     Gmach = machine(tmle.G, W, adapt(T))
-    fit!(Gmach, verbosity=verbosity)
 
     # Fluctuate E[Y|T, W] 
     # on the covariate and the offset 
     offset = compute_offset(Q̅mach, X)
     covariate = compute_covariate(tmle, Gmach, W, T; verbosity=verbosity)
-    Xfluct = (covariate=covariate, offset=offset)
-    
-    Fmach = machine(tmle.F, Xfluct, y)
-    fit!(Fmach, verbosity=verbosity)
+    Xfluct = fluctuation_input(covariate, offset)
+
+    Fmach = machine(tmle.F, Xfluct, ys)
 
     # Compute the final estimate 
     ct_fluct = counterfactual_fluctuations(tmle, 
@@ -141,22 +142,15 @@ function MLJ.fit(tmle::TMLEstimator,
                                      T;
                                      verbosity=verbosity)
 
-    estimate = mean(ct_fluct)
-
     # Standard error from the influence curve
     observed_fluct = MLJ.predict_mean(Fmach, Xfluct)
-    inf_curve = covariate .* (float(y) .- observed_fluct) .+ ct_fluct .- estimate
 
-    fitresult = (
-    estimate=estimate,
-    stderror=sqrt(var(inf_curve)/nrows(y)),
-    mean_inf_curve=mean(inf_curve),
-    Q̅mach=Q̅mach,
-    Gmach=Gmach,
-    Fmach=Fmach
-    )
+    Rmach = machine(tmle.R, ct_fluct, observed_fluct, covariate, ys)
+    out = MLJ.predict(Rmach, ct_fluct)
 
-    cache = nothing
-    report = nothing
-    return fitresult, cache, report
+    mach = machine(Deterministic(), Ts, Ws, ys; predict=out)
+
+    return!(mach, tmle, verbosity)
 end
+
+

@@ -37,9 +37,7 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
     @test mach.fitresult.model_fitresult[2] == (:x1, :x2, :x3, :x4)
 
     # Only a few of the categories are actually present in the data
-    y_multi = TMLE.encode(Y, 
-                          mach.fitresult.encoding, 
-                          collect(values(mach.fitresult.encoding)))
+    y_multi = TMLE.encode(Y, mach)
     @test y_multi == categorical([5, 3, 6, 4, 9, 9, 6, 9, 3, 7])
 
     ypred = MLJ.predict(mach)

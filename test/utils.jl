@@ -239,17 +239,18 @@ end
     @test fluct ≈ repeat([expected_mean(3.333333)], n) atol=1e-5
 
     # Now look at the full counterfactual treatment
+    # This function is only available for nodes
     ct_fluct = TMLE.counterfactual_fluctuations(tmle, 
                                                 Fmach,
                                                 Q̅mach,
                                                 Gmach,
                                                 Hmach,
-                                                W,
-                                                T)
+                                                source(W),
+                                                source(T))
     
     expected_ct_fluct = (expected_mean(5.) + expected_mean(3.333333)
                         -expected_mean(-3.333333)-expected_mean(-5.))
-    @test ct_fluct ≈ repeat([expected_ct_fluct], n) atol=1e-5
+    @test ct_fluct() ≈ repeat([expected_ct_fluct], n) atol=1e-5
 end
 
 

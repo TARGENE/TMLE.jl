@@ -32,11 +32,11 @@ using Distributions
     X = merge(Thot, W)
     Q̅mach = machine(Q̅, X, y)
     fit!(Q̅mach, verbosity=0)
-    @test Q̅mach.fitresult == mach.fitresult.Q̅mach.fitresult
+    @test Q̅mach.fitresult == fitted_params(mach).Q̅.target_distribution
 
     Gmach = machine(G, W, T)
     fit!(Gmach, verbosity=0)
-    @test Gmach.fitresult == mach.fitresult.Gmach.fitresult
+    @test Gmach.fitresult == fitted_params(mach).G.fitresult
 end
 
 
@@ -59,7 +59,7 @@ end
     mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
 
-    @test mach.fitresult.estimate isa Number
+    @test fitted_params(mach).R.fitresult.estimate isa Number
 
 end
 
