@@ -89,13 +89,9 @@ end
                     TMLE.adapt(T))
     fit!(Gmach, verbosity=0)
 
-    query = (t₁=["a", "b"],)
-    # This is a dummy TMLE used to access the query
-    tmle = TMLEstimator(ConstantClassifier(),
-                        ConstantClassifier(),
-                        :binary, 
-                        query)
-    cov = TMLE.compute_covariate(tmle, Gmach, W, T)
+    indicators = TMLE.indicator_fns((t₁=["a", "b"],))
+
+    cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [1.75,
                  -3.5,
                  0.0,
@@ -116,10 +112,9 @@ end
                     T)
     fit!(Gmach, verbosity=0)
 
-    query = (t₁=[1, 0], t₂ = [1, 0])
-    # This is a dummy TMLE used to access the query
-    tmle.query = query
-    cov = TMLE.compute_covariate(tmle, Gmach, W, T)
+    indicators = TMLE.indicator_fns((t₁=[1, 0], t₂ = [1, 0]))
+
+    cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [2.3333333333333335,
                  -3.5,
                  -3.5,
@@ -141,10 +136,9 @@ end
                     T)
     fit!(Gmach, verbosity=0)
 
-    query = (t₁=["a", "b"], t₂ = [1, 2], t₃ = [true, false])
-    # This is a dummy TMLE used to access the query
-    tmle.query = query
-    cov = TMLE.compute_covariate(tmle, Gmach, W, T)
+    indicators = TMLE.indicator_fns((t₁=["a", "b"], t₂ = [1, 2], t₃ = [true, false]))
+
+    cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [0,
                   7.0,
                  -7,
@@ -191,10 +185,7 @@ end
          t₂=categorical([0, 0, 1, 0, 0, 1, 1, 1, 0, 0]))
     y = categorical([1, 1, 0, 0, 1, 0 , 1, 0, 0, 0])
     query = (t₁=[1, 0], t₂ = [1, 0])
-    tmle = TMLEstimator(ConstantClassifier(),
-                        FullCategoricalJoint(ConstantClassifier()),
-                        :binary, 
-                        query)
+    indicators = TMLE.indicator_fns(query)
 
     # Fit encoder
     Hmach = machine(OneHotEncoder(features=[:t₁, :t₂], drop_last=true), T)
@@ -209,9 +200,9 @@ end
     fit!(Gmach, verbosity=0)
     # Fit Fluctuation
     offset = TMLE.compute_offset(Q̅mach, X)
-    covariate = TMLE.compute_covariate(tmle, Gmach, W, T)
+    covariate = TMLE.compute_covariate(Gmach, W, T, indicators)
     Xfluct = (covariate=covariate, offset=offset)
-    Fmach = machine(LinearBinaryClassifier(fit_intercept=false, offsetcol=:offset), Xfluct, y)
+    Fmach = machine(binaryfluctuation(query=query), Xfluct, y)
     fit!(Fmach, verbosity=0)
 
     # We are using constant classifiers
@@ -223,25 +214,24 @@ end
     # Let's look at the different counterfactual treatments
     # T₁₁: cov=5.
     T₁₁ = (t₁=categorical(ones(n), levels=levels(T[1])), t₂=categorical(ones(n), levels=levels(T[2])))
-    fluct = TMLE.compute_fluctuation(tmle, Fmach, Q̅mach, Gmach, Hmach, W, T₁₁)
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, W, T₁₁)
     @test fluct ≈ repeat([expected_mean(5.)], n) atol=1e-5
     # T₁₀: cov=-3.333333
     T₁₀ = (t₁=categorical(ones(n), levels=[0, 1]), t₂=categorical(zeros(n), levels=[0, 1]))
-    fluct = TMLE.compute_fluctuation(tmle, Fmach, Q̅mach, Gmach, Hmach, W, T₁₀)
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, W, T₁₀)
     @test fluct ≈ repeat([expected_mean(-3.333333)], n) atol=1e-5
     # T₀₁: cov=-5.
     T₀₁ = (t₁=categorical(zeros(n), levels=[0, 1]), t₂=categorical(ones(n), levels=[0, 1]))
-    fluct = TMLE.compute_fluctuation(tmle, Fmach, Q̅mach, Gmach, Hmach, W, T₀₁)
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, W, T₀₁)
     @test fluct ≈ repeat([expected_mean(-5.)], n) atol=1e-5
     # T₀₀: cov=3.333333
     T₀₀ = (t₁=categorical(zeros(n), levels=[0, 1]), t₂=categorical(zeros(n), levels=[0, 1]))
-    fluct = TMLE.compute_fluctuation(tmle, Fmach, Q̅mach, Gmach, Hmach, W, T₀₀)
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, W, T₀₀)
     @test fluct ≈ repeat([expected_mean(3.333333)], n) atol=1e-5
 
     # Now look at the full counterfactual treatment
     # This function is only available for nodes
-    ct_fluct = TMLE.counterfactual_fluctuations(tmle, 
-                                                Fmach,
+    ct_fluct = TMLE.counterfactual_fluctuations(Fmach,
                                                 Q̅mach,
                                                 Gmach,
                                                 Hmach,

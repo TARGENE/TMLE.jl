@@ -78,7 +78,8 @@ end
     query = (T=["AA", "TT"],)
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = LogisticClassifier()
-    tmle = TMLEstimator(Q̅, G, :continuous, query)
+    F = continuousfluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -93,7 +94,8 @@ end
     query = (T=["AA", "TT"],)
     Q̅ = LinearRegressor()
     G = ConstantClassifier()
-    tmle = TMLEstimator(Q̅, G, :continuous, query)
+    F = continuousfluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -110,7 +112,8 @@ end
     query = (t=[true, false],)
     Q̅ = ConstantClassifier()
     G = LogisticClassifier()
-    tmle = TMLEstimator(Q̅, G, :binary, query)
+    F = binaryfluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -125,7 +128,8 @@ end
     query = (t=[true, false],)
     Q̅ = LogisticClassifier()
     G = ConstantClassifier()
-    tmle = TMLEstimator(Q̅, G, :binary, query)
+    F = binaryfluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -143,7 +147,8 @@ end
     query = (t=[true, false],)
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = LogisticClassifier()
-    tmle = TMLEstimator(Q̅, G, :continuous, query)
+    F = continuousfluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -158,7 +163,8 @@ end
     query = (t=[true, false],)
     Q̅ = LinearRegressor()
     G = ConstantClassifier()
-    tmle = TMLEstimator(Q̅, G, :continuous, query)
+    F = continuousfluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 

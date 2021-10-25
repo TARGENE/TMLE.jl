@@ -1,13 +1,10 @@
 mutable struct TMLEstimator <: MLJ.DeterministicComposite 
     Q̅::MLJ.Supervised
     G::MLJ.Supervised
-    F::Union{LinearRegressor, LinearBinaryClassifier}
+    F::Fluctuation
     R::Report
-    query::NamedTuple
-    indicators::Dict
     threshold::Float64
 end
-
 
 """
     TMLEstimator(Q̅, G, F, query; threshold=0.005)
@@ -39,35 +36,13 @@ curve equation.
 
 - Q̅: A Supervised learner for E[Y|W, T]
 - G: A Supervised learner for p(T | W)
-- F: A symbol, :binary or :continuous
-- query: A NamedTuple defining the reference categories for the targeted step.
-For isntance, query = (col₁=[true, false], col₂=["a", "b"]) defines the interaction 
-between col₁ and col₂ where (true, "a") are the `case` categories and (false, "b") are the control categories.
+- F: A Fluctuation, see continuousfluctuation, binaryfluctuation
+
+
 - threshold: p(T | W) is truncated to this value to avoid division overflows.
 """
-function TMLEstimator(Q̅, G, F, query; threshold=0.005)
-    indicators = indicator_fns(query)
-    if F == :continuous
-        fluct = LinearRegressor(fit_intercept=false, offsetcol=:offset)
-        return TMLEstimator(Q̅, G, fluct, Report(), query, indicators, threshold)
-    elseif F == :binary
-        fluct = LinearBinaryClassifier(fit_intercept=false, offsetcol=:offset)
-        return TMLEstimator(Q̅, G, fluct, Report(), query, indicators, threshold)
-    else
-        throw(ArgumentError("Unsuported fluctuation mode."))
-    end
-    
-end
-
-
-function Base.setproperty!(tmle::TMLEstimator, name::Symbol, x)
-    name == :indicators && throw(ArgumentError("This field must not be changed manually."))
-    name != :query && setfield!(tmle, name, x)
-
-    indicators = indicator_fns(x)
-    setfield!(tmle, :query, x)
-    setfield!(tmle, :indicators, indicators)
-end
+TMLEstimator(Q̅, G, F; threshold=0.005) = 
+    TMLEstimator(Q̅, G, F, Report(), threshold)
 
 
 """
@@ -138,7 +113,7 @@ function MLJ.fit(tmle::TMLEstimator,
     ys = source(y)
 
     # Converting all tables to NamedTuples
-    T = node(t->NamedTuple{keys(tmle.query)}(Tables.columntable(t)), Ts)
+    T = node(t->NamedTuple{keys(tmle.F.query)}(Tables.columntable(t)), Ts)
     W = node(w->Tables.columntable(w), Ws)
     # intersect(keys(T), keys(W)) == [] || throw("T and W should have different column names")
 
@@ -160,22 +135,24 @@ function MLJ.fit(tmle::TMLEstimator,
     # Fluctuate E[Y|T, W] 
     # on the covariate and the offset 
     offset = compute_offset(Q̅mach, X)
-    covariate = compute_covariate(tmle, Gmach, W, T; verbosity=verbosity)
+    covariate = compute_covariate(Gmach, W, T, tmle.F.indicators; 
+                                    verbosity=verbosity,
+                                    threshold=tmle.threshold)
     Xfluct = fluctuation_input(covariate, offset)
 
     Fmach = machine(tmle.F, Xfluct, ys)
 
     # Compute the final estimate 
-    ct_fluct = counterfactual_fluctuations(tmle, 
-                                     Fmach,
-                                     Q̅mach,
-                                     Gmach,
-                                     Hmach,
-                                     W,
-                                     T;
-                                     verbosity=verbosity)
+    ct_fluct = counterfactual_fluctuations(Fmach,
+                                           Q̅mach,
+                                           Gmach,
+                                           Hmach,
+                                           W,
+                                           T;
+                                           verbosity=verbosity,
+                                           threshold=tmle.threshold)
 
-    # Standard error from the influence curve
+    # Fit the Report
     observed_fluct = MLJ.predict_mean(Fmach, Xfluct)
 
     Rmach = machine(tmle.R, ct_fluct, observed_fluct, covariate, ys)

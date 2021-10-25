@@ -25,6 +25,7 @@ import Distributions.stderror
 # #############################################################################
 
 export TMLEstimator
+export Fluctuation, binaryfluctuation, continuousfluctuation
 export FullCategoricalJoint
 export fit
 export confinterval, pvalue, estimate, briefreport, stderror
@@ -34,6 +35,7 @@ export confinterval, pvalue, estimate, briefreport, stderror
 # #############################################################################
 
 include("report.jl")
+include("fluctuations.jl")
 include("api.jl")
 include("jointmodels.jl")
 include("utils.jl")

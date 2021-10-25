@@ -123,14 +123,14 @@ elemwise_divide(x::AbstractNode, y::AbstractNode) =
 For each data point, computes: (-1)^(interaction-oder - j)
 Where j is the number of treatments different from the reference in the query.
 """
-function compute_covariate(tmle::TMLEstimator, Gmach::Machine, W, T; verbosity=1)
+function compute_covariate(Gmach::Machine, W, T, indicators; verbosity=1, threshold=0.005)
     # Compute the indicator value
-    indic_vals = indicator_values(tmle.indicators, T)
+    indic_vals = indicator_values(indicators, T)
 
     # Compute density and truncate
     likelihood = density(Gmach, W, T)
 
-    likelihood = plateau_likelihood(likelihood, tmle.threshold, verbosity)
+    likelihood = plateau_likelihood(likelihood, threshold, verbosity)
     
     return elemwise_divide(indic_vals, likelihood)
 end
@@ -155,18 +155,20 @@ counterfactualTreatment(vals, T::AbstractNode) =
     node(t -> counterfactualTreatment(vals, t), T)
 
 
-function compute_fluctuation(tmle::TMLEstimator,
-                             Fmach::Machine, 
+function compute_fluctuation(Fmach::Machine, 
                              Q̅mach::Machine, 
                              Gmach::Machine, 
                              Hmach::Machine,
                              W, 
                              T; 
-                             verbosity=1)
+                             verbosity=1,
+                             threshold=0.005)
     Thot = transform(Hmach, T)
     X = merge(Thot, W)
     offset = compute_offset(Q̅mach, X)
-    covariate = compute_covariate(tmle, Gmach, W, T; verbosity=verbosity)
+    covariate = compute_covariate(Gmach, W, T, Fmach.model.indicators; 
+                                    verbosity=verbosity,
+                                    threshold=threshold)
     Xfluct = fluctuation_input(covariate, offset)
     return  MLJ.predict_mean(Fmach, Xfluct)
 end
@@ -185,26 +187,26 @@ If the order of Interaction is 2 with binary variables, this is:
  1/n ∑ [ Fluctuation(t₁=1, t₂=1, W=w) - Fluctuation(t₁=1, t₂=0, W=w)
         - Fluctuation(t₁=0, t₂=1, W=w) + Fluctuation(t₁=0, t₂=0, W=w)]
 """
-function counterfactual_fluctuations(tmle::TMLEstimator, 
-                                     Fmach::Machine,
+function counterfactual_fluctuations(Fmach::Machine,
                                      Q̅mach::Machine,
                                      Gmach::Machine,
                                      Hmach::Machine,
                                      W,
                                      T; 
-                                     verbosity=1)
+                                     verbosity=1,
+                                     threshold=0.005)
 
     ct_fluct = init_counterfactual_fluctuation(T)
-    for (vals, sign) in tmle.indicators 
+    for (vals, sign) in Fmach.model.indicators 
         counterfactualT = counterfactualTreatment(vals, T)
-        ct_fluct += sign*compute_fluctuation(tmle,
-                                             Fmach, 
+        ct_fluct += sign*compute_fluctuation(Fmach, 
                                              Q̅mach, 
                                              Gmach, 
                                              Hmach,
                                              W, 
                                              counterfactualT; 
-                                             verbosity=verbosity)
+                                             verbosity=verbosity,
+                                             threshold=threshold)
     end
     return ct_fluct
 end

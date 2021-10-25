@@ -19,8 +19,9 @@ using Distributions
     query = (t₁=["CC", "CG"], t₂=["AT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
+    F = binaryfluctuation(query=query)
 
-    tmle = TMLEstimator(Q̅, G, :binary, query)
+    tmle = TMLEstimator(Q̅, G, F)
 
     mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
@@ -54,7 +55,8 @@ end
     query = (t₁=["CC", "CG"], t₂=["AT", "AA"], t₃=["CC", "GG"], t₄=["TT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
-    tmle = TMLEstimator(Q̅, G, :binary, query)
+    F = binaryfluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
 
     mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
@@ -74,6 +76,7 @@ end
     (lb, ub) = confinterval(mach)
     @test lb ≈ -4.18 atol=1e-2
     @test ub ≈ 1.01 atol=1e-2
+
 end
 
 
@@ -87,38 +90,47 @@ end
     fit!(Gmach, verbosity=0)
 
     query = (t₁=[true, false],)
-    tmle = TMLEstimator(ConstantClassifier(),
-                        ConstantClassifier(),
-                        :binary, 
-                        query)
-    @test_logs (:info, "p(T|W) evaluated under 0.005 at indices: [1001]") TMLE.compute_covariate(tmle, Gmach, W, T; verbosity=1)
+    indicators = TMLE.indicator_fns(query)
+
+    @test_logs (:info, "p(T|W) evaluated under 0.005 at indices: [1001]") TMLE.compute_covariate(Gmach, W, T, indicators; verbosity=1)
 
 end
 
-
-@testset "Test setproperty!(query) sets indicator functions" begin
-    query = (t₁=[true, false],)
-    tmle = TMLEstimator(ConstantClassifier(),
-            ConstantClassifier(),
-            :binary, 
-            query)
-
-    @test tmle.indicators == Dict(
-        (t₁ = 1,) => 1,
-        (t₁ = 0,) => -1
+@testset "Test partial refit when changing query" begin
+    n = 100
+    p = 3
+    W = MLJ.table(rand(n, p))
+    T = (
+        t₁=categorical(rand([true, false], n)),
+        t₂=categorical(rand([true, false], n)),
     )
+    y = categorical(rand([true, false], n))
 
-    tmle.query = (t₁=[false, true], t₂=["a", "b"])
+    # First fit
+    query = (t₁=[true, false], t₂=[true, false])
+    Q̅ = ConstantClassifier()
+    G = FullCategoricalJoint(ConstantClassifier())
+    F = binaryfluctuation(query=query)
+    tmle = TMLEstimator(Q̅, G, F)
 
-    @test tmle.indicators == Dict(
-        (t₁ = 1, t₂ = "a") => -1,
-        (t₁ = 0, t₂ = "b") => -1,
-        (t₁ = 0, t₂ = "a") => 1,
-        (t₁ = 1, t₂ = "b") => 1
-    )
+    mach = machine(tmle, T, W, y)
+    fit!(mach, verbosity=0)
 
-    @test_throws ArgumentError tmle.indicators = Dict()
+    # Change the query, only Fluctuation and Report are refit
+    tmle.F.query = (t₁=[false, true], t₂=[true, false])
+    fit!(mach, verbosity=0)
+
+    fp = fitted_params(mach)
+    for m in fp.machines
+        if m.model isa Union{Fluctuation, TMLE.Report}
+            @test m.state == 2
+        else
+            @test m.state == 1
+        end
+    end
+
 end
+
 
 end;
 
