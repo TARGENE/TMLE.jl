@@ -112,7 +112,8 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 query = (T=[1, 0],)
 Q̅ = MLJ.DeterministicConstantRegressor()
 G = LogisticClassifier()
-tmle = TMLEstimator(Q̅, G, :continuous, query)
+F = continuousfluctuation(query=query)
+tmle = TMLEstimator(Q̅, G, F)
 ```
 
 Now, all there is to do is to fit the estimator:
@@ -197,7 +198,8 @@ stack = Stack(;metalearner=LogisticClassifier(),
 query = (t₁ = [1, 0], t₂ = [1, 0])
 Q̅ = stack
 G = FullCategoricalJoint(stack)
-tmle = TMLEstimator(Q̅, G, :binary, query)
+F = binaryfluctuation(query=query)
+tmle = TMLEstimator(Q̅, G, F)
 
 ```
 
