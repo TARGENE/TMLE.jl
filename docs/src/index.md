@@ -112,7 +112,7 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 query = (T=[1, 0],)
 Q̅ = MLJ.DeterministicConstantRegressor()
 G = LogisticClassifier()
-F = ContinuousFluctuation(query=query)
+F = continuousfluctuation(query=query)
 tmle = TMLEstimator(Q̅, G, F)
 ```
 
@@ -122,12 +122,21 @@ Now, all there is to do is to fit the estimator:
 mach = machine(tmle, T, W, y)
 fit!(mach)
 
-results = fitted_params(mach)
+all_results = fitted_params(mach)
 ```
 
-The `results` variable contains the estimate and the associated standard error. We can see 
-that even if one nuisance parameter is misspecified, the double robustness of TMLE
-enables correct estimation of our target.
+The `all_results` variable contains all results from the fit, including:
+- A fitresult for Q̅
+- A fitresult for G
+- A fitresult for F
+- A report R containing values for all: estimate, stderror and mean_inf_curve
+
+To can access the report values only by:
+
+```julia
+briefreport(mach)
+```
+We can see that even if one nuisance parameter is misspecified, the double robustness of TMLE enables correct estimation of our target.
 
 
 ### IATE
@@ -189,7 +198,7 @@ stack = Stack(;metalearner=LogisticClassifier(),
 query = (t₁ = [1, 0], t₂ = [1, 0])
 Q̅ = stack
 G = FullCategoricalJoint(stack)
-F = ContinuousFluctuation(query=query)
+F = binaryfluctuation(query=query)
 tmle = TMLEstimator(Q̅, G, F)
 
 ```
@@ -200,7 +209,7 @@ And fit it!
 mach = machine(tmle, T, W, y)
 fit!(mach)
 
-results = fitted_params(mach)
+briefreport(mach)
 ```
 
 

@@ -4,6 +4,8 @@ using Test
 using TMLE
 using MLJ
 
+LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
+
 
 @testset "Test interaction_combinations" begin
     # With 1 treatment variable
@@ -87,8 +89,9 @@ end
                     TMLE.adapt(T))
     fit!(Gmach, verbosity=0)
 
-    query = (t₁=["a", "b"],)
-    cov = TMLE.compute_covariate(Gmach, W, T, query)
+    indicators = TMLE.indicator_fns((t₁=["a", "b"],))
+
+    cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [1.75,
                  -3.5,
                  0.0,
@@ -109,8 +112,9 @@ end
                     T)
     fit!(Gmach, verbosity=0)
 
-    query = (t₁=[1, 0], t₂ = [1, 0])
-    cov = TMLE.compute_covariate(Gmach, W, T, query)
+    indicators = TMLE.indicator_fns((t₁=[1, 0], t₂ = [1, 0]))
+
+    cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [2.3333333333333335,
                  -3.5,
                  -3.5,
@@ -132,8 +136,9 @@ end
                     T)
     fit!(Gmach, verbosity=0)
 
-    query = (t₁=["a", "b"], t₂ = [1, 2], t₃ = [true, false])
-    cov = TMLE.compute_covariate(Gmach, W, T, query)
+    indicators = TMLE.indicator_fns((t₁=["a", "b"], t₂ = [1, 2], t₃ = [true, false]))
+
+    cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [0,
                   7.0,
                  -7,
@@ -180,6 +185,7 @@ end
          t₂=categorical([0, 0, 1, 0, 0, 1, 1, 1, 0, 0]))
     y = categorical([1, 1, 0, 0, 1, 0 , 1, 0, 0, 0])
     query = (t₁=[1, 0], t₂ = [1, 0])
+    indicators = TMLE.indicator_fns(query)
 
     # Fit encoder
     Hmach = machine(OneHotEncoder(features=[:t₁, :t₂], drop_last=true), T)
@@ -194,9 +200,9 @@ end
     fit!(Gmach, verbosity=0)
     # Fit Fluctuation
     offset = TMLE.compute_offset(Q̅mach, X)
-    covariate = TMLE.compute_covariate(Gmach, W, T, query)
+    covariate = TMLE.compute_covariate(Gmach, W, T, indicators)
     Xfluct = (covariate=covariate, offset=offset)
-    Fmach = machine(BinaryFluctuation(query=query), Xfluct, y)
+    Fmach = machine(binaryfluctuation(query=query), Xfluct, y)
     fit!(Fmach, verbosity=0)
 
     # We are using constant classifiers
@@ -224,17 +230,17 @@ end
     @test fluct ≈ repeat([expected_mean(3.333333)], n) atol=1e-5
 
     # Now look at the full counterfactual treatment
-    ct_fluct = TMLE.counterfactual_fluctuations(query, 
-                                                Fmach,
+    # This function is only available for nodes
+    ct_fluct = TMLE.counterfactual_fluctuations(Fmach,
                                                 Q̅mach,
                                                 Gmach,
                                                 Hmach,
-                                                W,
-                                                T)
+                                                source(W),
+                                                source(T))
     
     expected_ct_fluct = (expected_mean(5.) + expected_mean(3.333333)
                         -expected_mean(-3.333333)-expected_mean(-5.))
-    @test ct_fluct ≈ repeat([expected_ct_fluct], n) atol=1e-5
+    @test ct_fluct() ≈ repeat([expected_ct_fluct], n) atol=1e-5
 end
 
 

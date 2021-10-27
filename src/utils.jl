@@ -1,5 +1,12 @@
+###############################################################################
+## General Utilities
+###############################################################################
+
 logit(X) = log.(X ./ (1 .- X))
+logit(X::AbstractNode) = node(x->logit(x), X)
+
 expit(X) = 1 ./ (1 .+ exp.(-X))
+expit(X::AbstractNode) = node(x->expit(x), X)
 
 """
 Hack into GLM to compute deviance on y a real
@@ -13,6 +20,12 @@ Remove default check for y to be binary
 """
 GLM.checky(y, d::Bernoulli) = nothing
 
+Base.merge(ndt₁::AbstractNode, ndt₂::AbstractNode) = 
+    node((ndt₁, ndt₂) -> merge(ndt₁, ndt₂), ndt₁, ndt₂)
+
+fluctuation_input(covariate, offset) = (covariate=covariate, offset=offset)
+fluctuation_input(covariate::AbstractNode, offset::AbstractNode) =
+    node((c, o) -> fluctuation_input(c, o), covariate, offset)
 
 """
 
@@ -20,6 +33,7 @@ Adapts the type of the treatment variable passed to the G learner
 """
 adapt(T::NamedTuple{<:Any, NTuple{1, Z}}) where Z = T[1]
 adapt(T) = T
+adapt(T::AbstractNode) = node(adapt, T)
 
 ###############################################################################
 ## Interactions Generation
@@ -52,13 +66,17 @@ end
 
 
 ###############################################################################
-## Offset and covariate
+## Offset
 ###############################################################################
+
+target_prob(y) = y.prob_given_ref[2]
+target_prob(y::AbstractNode) = node(y->target_prob(y), y)
 
 function compute_offset(Q̅mach::Machine{<:Probabilistic}, X)
     # The machine is an estimate of a probability distribution
     # In the binary case, the expectation is assumed to be the probability of the second class
-    expectation = MLJ.predict(Q̅mach, X).prob_given_ref[2]
+    ŷ = MLJ.predict(Q̅mach, X)
+    expectation = target_prob(ŷ)
     return logit(expectation)
 end
 
@@ -67,35 +85,54 @@ function compute_offset(Q̅mach::Machine{<:Deterministic}, X)
     return MLJ.predict(Q̅mach, X)
 end
 
+###############################################################################
+## Covariate
+###############################################################################
 
-"""
-For each data point, computes: (-1)^(interaction-oder - j)
-Where j is the number of treatments different from the reference in the query.
-"""
-function compute_covariate(Gmach::Machine, W, T, query; verbosity=1)
-    threshold = 0.005
-    # Build the Indicator function dictionary
-    indicators = indicator_fns(query)
-    
-    # Compute the indicator value
+function indicator_values(indicators, T)
     covariate = zeros(nrows(T))
     for (i, row) in enumerate(Tables.namedtupleiterator(T))
         if haskey(indicators, row)
             covariate[i] = indicators[row]
         end
     end
+    covariate
+end
+indicator_values(indicators, T::AbstractNode) = 
+    node(t -> indicator_values(indicators, t), T)
 
-    # Compute density and truncate
-    d = density(Gmach, W, T)
 
+function plateau_likelihood(likelihood, threshold, verbosity)
+    likelihood = max.(threshold, likelihood)
     # Log indices for which p(T|W) < threshold as this indicates very rare events.
-    d = max.(threshold, d)
     if verbosity > 0
-        idx_under_threshold = findall(x -> x <= threshold, d)
+        idx_under_threshold = findall(x -> x <= threshold, likelihood)
         length(idx_under_threshold) > 0 && @info "p(T|W) evaluated under $threshold at indices: $idx_under_threshold"
     end
+    likelihood
+end
+
+plateau_likelihood(likelihood::AbstractNode, threshold, verbosity) = 
+    node(l -> plateau_likelihood(l, threshold, verbosity), likelihood)
+
+elemwise_divide(x, y) = x ./ y
+elemwise_divide(x::AbstractNode, y::AbstractNode) = 
+    node((x, y) -> elemwise_divide(x,y), x, y)
+
+"""
+For each data point, computes: (-1)^(interaction-oder - j)
+Where j is the number of treatments different from the reference in the query.
+"""
+function compute_covariate(Gmach::Machine, W, T, indicators; verbosity=1, threshold=0.005)
+    # Compute the indicator value
+    indic_vals = indicator_values(indicators, T)
+
+    # Compute density and truncate
+    likelihood = density(Gmach, W, T)
+
+    likelihood = plateau_likelihood(likelihood, threshold, verbosity)
     
-    return covariate ./ d
+    return elemwise_divide(indic_vals, likelihood)
 end
 
 
@@ -103,18 +140,36 @@ end
 ## Fluctuation
 ###############################################################################
 
+init_counterfactual_fluctuation(T::AbstractNode) =
+    node(t -> zeros(nrows(t)), T)
+
+
+function counterfactualTreatment(vals, T)
+    names = keys(vals)
+    n = nrows(T)
+    NamedTuple{names}(
+            [categorical(repeat([vals[name]], n), levels=levels(Tables.getcolumn(T, name)))
+                            for name in names])
+end
+counterfactualTreatment(vals, T::AbstractNode) =
+    node(t -> counterfactualTreatment(vals, t), T)
+
+
 function compute_fluctuation(Fmach::Machine, 
                              Q̅mach::Machine, 
                              Gmach::Machine, 
                              Hmach::Machine,
                              W, 
                              T; 
-                             verbosity=1)
+                             verbosity=1,
+                             threshold=0.005)
     Thot = transform(Hmach, T)
     X = merge(Thot, W)
     offset = compute_offset(Q̅mach, X)
-    cov = compute_covariate(Gmach, W, T, Fmach.model.query; verbosity=verbosity)
-    Xfluct = (covariate=cov, offset=offset)
+    covariate = compute_covariate(Gmach, W, T, Fmach.model.indicators; 
+                                    verbosity=verbosity,
+                                    threshold=threshold)
+    Xfluct = fluctuation_input(covariate, offset)
     return  MLJ.predict_mean(Fmach, Xfluct)
 end
 
@@ -132,29 +187,26 @@ If the order of Interaction is 2 with binary variables, this is:
  1/n ∑ [ Fluctuation(t₁=1, t₂=1, W=w) - Fluctuation(t₁=1, t₂=0, W=w)
         - Fluctuation(t₁=0, t₂=1, W=w) + Fluctuation(t₁=0, t₂=0, W=w)]
 """
-function counterfactual_fluctuations(query, 
-                                     Fmach,
-                                     Q̅mach,
-                                     Gmach,
-                                     Hmach,
+function counterfactual_fluctuations(Fmach::Machine,
+                                     Q̅mach::Machine,
+                                     Gmach::Machine,
+                                     Hmach::Machine,
                                      W,
                                      T; 
-                                     verbosity=1)
-    indicators = indicator_fns(query)
-    n = nrows(T)
-    ct_fluct = zeros(n)
-    for (ct, sign) in indicators 
-        names = keys(ct)
-        counterfactualT = NamedTuple{names}(
-            [categorical(repeat([ct[name]], n), levels=levels(Tables.getcolumn(T, name)))
-                            for name in names])
+                                     verbosity=1,
+                                     threshold=0.005)
+
+    ct_fluct = init_counterfactual_fluctuation(T)
+    for (vals, sign) in Fmach.model.indicators 
+        counterfactualT = counterfactualTreatment(vals, T)
         ct_fluct += sign*compute_fluctuation(Fmach, 
-                                Q̅mach, 
-                                Gmach, 
-                                Hmach,
-                                W, 
-                                counterfactualT; 
-                                verbosity=verbosity)
+                                             Q̅mach, 
+                                             Gmach, 
+                                             Hmach,
+                                             W, 
+                                             counterfactualT; 
+                                             verbosity=verbosity,
+                                             threshold=threshold)
     end
     return ct_fluct
 end

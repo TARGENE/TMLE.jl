@@ -78,7 +78,7 @@ end
     query = (T=["AA", "TT"],)
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = LogisticClassifier()
-    F = ContinuousFluctuation(query=query)
+    F = continuousfluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
@@ -94,7 +94,7 @@ end
     query = (T=["AA", "TT"],)
     Q̅ = LinearRegressor()
     G = ConstantClassifier()
-    F = ContinuousFluctuation(query=query)
+    F = continuousfluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
@@ -112,7 +112,7 @@ end
     query = (t=[true, false],)
     Q̅ = ConstantClassifier()
     G = LogisticClassifier()
-    F = BinaryFluctuation(query=query)
+    F = binaryfluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
@@ -128,7 +128,7 @@ end
     query = (t=[true, false],)
     Q̅ = LogisticClassifier()
     G = ConstantClassifier()
-    F = BinaryFluctuation(query=query)
+    F = binaryfluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
@@ -147,7 +147,7 @@ end
     query = (t=[true, false],)
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = LogisticClassifier()
-    F = ContinuousFluctuation(query=query)
+    F = continuousfluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
@@ -163,7 +163,7 @@ end
     query = (t=[true, false],)
     Q̅ = LinearRegressor()
     G = ConstantClassifier()
-    F = ContinuousFluctuation(query=query)
+    F = continuousfluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(

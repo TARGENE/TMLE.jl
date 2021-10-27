@@ -4,30 +4,35 @@ The query hyperparameter enables that the fit procedure will only re-fit
 this model when the query is changed. Indeed a top level hyper parameter would lead to 
 a re-fit of the whole TMLE procedure.
 
+# Arguments
+- glm: Union{LinearRegressor, LinearBinaryClassifier},
+- query: A NamedTuple defining the reference categories for the targeted step. For isntance, 
+query = (col₁=[true, false], col₂=["a", "b"]) defines the interaction 
+between col₁ and col₂ where (true, "a") are the `case` categories and (false, "b") are the control categories.
 """
 mutable struct Fluctuation <: MLJ.Model
-    glm
-    query
+    glm::Union{LinearRegressor, LinearBinaryClassifier}
+    query::Union{NamedTuple, Nothing}
+    indicators::Union{Dict, Nothing}
 
     function Fluctuation(glm, query)
         glm.offsetcol = :offset
-        new(glm, query)
+        glm.fit_intercept = false
+        indicators = query isa Nothing ? nothing : indicator_fns(query)
+        new(glm, query, indicators)
     end
 end
 
+continuousfluctuation(;query=nothing) = Fluctuation(LinearRegressor(), query)
+binaryfluctuation(;query=nothing) = Fluctuation(LinearBinaryClassifier(), query)
 
-function ContinuousFluctuation(;
-    glm=LinearRegressor(;fit_intercept=false),
-    query=nothing)
-    Fluctuation(glm, query)
-end
+function Base.setproperty!(model::Fluctuation, name::Symbol, x)
+    name == :indicators && throw(ArgumentError("This field must not be changed manually."))
+    name != :query && setfield!(model, name, x)
 
-
-function BinaryFluctuation(;
-    glm=LinearBinaryClassifier(fit_intercept=false),
-    query=nothing
-    )
-    Fluctuation(glm, query)
+    indicators = indicator_fns(x)
+    setfield!(model, :query, x)
+    setfield!(model, :indicators, indicators)
 end
 
 

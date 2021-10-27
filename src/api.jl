@@ -1,12 +1,21 @@
+mutable struct TMLEstimator <: MLJ.DeterministicComposite 
+    Q̅::MLJ.Supervised
+    G::MLJ.Supervised
+    F::Fluctuation
+    R::Report
+    threshold::Float64
+end
+
 """
-    TMLEstimator(Q̅, G, F)
+    TMLEstimator(Q̅, G, F, query; threshold=0.005)
 
-# Scope:
+Implements the Targeted Minimum Loss-Based Estimator introduced by
+van der Laan in https://pubmed.ncbi.nlm.nih.gov/22611591/. Two functionals of the 
+data generating distribution can currently be estimated:
 
-Implements the Targeted Minimum Loss-Based Estimator for the Interaction 
-Average Treatment Effect (IATE) defined by Beentjes and Khamseh in
-https://link.aps.org/doi/10.1103/PhysRevE.102.053314.
-For instance, The IATE is defined for two treatment variables as: 
+- The classic Average Treatment Effect (ATE)
+- The Interaction Average Treatment Effect (IATE) defined by Beentjes and Khamseh in
+https://link.aps.org/doi/10.1103/PhysRevE.102.053314. For instance, The IATE is defined for two treatment variables as: 
 
 IATE = E[E[Y|T₁=1, T₂=1, W=w] - E[E[Y|T₁=1, T₂=0, W=w]
         - E[E[Y|T₁=0, T₂=1, W=w] + E[E[Y|T₁=0, T₂=0, W=w]
@@ -25,23 +34,15 @@ curve equation.
 
 # Arguments:
 
-- Q̅::MLJ.Supervised : The learner to be used
-for E[Y|W, T]. Typically a `MLJ.Stack`.
-- G::MLJ.Supervised : The learner to be used
-for p(T|W). Typically a `MLJ.Stack`.
-- fluctuation_family::Distribution : This will be used to build the fluctuation 
-using a GeneralizedLinearModel. Typically `Normal` for a continuous target 
-and `Bernoulli` for a Binary target.
+- Q̅: A Supervised learner for E[Y|W, T]
+- G: A Supervised learner for p(T | W)
+- F: A Fluctuation, see continuousfluctuation, binaryfluctuation
 
-# Examples:
 
-TODO
+- threshold: p(T | W) is truncated to this value to avoid division overflows.
 """
-mutable struct TMLEstimator <: MLJ.Model 
-    Q̅::MLJ.Supervised
-    G::MLJ.Supervised
-    fluctuation::Fluctuation
-end
+TMLEstimator(Q̅, G, F; threshold=0.005) = 
+    TMLEstimator(Q̅, G, F, Report(), threshold)
 
 
 """
@@ -50,14 +51,50 @@ Let's default to no warnings for now.
 """
 MLJBase.check(model::TMLEstimator, args... ; full=false) = true
 
-pvalue(tmle::TMLEstimator, estimate, stderror) = 2*(1 - cdf(Normal(0, 1), abs(estimate/stderror)))
+"""
+    briefreport(m::Machine{TMLEstimator})
 
-confint(tmle::TMLEstimator, estimate, stderror) = (estimate - 1.96stderror, estimate + 1.96stderror)
+Returns the reported results, see Report.
+"""
+briefreport(m::Machine{TMLEstimator}) = fitted_params(m).R.fitresult
+
+"""
+    Distributions.estimate(m::Machine{TMLEstimator})
+
+Returns the estimated quantity from a fitted machines.
+"""
+Distributions.estimate(m::Machine{TMLEstimator}) = briefreport(m).estimate
+
+"""
+    Distributions.stderror(m::Machine{TMLEstimator})
+
+Returns the standard error associated with the estimate from a fitted machines. 
+"""
+Distributions.stderror(m::Machine{TMLEstimator}) = briefreport(m).stderror
+
+"""
+    pvalue(m::Machine{TMLEstimator})
+
+Computes the p-value associated with the estimated quantity.
+"""
+function pvalue(m::Machine{TMLEstimator})
+    res = briefreport(m)
+    return 2*(1 - cdf(Normal(0, 1), abs(res.estimate/res.stderror)))
+end
+
+"""
+    confinterval(m::Machine{TMLEstimator})
+
+Provides a 95% confidence interval for the true quantity of interest.
+"""
+function confinterval(m::Machine{TMLEstimator})
+    res = briefreport(m)
+    return (res.estimate - 1.96res.stderror, res.estimate + 1.96res.stderror)
+end
 
 ###############################################################################
 ## Fit
 ###############################################################################
-
 
 """
     MLJ.fit(tmle::TMLEstimator, 
@@ -71,64 +108,59 @@ function MLJ.fit(tmle::TMLEstimator,
                  T,
                  W, 
                  y::Union{CategoricalVector{Bool}, Vector{<:Real}})
+    Ts = source(T)
+    Ws = source(W)
+    ys = source(y)
+
     # Converting all tables to NamedTuples
-    T = NamedTuple{keys(tmle.fluctuation.query)}(Tables.columntable(T))
-    W = Tables.columntable(W)
-    intersect(keys(T), keys(W)) == [] || throw("T and W should have different column names")
+    T = node(t->NamedTuple{keys(tmle.F.query)}(Tables.columntable(t)), Ts)
+    W = node(w->Tables.columntable(w), Ws)
+    # intersect(keys(T), keys(W)) == [] || throw("T and W should have different column names")
 
     # Initial estimate of E[Y|T, W]:
     #   - The treatment variables are hot-encoded  
     #   - W and T are merged
     #   - The machine is implicitely fit
     Hmach = machine(OneHotEncoder(drop_last=true), T)
-    fit!(Hmach, verbosity=verbosity)
     Thot = transform(Hmach, T)
 
-    X = merge(Thot, W)
-    Q̅mach = machine(tmle.Q̅, X, y)
-    fit!(Q̅mach, verbosity=verbosity)
+    X = node((t, w) -> merge(t, w), Thot, W)
+    Q̅mach = machine(tmle.Q̅, X, ys)
 
     # Initial estimate of P(T|W)
     #   - T is converted to an Array
     #   - The machine is implicitely fit
     Gmach = machine(tmle.G, W, adapt(T))
-    fit!(Gmach, verbosity=verbosity)
 
     # Fluctuate E[Y|T, W] 
     # on the covariate and the offset 
     offset = compute_offset(Q̅mach, X)
-    covariate = compute_covariate(Gmach, W, T, tmle.fluctuation.query; verbosity=verbosity)
-    Xfluct = (covariate=covariate, offset=offset)
-    
-    Fmach = machine(tmle.fluctuation, Xfluct, y)
-    fit!(Fmach, verbosity=verbosity)
+    covariate = compute_covariate(Gmach, W, T, tmle.F.indicators; 
+                                    verbosity=verbosity,
+                                    threshold=tmle.threshold)
+    Xfluct = fluctuation_input(covariate, offset)
+
+    Fmach = machine(tmle.F, Xfluct, ys)
 
     # Compute the final estimate 
-    ct_fluct = counterfactual_fluctuations(tmle.fluctuation.query, 
-                                     Fmach,
-                                     Q̅mach,
-                                     Gmach,
-                                     Hmach,
-                                     W,
-                                     T;
-                                     verbosity=verbosity)
+    ct_fluct = counterfactual_fluctuations(Fmach,
+                                           Q̅mach,
+                                           Gmach,
+                                           Hmach,
+                                           W,
+                                           T;
+                                           verbosity=verbosity,
+                                           threshold=tmle.threshold)
 
-    estimate = mean(ct_fluct)
-
-    # Standard error from the influence curve
+    # Fit the Report
     observed_fluct = MLJ.predict_mean(Fmach, Xfluct)
-    inf_curve = covariate .* (float(y) .- observed_fluct) .+ ct_fluct .- estimate
 
-    fitresult = (
-    estimate=estimate,
-    stderror=sqrt(var(inf_curve)/nrows(y)),
-    mean_inf_curve=mean(inf_curve),
-    Q̅mach=Q̅mach,
-    Gmach=Gmach,
-    Fmach=Fmach
-    )
+    Rmach = machine(tmle.R, ct_fluct, observed_fluct, covariate, ys)
+    out = MLJ.predict(Rmach, ct_fluct)
 
-    cache = nothing
-    report = nothing
-    return fitresult, cache, report
+    mach = machine(Deterministic(), Ts, Ws, ys; predict=out)
+
+    return!(mach, tmle, verbosity)
 end
+
+

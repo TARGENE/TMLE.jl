@@ -1,7 +1,5 @@
 module TMLE
 
-using Tables: columnnames
-using Distributions: expectation
 using Tables
 using Distributions
 using CategoricalArrays
@@ -19,24 +17,27 @@ LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
 
 import MLJ.fit
 import MLJBase.check
+import Distributions.estimate
+import Distributions.stderror
 
 # #############################################################################
 # EXPORTS
 # #############################################################################
 
 export TMLEstimator
-export ContinuousFluctuation, BinaryFluctuation
+export Fluctuation, binaryfluctuation, continuousfluctuation
 export FullCategoricalJoint
 export fit
-export confint, pvalue
+export confinterval, pvalue, estimate, briefreport, stderror
 
 # #############################################################################
 # INCLUDES
 # #############################################################################
 
-include("utils.jl")
+include("report.jl")
 include("fluctuations.jl")
 include("api.jl")
 include("jointmodels.jl")
+include("utils.jl")
 
 end

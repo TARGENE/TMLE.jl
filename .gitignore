@@ -4,3 +4,4 @@
 *Manifest.toml
 /docs/build/
 build/
+sandbox.jl

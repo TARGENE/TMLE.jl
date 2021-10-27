@@ -180,34 +180,15 @@ function continuous_target_binary_treatment_pb(rng;n=100)
 end
 
 
-@testset "Test machine API" begin
-    query = (T₁=[true, false], T₂ = [true, false])
-    tmle = TMLEstimator(
-            LinearRegressor(),
-            FullCategoricalJoint(LogisticClassifier()),
-            ContinuousFluctuation(query=query)
-            )
-    T, W, y, _ = continuous_target_binary_treatment_pb(StableRNG(123);n=100)
-    # Fit with the machine
-    mach = machine(tmle, T, W, y)
-    fit!(mach, verbosity=0)
-    # Fit using basic API
-    fitresult, _, _ = TMLE.fit(tmle, 0, T, W, y)
-    @test fitresult.estimate == mach.fitresult.estimate
-    @test fitresult.stderror == mach.fitresult.stderror
-    @test fitresult.mean_inf_curve == mach.fitresult.mean_inf_curve
-end
-
 
 @testset "Test Double Robustness IATE on binary_target_binary_treatment_pb" begin
     # When Q̅ is misspecified but G is well specified
     query = (T₁=[true, false], T₂=[true, false])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(LogisticClassifier())
-    F = BinaryFluctuation(query=query)
+    F = binaryfluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
     
-
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
             binary_target_binary_treatment_pb,
@@ -221,7 +202,7 @@ end
     query = (T₁=[true, false], T₂=[true, false])
     Q̅ = cat_interacter
     G = FullCategoricalJoint(ConstantClassifier())
-    F = BinaryFluctuation(query=query)
+    F = binaryfluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
     
     abs_mean_rel_errors, abs_vars = asymptotics(
@@ -243,7 +224,7 @@ end
     query = (T₂=[true, false], T₁=[true, false])
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = FullCategoricalJoint(LogisticClassifier())
-    F = ContinuousFluctuation(query=query)
+    F = continuousfluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
@@ -259,7 +240,7 @@ end
     query = (T₁=[true, false], T₂=[true, false])
     Q̅ = cont_interacter
     G = FullCategoricalJoint(ConstantClassifier())
-    F = ContinuousFluctuation(query=query)
+    F = continuousfluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
     
     abs_mean_rel_errors, abs_vars = asymptotics(
@@ -279,7 +260,7 @@ end
     query = (T₁=["CC", "CG"], T₂=["AT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(LogisticClassifier())
-    F = BinaryFluctuation(query=query)
+    F = binaryfluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
@@ -295,7 +276,7 @@ end
     query = (T₁=["CC", "CG"], T₂=["AT", "AA"])
     Q̅ = cat_interacter
     G = FullCategoricalJoint(ConstantClassifier())
-    F = BinaryFluctuation(query=query)
+    F = binaryfluctuation(query=query)
     tmle = TMLEstimator(Q̅, G, F)
 
     abs_mean_rel_errors, abs_vars = asymptotics(

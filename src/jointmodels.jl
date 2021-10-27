@@ -7,16 +7,6 @@ mutable struct FullCategoricalJoint <: Supervised
     model
 end
 
-
-function encode(Y, encoding, levels)
-    y_multi = Vector{Int}(undef, nrows(Y))
-    for (i, row) in enumerate(Tables.namedtupleiterator(Y))
-        y_multi[i] = encoding[values(row)]
-    end
-    categorical(y_multi;levels=levels)
-end
-
-
 function MLJ.fit(model::FullCategoricalJoint, verbosity::Int, X, Y)
     # Define the Encoding
     joint_levels_it = Iterators.product((levels(Tables.getcolumn(Y, n)) 
@@ -35,10 +25,29 @@ MLJ.predict(model::FullCategoricalJoint, fitresult, Xnew) =
     MLJ.predict(model.model, fitresult.model_fitresult, Xnew)
 
 
+function encode(Y, encoding, levels)
+    y_multi = Vector{Int}(undef, nrows(Y))
+    for (i, row) in enumerate(Tables.namedtupleiterator(Y))
+        y_multi[i] = encoding[values(row)]
+    end
+    categorical(y_multi; levels=levels)
+end
+
+encode(Y, m::Machine{FullCategoricalJoint,}) = 
+    encode(Y, m.fitresult.encoding, m.fitresult.levels)
+encode(Y::AbstractNode, m::Machine{FullCategoricalJoint,}) =
+    node(y -> encode(y, m), Y)
+
+
+density(ŷ, y) = pdf.(ŷ, y)
+density(ŷ::AbstractNode, y::AbstractNode) = 
+    node((ŷ, y) -> density(ŷ, y), ŷ, y)
+
+
 function density(m::Machine{FullCategoricalJoint,}, X, Y)
-    ypred = MLJ.predict(m, X)
-    y_multi = encode(Y, m.fitresult.encoding, m.fitresult.levels)
-    pdf.(ypred, y_multi)
+    ŷ = MLJ.predict(m, X)
+    y_multi = encode(Y, m)
+    density(ŷ, y_multi)
 end
 
 """
@@ -46,6 +55,7 @@ Fallback for classic probablistic models used when
 the treatment is a single variable
 """
 function density(m::Machine, X, y)
-    ypred = MLJ.predict(m, X)
-    pdf.(ypred, adapt(y))
+    ŷ = MLJ.predict(m, X)
+    density(ŷ, adapt(y))
 end
+
