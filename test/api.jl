@@ -72,6 +72,8 @@ end
     @test res.mean_inf_curve ≈ -1.52e-8 atol=1e-2
 
     @test pvalue(mach) ≈ 0.23 atol=1e-2
+    # Left is 1/2 as estimate < 0
+    @test pvalue(mach, tail=:left) ≈ 0.115 atol=1e-3
     
     (lb, ub) = confinterval(mach)
     @test lb ≈ -4.18 atol=1e-2

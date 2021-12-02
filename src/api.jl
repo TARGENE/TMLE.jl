@@ -77,9 +77,20 @@ Distributions.stderror(m::Machine{TMLEstimator}) = briefreport(m).stderror
 
 Computes the p-value associated with the estimated quantity.
 """
-function pvalue(m::Machine{TMLEstimator})
+function pvalue(m::Machine{TMLEstimator}; tail=:both)
     res = briefreport(m)
-    return 2*(1 - cdf(Normal(0, 1), abs(res.estimate/res.stderror)))
+    x = res.estimate/res.stderror
+
+    dist = Normal(0, 1)
+    if tail == :both
+        min(2 * min(cdf(dist, x), ccdf(dist, x)), 1.0)
+    elseif tail == :left
+        cdf(dist, x)
+    elseif tail == :right
+        ccdf(dist, x)
+    else
+        throw(ArgumentError("tail=$(tail) is invalid"))
+    end
 end
 
 """
