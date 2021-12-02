@@ -51,26 +51,32 @@ Let's default to no warnings for now.
 """
 MLJBase.check(model::TMLEstimator, args... ; full=false) = true
 
+
+base_report(m::Machine{TMLEstimator}) = fitted_params(m).R.fitresult
+
 """
     briefreport(m::Machine{TMLEstimator})
 
 Returns the reported results, see Report.
 """
-briefreport(m::Machine{TMLEstimator}) = fitted_params(m).R.fitresult
+function briefreport(m::Machine{TMLEstimator}) 
+    base_results = base_report(m)
+    return (pval=pvalue(m), confint=confinterval(m), base_results...)
+end
 
 """
     Distributions.estimate(m::Machine{TMLEstimator})
 
 Returns the estimated quantity from a fitted machines.
 """
-Distributions.estimate(m::Machine{TMLEstimator}) = briefreport(m).estimate
+Distributions.estimate(m::Machine{TMLEstimator}) = base_report(m).estimate
 
 """
     Distributions.stderror(m::Machine{TMLEstimator})
 
 Returns the standard error associated with the estimate from a fitted machines. 
 """
-Distributions.stderror(m::Machine{TMLEstimator}) = briefreport(m).stderror
+Distributions.stderror(m::Machine{TMLEstimator}) = base_report(m).stderror
 
 """
     pvalue(m::Machine{TMLEstimator})
@@ -78,8 +84,7 @@ Distributions.stderror(m::Machine{TMLEstimator}) = briefreport(m).stderror
 Computes the p-value associated with the estimated quantity.
 """
 function pvalue(m::Machine{TMLEstimator}; tail=:both)
-    res = briefreport(m)
-    x = res.estimate/res.stderror
+    x = estimate(m)/stderror(m)
 
     dist = Normal(0, 1)
     if tail == :both
@@ -99,8 +104,9 @@ end
 Provides a 95% confidence interval for the true quantity of interest.
 """
 function confinterval(m::Machine{TMLEstimator})
-    res = briefreport(m)
-    return (res.estimate - 1.96res.stderror, res.estimate + 1.96res.stderror)
+    e = estimate(m)
+    s = stderror(m)
+    return (e - 1.96s, e + 1.96s)
 end
 
 ###############################################################################
