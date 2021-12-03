@@ -1,8 +1,9 @@
 mutable struct TMLEstimator <: MLJ.DeterministicComposite 
     Q̅::MLJ.Supervised
     G::MLJ.Supervised
-    F::Fluctuation
+    F::Union{LinearRegressor, LinearBinaryClassifier}
     R::Report
+    queries
     threshold::Float64
 end
 
@@ -36,61 +37,28 @@ curve equation.
 
 - Q̅: A Supervised learner for E[Y|W, T]
 - G: A Supervised learner for p(T | W)
-- F: A Fluctuation, see continuousfluctuation, binaryfluctuation
-
-
+- queries...: At least one query
 - threshold: p(T | W) is truncated to this value to avoid division overflows.
 """
-TMLEstimator(Q̅, G, F; threshold=0.005) = 
-    TMLEstimator(Q̅, G, F, Report(), threshold)
-
-
-"""
-
-Let's default to no warnings for now.
-"""
-MLJBase.check(model::TMLEstimator, args... ; full=false) = true
-
-"""
-    briefreport(m::Machine{TMLEstimator})
-
-Returns the reported results, see Report.
-"""
-briefreport(m::Machine{TMLEstimator}) = fitted_params(m).R.fitresult
-
-"""
-    Distributions.estimate(m::Machine{TMLEstimator})
-
-Returns the estimated quantity from a fitted machines.
-"""
-Distributions.estimate(m::Machine{TMLEstimator}) = briefreport(m).estimate
-
-"""
-    Distributions.stderror(m::Machine{TMLEstimator})
-
-Returns the standard error associated with the estimate from a fitted machines. 
-"""
-Distributions.stderror(m::Machine{TMLEstimator}) = briefreport(m).stderror
-
-"""
-    pvalue(m::Machine{TMLEstimator})
-
-Computes the p-value associated with the estimated quantity.
-"""
-function pvalue(m::Machine{TMLEstimator})
-    res = briefreport(m)
-    return 2*(1 - cdf(Normal(0, 1), abs(res.estimate/res.stderror)))
+function TMLEstimator(Q̅, G, queries...; threshold=0.005)
+    if Q̅ isa Probabilistic
+        F = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
+    elseif Q̅ isa Deterministic
+        F = LinearRegressor(fit_intercept=false, offsetcol = :offset)
+    end
+    TMLEstimator(Q̅, G, F, Report(), queries, threshold)
 end
 
-"""
-    confinterval(m::Machine{TMLEstimator})
 
-Provides a 95% confidence interval for the true quantity of interest.
 """
-function confinterval(m::Machine{TMLEstimator})
-    res = briefreport(m)
-    return (res.estimate - 1.96res.stderror, res.estimate + 1.96res.stderror)
+    briefreport(m::Machine{TMLEstimator}; tail=:both)
+
+Returns the reported results.
+"""
+function briefreport(m::Machine{TMLEstimator}; tail=:both)
+    queryreport(fitted_params(m).R, tail=tail)
 end
+
 
 ###############################################################################
 ## Fit
@@ -113,14 +81,13 @@ function MLJ.fit(tmle::TMLEstimator,
     ys = source(y)
 
     # Converting all tables to NamedTuples
-    T = node(t->NamedTuple{keys(tmle.F.query)}(Tables.columntable(t)), Ts)
+    T = node(t->NamedTuple{keys(tmle.queries[1])}(Tables.columntable(t)), Ts)
     W = node(w->Tables.columntable(w), Ws)
     # intersect(keys(T), keys(W)) == [] || throw("T and W should have different column names")
 
     # Initial estimate of E[Y|T, W]:
     #   - The treatment variables are hot-encoded  
     #   - W and T are merged
-    #   - The machine is implicitely fit
     Hmach = machine(OneHotEncoder(drop_last=true), T)
     Thot = transform(Hmach, T)
 
@@ -132,33 +99,42 @@ function MLJ.fit(tmle::TMLEstimator,
     #   - The machine is implicitely fit
     Gmach = machine(tmle.G, W, adapt(T))
 
-    # Fluctuate E[Y|T, W] 
-    # on the covariate and the offset 
     offset = compute_offset(Q̅mach, X)
-    covariate = compute_covariate(Gmach, W, T, tmle.F.indicators; 
-                                    verbosity=verbosity,
-                                    threshold=tmle.threshold)
-    Xfluct = fluctuation_input(covariate, offset)
+    # Loop over queries that will define
+    # new covariate values
+    outputs = []
+    for query in tmle.queries
+        indicators = indicator_fns(query)
+        # Fluctuate E[Y|T, W] 
+        # on the covariate and the offset 
+        covariate = compute_covariate(Gmach, W, T, indicators; 
+                                        verbosity=verbosity,
+                                        threshold=tmle.threshold)
+        Xfluct = fluctuation_input(covariate, offset)
+        Fmach = machine(tmle.F, Xfluct, ys)
+        observed_fluct = MLJ.predict_mean(Fmach, Xfluct)
 
-    Fmach = machine(tmle.F, Xfluct, ys)
+        # Compute the counterfactual fluctuation values
+        ct_fluct = counterfactual_fluctuations(Fmach,
+                                            Q̅mach,
+                                            Gmach,
+                                            Hmach,
+                                            indicators,
+                                            W,
+                                            T;
+                                            verbosity=verbosity,
+                                            threshold=tmle.threshold)
 
-    # Compute the final estimate 
-    ct_fluct = counterfactual_fluctuations(Fmach,
-                                           Q̅mach,
-                                           Gmach,
-                                           Hmach,
-                                           W,
-                                           T;
-                                           verbosity=verbosity,
-                                           threshold=tmle.threshold)
+        # Fit the Report
+        Rmach = machine(tmle.R, ct_fluct, observed_fluct, covariate, ys)
 
-    # Fit the Report
-    observed_fluct = MLJ.predict_mean(Fmach, Xfluct)
+        # This is actually empty but required
+        push!(outputs, MLJ.predict(Rmach, ct_fluct))
+    end
 
-    Rmach = machine(tmle.R, ct_fluct, observed_fluct, covariate, ys)
-    out = MLJ.predict(Rmach, ct_fluct)
+    outputs = hcat(outputs...)
 
-    mach = machine(Deterministic(), Ts, Ws, ys; predict=out)
+    mach = machine(Deterministic(), Ts, Ws, ys; predict=outputs)
 
     return!(mach, tmle, verbosity)
 end

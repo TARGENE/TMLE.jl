@@ -7,6 +7,7 @@ using StableRNGs
 using StatsBase
 using Distributions
 
+LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
 
 @testset "Test sub machines have been fitted correctly" begin
     rng = StableRNG(123)
@@ -19,9 +20,9 @@ using Distributions
     query = (t₁=["CC", "CG"], t₂=["AT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
-    F = binaryfluctuation(query=query)
+    F = LinearBinaryClassifier(fit_intercept=false, offsetcol=:offset)
 
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
 
     mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
@@ -55,28 +56,21 @@ end
     query = (t₁=["CC", "CG"], t₂=["AT", "AA"], t₃=["CC", "GG"], t₄=["TT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
-    F = binaryfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
 
     mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
 
     # Test the various api results functions
 
-    @test estimate(mach) ≈ -1.59 atol=1e-2
-    @test stderror(mach) ≈ 1.32 atol=1e-2
-
     res = briefreport(mach)
     @test res.estimate ≈ -1.59 atol=1e-2
     @test res.stderror ≈ 1.32 atol=1e-2
     @test res.mean_inf_curve ≈ -1.52e-8 atol=1e-2
-
-    @test pvalue(mach) ≈ 0.23 atol=1e-2
-    
-    (lb, ub) = confinterval(mach)
-    @test lb ≈ -4.18 atol=1e-2
-    @test ub ≈ 1.01 atol=1e-2
-
+    @test res.pvalue ≈ 0.23 atol=1e-2
+    confint = res.confint
+    @test confint[1] ≈ -4.18 atol=1e-2
+    @test confint[2] ≈ 1.01 atol=1e-2
 end
 
 
@@ -93,41 +87,6 @@ end
     indicators = TMLE.indicator_fns(query)
 
     @test_logs (:info, "p(T|W) evaluated under 0.005 at indices: [1001]") TMLE.compute_covariate(Gmach, W, T, indicators; verbosity=1)
-
-end
-
-@testset "Test partial refit when changing query" begin
-    n = 100
-    p = 3
-    W = MLJ.table(rand(n, p))
-    T = (
-        t₁=categorical(rand([true, false], n)),
-        t₂=categorical(rand([true, false], n)),
-    )
-    y = categorical(rand([true, false], n))
-
-    # First fit
-    query = (t₁=[true, false], t₂=[true, false])
-    Q̅ = ConstantClassifier()
-    G = FullCategoricalJoint(ConstantClassifier())
-    F = binaryfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
-
-    mach = machine(tmle, T, W, y)
-    fit!(mach, verbosity=0)
-
-    # Change the query, only Fluctuation and Report are refit
-    tmle.F.query = (t₁=[false, true], t₂=[true, false])
-    fit!(mach, verbosity=0)
-
-    fp = fitted_params(mach)
-    for m in fp.machines
-        if m.model isa Union{Fluctuation, TMLE.Report}
-            @test m.state == 2
-        else
-            @test m.state == 1
-        end
-    end
 
 end
 

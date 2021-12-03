@@ -8,6 +8,7 @@ logit(X::AbstractNode) = node(x->logit(x), X)
 expit(X) = 1 ./ (1 .+ exp.(-X))
 expit(X::AbstractNode) = node(x->expit(x), X)
 
+
 """
 Hack into GLM to compute deviance on y a real
 """
@@ -19,6 +20,12 @@ end
 Remove default check for y to be binary
 """
 GLM.checky(y, d::Bernoulli) = nothing
+
+"""
+
+Let's default to no warnings for now.
+"""
+MLJBase.check(model::TMLEstimator, args... ; full=false) = true
 
 Base.merge(ndt₁::AbstractNode, ndt₂::AbstractNode) = 
     node((ndt₁, ndt₂) -> merge(ndt₁, ndt₂), ndt₁, ndt₂)
@@ -34,6 +41,48 @@ Adapts the type of the treatment variable passed to the G learner
 adapt(T::NamedTuple{<:Any, NTuple{1, Z}}) where Z = T[1]
 adapt(T) = T
 adapt(T::AbstractNode) = node(adapt, T)
+
+###############################################################################
+## Reporting utilities
+###############################################################################
+
+function queryreport(br; tail=:both)
+    fitres = br.fitresult
+    pval = pvalue(fitres.estimate, fitres.stderror, tail=tail)
+    confint = confinterval(fitres.estimate, fitres.stderror)
+    (pvalue=pval, confint=confint, fitres...)
+end
+queryreport(br::Vector; tail=:both) =
+    [queryreport(x, tail=tail) for x in br]
+
+    """
+    pvalue(m::Machine{TMLEstimator})
+
+Computes the p-value associated with the estimated quantity.
+"""
+function pvalue(estimate, stderror; tail=:both)
+    x = estimate/stderror
+
+    dist = Normal(0, 1)
+    if tail == :both
+        min(2 * min(cdf(dist, x), ccdf(dist, x)), 1.0)
+    elseif tail == :left
+        cdf(dist, x)
+    elseif tail == :right
+        ccdf(dist, x)
+    else
+        throw(ArgumentError("tail=$(tail) is invalid"))
+    end
+end
+
+"""
+    confinterval(m::Machine{TMLEstimator})
+
+Provides a 95% confidence interval for the true quantity of interest.
+"""
+function confinterval(estimate, stderror)
+    return (estimate - 1.96stderror, estimate + 1.96stderror)
+end
 
 ###############################################################################
 ## Interactions Generation
@@ -159,6 +208,7 @@ function compute_fluctuation(Fmach::Machine,
                              Q̅mach::Machine, 
                              Gmach::Machine, 
                              Hmach::Machine,
+                             indicators,
                              W, 
                              T; 
                              verbosity=1,
@@ -166,7 +216,7 @@ function compute_fluctuation(Fmach::Machine,
     Thot = transform(Hmach, T)
     X = merge(Thot, W)
     offset = compute_offset(Q̅mach, X)
-    covariate = compute_covariate(Gmach, W, T, Fmach.model.indicators; 
+    covariate = compute_covariate(Gmach, W, T, indicators; 
                                     verbosity=verbosity,
                                     threshold=threshold)
     Xfluct = fluctuation_input(covariate, offset)
@@ -191,18 +241,20 @@ function counterfactual_fluctuations(Fmach::Machine,
                                      Q̅mach::Machine,
                                      Gmach::Machine,
                                      Hmach::Machine,
+                                     indicators,
                                      W,
                                      T; 
                                      verbosity=1,
                                      threshold=0.005)
 
     ct_fluct = init_counterfactual_fluctuation(T)
-    for (vals, sign) in Fmach.model.indicators 
+    for (vals, sign) in indicators 
         counterfactualT = counterfactualTreatment(vals, T)
         ct_fluct += sign*compute_fluctuation(Fmach, 
                                              Q̅mach, 
                                              Gmach, 
                                              Hmach,
+                                             indicators,
                                              W, 
                                              counterfactualT; 
                                              verbosity=verbosity,
