@@ -186,8 +186,7 @@ end
     query = (T₁=[true, false], T₂=[true, false])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(LogisticClassifier())
-    F = binaryfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
     
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -202,8 +201,7 @@ end
     query = (T₁=[true, false], T₂=[true, false])
     Q̅ = cat_interacter
     G = FullCategoricalJoint(ConstantClassifier())
-    F = binaryfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
     
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -224,8 +222,7 @@ end
     query = (T₂=[true, false], T₁=[true, false])
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = FullCategoricalJoint(LogisticClassifier())
-    F = continuousfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -240,8 +237,7 @@ end
     query = (T₁=[true, false], T₂=[true, false])
     Q̅ = cont_interacter
     G = FullCategoricalJoint(ConstantClassifier())
-    F = continuousfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
     
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -260,8 +256,7 @@ end
     query = (T₁=["CC", "CG"], T₂=["AT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(LogisticClassifier())
-    F = binaryfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -276,8 +271,7 @@ end
     query = (T₁=["CC", "CG"], T₂=["AT", "AA"])
     Q̅ = cat_interacter
     G = FullCategoricalJoint(ConstantClassifier())
-    F = binaryfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 

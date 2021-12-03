@@ -78,8 +78,7 @@ end
     query = (T=["AA", "TT"],)
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = LogisticClassifier()
-    F = continuousfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -94,8 +93,7 @@ end
     query = (T=["AA", "TT"],)
     Q̅ = LinearRegressor()
     G = ConstantClassifier()
-    F = continuousfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -112,8 +110,7 @@ end
     query = (t=[true, false],)
     Q̅ = ConstantClassifier()
     G = LogisticClassifier()
-    F = binaryfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -128,8 +125,7 @@ end
     query = (t=[true, false],)
     Q̅ = LogisticClassifier()
     G = ConstantClassifier()
-    F = binaryfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -147,8 +143,7 @@ end
     query = (t=[true, false],)
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = LogisticClassifier()
-    F = continuousfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -163,8 +158,7 @@ end
     query = (t=[true, false],)
     Q̅ = LinearRegressor()
     G = ConstantClassifier()
-    F = continuousfluctuation(query=query)
-    tmle = TMLEstimator(Q̅, G, F)
+    tmle = TMLEstimator(Q̅, G, query)
 
     abs_mean_rel_errors, abs_vars = asymptotics(
             tmle,                                 
@@ -175,6 +169,27 @@ end
     @test all(abs_mean_rel_errors .< [14.8, 5.4, 2.3, 0.9])
     @test all(abs_vars .< [0.04, 0.004, 0.0008, 0.0002])
 end
+
+@testset "Test multi-queries" begin
+    queries = [(t=[true, false],), (t=[false, true],)]
+
+    Q̅ = ConstantClassifier()
+    G = LogisticClassifier()
+    tmle = TMLEstimator(Q̅, G, queries...)
+
+    t, W, y, ATE = binary_target_binary_treatment_pb(StableRNG(123);n=1000)
+
+    mach = machine(tmle, t, W, y)
+    fit!(mach, verbosity=0)
+
+    result = briefreport(mach)
+
+    @test result[1].estimate ≈ - result[2].estimate atol=1e-5
+    @test result[1].pvalue ≈ result[2].pvalue atol=1e-5
+    @test result[1].mean_inf_curve ≈ - result[2].mean_inf_curve atol=1e-5
+
+end
+
 
 end;
 
