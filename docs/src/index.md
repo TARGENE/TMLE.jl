@@ -137,9 +137,9 @@ The content of the brief report is:
 
 Note that the effect treatment value appears in the first position in the query (for instance CG is first compared to GG which is the reference).
 
-## Tutorial
+## Tutorials
 
-We will now see the high level interface offered here. For those examples, we will need the following packages:
+For those examples, we will need the following packages:
 
 ```julia
 using Random
@@ -152,7 +152,7 @@ expit(X) = 1 ./ (1 .+ exp.(-X))
 
 ### ATE
 
-Let's consider the following example:
+Let's consider the following example for the ATE parameter:
 
 - W = [W_1, W_2, W_3] is a set of binary confounding variables, ``W \sim Bernoulli(0.5)``
 - T is a Binary variable, ``p(T=1|W=w) = \text{expit}(0.5W_1 + 1.5W_2 - W_3)``
@@ -176,20 +176,15 @@ T = (T=categorical(t),)
 
 We need to define 2 estimators for the nuisance parameters, usually this is 
 done using the [Stack](https://alan-turing-institute.github.io/MLJ.jl/dev/model_stacking/#Model-Stacking) 
-but here because we know the generating process we can cheat a bit. We will use a Logistic Classifier for p(T|W) and a Constant Regressor
-for p(Y|W, T). This means one estimator is well specified and the other not. 
-The target is continuous thus we will use a Linear regression model 
-for the fluctuation. This is done by specifying a Normal distribution for the 
-Generalized Linear Model.
+but here because we know the generating process we can cheat a bit. We will use a Logistic Classifier for p(T|W) and a Constant Regressor for p(Y|W, T). This means one estimator is well specified and the other not.
 
 ```julia
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 
 query = (T=[1, 0],)
-Q̅ = MLJ.DeterministicConstantRegressor()
+Q = MLJ.DeterministicConstantRegressor()
 G = LogisticClassifier()
-F = continuousfluctuation(query=query)
-tmle = TMLEstimator(Q̅, G, F)
+tmle = TMLEstimator(Q̅, G, query)
 ```
 
 Now, all there is to do is to fit the estimator:
@@ -201,24 +196,22 @@ fit!(mach)
 all_results = fitted_params(mach)
 ```
 
-The `all_results` variable contains all results from the fit, including:
-- A fitresult for Q̅
+The `fitted_params` function gives access to a `NamedTuple` that contains all results from the fit, including:
+- A fitresult for Q
 - A fitresult for G
-- A fitresult for F
+- A fitresult for the fluctuation denoted F
 - A report R containing values for all: estimate, stderror and mean_inf_curve
 
-To can access the report values only by:
+A simplified way to access the report values only is using `briefreport`:
 
 ```julia
 briefreport(mach)
 ```
 We can see that even if one nuisance parameter is misspecified, the double robustness of TMLE enables correct estimation of our target.
 
-
 ### IATE
 
-The IATE measures the effect of interacting causes on a target variable, 
-In this case, the treatment variable T is a vector, for instance for two treatments T=(T_1, T_2).
+In this case, the treatment variable T is a vector, for instance for two treatments T=(T_1, T_2) but it can accomodate for any dimensionality of T.
 
 Let's consider the following example for which again the IATE is known:
 
@@ -273,9 +266,7 @@ stack = Stack(;metalearner=LogisticClassifier(),
 query = (t₁ = [1, 0], t₂ = [1, 0])
 Q̅ = stack
 G = FullCategoricalJoint(stack)
-F = binaryfluctuation(query=query)
-tmle = TMLEstimator(Q̅, G, F)
-
+tmle = TMLEstimator(Q̅, G, query)
 ```
 
 And fit it!
@@ -287,7 +278,50 @@ fit!(mach)
 briefreport(mach)
 ```
 
+### Multiple queries
 
+We have seen that we need to estimate nuisance parameters as well as possible and this is usually where the performance bottleneck lies because we are using stacking and many learning algorithms. We might also be interested in multiple questions all related to the same dataset setting. In such a situation, nuisance parameters can be estimated only once while
+providing multiple queries. Only the fluctuation step will happen multiple times.
+
+Let's take the [genetic example](#quick-start) once again but assume we are interested in 3 queries (many more combinations exist for this dataset)!
+
+```julia
+using TMLE
+using MLJ
+
+# Loading models
+LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
+LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
+
+# Generating fake data
+n = 1000
+T = (
+    t₁=categorical(rand(["CG", "GG", "CC"], n)), 
+    t₂=categorical(rand(["TT", "TA", "AA"], n))
+)
+W = MLJ.table(rand(n, 3))
+y = rand(n)
+
+# Defining the TMLE
+queries = [
+    (t₁=["CG", "GG"], t₂=["TT", "TA"]),
+    (t₁=["GG", "CG"], t₂=["TT", "TA"]),
+    (t₁=["CG", "GG"], t₂=["TT", "AA"])
+]
+
+Q = LinearRegressor()
+G = FullCategoricalJoint(LogisticClassifier())
+tmle = TMLEstimator(Q, G, queries...)
+
+# Fitting
+mach = machine(tmle, T, W, y)
+fit!(mach)
+
+# Report
+briefreport(mach)
+```
+
+The report is now a vector of `NamedTuple` as described in [the getting started section](#quick-start).
 ## API 
 
 
