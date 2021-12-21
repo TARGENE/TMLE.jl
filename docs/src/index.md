@@ -6,7 +6,8 @@ CurrentModule = TMLE
 
 The purpose of this package is to provide convenience methods for 
 Targeted Minimum Loss-Based Estimation (TMLE). TMLE is a framework for
-efficient estimation that was first proposed by Van der Laan et al in 2006.
+efficient estimation that was first proposed by Van der Laan et al in 2006. If you want to go beyond 
+misspecified models like linear regressions models that provide no theoretical guarantees you are in the right place.
 If you are new to TMLE, this [review paper](https://www.hindawi.com/journals/as/2014/502678/) 
 gives a nice overview to the field. Because TMLE requires nuisance parameters 
 to be learnt by machine learning algorithms, this package is built on top of 
@@ -32,38 +33,113 @@ Please feel free to fill an issue if you want to report any bug
 or want to have additional features part of the package. 
 Contributing is also welcome.
 
-## Tutorials
+## Introduction and Scope of the package
 
-This package is built on top of MLJ, if you are new to the MLJ framework, 
-please refer first to their [documentation](https://alan-turing-institute.github.io/MLJ.jl/dev/).
-
-Currently, two parameters of the generating distribution are available for estimation, the
-Average Treatment Effect (ATE) and the Interaction Average 
-Treatment Effect (IATE). For both quantities, a graphical representation of the 
-underlying causal model in presented bellow.
+Efficient estimation is particularly well suited for the estimation of causal effects and thus most of the TMLE 
+literature has focused on parameters that have a causal interpretation under suitable assumptions. In what follows, 
+the following common causal graph is assumed:
 
 ```@raw html
 <img src="assets/causal_model.png" alt="Causal Model" style="width:400px;"/>
 ```
 
-TMLE is a two steps procedure, it first starts by estimating nuisance 
-parameters that will be used to build the final estimator. They are called nuisance parameters
-because they are required for estimation but are not our target quantity of interest. 
-For both the ATE and IATE, the nuisance parameters that require a learning algorithm are:
+This graph encodes a factorization of the joint probability distribution:
 
-- The conditional extectation of the target 
-- The conditional density of the treatment
+```math
+P(T, W, Y) = P(Y|T, W)P(T|W)P(W)
+```
 
-They are typically estimated by stacking which is built into MLJ
-and you can find more information about it [here](https://alan-turing-institute.github.io/MLJ.jl/dev/composing_models/#Model-Stacking). Stacking is not compulsory however and any model 
+Currently, two parameters of the generating distribution are available for estimation.
+### The ATE
+
+The Average Treatment Effect (ATE) is the average additive effect of a treatment among a population. 
+It can be analytically computed as:
+
+```math
+ATE = E_W[E[Y|T=1, W]] - E_W[E[Y|T=0, W]]
+```
+
+### The IATE
+
+The Interaction Average Treatment Effect (IATE) is the counterpart to the ATE when there are potentially 
+multiple interacting treatments. It was generally defined by Beentjes and Khamseh [in this paper](https://link.aps.org/doi/10.1103/PhysRevE.102.053314) and the formula for 2 treatments can be reduced to:
+
+```math
+IATE = E_W[E[Y|T_1=1, T_2=1, W]] - E_W[E[Y|T_1=1, T_2=0, W]] - E_W[E[Y|T_1=0, T_2=1, W]] + E_W[E[Y|T_1=0, T_2=0, W]] 
+```
+
+### TMLE
+
+As you can see, those two formula are very similar and can be leveraged for estimation. We can see that two
+intermediate quantities that will be required are: the conditional expectation of the target given the treatment
+and the confounders``Q(t, w) = E[Y|T=t, W=w]`` and the density of the confounders ``G(t, w) = p(T=t|W=w)``.
+TMLE is a two steps procedure, it first starts by estimating those two quantities that are termed nuisance parameters. They are called nuisance parameters because they are required for estimation but are not our target quantity of interest. 
+
+At this point, any function estimator (machine learning method) can be used for each of the nuisance parameter. However, because we want to endow our estimation strategy with guarantees it has been shown that it is optimal to use stacking which is a ensemble method based on cross validation. Stacking is built into MLJ
+and you can find more information about it [here](https://alan-turing-institute.github.io/MLJ.jl/dev/composing_models/#Model-Stacking). Stacking is not compulsory, and any model 
 respecting the [MLJ Interface](https://github.com/JuliaAI/MLJModelInterface.jl) should work out of the box.
 
-In the second stage, TMLE fluctuates a nuisance parameter using a parametric model in order to
-solve the efficient influence curve equation. For now, this is done via a 
-Generalized Linear model and the nuisance parameter which is fluctuated is the
-conditional extectation of the target variable.
+In the second stage, TMLE fluctuates a nuisance parameter using a parametric sub-model in order to
+solve the efficient influence curve equation. A first benefit of this approach is that it is doubly robust, this means that only one nuisance parameter need to be consistently estimated for the full procedure to be consistent itself. Another advantage is that the estimator is asymptotically normal which means we can easily compute confidence intervals and p-values.
 
-For those examples, we will need the following packages:
+## Quick Start
+
+Let's assume we have a dataset (T, W, y) where T is a set of 2 treatment variables confounded by W and for which we want to estimate the interaction effect on y. As discussed above we need to specify two learning algorithms for the suisance parameters:
+
+- Q: A learning algorithm for ``Q(t, w)``. For simplicity, a linear regression because Y is continuous but stacking is preferred.
+- G: A learning algorithm for ``G(t, w)``, here a logistic regression, again stacing is preferred. Note that T is a random vector, we thus need to estimate the joint density over ``T=(T_1,T_2)``. For this purpose, a wrapper `FullCategoricalJoint` is provided. It will encode all combinations of ``T_1, T_2`` into a single variable and use the underlying model to estimate the density.
+
+Finally, we are asking a specific question. Let's be a bit more specific and say the interaction effect of both:
+- replacing one G for a C in a homozygous person G at locus ``L_1``
+- replacing another T for a A in a heterozygous person TA at locus ``L_2``
+
+This is embodied by a `query` which is simply a `NamedTuple`.
+
+We are now ready to run the estimation as described in the following example (Requires `add MLJLinearModels`):
+
+```julia
+using TMLE
+using MLJ
+
+# Loading models
+LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
+LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
+
+# Generating fake data
+n = 1000
+T = (
+    t₁=categorical(rand(["CG", "GG", "CC"], n)), 
+    t₂=categorical(rand(["TT", "TA", "AA"], n))
+)
+W = MLJ.table(rand(n, 3))
+y = rand(n)
+
+# Defining the TMLE
+query = (t₁=["CG", "GG"], t₂=["TT", "TA"])
+Q = LinearRegressor()
+G = FullCategoricalJoint(LogisticClassifier())
+tmle = TMLEstimator(Q, G, query)
+
+# Fitting
+mach = machine(tmle, T, W, y)
+fit!(mach)
+
+# Report
+briefreport(mach)
+```
+
+The content of the brief report is:
+- pvalue: The p-value
+- confint: A 95% confidence interval around the estimated quantity
+- estimate: An estimate of the quantity of interest
+- stderror: The estimate of the standard error
+- mean_inf_curve: The empirical mean of the influence curve
+
+Note that the effect treatment value appears in the first position in the query (for instance CG is first compared to GG which is the reference).
+
+## Tutorial
+
+We will now see the high level interface offered here. For those examples, we will need the following packages:
 
 ```julia
 using Random
@@ -141,8 +217,7 @@ We can see that even if one nuisance parameter is misspecified, the double robus
 
 ### IATE
 
-The IATE measures the effect of interacting causes on a target variable, it was 
-defined by Beentjes and Khamseh [in this paper](https://link.aps.org/doi/10.1103/PhysRevE.102.053314).
+The IATE measures the effect of interacting causes on a target variable, 
 In this case, the treatment variable T is a vector, for instance for two treatments T=(T_1, T_2).
 
 Let's consider the following example for which again the IATE is known:
