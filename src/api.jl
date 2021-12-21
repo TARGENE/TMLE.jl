@@ -70,6 +70,8 @@ end
                  T,
                  W, 
                  y::Union{CategoricalVector{Bool}, Vector{<:Real}}
+
+As per all MLJ inputs, T and W should respect the Tables.jl interface.
 """
 function MLJ.fit(tmle::TMLEstimator, 
                  verbosity::Int, 

@@ -135,7 +135,9 @@ The content of the brief report is:
 - stderror: The estimate of the standard error
 - mean_inf_curve: The empirical mean of the influence curve
 
-Note that the effect treatment value appears in the first position in the query (for instance CG is first compared to GG which is the reference).
+Side Notes:
+- The effect treatment value appears in the first position in the query (for instance CG is first compared to GG which is the reference).
+- As per all MLJ inputs, T and W should respect the [Tables.jl](https://github.com/JuliaData/Tables.jl) interface
 
 ## Tutorials
 
