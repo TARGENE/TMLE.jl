@@ -1,12 +1,17 @@
 """
     FullCategoricalJoint(model)
 
-A thin wrapper around a classifier.
+A thin wrapper around a classifier to fit a full categorical joint distribution.
 """
 mutable struct FullCategoricalJoint <: Supervised
     model
 end
 
+"""
+    MLJ.fit(model::FullCategoricalJoint, verbosity::Int, X, Y)
+
+X and Y should respect the Tables.jl interface.
+"""
 function MLJ.fit(model::FullCategoricalJoint, verbosity::Int, X, Y)
     # Define the Encoding
     joint_levels_it = Iterators.product((levels(Tables.getcolumn(Y, n)) 
