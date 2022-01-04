@@ -95,15 +95,13 @@ function MLJ.fit(tmle::TMLEstimator,
     # new covariate values
     reported = []
     predicted = []
+    extreme_propensity = nothing
     for (i, query) in enumerate(tmle.queries)
         indicators = indicator_fns(query)
         covariate = compute_covariate(Gmach, W, T, indicators; 
                                       threshold=tmle.threshold)
         # Log extreme values
-        # if verbosity > 0
-        #     idx_under_threshold = findall(x -> x <= threshold, likelihood)
-        #     length(idx_under_threshold) > 0 && @info "p(T|W) evaluated under $threshold at indices: $idx_under_threshold"
-        # end
+        extreme_propensity = log_over_threshold(covariate, tmle.threshold)
 
         # Fluctuate E[Y|T, W] 
         # on the covariate and the offset 
@@ -132,8 +130,10 @@ function MLJ.fit(tmle::TMLEstimator,
 
     predicted = hcat(predicted...)
 
-    mach = machine(Deterministic(), Ts, Ws, ys; predict=predicted, report=merge(reported...))
-
+    mach = machine(Deterministic(), Ts, Ws, ys; 
+            predict=predicted, 
+            report=(extreme_propensity_idx=extreme_propensity, merge(reported...)...)
+    )
     return!(mach, tmle, verbosity)
 end
 

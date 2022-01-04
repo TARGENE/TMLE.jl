@@ -49,6 +49,10 @@ adapt(T) = T
 adapt(T::AbstractNode) = node(adapt, T)
 
 
+function log_over_threshold(covariate::Node, threshold)
+    node(cov -> findall(x -> x >= 1/threshold, cov), covariate)
+end
+
 ###############################################################################
 ## Interactions Generation
 ###############################################################################

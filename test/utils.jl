@@ -3,9 +3,12 @@ module TestUtils
 using Test
 using TMLE
 using MLJ
+using StableRNGs
+using Distributions
 
 LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
-LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
+LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
+LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 
 @testset "Test expected_value & maybelogit" begin
     n = 100
@@ -264,7 +267,23 @@ end
 
 end
 
+@testset "Test log_over_threshold" begin
+    n = 10000
+    rng = StableRNG(123)
+    T = (t=categorical(rand(rng, Bernoulli(0.001), n)),)
+    W = MLJ.table(rand(rng, n, 3))
+    y = rand(rng, n)
 
+    query = (t=[true, false],)
+
+    Q̅ = LinearRegressor()
+    G = LogisticClassifier()
+    tmle = TMLEstimator(Q̅, G, query)
+
+    mach = machine(tmle, T, W, y)
+    fit!(mach, verbosity=0)
+    @test length(report(mach).extreme_propensity_idx) == 12
+end
 end;
 
 true
