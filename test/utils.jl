@@ -5,7 +5,40 @@ using TMLE
 using MLJ
 
 LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
+LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
 
+@testset "Test expected_value & maybelogit" begin
+    n = 100
+    X = MLJ.table(rand(n, 3))
+
+    # Probabilistic Classifier
+    y = categorical(rand([0, 1], n))
+    mach = machine(ConstantClassifier(), X, y)
+    fit!(mach; verbosity=0)
+    proba = mach.fitresult[2][2]
+    ŷ = predict(mach)
+    expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    @test expectation == repeat([proba], n)
+    @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == TMLE.logit(expectation)
+
+    # Probabilistic Regressor
+    y = rand(n)
+    mach = machine(ConstantRegressor(), X, y)
+    fit!(mach; verbosity=0)
+    ŷ = predict(mach)
+    expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    @test expectation ≈ repeat([mean(y)], n) atol=1e-10
+    @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == expectation
+
+    # Deterministic Regressor
+    mach = machine(LinearRegressor(), X, y)
+    fit!(mach; verbosity=0)
+    ŷ = predict(mach)
+    expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    @test expectation == ŷ
+    @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == expectation
+
+end
 
 @testset "Test interaction_combinations" begin
     # With 1 treatment variable

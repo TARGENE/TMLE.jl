@@ -115,25 +115,27 @@ end
 ###############################################################################
 ## Offset
 ###############################################################################
+expected_value(ŷ, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:Finite}}) = pdf.(ŷ, levels(first(ŷ))[2])
+expected_value(ŷ::AbstractNode, t::Type{<:Probabilistic}, s::Type{<:AbstractArray{<:Finite}}) = 
+    node(ŷ->expected_value(ŷ, t, s), ŷ)
 
-target_prob(y) = y.prob_given_ref[2]
-target_prob(y::AbstractNode) = node(y->target_prob(y), y)
+expected_value(ŷ, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:MLJ.Continuous}}) = mean.(ŷ)
+expected_value(ŷ::AbstractNode, t::Type{<:Probabilistic}, s::Type{<:AbstractArray{<:MLJ.Continuous}}) = 
+    node(ŷ->expected_value(ŷ, t, s), ŷ)
 
+expected_value(ŷ, ::Type{<:Deterministic}, ::Type{<:AbstractArray{<:MLJ.Continuous}}) = ŷ
+expected_value(ŷ::AbstractNode, t::Type{<:Deterministic}, s::Type{<:AbstractArray{<:MLJ.Continuous}}) = 
+    node(ŷ->expected_value(ŷ, t, s), ŷ)
 
-compute_offset(Q̅mach::Machine{<:Deterministic}, X) = expected_value(Q̅mach, X)
-function compute_offset(Q̅mach::Machine{<:Probabilistic}, X)
-    expectation = expected_value(Q̅mach, X)
-    return logit(expectation)
+maybelogit(x, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:Finite}}) = logit(x)
+maybelogit(x, _, _) = x
+
+function compute_offset(mach::Machine, X)
+    ŷ = MLJ.predict(mach, X)
+    expectation = expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    return maybelogit(expectation, typeof(mach.model), target_scitype(mach.model))
 end
 
-
-expected_value(Q̅mach::Machine{<:Deterministic}, X) = MLJ.predict(Q̅mach, X)
-function expected_value(Q̅mach::Machine{<:Probabilistic}, X) 
-    # The machine is an estimate of a probability distribution
-    # In the binary case, the expectation is assumed to be the probability of the second class
-    ŷ = MLJ.predict(Q̅mach, X)
-    return target_prob(ŷ)
-end
 
 ###############################################################################
 ## Covariate
@@ -255,7 +257,10 @@ function estimation_report(Fmach::Machine,
         counterfactualT = counterfactualTreatment(vals, T)
         Thot = transform(Hmach, counterfactualT)
         X = merge(Thot, W)
-        initial_ct_agg += sign*expected_value(Q̅mach, X)
+
+        initial_expectation = expected_value(MLJ.predict(Q̅mach, X), typeof(Q̅mach.model), target_scitype(Q̅mach.model))
+        initial_ct_agg += sign*initial_expectation
+        
         tmle_ct_agg += sign*compute_fluctuation(Fmach, 
                     Q̅mach, 
                     Gmach,
