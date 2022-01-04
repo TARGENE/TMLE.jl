@@ -27,14 +27,14 @@ import Distributions.stderror
 export TMLEstimator
 export FullCategoricalJoint
 export fit
-export briefreport
+export summaries
 
 # #############################################################################
 # INCLUDES
 # #############################################################################
 
+include("model.jl")
 include("report.jl")
-include("api.jl")
 include("jointmodels.jl")
 include("utils.jl")
 

@@ -125,7 +125,7 @@ mach = machine(tmle, T, W, y)
 fit!(mach)
 
 # Report
-briefreport(mach)
+summaries(mach)
 ```
 
 The content of the brief report is:
@@ -204,10 +204,10 @@ The `fitted_params` function gives access to a `NamedTuple` that contains all re
 - A fitresult for the fluctuation denoted F
 - A report R containing values for all: estimate, stderror and mean_inf_curve
 
-A simplified way to access the report values only is using `briefreport`:
+A simplified way to access the report values only is using `summaries`:
 
 ```julia
-briefreport(mach)
+summaries(mach)
 ```
 We can see that even if one nuisance parameter is misspecified, the double robustness of TMLE enables correct estimation of our target.
 
@@ -277,7 +277,7 @@ And fit it!
 mach = machine(tmle, T, W, y)
 fit!(mach)
 
-briefreport(mach)
+summaries(mach)
 ```
 
 ### Multiple queries
@@ -320,7 +320,7 @@ mach = machine(tmle, T, W, y)
 fit!(mach)
 
 # Report
-briefreport(mach)
+summaries(mach)
 ```
 
 The report is now a vector of `NamedTuple` as described in [the getting started section](#quick-start).

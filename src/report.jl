@@ -1,25 +1,36 @@
-mutable struct Report <: MLJ.Model end
+struct QueryReport
+    query::NamedTuple
+    influence_curve::Vector{Float64}
+    estimate::Float64
+    initial_estimate::Float64
+end
 
-function MLJ.fit(model::Report, 
-                 verbosity::Int, 
-                 ct_fluct,
-                 observed_fluct, 
-                 covariate,
-                 y)
+function summary(report::QueryReport; tail=:both)
+    stderr = standarderror(report.influence_curve)
 
-    estimate = mean(ct_fluct)
-    
-    inf_curve = covariate .* (float(y) .- observed_fluct) .+ ct_fluct .- estimate
-
-    fitresult = (
-        estimate=estimate, 
-        stderror=sqrt(var(inf_curve)/nrows(y)), 
-        mean_inf_curve=mean(inf_curve)
-        )
-    return fitresult, nothing, nothing
+    return (pvalue=pvalue(report.estimate, stderr, tail=tail), 
+            confint=confinterval(report.estimate, stderr), 
+            estimate=report.estimate, 
+            stderror=stderr, 
+            initial_estimate=report.initial_estimate, 
+            mean_inf_curve=mean(report.influence_curve))
 end
 
 
-function predict(model::Report, fitresult, Xnew)
-    return Node()
+"""
+    summaries(m::Machine{TMLEstimator}; tail=:both)
+
+Returns the reported results.
+"""
+function summaries(m::Machine{TMLEstimator}; tail=:both)
+    machinereport = report(m)
+
+    outputs = []
+    for (i, _) in enumerate(m.model.queries)
+        queryfield = Symbol("queryreport_$i")
+        queryreport = getfield(machinereport, queryfield)
+        push!(outputs, summary(queryreport; tail=tail))
+    end
+
+    return outputs
 end

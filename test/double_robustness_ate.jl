@@ -182,7 +182,7 @@ end
     mach = machine(tmle, t, W, y)
     fit!(mach, verbosity=0)
 
-    result = briefreport(mach)
+    result = summaries(mach)
 
     @test result[1].estimate ≈ - result[2].estimate atol=1e-5
     @test result[1].pvalue ≈ result[2].pvalue atol=1e-5

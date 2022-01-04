@@ -2,7 +2,6 @@ mutable struct TMLEstimator <: MLJ.DeterministicComposite
     Q̅::MLJ.Supervised
     G::MLJ.Supervised
     F::Union{LinearRegressor, LinearBinaryClassifier}
-    R::Report
     queries
     threshold::Float64
 end
@@ -46,27 +45,7 @@ function TMLEstimator(Q̅, G, queries...; threshold=0.005)
     elseif Q̅ isa Deterministic
         F = LinearRegressor(fit_intercept=false, offsetcol = :offset)
     end
-    TMLEstimator(Q̅, G, F, Report(), queries, threshold)
-end
-
-
-"""
-    briefreport(m::Machine{TMLEstimator}; tail=:both)
-
-Returns the reported results.
-"""
-function briefreport(m::Machine{TMLEstimator}; tail=:both)
-    outputs = []
-    fullreport = report(m)
-    for (i, query) in enumerate(m.model.queries)
-        queryfield = Symbol("query_$i")
-        queryreport_ = getfield(fullreport, queryfield)
-        push!(
-            outputs, 
-            (queryreport(queryreport_; tail=tail)..., query=query)
-        )
-    end
-    return outputs
+    TMLEstimator(Q̅, G, F, queries, threshold)
 end
 
 
@@ -143,9 +122,10 @@ function MLJ.fit(tmle::TMLEstimator,
                         ys,
                         covariate,
                         indicators,
-                        tmle.threshold)
+                        tmle.threshold,
+                        query)
         
-        push!(reported, NamedTuple{Tuple([Symbol("query_$i")])}([queryreport]))
+        push!(reported, NamedTuple{Tuple([Symbol("queryreport_$i")])}([queryreport]))
         # This is actually empty but required
         push!(predicted, observed_fluct)
     end

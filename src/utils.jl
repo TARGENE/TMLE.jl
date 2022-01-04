@@ -51,16 +51,7 @@ adapt(T::AbstractNode) = node(adapt, T)
 ## Reporting utilities
 ###############################################################################
 
-function queryreport(qr; tail=:both)
 
-    inf_curve, tmle_estimate, initial_estimate = qr
-    stderr = standarderror(inf_curve) 
-    pval = pvalue(tmle_estimate, stderr, tail=tail)
-    confint = confinterval(tmle_estimate, stderr)
-    mean_inf_curve = mean(inf_curve)
-
-    return (pvalue=pval, confint=confint, estimate=tmle_estimate, stderror=stderr, initial_estimate=initial_estimate, mean_inf_curve=mean_inf_curve)
-end
 
     """
     pvalue(m::Machine{TMLEstimator})
@@ -228,8 +219,10 @@ function estimation_report(Fmach::Machine,
     ys::AbstractNode,
     covariate::AbstractNode,
     indicators,
-    threshold)
-    node((w, t, o, y, c) -> estimation_report(Fmach, Q̅mach, Gmach, Hmach, w, t, o, y, c, indicators, threshold), 
+    threshold,
+    query)
+
+    node((w, t, o, y, c) -> estimation_report(Fmach, Q̅mach, Gmach, Hmach, w, t, o, y, c, indicators, threshold, query), 
                                 W, T, observed_fluct, ys, covariate)
 end
 
@@ -253,7 +246,8 @@ function estimation_report(Fmach::Machine,
                             ys,
                             covariate,
                             indicators, 
-                            threshold)
+                            threshold,
+                            query)
 
     tmle_ct_agg = zeros(nrows(T))
     initial_ct_agg = zeros(nrows(T))
@@ -276,5 +270,5 @@ function estimation_report(Fmach::Machine,
     tmle_estimate = mean(tmle_ct_agg)
     inf_curve = influencecurve(covariate, ys, observed_fluct, tmle_ct_agg, tmle_estimate)
 
-    return inf_curve, tmle_estimate, initial_estimate
+    return QueryReport(query, inf_curve, tmle_estimate, initial_estimate)
 end

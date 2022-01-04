@@ -1,4 +1,4 @@
-module TestAPI
+module TestModel
 
 using Test
 using TMLE
@@ -63,7 +63,7 @@ end
 
     # Test the various api results functions
 
-    res = briefreport(mach)[1]
+    res = summaries(mach)[1]
     @test res.estimate ≈ -1.59 atol=1e-2
     @test res.stderror ≈ 1.32 atol=1e-2
     @test res.mean_inf_curve ≈ -1.52e-8 atol=1e-2
