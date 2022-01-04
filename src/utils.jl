@@ -13,6 +13,7 @@ influencecurve(covariate, y, observed_fluct, ct_fluct, estimate) =
 
 standarderror(inf_curve) = sqrt(var(inf_curve)/nrows(inf_curve))
 
+target_scitype(p::MLJBase.SupervisedPipeline) = MLJBase.target_scitype(MLJBase.supervised_component(p))
 
 """
 Hack into GLM to compute deviance on y a real

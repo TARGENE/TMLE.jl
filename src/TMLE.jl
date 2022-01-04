@@ -16,6 +16,7 @@ LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
 # #############################################################################
 
 import MLJ.fit
+import MLJ.target_scitype
 import MLJBase.check
 import Distributions.estimate
 import Distributions.stderror
