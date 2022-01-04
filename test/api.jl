@@ -63,7 +63,7 @@ end
 
     # Test the various api results functions
 
-    res = briefreport(mach)
+    res = briefreport(mach)[1]
     @test res.estimate ≈ -1.59 atol=1e-2
     @test res.stderror ≈ 1.32 atol=1e-2
     @test res.mean_inf_curve ≈ -1.52e-8 atol=1e-2
@@ -71,23 +71,6 @@ end
     confint = res.confint
     @test confint[1] ≈ -4.18 atol=1e-2
     @test confint[2] ≈ 1.01 atol=1e-2
-end
-
-
-@testset "Test Log p(T|W) is under threshold" begin
-    n = 1000
-    T = vcat(repeat([false], n), [true])
-    T = (t₁=categorical(T),)
-    W = MLJ.table(rand(n+1, 2))
-
-    Gmach = machine(ConstantClassifier(), W, TMLE.adapt(T))
-    fit!(Gmach, verbosity=0)
-
-    query = (t₁=[true, false],)
-    indicators = TMLE.indicator_fns(query)
-
-    @test_logs (:info, "p(T|W) evaluated under 0.005 at indices: [1001]") TMLE.compute_covariate(Gmach, W, T, indicators; verbosity=1)
-
 end
 
 

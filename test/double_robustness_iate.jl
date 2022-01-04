@@ -32,8 +32,8 @@ end
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
 
-cont_interacter = @pipeline InteractionTransformer LinearRegressor name="ContInteracter"
-cat_interacter = @pipeline InteractionTransformer LogisticClassifier name="CatInteracter"
+cont_interacter = InteractionTransformer |> LinearRegressor
+cat_interacter = InteractionTransformer |> LogisticClassifier
 Ns = [100, 1000, 10000, 100000]
 
 

@@ -56,7 +56,17 @@ end
 Returns the reported results.
 """
 function briefreport(m::Machine{TMLEstimator}; tail=:both)
-    queryreport(fitted_params(m).R, tail=tail)
+    outputs = []
+    fullreport = report(m)
+    for (i, query) in enumerate(m.model.queries)
+        queryfield = Symbol("query_$i")
+        queryreport_ = getfield(fullreport, queryfield)
+        push!(
+            outputs, 
+            (queryreport(queryreport_; tail=tail)..., query=query)
+        )
+    end
+    return outputs
 end
 
 
@@ -104,39 +114,45 @@ function MLJ.fit(tmle::TMLEstimator,
     offset = compute_offset(Q̅mach, X)
     # Loop over queries that will define
     # new covariate values
-    outputs = []
-    for query in tmle.queries
+    reported = []
+    predicted = []
+    for (i, query) in enumerate(tmle.queries)
         indicators = indicator_fns(query)
+        covariate = compute_covariate(Gmach, W, T, indicators; 
+                                      threshold=tmle.threshold)
+        # Log extreme values
+        # if verbosity > 0
+        #     idx_under_threshold = findall(x -> x <= threshold, likelihood)
+        #     length(idx_under_threshold) > 0 && @info "p(T|W) evaluated under $threshold at indices: $idx_under_threshold"
+        # end
+
         # Fluctuate E[Y|T, W] 
         # on the covariate and the offset 
-        covariate = compute_covariate(Gmach, W, T, indicators; 
-                                        verbosity=verbosity,
-                                        threshold=tmle.threshold)
         Xfluct = fluctuation_input(covariate, offset)
         Fmach = machine(tmle.F, Xfluct, ys)
+        
         observed_fluct = MLJ.predict_mean(Fmach, Xfluct)
 
-        # Compute the counterfactual fluctuation values
-        ct_fluct = counterfactual_fluctuations(Fmach,
-                                            Q̅mach,
-                                            Gmach,
-                                            Hmach,
-                                            indicators,
-                                            W,
-                                            T;
-                                            verbosity=verbosity,
-                                            threshold=tmle.threshold)
-
-        # Fit the Report
-        Rmach = machine(tmle.R, ct_fluct, observed_fluct, covariate, ys)
-
+        queryreport = estimation_report(Fmach,
+                        Q̅mach,
+                        Gmach,
+                        Hmach,
+                        W,
+                        T,
+                        observed_fluct,
+                        ys,
+                        covariate,
+                        indicators,
+                        tmle.threshold)
+        
+        push!(reported, NamedTuple{Tuple([Symbol("query_$i")])}([queryreport]))
         # This is actually empty but required
-        push!(outputs, MLJ.predict(Rmach, ct_fluct))
+        push!(predicted, observed_fluct)
     end
 
-    outputs = hcat(outputs...)
+    predicted = hcat(predicted...)
 
-    mach = machine(Deterministic(), Ts, Ws, ys; predict=outputs)
+    mach = machine(Deterministic(), Ts, Ws, ys; predict=predicted, report=merge(reported...))
 
     return!(mach, tmle, verbosity)
 end

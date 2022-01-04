@@ -8,6 +8,11 @@ logit(X::AbstractNode) = node(x->logit(x), X)
 expit(X) = 1 ./ (1 .+ exp.(-X))
 expit(X::AbstractNode) = node(x->expit(x), X)
 
+influencecurve(covariate, y, observed_fluct, ct_fluct, estimate) = 
+    covariate .* (float(y) .- observed_fluct) .+ ct_fluct .- estimate
+
+standarderror(inf_curve) = sqrt(var(inf_curve)/nrows(inf_curve))
+
 
 """
 Hack into GLM to compute deviance on y a real
@@ -46,14 +51,16 @@ adapt(T::AbstractNode) = node(adapt, T)
 ## Reporting utilities
 ###############################################################################
 
-function queryreport(br; tail=:both)
-    fitres = br.fitresult
-    pval = pvalue(fitres.estimate, fitres.stderror, tail=tail)
-    confint = confinterval(fitres.estimate, fitres.stderror)
-    (pvalue=pval, confint=confint, fitres...)
+function queryreport(qr; tail=:both)
+
+    inf_curve, tmle_estimate, initial_estimate = qr
+    stderr = standarderror(inf_curve) 
+    pval = pvalue(tmle_estimate, stderr, tail=tail)
+    confint = confinterval(tmle_estimate, stderr)
+    mean_inf_curve = mean(inf_curve)
+
+    return (pvalue=pval, confint=confint, estimate=tmle_estimate, stderror=stderr, initial_estimate=initial_estimate, mean_inf_curve=mean_inf_curve)
 end
-queryreport(br::Vector; tail=:both) =
-    [queryreport(x, tail=tail) for x in br]
 
     """
     pvalue(m::Machine{TMLEstimator})
@@ -121,17 +128,20 @@ end
 target_prob(y) = y.prob_given_ref[2]
 target_prob(y::AbstractNode) = node(y->target_prob(y), y)
 
+
+compute_offset(Q̅mach::Machine{<:Deterministic}, X) = expected_value(Q̅mach, X)
 function compute_offset(Q̅mach::Machine{<:Probabilistic}, X)
-    # The machine is an estimate of a probability distribution
-    # In the binary case, the expectation is assumed to be the probability of the second class
-    ŷ = MLJ.predict(Q̅mach, X)
-    expectation = target_prob(ŷ)
+    expectation = expected_value(Q̅mach, X)
     return logit(expectation)
 end
 
 
-function compute_offset(Q̅mach::Machine{<:Deterministic}, X)
-    return MLJ.predict(Q̅mach, X)
+expected_value(Q̅mach::Machine{<:Deterministic}, X) = MLJ.predict(Q̅mach, X)
+function expected_value(Q̅mach::Machine{<:Probabilistic}, X) 
+    # The machine is an estimate of a probability distribution
+    # In the binary case, the expectation is assumed to be the probability of the second class
+    ŷ = MLJ.predict(Q̅mach, X)
+    return target_prob(ŷ)
 end
 
 ###############################################################################
@@ -151,18 +161,9 @@ indicator_values(indicators, T::AbstractNode) =
     node(t -> indicator_values(indicators, t), T)
 
 
-function plateau_likelihood(likelihood, threshold, verbosity)
-    likelihood = max.(threshold, likelihood)
-    # Log indices for which p(T|W) < threshold as this indicates very rare events.
-    if verbosity > 0
-        idx_under_threshold = findall(x -> x <= threshold, likelihood)
-        length(idx_under_threshold) > 0 && @info "p(T|W) evaluated under $threshold at indices: $idx_under_threshold"
-    end
-    likelihood
-end
-
-plateau_likelihood(likelihood::AbstractNode, threshold, verbosity) = 
-    node(l -> plateau_likelihood(l, threshold, verbosity), likelihood)
+plateau_likelihood(likelihood, threshold) = max.(threshold, likelihood)
+plateau_likelihood(likelihood::AbstractNode, threshold) = 
+    node(l -> plateau_likelihood(l, threshold), likelihood)
 
 elemwise_divide(x, y) = x ./ y
 elemwise_divide(x::AbstractNode, y::AbstractNode) = 
@@ -172,14 +173,14 @@ elemwise_divide(x::AbstractNode, y::AbstractNode) =
 For each data point, computes: (-1)^(interaction-oder - j)
 Where j is the number of treatments different from the reference in the query.
 """
-function compute_covariate(Gmach::Machine, W, T, indicators; verbosity=1, threshold=0.005)
+function compute_covariate(Gmach::Machine, W, T, indicators; threshold=0.005)
     # Compute the indicator value
     indic_vals = indicator_values(indicators, T)
 
     # Compute density and truncate
     likelihood = density(Gmach, W, T)
 
-    likelihood = plateau_likelihood(likelihood, threshold, verbosity)
+    likelihood = plateau_likelihood(likelihood, threshold)
     
     return elemwise_divide(indic_vals, likelihood)
 end
@@ -189,10 +190,6 @@ end
 ## Fluctuation
 ###############################################################################
 
-init_counterfactual_fluctuation(T::AbstractNode) =
-    node(t -> zeros(nrows(t)), T)
-
-
 function counterfactualTreatment(vals, T)
     names = keys(vals)
     n = nrows(T)
@@ -200,65 +197,84 @@ function counterfactualTreatment(vals, T)
             [categorical(repeat([vals[name]], n), levels=levels(Tables.getcolumn(T, name)))
                             for name in names])
 end
-counterfactualTreatment(vals, T::AbstractNode) =
-    node(t -> counterfactualTreatment(vals, t), T)
 
 
 function compute_fluctuation(Fmach::Machine, 
                              Q̅mach::Machine, 
                              Gmach::Machine, 
-                             Hmach::Machine,
                              indicators,
                              W, 
-                             T; 
-                             verbosity=1,
+                             T,
+                             X; 
                              threshold=0.005)
-    Thot = transform(Hmach, T)
-    X = merge(Thot, W)
     offset = compute_offset(Q̅mach, X)
     covariate = compute_covariate(Gmach, W, T, indicators; 
-                                    verbosity=verbosity,
                                     threshold=threshold)
     Xfluct = fluctuation_input(covariate, offset)
     return  MLJ.predict_mean(Fmach, Xfluct)
 end
 
-"""
-    counterfactual_fluctuations(query, 
-                                Fmach,
-                                Q̅mach,
-                                Gmach,
-                                Hmach,
-                                W,
-                                T)
-                                
-Computes the Counterfactual value of the fluctuation.
-If the order of Interaction is 2 with binary variables, this is:
- 1/n ∑ [ Fluctuation(t₁=1, t₂=1, W=w) - Fluctuation(t₁=1, t₂=0, W=w)
-        - Fluctuation(t₁=0, t₂=1, W=w) + Fluctuation(t₁=0, t₂=0, W=w)]
-"""
-function counterfactual_fluctuations(Fmach::Machine,
-                                     Q̅mach::Machine,
-                                     Gmach::Machine,
-                                     Hmach::Machine,
-                                     indicators,
-                                     W,
-                                     T; 
-                                     verbosity=1,
-                                     threshold=0.005)
+###############################################################################
+## Report
+###############################################################################
 
-    ct_fluct = init_counterfactual_fluctuation(T)
+function estimation_report(Fmach::Machine,
+    Q̅mach::Machine,
+    Gmach::Machine,
+    Hmach::Machine,
+    W::AbstractNode,
+    T::AbstractNode,
+    observed_fluct::AbstractNode,
+    ys::AbstractNode,
+    covariate::AbstractNode,
+    indicators,
+    threshold)
+    node((w, t, o, y, c) -> estimation_report(Fmach, Q̅mach, Gmach, Hmach, w, t, o, y, c, indicators, threshold), 
+                                W, T, observed_fluct, ys, covariate)
+end
+
+"""
+
+For a given query, identified by `indicators`, reports the different quantities of
+interest. An important intermediate quantity is obtained by aggregation of 
+E[Y|T, W] evaluated at the various counterfactual values of the treatment.
+For instance, if the order of Interaction is 2 with binary variables, this is computed as:
+
+AggregatedCounterfactual = Fluctuation(t₁=1, t₂=1, W=w) - Fluctuation(t₁=1, t₂=0, W=w)
+                - Fluctuation(t₁=0, t₂=1, W=w) + Fluctuation(t₁=0, t₂=0, W=w)
+"""
+function estimation_report(Fmach::Machine,
+                            Q̅mach::Machine,
+                            Gmach::Machine,
+                            Hmach::Machine,
+                            W,
+                            T,
+                            observed_fluct,
+                            ys,
+                            covariate,
+                            indicators, 
+                            threshold)
+
+    tmle_ct_agg = zeros(nrows(T))
+    initial_ct_agg = zeros(nrows(T))
     for (vals, sign) in indicators 
         counterfactualT = counterfactualTreatment(vals, T)
-        ct_fluct += sign*compute_fluctuation(Fmach, 
-                                             Q̅mach, 
-                                             Gmach, 
-                                             Hmach,
-                                             indicators,
-                                             W, 
-                                             counterfactualT; 
-                                             verbosity=verbosity,
-                                             threshold=threshold)
+        Thot = transform(Hmach, counterfactualT)
+        X = merge(Thot, W)
+        initial_ct_agg += sign*expected_value(Q̅mach, X)
+        tmle_ct_agg += sign*compute_fluctuation(Fmach, 
+                    Q̅mach, 
+                    Gmach,
+                    indicators,
+                    W, 
+                    counterfactualT,
+                    X; 
+                    threshold=threshold)
     end
-    return ct_fluct
+
+    initial_estimate = mean(initial_ct_agg)
+    tmle_estimate = mean(tmle_ct_agg)
+    inf_curve = influencecurve(covariate, ys, observed_fluct, tmle_ct_agg, tmle_estimate)
+
+    return inf_curve, tmle_estimate, initial_estimate
 end

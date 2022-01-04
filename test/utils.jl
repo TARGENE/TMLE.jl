@@ -214,34 +214,21 @@ end
     # Let's look at the different counterfactual treatments
     # T₁₁: cov=5.
     T₁₁ = (t₁=categorical(ones(n), levels=levels(T[1])), t₂=categorical(ones(n), levels=levels(T[2])))
-    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, indicators, W, T₁₁)
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, indicators, W, T₁₁, X)
     @test fluct ≈ repeat([expected_mean(5.)], n) atol=1e-5
     # T₁₀: cov=-3.333333
     T₁₀ = (t₁=categorical(ones(n), levels=[0, 1]), t₂=categorical(zeros(n), levels=[0, 1]))
-    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, indicators, W, T₁₀)
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, indicators, W, T₁₀, X)
     @test fluct ≈ repeat([expected_mean(-3.333333)], n) atol=1e-5
     # T₀₁: cov=-5.
     T₀₁ = (t₁=categorical(zeros(n), levels=[0, 1]), t₂=categorical(ones(n), levels=[0, 1]))
-    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, indicators, W, T₀₁)
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, indicators, W, T₀₁, X)
     @test fluct ≈ repeat([expected_mean(-5.)], n) atol=1e-5
     # T₀₀: cov=3.333333
     T₀₀ = (t₁=categorical(zeros(n), levels=[0, 1]), t₂=categorical(zeros(n), levels=[0, 1]))
-    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, indicators, W, T₀₀)
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, indicators, W, T₀₀, X)
     @test fluct ≈ repeat([expected_mean(3.333333)], n) atol=1e-5
 
-    # Now look at the full counterfactual treatment
-    # This function is only available for nodes
-    ct_fluct = TMLE.counterfactual_fluctuations(Fmach,
-                                                Q̅mach,
-                                                Gmach,
-                                                Hmach,
-                                                indicators,
-                                                source(W),
-                                                source(T))
-    
-    expected_ct_fluct = (expected_mean(5.) + expected_mean(3.333333)
-                        -expected_mean(-3.333333)-expected_mean(-5.))
-    @test ct_fluct() ≈ repeat([expected_ct_fluct], n) atol=1e-5
 end
 
 
