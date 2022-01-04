@@ -173,7 +173,7 @@ end
 @testset "Test multi-queries" begin
     queries = [(t=[true, false],), (t=[false, true],)]
 
-    Q̅ = ConstantClassifier()
+    Q̅ = LogisticClassifier()
     G = LogisticClassifier()
     tmle = TMLEstimator(Q̅, G, queries...)
 
@@ -186,6 +186,7 @@ end
 
     @test result[1].estimate ≈ - result[2].estimate atol=1e-5
     @test result[1].pvalue ≈ result[2].pvalue atol=1e-5
+    @test result[1].initial_estimate ≈ -result[2].initial_estimate atol=1e-5
     @test result[1].mean_inf_curve ≈ - result[2].mean_inf_curve atol=1e-5
 
 end

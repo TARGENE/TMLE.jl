@@ -34,3 +34,33 @@ function summaries(m::Machine{TMLEstimator}; tail=:both)
 
     return outputs
 end
+
+
+"""
+    pvalue(m::Machine{TMLEstimator})
+
+Computes the p-value associated with the estimated quantity.
+"""
+function pvalue(estimate, stderror; tail=:both)
+    x = estimate/stderror
+
+    dist = Normal(0, 1)
+    if tail == :both
+        min(2 * min(cdf(dist, x), ccdf(dist, x)), 1.0)
+    elseif tail == :left
+        cdf(dist, x)
+    elseif tail == :right
+        ccdf(dist, x)
+    else
+        throw(ArgumentError("tail=$(tail) is invalid"))
+    end
+end
+
+"""
+    confinterval(m::Machine{TMLEstimator})
+
+Provides a 95% confidence interval for the true quantity of interest.
+"""
+function confinterval(estimate, stderror)
+    return (estimate - 1.96stderror, estimate + 1.96stderror)
+end
