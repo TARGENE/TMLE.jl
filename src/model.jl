@@ -2,7 +2,7 @@ mutable struct TMLEstimator <: MLJ.DeterministicComposite
     Q̅::MLJ.Supervised
     G::MLJ.Supervised
     F::Union{LinearRegressor, LinearBinaryClassifier}
-    queries
+    queries::Tuple{Vararg{NamedTuple}}
     threshold::Float64
 end
 
@@ -39,7 +39,7 @@ curve equation.
 - queries...: At least one query
 - threshold: p(T | W) is truncated to this value to avoid division overflows.
 """
-function TMLEstimator(Q̅, G, queries...; threshold=0.005)
+function TMLEstimator(Q̅::MLJ.Supervised, G::MLJ.Supervised, queries::Vararg{NamedTuple}; threshold=0.005::Float64)
     if Q̅ isa Probabilistic
         F = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
     elseif Q̅ isa Deterministic
