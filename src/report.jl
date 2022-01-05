@@ -5,6 +5,11 @@ struct QueryReport
     initial_estimate::Float64
 end
 
+influencecurve(covariate, y, observed_fluct, ct_fluct, estimate) = 
+    covariate .* (float(y) .- observed_fluct) .+ ct_fluct .- estimate
+    
+standarderror(x) = sqrt(var(x)/nrows(x))
+
 function summary(report::QueryReport; tail=:both)
     stderr = standarderror(report.influence_curve)
 

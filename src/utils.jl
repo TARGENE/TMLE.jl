@@ -8,11 +8,6 @@ logit(X::AbstractNode) = node(x->logit(x), X)
 expit(X) = 1 ./ (1 .+ exp.(-X))
 expit(X::AbstractNode) = node(x->expit(x), X)
 
-influencecurve(covariate, y, observed_fluct, ct_fluct, estimate) = 
-    covariate .* (float(y) .- observed_fluct) .+ ct_fluct .- estimate
-
-standarderror(inf_curve) = sqrt(var(inf_curve)/nrows(inf_curve))
-
 target_scitype(p::MLJBase.SupervisedPipeline) = MLJBase.target_scitype(MLJBase.supervised_component(p))
 
 """
@@ -35,10 +30,6 @@ MLJBase.check(model::TMLEstimator, args... ; full=false) = true
 
 Base.merge(ndt₁::AbstractNode, ndt₂::AbstractNode) = 
     node((ndt₁, ndt₂) -> merge(ndt₁, ndt₂), ndt₁, ndt₂)
-
-fluctuation_input(covariate, offset) = (covariate=covariate, offset=offset)
-fluctuation_input(covariate::AbstractNode, offset::AbstractNode) =
-    node((c, o) -> fluctuation_input(c, o), covariate, offset)
 
 """
 
@@ -154,6 +145,10 @@ end
 ## Fluctuation
 ###############################################################################
 
+fluctuation_input(covariate, offset) = (covariate=covariate, offset=offset)
+fluctuation_input(covariate::AbstractNode, offset::AbstractNode) =
+    node((c, o) -> fluctuation_input(c, o), covariate, offset)
+    
 function counterfactualTreatment(vals, T)
     names = keys(vals)
     n = nrows(T)
