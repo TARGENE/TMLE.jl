@@ -269,7 +269,7 @@ end
 
 @testset "Test log_over_threshold" begin
     covariate = source([4, 2, 3])
-    @test TMLE.log_over_threshold(covariate, 2.1) == [1, 3]
+    @test TMLE.log_over_threshold(covariate, 0.4)() == [1, 3]
 
     # End to end in the fit process
     n = 10000
