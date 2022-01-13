@@ -14,13 +14,14 @@ end
 @testset "Test summary" begin
     r1 = TMLE.QueryReport((t=[0, 1],), [1, 2, 3, 4], 1, 0.8)
     s1 = briefreport(r1)
-    @test s1 == (query = (t = [0, 1],),
-                pvalue = 5.887764274517263e-8,
-                confint = (2.234848688118337, 4.765151311881663),
-                estimate = 1.0,
-                initial_estimate = 0.8,
-                stderror = 0.6454972243679028,
-                mean_inf_curve = 2.5,)
+    @test s1.query == (t = [0, 1],)
+    @test s1.pvalue ≈ 5.88e-8 atol=1e-2
+    @test s1.confint[1] ≈ 2.234 atol=1e-2
+    @test s1.confint[2] ≈ 4.765 atol=1e-2
+    @test s1.estimate == 1.0
+    @test s1.initial_estimate == 0.8
+    @test s1stderror ≈ 0.645 atol=1e-2
+    @test mean_inf_curve == 2.5
 
 end
 end
