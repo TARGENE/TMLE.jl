@@ -20,8 +20,8 @@ end
     @test s1.confint[2] ≈ 4.765 atol=1e-2
     @test s1.estimate == 1.0
     @test s1.initial_estimate == 0.8
-    @test s1stderror ≈ 0.645 atol=1e-2
-    @test mean_inf_curve == 2.5
+    @test s1.stderror ≈ 0.645 atol=1e-2
+    @test s1.mean_inf_curve == 2.5
 
 end
 end
