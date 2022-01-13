@@ -11,7 +11,7 @@ function asymptotics(estimator, problem_fn, rng, Ns)
             T, W, y, ATE = problem_fn(rng; n=n)
             mach = machine(estimator, T, W, y)
             fit!(mach, verbosity=0)
-            push!(estimates_at_n, briefreport(mach).estimate)
+            push!(estimates_at_n, briefreport(mach)[1].estimate)
         end
         push!(abs_mean_rel_errors, 100mean([abs((x-ATE)/ATE) for x in estimates_at_n]))
         push!(abs_vars, var(estimates_at_n))

@@ -128,10 +128,12 @@ fit!(mach)
 briefreport(mach)
 ```
 
-The content of the brief report is:
+The content of the brief report is a Tuple that for each query presents a NamedTuple containing the following fields:
+- query: The associated query
 - pvalue: The p-value
 - confint: A 95% confidence interval around the estimated quantity
 - estimate: An estimate of the quantity of interest
+- initial_estimated: The initial estimate that we would have reached without applying the tmle step
 - stderror: The estimate of the standard error
 - mean_inf_curve: The empirical mean of the influence curve
 
@@ -186,7 +188,7 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 query = (T=[1, 0],)
 Q = MLJ.DeterministicConstantRegressor()
 G = LogisticClassifier()
-tmle = TMLEstimator(Q̅, G, query)
+tmle = TMLEstimator(Q, G, query)
 ```
 
 Now, all there is to do is to fit the estimator:
@@ -194,21 +196,61 @@ Now, all there is to do is to fit the estimator:
 ```julia
 mach = machine(tmle, T, W, y)
 fit!(mach)
-
-all_results = fitted_params(mach)
 ```
 
-The `fitted_params` function gives access to a `NamedTuple` that contains all results from the fit, including:
+Their are various ways in which you can investigate the results:
+#### Regular MLJ entrypoints: `fitted_params` and `report`
+
+- `fitted_params`
+
+```julia 
+fitted_params(mach)
+```
+
+The `fitted_params` function is the regular `MLJ` entrypoint to retrieve all fitted parameters for all submachines in our TMLEstimator machine, it gives access to a `NamedTuple` that contains all results from the fit, including:
 - A fitresult for Q
 - A fitresult for G
 - A fitresult for the fluctuation denoted F
-- A report R containing values for all: estimate, stderror and mean_inf_curve
 
-A simplified way to access the report values only is using `briefreport`:
+- `report`
+
+```julia 
+report(mach)
+```
+
+The full report of the fitted_machine, including an entry for each query denoted by fields `queryreport_$i` where `i` is the query index. Each of this entry is a `QueryReport` entity that contains all the necessary information you might need to extract for this specific query.
+
+#### TMLE.jl Specific entrypoints
+
+- `getqueryreport`
+
+```julia
+qr = getqueryreport(mach, 1)
+```
+
+This will give you an easy access to the `QueryReport` structure.
+
+- `ztest`
+
+It can be called either on the machine by providing a sequence of indices (see the [multiple-queries section](#multiple-queries) for an exemple for more than 1 query) or on the query report itself.
+
+```julia
+ztest(mach, 1) == ztest(qr)
+ztest(qr)
+```
+
+It is a simple wrapper over the `OneSampleZTest` from the [HypothesisTests.jl](https://juliastats.org/HypothesisTests.jl/stable/) package and will provide a confidence interval, a p-value, etc....
+
+- `briefreport`
 
 ```julia
 briefreport(mach)
 ```
+
+Finally, the `briefreport` function provides an easy way to access most relevant information in usual cases.
+
+#### Conslusion
+
 We can see that even if one nuisance parameter is misspecified, the double robustness of TMLE enables correct estimation of our target.
 
 ### IATE
@@ -280,6 +322,7 @@ fit!(mach)
 briefreport(mach)
 ```
 
+
 ### Multiple queries
 
 We have seen that we need to estimate nuisance parameters as well as possible and this is usually where the performance bottleneck lies because we are using stacking and many learning algorithms. We might also be interested in multiple questions all related to the same dataset setting. In such a situation, nuisance parameters can be estimated only once while
@@ -323,7 +366,22 @@ fit!(mach)
 briefreport(mach)
 ```
 
-The report is now a vector of `NamedTuple` as described in [the getting started section](#quick-start).
+The report contains a `QueryRport` for each query.
+
+One can for instance perform a paired Z-Test to compare if the estimate resulting from two different queries is significantly different. Here we compare the first and third query:
+
+```julia
+ztest(mach, 1 => 3)
+```
+
+Or perform a simple Z-Test for each query:
+
+```julia
+ztest(mach, 1, 2, 3)
+```
+
+which will output a Tuple of three tests.
+
 ## API 
 
 

@@ -9,7 +9,7 @@ using Distributions
 using MLJ
 using StableRNGs
 using StatsBase
-
+using HypothesisTests
 
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
@@ -54,7 +54,7 @@ function continuous_target_binary_treatment_pb(rng;n=100)
 end
 
 
-function continuous_target_categorical_treatment_pb(rng;n=100)
+function continuous_target_categorical_treatment_pb(rng;n=100, control="TT", treatment="AA")
     ft(T) = (T .== "AA") - (T .== "AT") + 2(T .== "TT")
     fw(W) = 2W[:, 1] + 3W[:, 2] - 4W[:, 3]
 
@@ -65,7 +65,7 @@ function continuous_target_categorical_treatment_pb(rng;n=100)
     y = ft(T) + fw(W) + rand(rng, Normal(0,1), n)
 
     # Ew[E[Y|t,w]] = ∑ᵤ (ft(T) + fw(w))p(w) = ft(t) + 0.5
-    ATE = (ft("AA") + 0.5) -  (ft("TT") + 0.5)
+    ATE = (ft(treatment) + 0.5) -  (ft(control) + 0.5)
     # Type coercion
     W = MLJ.table(W)
     T = (T=categorical(T),)
@@ -171,22 +171,47 @@ end
 end
 
 @testset "Test multi-queries" begin
-    queries = [(t=[true, false],), (t=[false, true],)]
+    queries = [(T=["AT", "TT"],), (T=["AA", "AT"],)]
 
-    Q̅ = ConstantClassifier()
+    Q̅ = LinearRegressor()
     G = LogisticClassifier()
     tmle = TMLEstimator(Q̅, G, queries...)
 
-    t, W, y, ATE = binary_target_binary_treatment_pb(StableRNG(123);n=1000)
+    t, W, y, ATE₁ = continuous_target_categorical_treatment_pb(StableRNG(123);n=100, control="TT", treatment="AT")
+    _, _, _, ATE₂ = continuous_target_categorical_treatment_pb(StableRNG(123);control="AT", treatment="AA")
 
     mach = machine(tmle, t, W, y)
     fit!(mach, verbosity=0)
 
-    result = briefreport(mach)
+    # Test queryreport accessibility
+    @test TMLE.queryreportname(456) == :queryreport_456
+    @test TMLE.getqueryreport(mach, 1) isa TMLE.QueryReport 
+    @test TMLE.getqueryreport(mach, 1) == mach.report.queryreport_1
+    @test TMLE.getqueryreport(mach, 2) isa TMLE.QueryReport 
+    @test TMLE.getqueryreport(mach, 2) == mach.report.queryreport_2
+    # Test various ztests
+    qr₁ = getqueryreport(mach, 1)
+    testresult = ztest(mach, 1)
+    @test testresult == ztest(qr₁)
+    @test testresult isa HypothesisTests.OneSampleZTest
+    @test pvalue(testresult) ≈ 3.474e-25 atol=1e-3
+    @test confint(testresult)[1] < ATE₁ < confint(testresult)[2]
 
-    @test result[1].estimate ≈ - result[2].estimate atol=1e-5
-    @test result[1].pvalue ≈ result[2].pvalue atol=1e-5
-    @test result[1].mean_inf_curve ≈ - result[2].mean_inf_curve atol=1e-5
+    qr₂ = getqueryreport(mach, 2)
+    testresult = ztest(mach, 2)
+    @test testresult == ztest(qr₂)
+    @test testresult isa HypothesisTests.OneSampleZTest
+    @test pvalue(testresult) ≈ 3.428e-14 atol=1e-3
+    @test confint(testresult)[1] < ATE₂ < confint(testresult)[2]
+
+    testresult = ztest(mach, 1=>2)
+    @test pvalue(testresult) ≈ 7.819e-25 atol=1e-3
+
+    bf = briefreport(mach)
+    for (i, _) in enumerate(mach.model.queries)
+        @test briefreport(getqueryreport(mach, i)) == bf[i]
+        @test keys(bf[i]) == (:query, :pvalue, :confint, :estimate, :initial_estimate, :stderror, :mean_inf_curve)
+    end
 
 end
 

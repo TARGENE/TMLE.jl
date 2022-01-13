@@ -3,9 +3,45 @@ module TestUtils
 using Test
 using TMLE
 using MLJ
+using StableRNGs
+using Distributions
 
 LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
+LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
+LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 
+@testset "Test expected_value & maybelogit" begin
+    n = 100
+    X = MLJ.table(rand(n, 3))
+
+    # Probabilistic Classifier
+    y = categorical(rand([0, 1], n))
+    mach = machine(ConstantClassifier(), X, y)
+    fit!(mach; verbosity=0)
+    proba = mach.fitresult[2][2]
+    ŷ = MLJ.predict(mach)
+    expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    @test expectation == repeat([proba], n)
+    @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == TMLE.logit(expectation)
+
+    # Probabilistic Regressor
+    y = rand(n)
+    mach = machine(ConstantRegressor(), X, y)
+    fit!(mach; verbosity=0)
+    ŷ = MLJ.predict(mach)
+    expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    @test expectation ≈ repeat([mean(y)], n) atol=1e-10
+    @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == expectation
+
+    # Deterministic Regressor
+    mach = machine(LinearRegressor(), X, y)
+    fit!(mach; verbosity=0)
+    ŷ = MLJ.predict(mach)
+    expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    @test expectation == ŷ
+    @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == expectation
+
+end
 
 @testset "Test interaction_combinations" begin
     # With 1 treatment variable
@@ -214,36 +250,44 @@ end
     # Let's look at the different counterfactual treatments
     # T₁₁: cov=5.
     T₁₁ = (t₁=categorical(ones(n), levels=levels(T[1])), t₂=categorical(ones(n), levels=levels(T[2])))
-    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, indicators, W, T₁₁)
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, indicators, W, T₁₁, X)
     @test fluct ≈ repeat([expected_mean(5.)], n) atol=1e-5
     # T₁₀: cov=-3.333333
     T₁₀ = (t₁=categorical(ones(n), levels=[0, 1]), t₂=categorical(zeros(n), levels=[0, 1]))
-    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, indicators, W, T₁₀)
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, indicators, W, T₁₀, X)
     @test fluct ≈ repeat([expected_mean(-3.333333)], n) atol=1e-5
     # T₀₁: cov=-5.
     T₀₁ = (t₁=categorical(zeros(n), levels=[0, 1]), t₂=categorical(ones(n), levels=[0, 1]))
-    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, indicators, W, T₀₁)
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, indicators, W, T₀₁, X)
     @test fluct ≈ repeat([expected_mean(-5.)], n) atol=1e-5
     # T₀₀: cov=3.333333
     T₀₀ = (t₁=categorical(zeros(n), levels=[0, 1]), t₂=categorical(zeros(n), levels=[0, 1]))
-    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, Hmach, indicators, W, T₀₀)
+    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, indicators, W, T₀₀, X)
     @test fluct ≈ repeat([expected_mean(3.333333)], n) atol=1e-5
 
-    # Now look at the full counterfactual treatment
-    # This function is only available for nodes
-    ct_fluct = TMLE.counterfactual_fluctuations(Fmach,
-                                                Q̅mach,
-                                                Gmach,
-                                                Hmach,
-                                                indicators,
-                                                source(W),
-                                                source(T))
-    
-    expected_ct_fluct = (expected_mean(5.) + expected_mean(3.333333)
-                        -expected_mean(-3.333333)-expected_mean(-5.))
-    @test ct_fluct() ≈ repeat([expected_ct_fluct], n) atol=1e-5
 end
 
+@testset "Test log_over_threshold" begin
+    covariate = source([4, 2, 3])
+    @test TMLE.log_over_threshold(covariate, 0.4)() == [1, 3]
+
+    # End to end in the fit process
+    n = 10000
+    rng = StableRNG(123)
+    T = (t=categorical(rand(rng, Bernoulli(0.001), n)),)
+    W = MLJ.table(rand(rng, n, 3))
+    y = rand(rng, n)
+
+    query = (t=[true, false],)
+
+    Q̅ = LinearRegressor()
+    G = LogisticClassifier()
+    tmle = TMLEstimator(Q̅, G, query)
+
+    mach = machine(tmle, T, W, y)
+    fit!(mach, verbosity=0)
+    @test length(report(mach).extreme_propensity_idx) == 12
+end
 
 end;
 

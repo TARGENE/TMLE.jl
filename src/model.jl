@@ -1,9 +1,8 @@
-mutable struct TMLEstimator <: MLJ.DeterministicComposite 
-    Q̅::MLJ.Supervised
-    G::MLJ.Supervised
+mutable struct TMLEstimator <: DeterministicComposite 
+    Q̅::Supervised
+    G::Supervised
     F::Union{LinearRegressor, LinearBinaryClassifier}
-    R::Report
-    queries
+    queries::Tuple{Vararg{NamedTuple}}
     threshold::Float64
 end
 
@@ -40,23 +39,13 @@ curve equation.
 - queries...: At least one query
 - threshold: p(T | W) is truncated to this value to avoid division overflows.
 """
-function TMLEstimator(Q̅, G, queries...; threshold=0.005)
+function TMLEstimator(Q̅::Supervised, G::Supervised, queries::Vararg{NamedTuple}; threshold=0.005::Float64)
     if Q̅ isa Probabilistic
         F = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
     elseif Q̅ isa Deterministic
         F = LinearRegressor(fit_intercept=false, offsetcol = :offset)
     end
-    TMLEstimator(Q̅, G, F, Report(), queries, threshold)
-end
-
-
-"""
-    briefreport(m::Machine{TMLEstimator}; tail=:both)
-
-Returns the reported results.
-"""
-function briefreport(m::Machine{TMLEstimator}; tail=:both)
-    queryreport(fitted_params(m).R, tail=tail)
+    TMLEstimator(Q̅, G, F, queries, threshold)
 end
 
 
@@ -65,7 +54,7 @@ end
 ###############################################################################
 
 """
-    MLJ.fit(tmle::TMLEstimator, 
+    MLJBase.fit(tmle::TMLEstimator, 
                  verbosity::Int, 
                  T,
                  W, 
@@ -73,7 +62,7 @@ end
 
 As per all MLJ inputs, T and W should respect the Tables.jl interface.
 """
-function MLJ.fit(tmle::TMLEstimator, 
+function MLJBase.fit(tmle::TMLEstimator, 
                  verbosity::Int, 
                  T,
                  W, 
@@ -104,40 +93,47 @@ function MLJ.fit(tmle::TMLEstimator,
     offset = compute_offset(Q̅mach, X)
     # Loop over queries that will define
     # new covariate values
-    outputs = []
-    for query in tmle.queries
+    reported = []
+    predicted = []
+    extreme_propensity = nothing
+    for (i, query) in enumerate(tmle.queries)
         indicators = indicator_fns(query)
+        covariate = compute_covariate(Gmach, W, T, indicators; 
+                                      threshold=tmle.threshold)
+        # Log extreme values
+        extreme_propensity = log_over_threshold(covariate, tmle.threshold)
+
         # Fluctuate E[Y|T, W] 
         # on the covariate and the offset 
-        covariate = compute_covariate(Gmach, W, T, indicators; 
-                                        verbosity=verbosity,
-                                        threshold=tmle.threshold)
         Xfluct = fluctuation_input(covariate, offset)
         Fmach = machine(tmle.F, Xfluct, ys)
-        observed_fluct = MLJ.predict_mean(Fmach, Xfluct)
+        
+        observed_fluct = predict_mean(Fmach, Xfluct)
 
-        # Compute the counterfactual fluctuation values
-        ct_fluct = counterfactual_fluctuations(Fmach,
-                                            Q̅mach,
-                                            Gmach,
-                                            Hmach,
-                                            indicators,
-                                            W,
-                                            T;
-                                            verbosity=verbosity,
-                                            threshold=tmle.threshold)
-
-        # Fit the Report
-        Rmach = machine(tmle.R, ct_fluct, observed_fluct, covariate, ys)
-
+        queryreport = estimation_report(Fmach,
+                        Q̅mach,
+                        Gmach,
+                        Hmach,
+                        W,
+                        T,
+                        observed_fluct,
+                        ys,
+                        covariate,
+                        indicators,
+                        tmle.threshold,
+                        query)
+        
+        push!(reported, NamedTuple{Tuple([Symbol("queryreport_$i")])}([queryreport]))
         # This is actually empty but required
-        push!(outputs, MLJ.predict(Rmach, ct_fluct))
+        push!(predicted, observed_fluct)
     end
 
-    outputs = hcat(outputs...)
+    predicted = hcat(predicted...)
 
-    mach = machine(Deterministic(), Ts, Ws, ys; predict=outputs)
-
+    mach = machine(Deterministic(), Ts, Ws, ys; 
+            predict=predicted, 
+            report=(extreme_propensity_idx=extreme_propensity, merge(reported...)...)
+    )
     return!(mach, tmle, verbosity)
 end
 

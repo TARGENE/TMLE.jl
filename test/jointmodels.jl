@@ -6,9 +6,7 @@ using MLJ
 using StatsBase
 using StableRNGs
 
-
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
-
 
 @testset "Test FullCategoricalJoint" begin
     rng = StableRNG(123)
@@ -41,7 +39,7 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
     @test y_multi == categorical([5, 3, 6, 4, 9, 9, 6, 9, 3, 7])
 
     ypred = MLJ.predict(mach)
-    @test ypred isa MLJ.UnivariateFiniteVector
+    @test ypred[1] isa MLJ.UnivariateFinite
 
     d = TMLE.density(mach, X, Y)
     @test d == [pdf(p, y_multi[i]) for (i, p) in enumerate(ypred)]
