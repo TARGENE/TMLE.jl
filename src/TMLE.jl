@@ -6,6 +6,7 @@ using CategoricalArrays
 using GLM
 using MLJBase
 using MLJ
+using HypothesisTests
 using Base: Iterators
 
 LinearRegressor = @load LinearRegressor pkg=GLM verbosity=0
@@ -18,8 +19,6 @@ LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
 import MLJ.fit
 import MLJ.target_scitype
 import MLJBase.check
-import Distributions.estimate
-import Distributions.stderror
 
 # #############################################################################
 # EXPORTS
@@ -28,7 +27,7 @@ import Distributions.stderror
 export TMLEstimator
 export FullCategoricalJoint
 export fit
-export summaries
+export ztest, pvalue, confint, getqueryreport, briefreport
 
 # #############################################################################
 # INCLUDES

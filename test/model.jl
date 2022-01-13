@@ -63,14 +63,13 @@ end
 
     # Test the various api results functions
 
-    res = summaries(mach)[1]
+    res = briefreport(mach)[1]
     @test res.estimate ≈ -1.59 atol=1e-2
     @test res.stderror ≈ 1.32 atol=1e-2
     @test res.mean_inf_curve ≈ -1.52e-8 atol=1e-2
     @test res.pvalue ≈ 0.23 atol=1e-2
-    confint = res.confint
-    @test confint[1] ≈ -4.18 atol=1e-2
-    @test confint[2] ≈ 1.01 atol=1e-2
+    @test res.confint[1] ≈ -4.18 atol=1e-2
+    @test res.confint[2] ≈ 1.01 atol=1e-2
 end
 
 

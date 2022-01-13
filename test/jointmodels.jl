@@ -6,9 +6,7 @@ using MLJ
 using StatsBase
 using StableRNGs
 
-
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
-
 
 @testset "Test FullCategoricalJoint" begin
     rng = StableRNG(123)

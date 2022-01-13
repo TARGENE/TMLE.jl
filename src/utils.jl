@@ -8,8 +8,6 @@ logit(X::AbstractNode) = node(x->logit(x), X)
 expit(X) = 1 ./ (1 .+ exp.(-X))
 expit(X::AbstractNode) = node(x->expit(x), X)
 
-target_scitype(p::MLJBase.SupervisedPipeline) = MLJBase.target_scitype(MLJBase.supervised_component(p))
-
 """
 Hack into GLM to compute deviance on y a real
 """

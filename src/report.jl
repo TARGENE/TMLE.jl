@@ -7,65 +7,59 @@ end
 
 influencecurve(covariate, y, observed_fluct, ct_fluct, estimate) = 
     covariate .* (float(y) .- observed_fluct) .+ ct_fluct .- estimate
-    
-standarderror(x) = sqrt(var(x)/nrows(x))
-
-function summary(report::QueryReport; tail=:both)
-    stderr = standarderror(report.influence_curve)
-
-    return (pvalue=pvalue(report.estimate, stderr, tail=tail), 
-            confint=confinterval(report.estimate, stderr), 
-            estimate=report.estimate, 
-            stderror=stderr, 
-            initial_estimate=report.initial_estimate, 
-            mean_inf_curve=mean(report.influence_curve))
-end
 
 
 """
-    summaries(m::Machine{TMLEstimator}; tail=:both)
+    briefreport(qr::QueryReport; tail=:both, alpha=0.05)
 
-Returns the reported results.
+For a given QueryReport, provides a summary of useful statistics.
+
+# Arguments:
+    - qr: A query report, for instance extracted via `getqueryreport`
+    - tail: controls weither the test is single or two sided: eg :left, :right or :both
+    - alpha: level of the test
 """
-function summaries(m::Machine{TMLEstimator}; tail=:both)
-    machinereport = report(m)
-
-    outputs = []
-    for (i, _) in enumerate(m.model.queries)
-        queryfield = Symbol("queryreport_$i")
-        queryreport = getfield(machinereport, queryfield)
-        push!(outputs, summary(queryreport; tail=tail))
-    end
-
-    return outputs
-end
-
-
-"""
-    pvalue(m::Machine{TMLEstimator})
-
-Computes the p-value associated with the estimated quantity.
-"""
-function pvalue(estimate, stderror; tail=:both)
-    x = estimate/stderror
-
-    dist = Normal(0, 1)
-    if tail == :both
-        min(2 * min(cdf(dist, x), ccdf(dist, x)), 1.0)
-    elseif tail == :left
-        cdf(dist, x)
-    elseif tail == :right
-        ccdf(dist, x)
-    else
-        throw(ArgumentError("tail=$(tail) is invalid"))
-    end
+function briefreport(qr::QueryReport; tail=:both, level=0.95)
+    testresult = ztest(qr)
+    return (query=qr.query,
+            pvalue=pvalue(testresult, tail=tail), 
+            confint=confint(testresult, level=level, tail=tail), 
+            estimate=qr.estimate, 
+            initial_estimate=qr.initial_estimate, 
+            stderror=testresult.stderr,
+            mean_inf_curve=mean(qr.influence_curve))
 end
 
 """
-    confinterval(m::Machine{TMLEstimator})
+    briefreport(mach::Machine{TMLEstimator}; tail=:both, alpha=0.05)
 
-Provides a 95% confidence interval for the true quantity of interest.
+For a given Machine{<:TMLEstimator}, provides a summary of useful statistics for each query.
+
+# Arguments:
+    - mach: The fitted machine
+    - tail: controls weither the test is single or two sided: eg :left, :right or :both
+    - alpha: level of the test
 """
-function confinterval(estimate, stderror)
-    return (estimate - 1.96stderror, estimate + 1.96stderror)
-end
+briefreport(mach::Machine{TMLEstimator}; tail=:both, level=0.95) =
+    Tuple(briefreport(getqueryreport(mach, i), tail=tail, level=level) 
+            for (i, q) in enumerate(mach.model.queries))
+
+
+queryreportname(i::Int) = Symbol("queryreport_$i")
+
+getqueryreport(mach::Machine{<:TMLEstimator}, i::Int) =
+    getfield(mach.report, queryreportname(i))
+
+# Simple Test   
+ztest(qr::QueryReport) = 
+    OneSampleZTest(qr.estimate .+ qr.influence_curve)
+ztest(mach::Machine{<:TMLEstimator}, arg::Int) = ztest(getqueryreport(mach, arg))
+ztest(mach::Machine{<:TMLEstimator}, args::Vararg{Int}) =
+    Tuple(ztest(getqueryreport(mach, arg)) for arg in args)
+
+# Paired Test
+ztest(qr₁::QueryReport, qr₂::QueryReport) =
+    OneSampleZTest(qr₁.influence_curve .+ qr₁.estimate, qr₂.influence_curve .+ qr₂.estimate)
+ztest(mach::Machine{<:TMLEstimator}, pair::Pair{Int, Int}) =
+    ztest(getqueryreport(mach, pair[1]), getqueryreport(mach, pair[2]))
+

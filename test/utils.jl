@@ -288,6 +288,7 @@ end
     fit!(mach, verbosity=0)
     @test length(report(mach).extreme_propensity_idx) == 12
 end
+
 end;
 
 true
