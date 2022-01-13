@@ -1,7 +1,6 @@
 module TMLE
 
 using Tables
-using Distributions
 using CategoricalArrays
 using MLJBase
 using HypothesisTests
