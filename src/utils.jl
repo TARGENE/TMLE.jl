@@ -9,18 +9,6 @@ expit(X) = 1 ./ (1 .+ exp.(-X))
 expit(X::AbstractNode) = node(x->expit(x), X)
 
 """
-Hack into GLM to compute deviance on y a real
-"""
-function GLM.devresid(::Bernoulli, y::Vector{<:Real}, μ::Real)
-    return -2*(y*log(μ) + (1-y)*log1p(-μ))
-end
-
-"""
-Remove default check for y to be binary
-"""
-GLM.checky(y, d::Bernoulli) = nothing
-
-"""
 
 Let's default to no warnings for now.
 """
@@ -79,19 +67,19 @@ expected_value(ŷ, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:Finite}}) =
 expected_value(ŷ::AbstractNode, t::Type{<:Probabilistic}, s::Type{<:AbstractArray{<:Finite}}) = 
     node(ŷ->expected_value(ŷ, t, s), ŷ)
 
-expected_value(ŷ, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:MLJ.Continuous}}) = mean.(ŷ)
-expected_value(ŷ::AbstractNode, t::Type{<:Probabilistic}, s::Type{<:AbstractArray{<:MLJ.Continuous}}) = 
+expected_value(ŷ, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:MLJBase.Continuous}}) = mean.(ŷ)
+expected_value(ŷ::AbstractNode, t::Type{<:Probabilistic}, s::Type{<:AbstractArray{<:MLJBase.Continuous}}) = 
     node(ŷ->expected_value(ŷ, t, s), ŷ)
 
-expected_value(ŷ, ::Type{<:Deterministic}, ::Type{<:AbstractArray{<:MLJ.Continuous}}) = ŷ
-expected_value(ŷ::AbstractNode, t::Type{<:Deterministic}, s::Type{<:AbstractArray{<:MLJ.Continuous}}) = 
+expected_value(ŷ, ::Type{<:Deterministic}, ::Type{<:AbstractArray{<:MLJBase.Continuous}}) = ŷ
+expected_value(ŷ::AbstractNode, t::Type{<:Deterministic}, s::Type{<:AbstractArray{<:MLJBase.Continuous}}) = 
     node(ŷ->expected_value(ŷ, t, s), ŷ)
 
 maybelogit(x, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:Finite}}) = logit(x)
 maybelogit(x, _, _) = x
 
 function compute_offset(mach::Machine, X)
-    ŷ = MLJ.predict(mach, X)
+    ŷ = MLJBase.predict(mach, X)
     expectation = expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
     return maybelogit(expectation, typeof(mach.model), target_scitype(mach.model))
 end
@@ -168,7 +156,7 @@ function compute_fluctuation(Fmach::Machine,
     covariate = compute_covariate(Gmach, W, T, indicators; 
                                     threshold=threshold)
     Xfluct = fluctuation_input(covariate, offset)
-    return  MLJ.predict_mean(Fmach, Xfluct)
+    return predict_mean(Fmach, Xfluct)
 end
 
 ###############################################################################
@@ -222,7 +210,7 @@ function estimation_report(Fmach::Machine,
         Thot = transform(Hmach, counterfactualT)
         X = merge(Thot, W)
 
-        initial_expectation = expected_value(MLJ.predict(Q̅mach, X), typeof(Q̅mach.model), target_scitype(Q̅mach.model))
+        initial_expectation = expected_value(MLJBase.predict(Q̅mach, X), typeof(Q̅mach.model), target_scitype(Q̅mach.model))
         initial_ct_agg += sign*initial_expectation
         
         tmle_ct_agg += sign*compute_fluctuation(Fmach, 

@@ -1,6 +1,6 @@
-mutable struct TMLEstimator <: MLJ.DeterministicComposite 
-    Q̅::MLJ.Supervised
-    G::MLJ.Supervised
+mutable struct TMLEstimator <: DeterministicComposite 
+    Q̅::Supervised
+    G::Supervised
     F::Union{LinearRegressor, LinearBinaryClassifier}
     queries::Tuple{Vararg{NamedTuple}}
     threshold::Float64
@@ -39,7 +39,7 @@ curve equation.
 - queries...: At least one query
 - threshold: p(T | W) is truncated to this value to avoid division overflows.
 """
-function TMLEstimator(Q̅::MLJ.Supervised, G::MLJ.Supervised, queries::Vararg{NamedTuple}; threshold=0.005::Float64)
+function TMLEstimator(Q̅::Supervised, G::Supervised, queries::Vararg{NamedTuple}; threshold=0.005::Float64)
     if Q̅ isa Probabilistic
         F = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
     elseif Q̅ isa Deterministic
@@ -54,7 +54,7 @@ end
 ###############################################################################
 
 """
-    MLJ.fit(tmle::TMLEstimator, 
+    MLJBase.fit(tmle::TMLEstimator, 
                  verbosity::Int, 
                  T,
                  W, 
@@ -62,7 +62,7 @@ end
 
 As per all MLJ inputs, T and W should respect the Tables.jl interface.
 """
-function MLJ.fit(tmle::TMLEstimator, 
+function MLJBase.fit(tmle::TMLEstimator, 
                  verbosity::Int, 
                  T,
                  W, 
@@ -108,7 +108,7 @@ function MLJ.fit(tmle::TMLEstimator,
         Xfluct = fluctuation_input(covariate, offset)
         Fmach = machine(tmle.F, Xfluct, ys)
         
-        observed_fluct = MLJ.predict_mean(Fmach, Xfluct)
+        observed_fluct = predict_mean(Fmach, Xfluct)
 
         queryreport = estimation_report(Fmach,
                         Q̅mach,

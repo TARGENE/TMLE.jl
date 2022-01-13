@@ -19,7 +19,7 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
     mach = machine(ConstantClassifier(), X, y)
     fit!(mach; verbosity=0)
     proba = mach.fitresult[2][2]
-    ŷ = predict(mach)
+    ŷ = MLJ.predict(mach)
     expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
     @test expectation == repeat([proba], n)
     @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == TMLE.logit(expectation)
@@ -28,7 +28,7 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
     y = rand(n)
     mach = machine(ConstantRegressor(), X, y)
     fit!(mach; verbosity=0)
-    ŷ = predict(mach)
+    ŷ = MLJ.predict(mach)
     expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
     @test expectation ≈ repeat([mean(y)], n) atol=1e-10
     @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == expectation
@@ -36,7 +36,7 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
     # Deterministic Regressor
     mach = machine(LinearRegressor(), X, y)
     fit!(mach; verbosity=0)
-    ŷ = predict(mach)
+    ŷ = MLJ.predict(mach)
     expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
     @test expectation == ŷ
     @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == expectation

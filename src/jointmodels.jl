@@ -8,11 +8,11 @@ mutable struct FullCategoricalJoint <: Supervised
 end
 
 """
-    MLJ.fit(model::FullCategoricalJoint, verbosity::Int, X, Y)
+    MLJBase.fit(model::FullCategoricalJoint, verbosity::Int, X, Y)
 
 X and Y should respect the Tables.jl interface.
 """
-function MLJ.fit(model::FullCategoricalJoint, verbosity::Int, X, Y)
+function MLJBase.fit(model::FullCategoricalJoint, verbosity::Int, X, Y)
     # Define the Encoding
     joint_levels_it = Iterators.product((levels(Tables.getcolumn(Y, n)) 
                             for n in Tables.columnnames(Y))...)
@@ -20,14 +20,14 @@ function MLJ.fit(model::FullCategoricalJoint, verbosity::Int, X, Y)
 
     # Fit the underlying model
     y_multi = encode(Y, encoding, collect(values(encoding)))
-    fitresult, cache, report = MLJ.fit(model.model, verbosity, X, y_multi)
+    fitresult, cache, report = fit(model.model, verbosity, X, y_multi)
 
     return (encoding=encoding, levels=levels(y_multi), model_fitresult=fitresult), cache, report
 end
 
 
-MLJ.predict(model::FullCategoricalJoint, fitresult, Xnew) =
-    MLJ.predict(model.model, fitresult.model_fitresult, Xnew)
+MLJBase.predict(model::FullCategoricalJoint, fitresult, Xnew) =
+    MLJBase.predict(model.model, fitresult.model_fitresult, Xnew)
 
 
 function encode(Y, encoding, levels)
@@ -50,7 +50,7 @@ density(ŷ::AbstractNode, y::AbstractNode) =
 
 
 function density(m::Machine{FullCategoricalJoint,}, X, Y)
-    ŷ = MLJ.predict(m, X)
+    ŷ = MLJBase.predict(m, X)
     y_multi = encode(Y, m)
     density(ŷ, y_multi)
 end
@@ -60,7 +60,7 @@ Fallback for classic probablistic models used when
 the treatment is a single variable
 """
 function density(m::Machine, X, y)
-    ŷ = MLJ.predict(m, X)
+    ŷ = MLJBase.predict(m, X)
     density(ŷ, adapt(y))
 end
 
