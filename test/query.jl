@@ -2,6 +2,8 @@ module TestQuery
 
 using TMLE
 using Test
+using CategoricalArrays
+
 
 @testset "Test constructors" begin
     # Base constructor
