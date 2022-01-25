@@ -5,6 +5,8 @@ using TMLE
 using MLJ
 using StableRNGs
 using Distributions
+using CategoricalArrays
+using Base: ImmutableDict
 
 LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
 LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
@@ -43,74 +45,47 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 
 end
 
-@testset "Test interaction_combinations" begin
-    # With 1 treatment variable
-    query = (t₁=["a", "b"],)
-    combinations = TMLE.interaction_combinations(query)
-    expected_comb = [(t₁ = "a",),
-                     (t₁ = "b",)]
-    for (i, comb) in enumerate(combinations)
-        @test comb == expected_comb[i]
-    end
-
-    # With 3 treatment variables
-    query = (t₁=["a", "b"], t₂ = ["c", "d"], t₃ = [true, false])
-    combinations = TMLE.interaction_combinations(query)
-    expected_comb = [(t₁ = "a", t₂ = "c", t₃ = true),
-                     (t₁ = "b", t₂ = "c", t₃ = true),
-                     (t₁ = "a", t₂ = "d", t₃ = true),
-                     (t₁ = "b", t₂ = "d", t₃ = true),
-                     (t₁ = "a", t₂ = "c", t₃ = false),
-                     (t₁ = "b", t₂ = "c", t₃ = false),
-                     (t₁ = "a", t₂ = "d", t₃ = false),
-                     (t₁ = "b", t₂ = "d", t₃ = false)]
-    for (i, comb) in enumerate(combinations)
-        @test comb == expected_comb[i]
-    end
-end
-
-@testset "Test indicator_fns" begin
-    # For 1 treatment variable
-    query = (t₁=["a", "b"],)
-    indicators = TMLE.indicator_fns(query)
-    @test indicators == Dict(
-        (t₁ = "b",) => -1,
-        (t₁ = "a",) => 1
-    )
-
-    # For 2 treatment variables:
-    # The "case" treatment is: (true, false) 
-    query = (t₁=[true, false], t₂ = [false, true])
-    indicators = TMLE.indicator_fns(query)
-    @test indicators == Dict(
-        (t₁ = 1, t₂ = 0) => 1,
-        (t₁ = 0, t₂ = 0) => -1,
-        (t₁ = 1, t₂ = 1) => -1,
-        (t₁ = 0, t₂ = 1) => 1
-    )
-
-    # For 3 treatment variables:
-    # The "case" treatment is: (a, c, true) 
-    query = (t₁=["a", "b"], t₂ = ["c", "d"], t₃ = [true, false])
-    indicators = TMLE.indicator_fns(query)
-    @test indicators == Dict(
-        (t₁ = "b", t₂ = "c", t₃ = 1) => -1, # (-1)^{2}=1
-        (t₁ = "a", t₂ = "c", t₃ = 1) => 1,  # (-1)^{0}=1
-        (t₁ = "b", t₂ = "d", t₃ = 0) => -1, # (-1)^{3}=-1
-        (t₁ = "b", t₂ = "c", t₃ = 0) => 1,  # (-1)^{2}=1
-        (t₁ = "a", t₂ = "d", t₃ = 1) => -1, # (-1)^{1}=-1
-        (t₁ = "a", t₂ = "c", t₃ = 0) => -1, # (-1)^{1}=-1
-        (t₁ = "a", t₂ = "d", t₃ = 0) => 1,  # (-1)^{2}=1
-        (t₁ = "b", t₂ = "d", t₃ = 1) => 1   # (-1)^{2}=1
-    )
-end
-
 @testset "Test adapt" begin
     T = (a=1,)
     @test TMLE.adapt(T) == 1
 
     T = (a=1, b=2)
     @test TMLE.adapt(T) == T
+end
+
+@testset "Test indicator_values" begin
+    indicators = ImmutableDict(
+        ("b", "c", 1) => -1,
+        ("a", "c", 1) => 1,
+        ("b", "d", 0) => -1,
+        ("b", "c", 0) => 1,
+        ("a", "d", 1) => -1,
+        ("a", "c", 0) => -1,
+        ("a", "d", 0) => 1,
+        ("b", "d", 1) => 1 
+    )
+    T = (
+        t₁= categorical(["b", "a", "b", "b", "a", "a", "a", "b", "q"]),
+        t₂ = categorical(["c", "c", "d", "c", "d", "c", "d", "d", "d"]),
+        t₃ = categorical([true, true, false, false, true, false, false, true, false])
+        )
+    # The las combination does not appear in the indicators
+    @test TMLE.indicator_values(indicators, T) ==
+        [-1, 1, -1, 1, -1, -1, 1, 1, 0]
+
+end
+
+@testset "Test counterfactualTreatment" begin
+    vals = (true, "a")
+    T = (
+        t₁ = categorical([true, false, false]),
+        t₂ = categorical(["a", "a", "c"])
+    )
+    cfT = TMLE.counterfactualTreatment(vals, T)
+    @test cfT == (
+        t₁ = categorical([true, true, true]),
+        t₂ = categorical(["a", "a", "a"])
+    )
 end
 
 @testset "Test compute_covariate" begin
@@ -121,11 +96,11 @@ end
     W = MLJ.table(rand(7, 3))
 
     Gmach = machine(ConstantClassifier(), 
-                    W, 
+                    W,
                     TMLE.adapt(T))
     fit!(Gmach, verbosity=0)
 
-    indicators = TMLE.indicator_fns((t₁=["a", "b"],))
+    indicators = TMLE.indicator_fns(Query((t₁="a",), (t₁="b",)))
 
     cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [1.75,
@@ -147,8 +122,8 @@ end
                     W, 
                     T)
     fit!(Gmach, verbosity=0)
-
-    indicators = TMLE.indicator_fns((t₁=[1, 0], t₂ = [1, 0]))
+    query = Query((t₁=1, t₂=1), (t₁=0, t₂=0))
+    indicators = TMLE.indicator_fns(query)
 
     cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [2.3333333333333335,
@@ -171,8 +146,8 @@ end
                     W, 
                     T)
     fit!(Gmach, verbosity=0)
-
-    indicators = TMLE.indicator_fns((t₁=["a", "b"], t₂ = [1, 2], t₃ = [true, false]))
+    query = Query((t₁="a", t₂=1, t₃=true), (t₁="b", t₂=2, t₃=false))
+    indicators = TMLE.indicator_fns(query)
 
     cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [0,
@@ -220,7 +195,7 @@ end
     T = (t₁=categorical([1, 1, 1, 0, 0, 0, 0, 1, 1, 0]),
          t₂=categorical([0, 0, 1, 0, 0, 1, 1, 1, 0, 0]))
     y = categorical([1, 1, 0, 0, 1, 0 , 1, 0, 0, 0])
-    query = (t₁=[1, 0], t₂ = [1, 0])
+    query = Query((t₁=1, t₂=1), (t₁=0, t₂=0))
     indicators = TMLE.indicator_fns(query)
 
     # Fit encoder
@@ -277,8 +252,7 @@ end
     T = (t=categorical(rand(rng, Bernoulli(0.001), n)),)
     W = MLJ.table(rand(rng, n, 3))
     y = rand(rng, n)
-
-    query = (t=[true, false],)
+    query = Query((t=true,), (t=false,))
 
     Q̅ = LinearRegressor()
     G = LogisticClassifier()
