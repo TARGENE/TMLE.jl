@@ -18,7 +18,7 @@ variables(query::Query{<:NamedTuple{names}}) where names = names
 The order of the variables in the queries and the Treatment Table 
 should be the same.
 """
-function check_ordering(queries, T) where names
+function check_ordering(queries, T)
     Tnames = Tables.columnnames(T)
     for query in queries
         Tnames == variables(query) || 

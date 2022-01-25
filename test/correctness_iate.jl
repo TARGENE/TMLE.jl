@@ -182,8 +182,8 @@ end
 
 
 @testset "Test Double Robustness IATE on binary_target_binary_treatment_pb" begin
+    query = Query((T₁=true, T₂=true), (T₁=false, T₂=false))
     # When Q̅ is misspecified but G is well specified
-    query = (T₁=[true, false], T₂=[true, false])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(LogisticClassifier())
     tmle = TMLEstimator(Q̅, G, query)
@@ -198,7 +198,6 @@ end
     @test all(abs_vars .< [0.05, 0.002, 0.0003, 3.5e-5])
 
     # When Q̅ is well specified  but G is misspecified
-    query = (T₁=[true, false], T₂=[true, false])
     Q̅ = cat_interacter
     G = FullCategoricalJoint(ConstantClassifier())
     tmle = TMLEstimator(Q̅, G, query)
@@ -215,11 +214,8 @@ end
 end
 
 @testset "Test Double Robustness IATE on continuous_target_binary_treatment_pb" begin
+    query = Query((T₁=true, T₂=true), (T₁=false, T₂=false))
     # When Q̅ is misspecified but G is well specified
-    
-    # If the order of the variables in the query do no match
-    # the order in T it shouldn't matter
-    query = (T₂=[true, false], T₁=[true, false])
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = FullCategoricalJoint(LogisticClassifier())
     tmle = TMLEstimator(Q̅, G, query)
@@ -234,7 +230,6 @@ end
     @test all(abs_vars .< [0.08, 0.002, 0.0002, 1.5e-5])
 
     # When Q̅ is well specified  but G is misspecified
-    query = (T₁=[true, false], T₂=[true, false])
     Q̅ = cont_interacter
     G = FullCategoricalJoint(ConstantClassifier())
     tmle = TMLEstimator(Q̅, G, query)
@@ -252,8 +247,8 @@ end
 
 
 @testset "Test Double Robustness IATE on binary_target_categorical_treatment_pb" begin
+    query = Query((T₁="CC", T₂="AT"), (T₁="CG", T₂="AA"))
     # When Q̅ is misspecified but G is well specified
-    query = (T₁=["CC", "CG"], T₂=["AT", "AA"])
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(LogisticClassifier())
     tmle = TMLEstimator(Q̅, G, query)
@@ -268,7 +263,6 @@ end
     @test all(abs_vars .< [0.03, 0.006, 0.0004, 2.7e-5])
 
     # When Q̅ is well specified but G is misspecified
-    query = (T₁=["CC", "CG"], T₂=["AT", "AA"])
     Q̅ = cat_interacter
     G = FullCategoricalJoint(ConstantClassifier())
     tmle = TMLEstimator(Q̅, G, query)

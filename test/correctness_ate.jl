@@ -74,8 +74,8 @@ end
 
 
 @testset "Test Double Robustness ATE on continuous_target_categorical_treatment_pb" begin
+    query = Query((T="AA",), (T="TT",))
     # When Q̅ is misspecified but G is well specified
-    query = (T=["AA", "TT"],)
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = LogisticClassifier()
     tmle = TMLEstimator(Q̅, G, query)
@@ -90,7 +90,6 @@ end
     @test all(abs_vars .< [0.09, 0.02, 0.002, 3.9e-5])
 
     # When Q̅ is well specified but G is misspecified
-    query = (T=["AA", "TT"],)
     Q̅ = LinearRegressor()
     G = ConstantClassifier()
     tmle = TMLEstimator(Q̅, G, query)
@@ -106,8 +105,8 @@ end
 end
 
 @testset "Test Double Robustness ATE on binary_target_binary_treatment_pb" begin
+    query = Query((t=true,), (t=false,))
     # When Q̅ is misspecified but G is well specified
-    query = (t=[true, false],)
     Q̅ = ConstantClassifier()
     G = LogisticClassifier()
     tmle = TMLEstimator(Q̅, G, query)
@@ -122,7 +121,6 @@ end
     @test all(abs_vars .< [0.004, 0.001, 4.7e-5, 7.8e-6])
 
     # When Q̅ is well specified but G is misspecified
-    query = (t=[true, false],)
     Q̅ = LogisticClassifier()
     G = ConstantClassifier()
     tmle = TMLEstimator(Q̅, G, query)
@@ -139,8 +137,8 @@ end
 
 
 @testset "Test Double Robustness ATE on continuous_target_binary_treatment_pb" begin
+    query = Query((t=true,), (t=false,))
     # When Q̅ is misspecified but G is well specified
-    query = (t=[true, false],)
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = LogisticClassifier()
     tmle = TMLEstimator(Q̅, G, query)
@@ -155,7 +153,6 @@ end
     @test all(abs_vars .< [0.4, 0.01, 0.002, 0.0002])
 
     # When Q̅ is well specified but G is misspecified
-    query = (t=[true, false],)
     Q̅ = LinearRegressor()
     G = ConstantClassifier()
     tmle = TMLEstimator(Q̅, G, query)
@@ -171,7 +168,10 @@ end
 end
 
 @testset "Test multi-queries" begin
-    queries = [(T=["AT", "TT"],), (T=["AA", "AT"],)]
+    queries = (
+        Query((T="AT",), (T="TT",)),
+        Query((T="AA",), (T="AT",))
+    )
 
     Q̅ = LinearRegressor()
     G = LogisticClassifier()
