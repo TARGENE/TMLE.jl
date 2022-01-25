@@ -42,7 +42,7 @@ LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
 end
 
 
-@testset "Test 4-points estimation non regression" begin
+@testset "Test 4-points estimation and non regression" begin
     rng = StableRNG(123)
     n = 100
     T = (t₁=categorical(sample(rng, ["CG", "CC"], Weights([0.7, 0.3]), n)),
@@ -72,6 +72,27 @@ end
     @test res.confint[2] ≈ 1.01 atol=1e-2
 end
 
+
+@testset "Test variables in T and Query should match" begin
+    rng = StableRNG(123)
+    n = 100
+    T = (t₁=categorical(sample(rng, ["CG", "CC"], Weights([0.7, 0.3]), n)),
+         t₂=categorical(sample(rng, ["AT", "AA"], Weights([0.6, 0.4]), n)))
+    W = (w₁=rand(rng, n), w₂=rand(rng, n))
+    y = categorical(rand(rng, Bernoulli(0.3), n))
+
+    # The query ordering does not match T
+    query = Query((t₂="CC", t₁="AT"), (t₂="CG", t₁="AA"))
+    Q̅ = ConstantClassifier()
+    G = FullCategoricalJoint(ConstantClassifier())
+    F = LinearBinaryClassifier(fit_intercept=false, offsetcol=:offset)
+
+    tmle = TMLEstimator(Q̅, G, query)
+
+    mach = machine(tmle, T, W, y)
+    @test_throws ArgumentError fit!(mach, verbosity=0)
+
+end
 
 end;
 

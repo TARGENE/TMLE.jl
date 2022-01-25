@@ -22,8 +22,9 @@ function check_ordering(queries, T)
     Tnames = Tables.columnnames(T)
     for query in queries
         Tnames == variables(query) || 
-            throw(ArgumentError, "The variables in T and one of the queries seem to "*
-                                "differ, please use the same names. \n Hint: The ordering should match.")
+            throw(ArgumentError("The variables in T and one of the queries seem to "*
+                                "differ, please use the same variable names. \n Hint: The ordering"*
+                                " in the queries and T should match."))
     end
 end
 

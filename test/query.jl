@@ -26,6 +26,13 @@ end
 @testset "Test Queries Misc" begin
     query = Query((t₁="CC", t₂="CG"), (t₁="GG", t₂="GG"))
     @test TMLE.variables(query) == (:t₁, :t₂)
+
+    T = (
+        t₁=categorical(["CC", "GG", "CC"]),
+        t₂=categorical(["CC", "GG", "CC"]),
+        t₃=categorical(["CC", "GG", "CC"]),
+        )
+    @test_throws ArgumentError TMLE.check_ordering((query,), T)
 end
 
 @testset "Test interaction_combinations" begin
