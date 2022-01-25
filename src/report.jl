@@ -50,6 +50,9 @@ queryreportname(i::Int) = Symbol("queryreport_$i")
 getqueryreport(mach::Machine{<:TMLEstimator}, i::Int) =
     getfield(mach.report, queryreportname(i))
 
+getqueryreports(mach::Machine{<:TMLEstimator}) = 
+                Tuple(getqueryreport(mach, i) for i in 1:length(mach.model.queries))
+
 # Simple Test   
 ztest(qr::QueryReport) = 
     OneSampleZTest(qr.estimate .+ qr.influence_curve)

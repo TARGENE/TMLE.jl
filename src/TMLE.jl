@@ -23,7 +23,7 @@ import MLJBase.check
 export TMLEstimator, Query, QueryReport
 export FullCategoricalJoint
 export fit
-export ztest, pvalue, confint, getqueryreport, briefreport
+export ztest, pvalue, confint, getqueryreport, getqueryreports, briefreport
 
 # #############################################################################
 # INCLUDES
