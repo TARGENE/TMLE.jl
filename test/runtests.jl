@@ -8,4 +8,5 @@ using Test
     @test include("correctness_ate.jl")
     @test include("correctness_iate.jl")
     @test include("report.jl")
+    @test include("query.jl")
 end
