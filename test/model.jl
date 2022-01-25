@@ -7,7 +7,6 @@ using StableRNGs
 using StatsBase
 using Distributions
 
-LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
 
 @testset "Test sub machines have been fitted correctly" begin
     rng = StableRNG(123)
@@ -20,7 +19,6 @@ LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
     query = Query((t₁="CC", t₂="AT"), (t₁="CG", t₂="AA"))
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
-    F = LinearBinaryClassifier(fit_intercept=false, offsetcol=:offset)
 
     tmle = TMLEstimator(Q̅, G, query)
 
@@ -85,7 +83,6 @@ end
     query = Query((t₂="CC", t₁="AT"), (t₂="CG", t₁="AA"))
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
-    F = LinearBinaryClassifier(fit_intercept=false, offsetcol=:offset)
 
     tmle = TMLEstimator(Q̅, G, query)
 
