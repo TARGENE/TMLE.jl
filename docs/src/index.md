@@ -93,7 +93,7 @@ Finally, we are asking a specific question. Let's be a bit more specific and say
 - replacing one G for a C in a homozygous person G at locus ``L_1``
 - replacing another T for a A in a heterozygous person TA at locus ``L_2``
 
-This is embodied by a `query` which is simply a `NamedTuple`.
+This is embodied by a `query` for which the `Query` type is provided. 
 
 We are now ready to run the estimation as described in the following example (Requires `add MLJLinearModels`):
 
@@ -115,7 +115,7 @@ W = MLJ.table(rand(n, 3))
 y = rand(n)
 
 # Defining the TMLE
-query = (t₁=["CG", "GG"], t₂=["TT", "TA"])
+query = Query(case=(t₁="CG", t₂="TT"), control=(t₁="GG", t₂="TA"), name="MyQuery")
 Q = LinearRegressor()
 G = FullCategoricalJoint(LogisticClassifier())
 tmle = TMLEstimator(Q, G, query)
@@ -185,7 +185,7 @@ but here because we know the generating process we can cheat a bit. We will use 
 ```julia
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 
-query = (T=[1, 0],)
+query = Query(case=(T=1,), control=(T=0,))
 Q = MLJ.DeterministicConstantRegressor()
 G = LogisticClassifier()
 tmle = TMLEstimator(Q, G, query)
@@ -307,7 +307,7 @@ stack = Stack(;metalearner=LogisticClassifier(),
                 tree_3=DecisionTreeClassifier(max_depth=3),
                 knn=KNNClassifier())
 
-query = (t₁ = [1, 0], t₂ = [1, 0])
+query = Query(case=(t₁=1, t₂=1), control=(t₁=0, t₂=0))
 Q̅ = stack
 G = FullCategoricalJoint(stack)
 tmle = TMLEstimator(Q̅, G, query)
@@ -349,9 +349,9 @@ y = rand(n)
 
 # Defining the TMLE
 queries = [
-    (t₁=["CG", "GG"], t₂=["TT", "TA"]),
-    (t₁=["GG", "CG"], t₂=["TT", "TA"]),
-    (t₁=["CG", "GG"], t₂=["TT", "AA"])
+    Query(case=(t₁="CG", t₂="TT"), control=(t₁="GG", t₂="TA"), name="Query1"),
+    Query(case=(t₁="GG", t₂="TT"), control=(t₁="CG", t₂="TA"), name="Query2"),
+    Query(case=(t₁="CG", t₂="TT"), control=(t₁="GG", t₂="AA"), name="Query3")
 ]
 
 Q = LinearRegressor()

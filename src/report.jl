@@ -1,5 +1,5 @@
 struct QueryReport
-    query::NamedTuple
+    query::Query
     influence_curve::Vector{Float64}
     estimate::Float64
     initial_estimate::Float64
@@ -49,6 +49,9 @@ queryreportname(i::Int) = Symbol("queryreport_$i")
 
 getqueryreport(mach::Machine{<:TMLEstimator}, i::Int) =
     getfield(mach.report, queryreportname(i))
+
+getqueryreports(mach::Machine{<:TMLEstimator}) = 
+                Tuple(getqueryreport(mach, i) for i in 1:length(mach.model.queries))
 
 # Simple Test   
 ztest(qr::QueryReport) = 

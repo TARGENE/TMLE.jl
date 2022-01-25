@@ -4,7 +4,7 @@ using Tables
 using CategoricalArrays
 using MLJBase
 using HypothesisTests
-using Base: Iterators
+using Base: Iterators, ImmutableDict
 using MLJGLMInterface
 using MLJModels
 
@@ -20,18 +20,20 @@ import MLJBase.check
 # EXPORTS
 # #############################################################################
 
-export TMLEstimator
+export TMLEstimator, Query, QueryReport
 export FullCategoricalJoint
 export fit
-export ztest, pvalue, confint, getqueryreport, briefreport
+export ztest, pvalue, confint, getqueryreport, getqueryreports, briefreport
 
 # #############################################################################
 # INCLUDES
 # #############################################################################
 
+include("query.jl")
 include("model.jl")
 include("report.jl")
 include("jointmodels.jl")
 include("utils.jl")
+
 
 end

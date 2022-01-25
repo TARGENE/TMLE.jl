@@ -2,7 +2,7 @@ mutable struct TMLEstimator <: DeterministicComposite
     Q̅::Supervised
     G::Supervised
     F::Union{LinearRegressor, LinearBinaryClassifier}
-    queries::Tuple{Vararg{NamedTuple}}
+    queries::Tuple{Vararg{Query}}
     threshold::Float64
 end
 
@@ -39,7 +39,7 @@ curve equation.
 - queries...: At least one query
 - threshold: p(T | W) is truncated to this value to avoid division overflows.
 """
-function TMLEstimator(Q̅::Supervised, G::Supervised, queries::Vararg{NamedTuple}; threshold=0.005::Float64)
+function TMLEstimator(Q̅::Supervised, G::Supervised, queries::Vararg{Query}; threshold=0.005::Float64)
     if Q̅ isa Probabilistic
         F = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
     elseif Q̅ isa Deterministic
@@ -67,12 +67,15 @@ function MLJBase.fit(tmle::TMLEstimator,
                  T,
                  W, 
                  y::Union{CategoricalVector{Bool}, Vector{<:Real}})
+
+    check_ordering(tmle.queries, T)
+    
     Ts = source(T)
     Ws = source(W)
     ys = source(y)
 
     # Converting all tables to NamedTuples
-    T = node(t->NamedTuple{keys(tmle.queries[1])}(Tables.columntable(t)), Ts)
+    T = node(t->NamedTuple{variables(tmle.queries[1])}(Tables.columntable(t)), Ts)
     W = node(w->Tables.columntable(w), Ws)
     # intersect(keys(T), keys(W)) == [] || throw("T and W should have different column names")
 

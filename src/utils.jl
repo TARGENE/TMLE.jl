@@ -30,35 +30,6 @@ function log_over_threshold(covariate::AbstractNode, threshold)
     node(cov -> findall(x -> x >= 1/threshold, cov), covariate)
 end
 
-###############################################################################
-## Interactions Generation
-###############################################################################
-
-"""
-    interaction_combinations(query::NamedTuple{names,})
-Returns a generator over the different combinations of interactions that
-can be built from a query.
-"""
-function interaction_combinations(query::NamedTuple{names,}) where names
-    return (NamedTuple{names}(query) for query in Iterators.product(query...))
-end
-
-
-"""
-    indicator_fns(query::NamedTuple{names,})
-
-Implements the (-1)^{n-j} formula representing the cross-value of
-indicator functions,  where:
-    - n is the order of interaction considered
-    - j is the number of treatment variables different from the "case" value
-"""
-function indicator_fns(query::NamedTuple{nms,}) where nms
-    case = NamedTuple{nms}([v[1] for v in query])
-    interactionorder = length(query)
-    return Dict(q => (-1)^(interactionorder - sum(q[key] == case[key] for key in nms)) 
-                for q in interaction_combinations(query))
-end
-
 
 ###############################################################################
 ## Offset
@@ -89,16 +60,18 @@ end
 ## Covariate
 ###############################################################################
 
-function indicator_values(indicators, T)
-    covariate = zeros(nrows(T))
-    for (i, row) in enumerate(Tables.namedtupleiterator(T))
-        if haskey(indicators, row)
-            covariate[i] = indicators[row]
+function indicator_values(indicators::ImmutableDict{<:NTuple{N, Any}, ValType}, T) where {N, ValType}
+    covariate = zeros(ValType, nrows(T))
+    for (i, row) in enumerate(Tables.rows(T))
+        vals = Tuple(Tables.getcolumn(row, nm) for nm in 1:N)
+        if haskey(indicators, vals)
+            covariate[i] = indicators[vals]
         end
     end
     covariate
 end
-indicator_values(indicators, T::AbstractNode) = 
+
+indicator_values(indicators::ImmutableDict{<:NTuple{N, Any}, ValType}, T::AbstractNode) where {N, ValType} = 
     node(t -> indicator_values(indicators, t), T)
 
 
@@ -136,11 +109,11 @@ fluctuation_input(covariate::AbstractNode, offset::AbstractNode) =
     node((c, o) -> fluctuation_input(c, o), covariate, offset)
     
 function counterfactualTreatment(vals, T)
-    names = keys(vals)
+    Tnames = Tables.columnnames(T)
     n = nrows(T)
-    NamedTuple{names}(
-            [categorical(repeat([vals[name]], n), levels=levels(Tables.getcolumn(T, name)))
-                            for name in names])
+    NamedTuple{Tnames}(
+            [categorical(repeat([vals[i]], n), levels=levels(Tables.getcolumn(T, name)))
+                            for (i, name) in enumerate(Tnames)])
 end
 
 
