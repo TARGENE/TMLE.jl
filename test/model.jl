@@ -17,7 +17,7 @@ LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
     W = (w₁=rand(rng, n), w₂=rand(rng, n))
     y = categorical(rand(rng, Bernoulli(0.3), n))
 
-    query = (t₁=["CC", "CG"], t₂=["AT", "AA"])
+    query = Query((t₁="CC", t₂="AT"), (t₁="CG", t₂="AA"))
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
     F = LinearBinaryClassifier(fit_intercept=false, offsetcol=:offset)
@@ -53,7 +53,7 @@ end
     W = (w₁=rand(rng, n), w₂=rand(rng, n))
     y = categorical(rand(rng, Bernoulli(0.3), n))
 
-    query = (t₁=["CC", "CG"], t₂=["AT", "AA"], t₃=["CC", "GG"], t₄=["TT", "AA"])
+    query = Query((t₁="CC", t₂="AT", t₃="CC", t₄="TT"), (t₁="CG", t₂="AA", t₃="GG", t₄="AA"))
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
     tmle = TMLEstimator(Q̅, G, query)
