@@ -12,9 +12,10 @@ using MLJ
 end
 
 @testset "Test summary" begin
-    r1 = TMLE.QueryReport((t=[0, 1],), [1, 2, 3, 4], 1, 0.8)
+    query = Query((t=0,), (t=1,))
+    r1 = TMLE.QueryReport(query, [1, 2, 3, 4], 1, 0.8)
     s1 = briefreport(r1)
-    @test s1.query == (t = [0, 1],)
+    @test s1.query == query
     @test s1.pvalue ≈ 5.88e-8 atol=1e-2
     @test s1.confint[1] ≈ 2.234 atol=1e-2
     @test s1.confint[2] ≈ 4.765 atol=1e-2
