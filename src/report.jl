@@ -1,5 +1,5 @@
 struct QueryReport
-    query::NamedTuple
+    query::Query
     influence_curve::Vector{Float64}
     estimate::Float64
     initial_estimate::Float64
