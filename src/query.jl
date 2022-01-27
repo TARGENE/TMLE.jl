@@ -19,7 +19,7 @@ The order of the variables in the queries and the Treatment Table
 should be the same.
 """
 function check_ordering(queries, T)
-    Tnames = Tables.columnnames(T)
+    Tnames = Tables.schema(T).names
     for query in queries
         Tnames == variables(query) || 
             throw(ArgumentError("The variables in T and one of the queries seem to "*
