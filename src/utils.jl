@@ -30,6 +30,8 @@ function log_over_threshold(covariate::AbstractNode, threshold)
     node(cov -> findall(x -> x >= 1/threshold, cov), covariate)
 end
 
+Tables.getcolumn(T::AbstractNode, name::Symbol) = 
+    node(T->Tables.getcolumn(T, name), T)
 
 ###############################################################################
 ## Offset
@@ -70,6 +72,20 @@ function indicator_values(indicators::ImmutableDict{<:NTuple{N, Any}, ValType}, 
     end
     covariate
 end
+
+function _indicator_values(indicators::ImmutableDict{<:NTuple{N, Any}, ValType}, T) where {N, ValType}
+    n = nrows(T)
+    T_ = hcat(T...)
+    covariate = zeros(ValType, n)
+    for i in 1:n
+        vals = view(T_, i, :)
+        if haskey(indicators, vals)
+            covariate[i] = indicators[vals]
+        end
+    end
+    covariate
+end
+
 
 indicator_values(indicators::ImmutableDict{<:NTuple{N, Any}, ValType}, T::AbstractNode) where {N, ValType} = 
     node(t -> indicator_values(indicators, t), T)
@@ -184,9 +200,9 @@ function estimation_report(Fmach::Machine,
         X = merge(Thot, W)
 
         initial_expectation = expected_value(MLJBase.predict(Q̅mach, X), typeof(Q̅mach.model), target_scitype(Q̅mach.model))
-        initial_ct_agg += sign*initial_expectation
+        initial_ct_agg .+= sign.*initial_expectation
         
-        tmle_ct_agg += sign*compute_fluctuation(Fmach, 
+        tmle_ct_agg .+= sign.*compute_fluctuation(Fmach, 
                     Q̅mach, 
                     Gmach,
                     indicators,

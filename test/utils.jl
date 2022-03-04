@@ -72,7 +72,8 @@ end
     # The las combination does not appear in the indicators
     @test TMLE.indicator_values(indicators, T) ==
         [-1, 1, -1, 1, -1, -1, 1, 1, 0]
-
+    # @btime TMLE.indicator_values(indicators, T)
+    # @btime TMLE._indicator_values(indicators, T)
 end
 
 @testset "Test counterfactualTreatment" begin
