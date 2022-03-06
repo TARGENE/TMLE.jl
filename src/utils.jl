@@ -33,6 +33,9 @@ end
 Tables.getcolumn(T::AbstractNode, name::Symbol) = 
     node(T->Tables.getcolumn(T, name), T)
 
+totable(x::AbstractVector) = (y=x,)
+totable(x) = x
+
 ###############################################################################
 ## Offset
 ###############################################################################
@@ -163,9 +166,10 @@ function estimation_report(Fmach::Machine,
     covariate::AbstractNode,
     indicators,
     threshold,
-    query)
+    query,
+    target_name)
 
-    node((w, t, o, y, c) -> estimation_report(Fmach, Q̅mach, Gmach, Hmach, w, t, o, y, c, indicators, threshold, query), 
+    node((w, t, o, y, c) -> estimation_report(Fmach, Q̅mach, Gmach, Hmach, w, t, o, y, c, indicators, threshold, query, target_name), 
                                 W, T, observed_fluct, ys, covariate)
 end
 
@@ -190,7 +194,8 @@ function estimation_report(Fmach::Machine,
                             covariate,
                             indicators, 
                             threshold,
-                            query)
+                            query,
+                            target_name)
 
     tmle_ct_agg = zeros(nrows(T))
     initial_ct_agg = zeros(nrows(T))
@@ -216,5 +221,5 @@ function estimation_report(Fmach::Machine,
     tmle_estimate = mean(tmle_ct_agg)
     inf_curve = influencecurve(covariate, ys, observed_fluct, tmle_ct_agg, tmle_estimate)
 
-    return QueryReport(query, inf_curve, tmle_estimate, initial_estimate)
+    return Report(target_name, query, inf_curve, tmle_estimate, initial_estimate)
 end

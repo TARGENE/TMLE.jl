@@ -15,7 +15,7 @@ end
 
 @testset "Test summary" begin
     query = Query((t=0,), (t=1,))
-    r1 = TMLE.QueryReport(query, [1, 2, 3, 4], 1, 0.8)
+    r1 = TMLE.Report("y", query, [1, 2, 3, 4], 1, 0.8)
     s1 = briefreport(r1)
     @test s1.query == query
     @test s1.pvalue ≈ 5.88e-8 atol=1e-2
@@ -49,8 +49,8 @@ end
     
     queryreports = getqueryreports(mach)
     for (i, qr) in enumerate(queryreports)
-        @test qr == getqueryreport(mach, i)
-        @test qr isa QueryReport
+        @test qr == getqueryreport(mach, 1, i)
+        @test qr isa Report
     end
 end
 end

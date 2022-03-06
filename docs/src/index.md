@@ -218,7 +218,7 @@ The `fitted_params` function is the regular `MLJ` entrypoint to retrieve all fit
 report(mach)
 ```
 
-The full report of the fitted_machine, including an entry for each query denoted by fields `queryreport_$i` where `i` is the query index. Each of this entry is a `QueryReport` entity that contains all the necessary information you might need to extract for this specific query.
+The full report of the fitted_machine, including an entry for each query denoted by fields `queryreport_$i` where `i` is the query index. Each of this entry is a `Report` entity that contains all the necessary information you might need to extract for this specific query.
 
 #### TMLE.jl Specific entrypoints
 
@@ -228,7 +228,7 @@ The full report of the fitted_machine, including an entry for each query denoted
 qr = getqueryreport(mach, 1)
 ```
 
-This will give you an easy access to the `QueryReport` structure.
+This will give you an easy access to the `Report` structure.
 
 - `ztest`
 

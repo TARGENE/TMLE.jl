@@ -167,7 +167,7 @@ end
     @test all(abs_vars .< [0.04, 0.004, 0.0008, 0.0002])
 end
 
-@testset "Test multi-queries" begin
+@testset "Test multi-queries/multi-targets" begin
     queries = (
         Query((T="AT",), (T="TT",)),
         Query((T="AA",), (T="AT",))
@@ -177,40 +177,46 @@ end
     G = LogisticClassifier()
     tmle = TMLEstimator(Q̅, G, queries...)
 
-    t, W, y, ATE₁ = continuous_target_categorical_treatment_pb(StableRNG(123);n=100, control="TT", treatment="AT")
-    _, _, _, ATE₂ = continuous_target_categorical_treatment_pb(StableRNG(123);control="AT", treatment="AA")
+    t, W, y₁, ATE₁ = continuous_target_categorical_treatment_pb(StableRNG(123);n=100, control="TT", treatment="AT")
+    _, _, y₂, ATE₂ = continuous_target_categorical_treatment_pb(StableRNG(123); control="AT", treatment="AA")
 
+    y = (y₁=y₁, y₂=y₂)
     mach = machine(tmle, t, W, y)
     fit!(mach, verbosity=0)
 
-    # Test queryreport accessibility
-    @test TMLE.queryreportname(456) == :queryreport_456
-    @test TMLE.getqueryreport(mach, 1) isa TMLE.QueryReport 
-    @test TMLE.getqueryreport(mach, 1) == mach.report.queryreport_1
-    @test TMLE.getqueryreport(mach, 2) isa TMLE.QueryReport 
-    @test TMLE.getqueryreport(mach, 2) == mach.report.queryreport_2
+    # The 2 targets are the same
+    qr₁₁ = getqueryreport(mach, 1, 1)
+    qr₂₁ = getqueryreport(mach, 2, 1)
+    @test qr₁₁.estimate == qr₂₁.estimate
+    @test qr₁₁.influence_curve == qr₂₁.influence_curve
+
+    qr₁₂ = getqueryreport(mach, 1, 2)
+    qr₂₂ = getqueryreport(mach, 2, 2)
+    @test qr₁₂.estimate == qr₂₂.estimate
+    @test qr₁₂.influence_curve == qr₂₂.influence_curve
+
     # Test various ztests
-    qr₁ = getqueryreport(mach, 1)
-    testresult = ztest(mach, 1)
+    qr₁ = getqueryreport(mach, 1, 1)
+    testresult = ztest(mach, 1, 1)
     @test testresult == ztest(qr₁)
     @test testresult isa HypothesisTests.OneSampleZTest
     @test pvalue(testresult) ≈ 3.474e-25 atol=1e-3
     @test confint(testresult)[1] < ATE₁ < confint(testresult)[2]
 
-    qr₂ = getqueryreport(mach, 2)
-    testresult = ztest(mach, 2)
+    qr₂ = getqueryreport(mach, 1, 2)
+    testresult = ztest(mach, 1, 2)
     @test testresult == ztest(qr₂)
     @test testresult isa HypothesisTests.OneSampleZTest
     @test pvalue(testresult) ≈ 3.428e-14 atol=1e-3
     @test confint(testresult)[1] < ATE₂ < confint(testresult)[2]
 
-    testresult = ztest(mach, 1=>2)
+    testresult = ztest(mach, 1, 1=>2)
     @test pvalue(testresult) ≈ 7.819e-25 atol=1e-3
 
-    bf = briefreport(mach)
-    for (i, _) in enumerate(mach.model.queries)
-        @test briefreport(getqueryreport(mach, i)) == bf[i]
-        @test keys(bf[i]) == (:query, :pvalue, :confint, :estimate, :initial_estimate, :stderror, :mean_inf_curve)
+    bfs = briefreport(mach)
+    @test length(bfs) == 4
+    for bf in bfs
+        @test any(bf == briefreport(qr) for qr in (qr₁₁, qr₁₂, qr₂₁, qr₂₂))
     end
 
 end

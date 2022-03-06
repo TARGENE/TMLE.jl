@@ -122,8 +122,9 @@ function MLJBase.fit(tmle::TMLEstimator,
                             covariate,
                             indicators,
                             tmle.threshold,
-                            query)
-            report_key = Symbol(string("y_", target_idx, "q_", query_idx))
+                            query,
+                            target_name)
+            report_key = queryreportname(target_idx, query_idx)
             push!(reported, NamedTuple{(report_key,)}([queryreport]))
             # This is actually empty but required
             push!(predicted, observed_fluct)
@@ -140,3 +141,8 @@ function MLJBase.fit(tmle::TMLEstimator,
 end
 
 
+###############################################################################
+## Complementary methods
+###############################################################################
+
+MLJBase.reformat(::TMLEstimator, T, W, Y) = (T, W, totable(Y))
