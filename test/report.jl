@@ -6,13 +6,6 @@ using MLJ
 using StableRNGs
 
 
-@testset "Test influencecurve" begin
-    @test TMLE.influencecurve([1, 1, 1], [1, 0, 1], [0.8, 0.1, 0.8], [0.8, 0.2, 0.8], 1) == 
-        [0.0
-        -0.9
-        0.0]
-end
-
 @testset "Test summary" begin
     query = Query((t=0,), (t=1,))
     r1 = TMLE.Report("y", query, [1, 2, 3, 4], 1, 0.8)

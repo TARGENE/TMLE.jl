@@ -264,6 +264,13 @@ end
     @test length(report(mach).extreme_propensity_idx) == 12
 end
 
+@testset "Test influencecurve" begin
+    @test TMLE.influencecurve([1, 1, 1], [1, 0, 1], [0.8, 0.1, 0.8], [0.8, 0.2, 0.8], 1) == 
+        [0.0
+        -0.9
+        0.0]
+end
+
 end;
 
 true

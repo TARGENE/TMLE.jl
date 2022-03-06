@@ -128,7 +128,8 @@ fit!(mach)
 briefreport(mach)
 ```
 
-The content of the brief report is a Tuple that for each query presents a NamedTuple containing the following fields:
+The content of the brief report is a Tuple that for each target/query pair reprots a NamedTuple containing the following fields:
+- target_name: If only one target is provided (y is a vector) it is denoted by `y` otherwise it corresponds to the columnname in the table Y.
 - query: The associated query
 - pvalue: The p-value
 - confint: A 95% confidence interval around the estimated quantity
@@ -140,6 +141,7 @@ The content of the brief report is a Tuple that for each query presents a NamedT
 Side Notes:
 - The effect treatment value appears in the first position in the query (for instance CG is first compared to GG which is the reference).
 - As per all MLJ inputs, T and W should respect the [Tables.jl](https://github.com/JuliaData/Tables.jl) interface
+- Y can also be either a vetor or a Tables.jl respecting interface. This can be useful to limit computational complexity since ``p(T|W)`` needs to be only fitted once for all targets.
 
 ## Tutorials
 
@@ -218,24 +220,24 @@ The `fitted_params` function is the regular `MLJ` entrypoint to retrieve all fit
 report(mach)
 ```
 
-The full report of the fitted_machine, including an entry for each query denoted by fields `queryreport_$i` where `i` is the query index. Each of this entry is a `Report` entity that contains all the necessary information you might need to extract for this specific query.
+The full report of the fitted_machine, including an entry for each query denoted by fields `target_$i_query_$j` where `i,j` index the targets and queries respectively. Each of this entry is a `Report` entity that contains all the necessary information you might need to extract for this specific query.
 
 #### TMLE.jl Specific entrypoints
 
-- `getqueryreport`
+- `getqueryreport(mach, target_idx, query_idx)`
 
 ```julia
-qr = getqueryreport(mach, 1)
+qr = getqueryreport(mach, 1, 1)
 ```
 
 This will give you an easy access to the `Report` structure.
 
-- `ztest`
+- `ztest(mach, target_idx, query_idx)`
 
 It can be called either on the machine by providing a sequence of indices (see the [multiple-queries section](#multiple-queries) for an exemple for more than 1 query) or on the query report itself.
 
 ```julia
-ztest(mach, 1) == ztest(qr)
+ztest(mach, 1, 1) == ztest(qr)
 ztest(qr)
 ```
 
@@ -323,12 +325,15 @@ briefreport(mach)
 ```
 
 
-### Multiple queries
+### Multiple targets/queries
 
-We have seen that we need to estimate nuisance parameters as well as possible and this is usually where the performance bottleneck lies because we are using stacking and many learning algorithms. We might also be interested in multiple questions all related to the same dataset setting. In such a situation, nuisance parameters can be estimated only once while
-providing multiple queries. Only the fluctuation step will happen multiple times.
+We have seen that we need to estimate nuisance parameters as efficiently as possible and this is usually where the performance bottleneck lies because we are using stacking and many learning algorithms. In some situations listed below, it is useful not to repeat the estimation of nuisance parameters:
+- If multiple targets are considered, ``p(T|W)`` needs only be fitted once
+- If multiple queries are asked, only the fluctuation step needs to be performed
+- A combination of both previous scenarios is possible
 
-Let's take the [genetic example](#quick-start) once again but assume we are interested in 3 queries (many more combinations exist for this dataset)!
+
+Let's take the [genetic example](#quick-start) once again but assume we are interested in 2 targets and 3 queries (many more combinations exist for this dataset)!
 
 ```julia
 using TMLE
@@ -345,7 +350,7 @@ T = (
     t₂=categorical(rand(["TT", "TA", "AA"], n))
 )
 W = MLJ.table(rand(n, 3))
-y = rand(n)
+Y = (y₁=rand(n), y₂=rand(n))
 
 # Defining the TMLE
 queries = [
@@ -359,25 +364,25 @@ G = FullCategoricalJoint(LogisticClassifier())
 tmle = TMLEstimator(Q, G, queries...)
 
 # Fitting
-mach = machine(tmle, T, W, y)
+mach = machine(tmle, T, W, Y)
 fit!(mach)
 
 # Report
 briefreport(mach)
 ```
 
-The report contains a `QueryRport` for each query.
+The report contains a `Report` for each target/query pair.
 
-One can for instance perform a paired Z-Test to compare if the estimate resulting from two different queries is significantly different. Here we compare the first and third query:
+One can for instance perform a paired Z-Test to compare if the estimate resulting from two different queries for the first target is significantly different. Here we compare the first and third query:
 
 ```julia
-ztest(mach, 1 => 3)
+ztest(mach, 1, 1 => 3)
 ```
 
-Or perform a simple Z-Test for each query:
+Or perform a simple Z-Test for a simple target/query, here y₂ and the first query:
 
 ```julia
-ztest(mach, 1, 2, 3)
+ztest(mach, 2, 1)
 ```
 
 which will output a Tuple of three tests.
