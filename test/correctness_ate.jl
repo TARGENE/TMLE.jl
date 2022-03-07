@@ -168,6 +168,8 @@ end
 end
 
 @testset "Test multi-queries/multi-targets" begin
+    rng = StableRNG(123)
+    n = 100
     queries = (
         Query((T="AT",), (T="TT",)),
         Query((T="AA",), (T="AT",))
@@ -177,48 +179,29 @@ end
     G = LogisticClassifier()
     tmle = TMLEstimator(Q̅, G, queries...)
 
-    t, W, y₁, ATE₁ = continuous_target_categorical_treatment_pb(StableRNG(123);n=100, control="TT", treatment="AT")
-    _, _, y₂, ATE₂ = continuous_target_categorical_treatment_pb(StableRNG(123); control="AT", treatment="AA")
+    t, W, y₁, ATE₁ = continuous_target_categorical_treatment_pb(rng;n=n, control="TT", treatment="AT")
+    _, _, _, ATE₂ = continuous_target_categorical_treatment_pb(rng; control="AT", treatment="AA")
+    y₂ = rand(rng, n)
 
     y = (y₁=y₁, y₂=y₂)
     mach = machine(tmle, t, W, y)
     fit!(mach, verbosity=0)
 
-    # The 2 targets are the same
-    qr₁₁ = queryreport(mach, 1, 1)
-    qr₂₁ = queryreport(mach, 2, 1)
-    @test qr₁₁.estimate == qr₂₁.estimate
-    @test qr₁₁.influence_curve == qr₂₁.influence_curve
+    # Check results for the first target
+    # First query: ATE₁
+    conf_interval = confint(ztest(mach, 1, 1))
+    @test conf_interval[1] <= ATE₁ <= conf_interval[2]
+    # Second query: ATE₂
+    conf_interval = confint(ztest(mach, 1, 2))
+    @test conf_interval[1] <= ATE₂ <= conf_interval[2]
 
-    qr₁₂ = queryreport(mach, 1, 2)
-    qr₂₂ = queryreport(mach, 2, 2)
-    @test qr₁₂.estimate == qr₂₂.estimate
-    @test qr₁₂.influence_curve == qr₂₂.influence_curve
-
-    # Test various ztests
-    qr₁ = queryreport(mach, 1, 1)
-    testresult = ztest(mach, 1, 1)
-    @test testresult == ztest(qr₁)
-    @test testresult isa HypothesisTests.OneSampleZTest
-    @test pvalue(testresult) ≈ 3.474e-25 atol=1e-3
-    @test confint(testresult)[1] < ATE₁ < confint(testresult)[2]
-
-    qr₂ = queryreport(mach, 1, 2)
-    testresult = ztest(mach, 1, 2)
-    @test testresult == ztest(qr₂)
-    @test testresult isa HypothesisTests.OneSampleZTest
-    @test pvalue(testresult) ≈ 3.428e-14 atol=1e-3
-    @test confint(testresult)[1] < ATE₂ < confint(testresult)[2]
-
-    testresult = ztest(mach, 1, 1=>2)
-    @test pvalue(testresult) ≈ 7.819e-25 atol=1e-3
-
-    bfs = briefreport(mach)
-    @test length(bfs) == 4
-    for bf in bfs
-        @test any(bf == briefreport(qr) for qr in (qr₁₁, qr₁₂, qr₂₁, qr₂₂))
-    end
-
+    # Check results for the second target which is just Random
+    conf_interval = confint(ztest(mach, 2, 1))
+    # First query:
+    @test conf_interval[1] <= 0 <= conf_interval[2]
+    # Second query:  
+    conf_interval = confint(ztest(mach, 2, 2))
+    @test conf_interval[1] <= 0 <= conf_interval[2]
 end
 
 
