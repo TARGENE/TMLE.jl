@@ -224,10 +224,10 @@ The full report of the fitted_machine, including an entry for each query denoted
 
 #### TMLE.jl Specific entrypoints
 
-- `getqueryreport(mach, target_idx, query_idx)`
+- `queryreport(mach, target_idx, query_idx)`
 
 ```julia
-qr = getqueryreport(mach, 1, 1)
+qr = queryreport(mach, 1, 1)
 ```
 
 This will give you an easy access to the `Report` structure.

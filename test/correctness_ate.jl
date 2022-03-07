@@ -185,25 +185,25 @@ end
     fit!(mach, verbosity=0)
 
     # The 2 targets are the same
-    qr₁₁ = getqueryreport(mach, 1, 1)
-    qr₂₁ = getqueryreport(mach, 2, 1)
+    qr₁₁ = queryreport(mach, 1, 1)
+    qr₂₁ = queryreport(mach, 2, 1)
     @test qr₁₁.estimate == qr₂₁.estimate
     @test qr₁₁.influence_curve == qr₂₁.influence_curve
 
-    qr₁₂ = getqueryreport(mach, 1, 2)
-    qr₂₂ = getqueryreport(mach, 2, 2)
+    qr₁₂ = queryreport(mach, 1, 2)
+    qr₂₂ = queryreport(mach, 2, 2)
     @test qr₁₂.estimate == qr₂₂.estimate
     @test qr₁₂.influence_curve == qr₂₂.influence_curve
 
     # Test various ztests
-    qr₁ = getqueryreport(mach, 1, 1)
+    qr₁ = queryreport(mach, 1, 1)
     testresult = ztest(mach, 1, 1)
     @test testresult == ztest(qr₁)
     @test testresult isa HypothesisTests.OneSampleZTest
     @test pvalue(testresult) ≈ 3.474e-25 atol=1e-3
     @test confint(testresult)[1] < ATE₁ < confint(testresult)[2]
 
-    qr₂ = getqueryreport(mach, 1, 2)
+    qr₂ = queryreport(mach, 1, 2)
     testresult = ztest(mach, 1, 2)
     @test testresult == ztest(qr₂)
     @test testresult isa HypothesisTests.OneSampleZTest
