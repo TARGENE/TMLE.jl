@@ -72,7 +72,8 @@ end
     # The las combination does not appear in the indicators
     @test TMLE.indicator_values(indicators, T) ==
         [-1, 1, -1, 1, -1, -1, 1, 1, 0]
-
+    # @btime TMLE.indicator_values(indicators, T)
+    # @btime TMLE._indicator_values(indicators, T)
 end
 
 @testset "Test counterfactualTreatment" begin
@@ -261,6 +262,13 @@ end
     mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
     @test length(report(mach).extreme_propensity_idx) == 12
+end
+
+@testset "Test influencecurve" begin
+    @test TMLE.influencecurve([1, 1, 1], [1, 0, 1], [0.8, 0.1, 0.8], [0.8, 0.2, 0.8], 1) == 
+        [0.0
+        -0.9
+        0.0]
 end
 
 end;

@@ -15,7 +15,7 @@ using Distributions
          t₂=categorical(sample(rng, ["AT", "AA"], Weights([0.6, 0.4]), n)))
     W = (w₁=rand(rng, n), w₂=rand(rng, n))
     y = categorical(rand(rng, Bernoulli(0.3), n))
-
+    
     query = Query((t₁="CC", t₂="AT"), (t₁="CG", t₂="AA"))
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())

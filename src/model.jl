@@ -66,74 +66,74 @@ function MLJBase.fit(tmle::TMLEstimator,
                  verbosity::Int, 
                  T,
                  W, 
-                 y::Union{CategoricalVector{Bool}, Vector{<:Real}})
+                 Y)
 
     check_ordering(tmle.queries, T)
     
     Ts = source(T)
     Ws = source(W)
-    ys = source(y)
-
+    Ys = source(Y)
+    
     # Converting all tables to NamedTuples
     T = node(t->NamedTuple{variables(tmle.queries[1])}(Tables.columntable(t)), Ts)
     W = node(w->Tables.columntable(w), Ws)
-    # intersect(keys(T), keys(W)) == [] || throw("T and W should have different column names")
 
-    # Initial estimate of E[Y|T, W]:
-    #   - The treatment variables are hot-encoded  
-    #   - W and T are merged
+    # Initial estimate of P(T|W)
+    Gmach = machine(tmle.G, W, adapt(T))
+
     Hmach = machine(OneHotEncoder(drop_last=true), T)
     Thot = transform(Hmach, T)
 
     X = node((t, w) -> merge(t, w), Thot, W)
-    Q̅mach = machine(tmle.Q̅, X, ys)
 
-    # Initial estimate of P(T|W)
-    #   - T is converted to an Array
-    #   - The machine is implicitely fit
-    Gmach = machine(tmle.G, W, adapt(T))
-
-    offset = compute_offset(Q̅mach, X)
-    # Loop over queries that will define
-    # new covariate values
     reported = []
     predicted = []
     extreme_propensity = nothing
-    for (i, query) in enumerate(tmle.queries)
-        indicators = indicator_fns(query)
-        covariate = compute_covariate(Gmach, W, T, indicators; 
-                                      threshold=tmle.threshold)
-        # Log extreme values
-        extreme_propensity = log_over_threshold(covariate, tmle.threshold)
+    # Loop over targets, an estimator is fit for each target
+    for (target_idx, target_name) in enumerate(Tables.columnnames(Y))
+        ys = Tables.getcolumn(Ys, target_name)
+        # Initial estimate of E[Y|T, W]:
+        Q̅mach = machine(tmle.Q̅, X, ys)
 
-        # Fluctuate E[Y|T, W] 
-        # on the covariate and the offset 
-        Xfluct = fluctuation_input(covariate, offset)
-        Fmach = machine(tmle.F, Xfluct, ys)
-        
-        observed_fluct = predict_mean(Fmach, Xfluct)
+        offset = compute_offset(Q̅mach, X)
+        # Loop over queries that will define new covariate values
+        for (query_idx, query) in enumerate(tmle.queries)
+            indicators = indicator_fns(query)
+            covariate = compute_covariate(Gmach, W, T, indicators; 
+                                        threshold=tmle.threshold)
+            # Log extreme values
+            extreme_propensity = log_over_threshold(covariate, tmle.threshold)
 
-        queryreport = estimation_report(Fmach,
-                        Q̅mach,
-                        Gmach,
-                        Hmach,
-                        W,
-                        T,
-                        observed_fluct,
-                        ys,
-                        covariate,
-                        indicators,
-                        tmle.threshold,
-                        query)
-        
-        push!(reported, NamedTuple{Tuple([Symbol("queryreport_$i")])}([queryreport]))
-        # This is actually empty but required
-        push!(predicted, observed_fluct)
+            # Fluctuate E[Y|T, W] 
+            # on the covariate and the offset 
+            Xfluct = fluctuation_input(covariate, offset)
+            Fmach = machine(tmle.F, Xfluct, ys)
+            
+            observed_fluct = predict_mean(Fmach, Xfluct)
+
+            queryreport = estimation_report(Fmach,
+                            Q̅mach,
+                            Gmach,
+                            Hmach,
+                            W,
+                            T,
+                            observed_fluct,
+                            ys,
+                            covariate,
+                            indicators,
+                            tmle.threshold,
+                            query,
+                            target_name)
+            report_key = queryreportname(target_idx, query_idx)
+            push!(reported, NamedTuple{(report_key,)}([queryreport]))
+            # This is actually empty but required
+            push!(predicted, observed_fluct)
+        end
     end
 
     predicted = hcat(predicted...)
 
-    mach = machine(Deterministic(), Ts, Ws, ys; 
+    mach = machine(Deterministic(), Ts, Ws, Ys; 
             predict=predicted, 
             report=(extreme_propensity_idx=extreme_propensity, merge(reported...)...)
     )
@@ -141,3 +141,8 @@ function MLJBase.fit(tmle::TMLEstimator,
 end
 
 
+###############################################################################
+## Complementary methods
+###############################################################################
+
+MLJBase.reformat(::TMLEstimator, T, W, Y) = (T, W, totable(Y))
