@@ -73,32 +73,35 @@ function MLJBase.fit(tmle::TMLEstimator,
     Ts = source(T)
     Ws = source(W)
     Ys = source(Y)
+    Hmach = machine(OneHotEncoder(drop_last=true), Ts)
 
-    # Filtering missing values before fit
+    # Filtering missing values before G fit
     T, W = TableOperations.dropmissing(Ts, Ws)
 
     # Initial estimate of P(T|W)
     Gmach = machine(tmle.G, W, adapt(T))
-
-    Hmach = machine(OneHotEncoder(drop_last=true), T)
-    Thot = transform(Hmach, T)
-
-    X = node((t, w) -> merge(t, w), Thot, W)
 
     reported = []
     predicted = []
     extreme_propensity = nothing
     # Loop over targets, an estimator is fit for each target
     for (target_idx, target_name) in enumerate(Tables.columnnames(Y))
-        ys = Tables.getcolumn(Ys, target_name)
+        # Get the target as a table
+        ys = TableOperations.select(Ys, target_name)
+        # Filter missing values from tables
+        T_, W_, y_ = TableOperations.dropmissing(Ts, Ws, ys)
+        
+        Thot_ = transform(Hmach, T_)
+        y_ = first(y_)
         # Initial estimate of E[Y|T, W]:
-        Q̅mach = machine(tmle.Q̅, X, ys)
+        X = node((t, w) -> merge(t, w), Thot_, W_)
+        Q̅mach = machine(tmle.Q̅, X, y_)
 
         offset = compute_offset(Q̅mach, X)
         # Loop over queries that will define new covariate values
         for (query_idx, query) in enumerate(tmle.queries)
             indicators = indicator_fns(query)
-            covariate = compute_covariate(Gmach, W, T, indicators; 
+            covariate = compute_covariate(Gmach, W_, T_, indicators; 
                                         threshold=tmle.threshold)
             # Log extreme values
             extreme_propensity = log_over_threshold(covariate, tmle.threshold)
@@ -106,7 +109,7 @@ function MLJBase.fit(tmle::TMLEstimator,
             # Fluctuate E[Y|T, W] 
             # on the covariate and the offset 
             Xfluct = fluctuation_input(covariate, offset)
-            Fmach = machine(tmle.F, Xfluct, ys)
+            Fmach = machine(tmle.F, Xfluct, y_)
             
             observed_fluct = predict_mean(Fmach, Xfluct)
 
@@ -114,10 +117,10 @@ function MLJBase.fit(tmle::TMLEstimator,
                             Q̅mach,
                             Gmach,
                             Hmach,
-                            W,
-                            T,
+                            W_,
+                            T_,
                             observed_fluct,
-                            ys,
+                            y_,
                             covariate,
                             indicators,
                             tmle.threshold,
