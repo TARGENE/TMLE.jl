@@ -1,7 +1,7 @@
 name = "TMLE"
 uuid = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
 authors = ["Olivier Labayle"]
-version = "0.4.1"
+version = "0.5.0"
 
 [deps]
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
@@ -19,4 +19,4 @@ MLJBase = "0.19"
 MLJGLMInterface = "0.1, 0.2"
 MLJModels = "0.15"
 Tables = "1.5"
-julia = "1.6"
+julia = "1.6, 1.7"

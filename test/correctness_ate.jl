@@ -167,7 +167,9 @@ end
     @test all(abs_vars .< [0.04, 0.004, 0.0008, 0.0002])
 end
 
-@testset "Test multi-queries" begin
+@testset "Test multi-queries/multi-targets" begin
+    rng = StableRNG(123)
+    n = 100
     queries = (
         Query((T="AT",), (T="TT",)),
         Query((T="AA",), (T="AT",))
@@ -177,42 +179,29 @@ end
     G = LogisticClassifier()
     tmle = TMLEstimator(Q̅, G, queries...)
 
-    t, W, y, ATE₁ = continuous_target_categorical_treatment_pb(StableRNG(123);n=100, control="TT", treatment="AT")
-    _, _, _, ATE₂ = continuous_target_categorical_treatment_pb(StableRNG(123);control="AT", treatment="AA")
+    t, W, y₁, ATE₁ = continuous_target_categorical_treatment_pb(rng;n=n, control="TT", treatment="AT")
+    _, _, _, ATE₂ = continuous_target_categorical_treatment_pb(rng; control="AT", treatment="AA")
+    y₂ = rand(rng, n)
 
+    y = (y₁=y₁, y₂=y₂)
     mach = machine(tmle, t, W, y)
     fit!(mach, verbosity=0)
 
-    # Test queryreport accessibility
-    @test TMLE.queryreportname(456) == :queryreport_456
-    @test TMLE.getqueryreport(mach, 1) isa TMLE.QueryReport 
-    @test TMLE.getqueryreport(mach, 1) == mach.report.queryreport_1
-    @test TMLE.getqueryreport(mach, 2) isa TMLE.QueryReport 
-    @test TMLE.getqueryreport(mach, 2) == mach.report.queryreport_2
-    # Test various ztests
-    qr₁ = getqueryreport(mach, 1)
-    testresult = ztest(mach, 1)
-    @test testresult == ztest(qr₁)
-    @test testresult isa HypothesisTests.OneSampleZTest
-    @test pvalue(testresult) ≈ 3.474e-25 atol=1e-3
-    @test confint(testresult)[1] < ATE₁ < confint(testresult)[2]
+    # Check results for the first target
+    # First query: ATE₁
+    conf_interval = confint(ztest(mach, 1, 1))
+    @test conf_interval[1] <= ATE₁ <= conf_interval[2]
+    # Second query: ATE₂
+    conf_interval = confint(ztest(mach, 1, 2))
+    @test conf_interval[1] <= ATE₂ <= conf_interval[2]
 
-    qr₂ = getqueryreport(mach, 2)
-    testresult = ztest(mach, 2)
-    @test testresult == ztest(qr₂)
-    @test testresult isa HypothesisTests.OneSampleZTest
-    @test pvalue(testresult) ≈ 3.428e-14 atol=1e-3
-    @test confint(testresult)[1] < ATE₂ < confint(testresult)[2]
-
-    testresult = ztest(mach, 1=>2)
-    @test pvalue(testresult) ≈ 7.819e-25 atol=1e-3
-
-    bf = briefreport(mach)
-    for (i, _) in enumerate(mach.model.queries)
-        @test briefreport(getqueryreport(mach, i)) == bf[i]
-        @test keys(bf[i]) == (:query, :pvalue, :confint, :estimate, :initial_estimate, :stderror, :mean_inf_curve)
-    end
-
+    # Check results for the second target which is just Random
+    conf_interval = confint(ztest(mach, 2, 1))
+    # First query:
+    @test conf_interval[1] <= 0 <= conf_interval[2]
+    # Second query:  
+    conf_interval = confint(ztest(mach, 2, 2))
+    @test conf_interval[1] <= 0 <= conf_interval[2]
 end
 
 

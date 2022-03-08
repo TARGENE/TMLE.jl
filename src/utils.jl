@@ -30,6 +30,11 @@ function log_over_threshold(covariate::AbstractNode, threshold)
     node(cov -> findall(x -> x >= 1/threshold, cov), covariate)
 end
 
+Tables.getcolumn(T::AbstractNode, name::Symbol) = 
+    node(T->Tables.getcolumn(T, name), T)
+
+totable(x::AbstractVector) = (y=x,)
+totable(x) = x
 
 function merge_and_dropmissing(tables::Vararg)
     return mapreduce(t->Tables.columntable(t), merge, tables) |>
@@ -88,6 +93,20 @@ function indicator_values(indicators::ImmutableDict{<:NTuple{N, Any}, ValType}, 
     covariate
 end
 
+function _indicator_values(indicators::ImmutableDict{<:NTuple{N, Any}, ValType}, T) where {N, ValType}
+    n = nrows(T)
+    T_ = hcat(T...)
+    covariate = zeros(ValType, n)
+    for i in 1:n
+        vals = view(T_, i, :)
+        if haskey(indicators, vals)
+            covariate[i] = indicators[vals]
+        end
+    end
+    covariate
+end
+
+
 indicator_values(indicators::ImmutableDict{<:NTuple{N, Any}, ValType}, T::AbstractNode) where {N, ValType} = 
     node(t -> indicator_values(indicators, t), T)
 
@@ -120,6 +139,9 @@ end
 ###############################################################################
 ## Fluctuation
 ###############################################################################
+
+influencecurve(covariate, y, observed_fluct, ct_fluct, estimate) = 
+    covariate .* (float(y) .- observed_fluct) .+ ct_fluct .- estimate
 
 fluctuation_input(covariate, offset) = (covariate=covariate, offset=offset)
 fluctuation_input(covariate::AbstractNode, offset::AbstractNode) =
@@ -164,9 +186,10 @@ function estimation_report(Fmach::Machine,
     covariate::AbstractNode,
     indicators,
     threshold,
-    query)
+    query,
+    target_name)
 
-    node((w, t, o, y, c) -> estimation_report(Fmach, Q̅mach, Gmach, Hmach, w, t, o, y, c, indicators, threshold, query), 
+    node((w, t, o, y, c) -> estimation_report(Fmach, Q̅mach, Gmach, Hmach, w, t, o, y, c, indicators, threshold, query, target_name), 
                                 W, T, observed_fluct, ys, covariate)
 end
 
@@ -191,7 +214,8 @@ function estimation_report(Fmach::Machine,
                             covariate,
                             indicators, 
                             threshold,
-                            query)
+                            query,
+                            target_name)
 
     tmle_ct_agg = zeros(nrows(T))
     initial_ct_agg = zeros(nrows(T))
@@ -201,9 +225,9 @@ function estimation_report(Fmach::Machine,
         X = merge(Thot, W)
 
         initial_expectation = expected_value(MLJBase.predict(Q̅mach, X), typeof(Q̅mach.model), target_scitype(Q̅mach.model))
-        initial_ct_agg += sign*initial_expectation
+        initial_ct_agg .+= sign.*initial_expectation
         
-        tmle_ct_agg += sign*compute_fluctuation(Fmach, 
+        tmle_ct_agg .+= sign.*compute_fluctuation(Fmach, 
                     Q̅mach, 
                     Gmach,
                     indicators,
@@ -217,5 +241,5 @@ function estimation_report(Fmach::Machine,
     tmle_estimate = mean(tmle_ct_agg)
     inf_curve = influencecurve(covariate, ys, observed_fluct, tmle_ct_agg, tmle_estimate)
 
-    return QueryReport(query, inf_curve, tmle_estimate, initial_estimate)
+    return Report(target_name, query, inf_curve, tmle_estimate, initial_estimate)
 end
