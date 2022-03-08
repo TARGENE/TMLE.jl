@@ -74,10 +74,8 @@ function MLJBase.fit(tmle::TMLEstimator,
     Ws = source(W)
     ys = source(y)
 
-    # Converting all tables to NamedTuples
-    T = node(t->NamedTuple{variables(tmle.queries[1])}(Tables.columntable(t)), Ts)
-    W = node(w->Tables.columntable(w), Ws)
-    # intersect(keys(T), keys(W)) == [] || throw("T and W should have different column names")
+    # Filtering missing values before fit
+    T, W = TableOperations.dropmissing(Ts, Ws)
 
     # Initial estimate of E[Y|T, W]:
     #   - The treatment variables are hot-encoded  

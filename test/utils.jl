@@ -1,6 +1,8 @@
 module TestUtils
 
 using Test
+using Tables
+using TableOperations
 using TMLE
 using MLJ
 using StableRNGs
@@ -261,6 +263,40 @@ end
     mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
     @test length(report(mach).extreme_propensity_idx) == 12
+end
+
+
+@testset "Test dropmissing" begin
+    T₁ = (
+        t₁=[1, 2, missing, missing, 5, 10], 
+        t₂=[0, 3, 4, 5 ,6, missing],
+        )
+    T₂ = Tables.table([8  4  3
+                       8  4  9
+                       2  5  2
+                       6  3  9
+                       6  4  missing
+                       10  1  8])
+    
+    T = TMLE.merge_and_dropmissing(T₁, T₂)
+    @test T == (
+        t₁ = [1, 2],
+        t₂ = [0, 3],
+        Column1 = [8, 8],
+        Column2 = [4, 4],
+        Column3 = [3, 9]
+        )
+    
+    T₁ = source(T₁)
+    T₂ = source(T₂)
+    
+    filteredT₁, filteredT₂ = TableOperations.dropmissing(T₁, T₂)
+    @test filteredT₁() == (
+        t₁ = [1, 2],
+        t₂ = [0, 3]
+    )
+    @test filteredT₂() == [8  4  3
+                           8  4  9] |> Tables.table |> Tables.columntable
 end
 
 end;

@@ -1,6 +1,7 @@
 module TMLE
 
 using Tables
+using TableOperations
 using CategoricalArrays
 using MLJBase
 using HypothesisTests

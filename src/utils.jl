@@ -31,6 +31,23 @@ function log_over_threshold(covariate::AbstractNode, threshold)
 end
 
 
+function merge_and_dropmissing(tables::Vararg)
+    return mapreduce(t->Tables.columntable(t), merge, tables) |>
+                TableOperations.dropmissing |> Tables.columntable
+
+end
+
+TableOperations.select(t::AbstractNode, columns::AbstractNode) =
+    node((t, columns) -> Tables.columntable(TableOperations.select(t, columns...)), t, columns)
+
+Tables.columnnames(t::AbstractNode) = 
+    node(Tables.columnnames, t)
+
+function TableOperations.dropmissing(tables::Vararg{AbstractNode})
+    table = node(merge_and_dropmissing, tables...)
+    return Tuple(TableOperations.select(table, Tables.columnnames(t)) for t in tables)
+end
+
 ###############################################################################
 ## Offset
 ###############################################################################
