@@ -1,6 +1,7 @@
 module TestModel
 
 using Test
+using Tables
 using TMLE
 using MLJ
 using StableRNGs
@@ -89,6 +90,28 @@ end
     mach = machine(tmle, T, W, y)
     @test_throws ArgumentError fit!(mach, verbosity=0)
 
+end
+
+@testset "Test multiple targets with missing data" begin
+    n = 100
+    rng = StableRNG(123)
+    T = (t=categorical(rand(rng, [0, 1], n)),)
+    W = Tables.table(rand(rng, n, 2))
+    Y = (
+        y₁ = vcat(rand(rng, n-10), repeat([missing], 10)),
+        y₂ = vcat(repeat([missing], 20), rand(rng, n-20))
+    )
+    query = Query((t=0,), (t=1,))
+    Q̅ = MLJ.DeterministicConstantRegressor()
+    G = ConstantClassifier()
+
+    tmle = TMLEstimator(Q̅, G, query)
+
+    mach = machine(tmle, T, W, Y)
+    fit!(mach, verbosity = 0)
+    
+    @test length(report(mach).machines[4].data[2]) == 90
+    @test length(report(mach).machines[1].data[2]) == 80
 end
 
 end;

@@ -58,9 +58,18 @@ end
                  verbosity::Int, 
                  T,
                  W, 
-                 y::Union{CategoricalVector{Bool}, Vector{<:Real}}
+                 Y)
 
-As per all MLJ inputs, T and W should respect the Tables.jl interface.
+Estimates the Average Treatment Effect or the Interaction Average Treatment Effect 
+using the TMLE framework.
+
+# Arguments:
+    - T: A table representing treatment variables. If multiple treatments are provided,
+    the interaction effect (IATE) is estimated.
+    - W: A table of confounding variables.
+    - Y: A vector or a table. If Y is a table, p(T|W) is fit only once and E[Y|T,W] 
+    is fit for each column in Y. If the number of target variables in large, it helps 
+    to drastically reduce the computational time.
 """
 function MLJBase.fit(tmle::TMLEstimator, 
                  verbosity::Int, 
@@ -73,12 +82,14 @@ function MLJBase.fit(tmle::TMLEstimator,
     Ts = source(T)
     Ws = source(W)
     Ys = source(Y)
-    Hmach = machine(OneHotEncoder(drop_last=true), Ts)
 
     # Filtering missing values before G fit
     T, W = TableOperations.dropmissing(Ts, Ws)
 
-    # Initial estimate of P(T|W)
+    # Fitting the encoder
+    Hmach = machine(OneHotEncoder(drop_last=true), T)
+
+    # Fitting P(T|W)
     Gmach = machine(tmle.G, W, adapt(T))
 
     reported = []
@@ -93,7 +104,7 @@ function MLJBase.fit(tmle::TMLEstimator,
         
         Thot_ = transform(Hmach, T_)
         y_ = first(y_)
-        # Initial estimate of E[Y|T, W]:
+        # Fitting E[Y|T, W]
         X = node((t, w) -> merge(t, w), Thot_, W_)
         Q̅mach = machine(tmle.Q̅, X, y_)
 
