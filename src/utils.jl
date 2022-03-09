@@ -36,6 +36,29 @@ Tables.getcolumn(T::AbstractNode, name::Symbol) =
 totable(x::AbstractVector) = (y=x,)
 totable(x) = x
 
+function merge_and_dropmissing(tables::Vararg)
+    return mapreduce(t->Tables.columntable(t), merge, tables) |>
+                TableOperations.dropmissing |> Tables.columntable
+
+end
+
+TableOperations.select(t::AbstractNode, columns...) =
+    node(t -> Tables.columntable(TableOperations.select(t, columns...)), t)
+
+TableOperations.select(t::AbstractNode, columns::AbstractNode) =
+    node((t, columns) -> Tables.columntable(TableOperations.select(t, columns...)), t, columns)
+
+Tables.columnnames(t::AbstractNode) = 
+    node(Tables.columnnames, t)
+
+function TableOperations.dropmissing(tables::Vararg{AbstractNode})
+    table = node(merge_and_dropmissing, tables...)
+    return Tuple(TableOperations.select(table, Tables.columnnames(t)) for t in tables)
+end
+
+
+Base.first(y::AbstractNode) = node(Base.first, y)
+
 ###############################################################################
 ## Offset
 ###############################################################################

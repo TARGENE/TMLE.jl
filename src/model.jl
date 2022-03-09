@@ -58,48 +58,62 @@ end
                  verbosity::Int, 
                  T,
                  W, 
-                 y::Union{CategoricalVector{Bool}, Vector{<:Real}}
+                 Y)
 
-As per all MLJ inputs, T and W should respect the Tables.jl interface.
+Estimates the Average Treatment Effect or the Interaction Average Treatment Effect 
+using the TMLE framework.
+
+# Arguments:
+    - T: A table representing treatment variables. If multiple treatments are provided,
+    the interaction effect (IATE) is estimated.
+    - W: A table of confounding variables.
+    - Y: A vector or a table. If Y is a table, p(T|W) is fit only once and E[Y|T,W] 
+    is fit for each column in Y. If the number of target variables in large, it helps 
+    to drastically reduce the computational time.
 """
 function MLJBase.fit(tmle::TMLEstimator, 
                  verbosity::Int, 
                  T,
                  W, 
                  Y)
-
-    check_ordering(tmle.queries, T)
     
     Ts = source(T)
     Ws = source(W)
     Ys = source(Y)
-    
-    # Converting all tables to NamedTuples
-    T = node(t->NamedTuple{variables(tmle.queries[1])}(Tables.columntable(t)), Ts)
-    W = node(w->Tables.columntable(w), Ws)
 
-    # Initial estimate of P(T|W)
-    Gmach = machine(tmle.G, W, adapt(T))
+    # Filtering missing values before G fit
+    T, W = TableOperations.dropmissing(Ts, Ws)
 
+    # Fitting the encoder
     Hmach = machine(OneHotEncoder(drop_last=true), T)
-    Thot = transform(Hmach, T)
 
-    X = node((t, w) -> merge(t, w), Thot, W)
+    # Fitting P(T|W)
+    Gmach = machine(tmle.G, W, adapt(T))
 
     reported = []
     predicted = []
     extreme_propensity = nothing
     # Loop over targets, an estimator is fit for each target
     for (target_idx, target_name) in enumerate(Tables.columnnames(Y))
-        ys = Tables.getcolumn(Ys, target_name)
-        # Initial estimate of E[Y|T, W]:
-        Q̅mach = machine(tmle.Q̅, X, ys)
+        # Get the target as a table
+        ys = TableOperations.select(Ys, target_name)
+        # Filter missing values from tables
+        T_, W_, y_ = TableOperations.dropmissing(Ts, Ws, ys)
+        
+        # Thot is a Floating point representation of T
+        # y_ is a vector
+        Thot_ = transform(Hmach, T_)
+        y_ = first(y_)
+
+        # Fitting E[Y|T, W]
+        X = node((t, w) -> merge(t, w), Thot_, W_)
+        Q̅mach = machine(tmle.Q̅, X, y_)
 
         offset = compute_offset(Q̅mach, X)
         # Loop over queries that will define new covariate values
         for (query_idx, query) in enumerate(tmle.queries)
             indicators = indicator_fns(query)
-            covariate = compute_covariate(Gmach, W, T, indicators; 
+            covariate = compute_covariate(Gmach, W_, T_, indicators; 
                                         threshold=tmle.threshold)
             # Log extreme values
             extreme_propensity = log_over_threshold(covariate, tmle.threshold)
@@ -107,7 +121,7 @@ function MLJBase.fit(tmle::TMLEstimator,
             # Fluctuate E[Y|T, W] 
             # on the covariate and the offset 
             Xfluct = fluctuation_input(covariate, offset)
-            Fmach = machine(tmle.F, Xfluct, ys)
+            Fmach = machine(tmle.F, Xfluct, y_)
             
             observed_fluct = predict_mean(Fmach, Xfluct)
 
@@ -115,10 +129,10 @@ function MLJBase.fit(tmle::TMLEstimator,
                             Q̅mach,
                             Gmach,
                             Hmach,
-                            W,
-                            T,
+                            W_,
+                            T_,
                             observed_fluct,
-                            ys,
+                            y_,
                             covariate,
                             indicators,
                             tmle.threshold,
@@ -145,4 +159,27 @@ end
 ## Complementary methods
 ###############################################################################
 
-MLJBase.reformat(::TMLEstimator, T, W, Y) = (T, W, totable(Y))
+function check_columnnames(T, W, Y)
+    Tnames = Tables.columnnames(T)
+    Wnames = Tables.columnnames(W)
+    Ynames = Tables.columnnames(Y)
+
+    combinations = [(("T", Tnames), ("W", Wnames)), 
+                    (("T", Tnames), ("Y", Ynames)),
+                    (("W", Wnames), ("Y", Ynames))]
+    for ((input₁, colnames₁), (input₂, colnames₂)) in combinations
+        columns_intersection = intersect(colnames₁, colnames₂)
+        if length(columns_intersection) != 0
+            throw(ArgumentError(string(input₁, " and ", input₂, " share some column names:", columns_intersection)))
+        end
+    end
+
+end
+
+
+function MLJBase.reformat(tmle::TMLEstimator, T, W, Y)
+    Y = totable(Y)
+    check_columnnames(T, W, Y)
+    check_ordering(tmle.queries, T)
+   return  (T, W, Y)
+end

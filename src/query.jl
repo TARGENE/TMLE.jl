@@ -1,14 +1,26 @@
 using CategoricalArrays
 
+"""
+Structure holding the causal question of interest.
+- name: Name identifying the query
+- case: The treatment combination that defines the case scenario
+- control: The treatment combination that defines the control scenario
+"""
 struct Query{T <: NamedTuple} 
     name::Union{String, Nothing}
     case::T
     control::T
 end
 
+"""
+    Query(case::NamedTuple, control::NamedTuple; name=nothing)
+"""
 Query(case::NamedTuple, control::NamedTuple; name=nothing) = 
     Query(name, case, control)
 
+"""
+    Query(;case=NamedTuple{}(), control=NamedTuple{}(), name=nothing)
+"""
 Query(;case=NamedTuple{}(), control=NamedTuple{}(), name=nothing) = 
     Query(name, case, control)
 
