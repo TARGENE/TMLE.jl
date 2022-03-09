@@ -76,8 +76,6 @@ function MLJBase.fit(tmle::TMLEstimator,
                  T,
                  W, 
                  Y)
-
-    check_ordering(tmle.queries, T)
     
     Ts = source(T)
     Ws = source(W)
@@ -158,4 +156,27 @@ end
 ## Complementary methods
 ###############################################################################
 
-MLJBase.reformat(::TMLEstimator, T, W, Y) = (T, W, totable(Y))
+function check_columnnames(T, W, Y)
+    Tnames = Tables.columnnames(T)
+    Wnames = Tables.columnnames(W)
+    Ynames = Tables.columnnames(Y)
+
+    combinations = [(("T", Tnames), ("W", Wnames)), 
+                    (("T", Tnames), ("Y", Ynames)),
+                    (("W", Wnames), ("Y", Ynames))]
+    for ((input₁, colnames₁), (input₂, colnames₂)) in combinations
+        columns_intersection = intersect(colnames₁, colnames₂)
+        if length(columns_intersection) != 0
+            throw(ArgumentError(string(input₁, " and ", input₂, " share some column names:", columns_intersection)))
+        end
+    end
+
+end
+
+
+function MLJBase.reformat(tmle::TMLEstimator, T, W, Y)
+    Y = totable(Y)
+    check_columnnames(T, W, Y)
+    check_ordering(tmle.queries, T)
+   return  (T, W, Y)
+end

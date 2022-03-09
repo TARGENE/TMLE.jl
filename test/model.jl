@@ -7,6 +7,7 @@ using MLJ
 using StableRNGs
 using StatsBase
 using Distributions
+using MLJBase
 
 
 @testset "Test sub machines have been fitted correctly" begin
@@ -113,6 +114,42 @@ end
     @test length(report(mach).machines[4].data[2]) == 90
     @test length(report(mach).machines[1].data[2]) == 80
 end
+
+@testset "Test reformat" begin
+    # Check column names
+    T = (t₁=[1, 0, 0, 1], t₂=[1, 0, 1, 0])
+    W = (w₁=[1, 2, 3, 4], t₂=[1, 2, 3, 4])
+    Y = (y₁ = [1, 2, 3, 4], y₂ = [1, 2, 3, 4])
+
+    query = Query((t₁=0, t₂=0), (t₁=1, t₂=1))
+    Q̅ = MLJ.DeterministicConstantRegressor()
+    G = ConstantClassifier()
+
+    tmle = TMLEstimator(Q̅, G, query)
+    ## T and W have some common column names
+    @test_throws ArgumentError("T and W share some column names:[:t₂]") MLJBase.reformat(tmle, T, W, Y)
+    ## Y and W have some common column names
+    W = (w₁=[1, 2, 3, 4], y₂=[1, 2, 3, 4])
+    @test_throws ArgumentError("W and Y share some column names:[:y₂]") MLJBase.reformat(tmle, T, W, Y)
+    ## Y and T have some common column names
+    Y = (y₁ = [1, 2, 3, 4], t₂ = [1, 2, 3, 4])
+    @test_throws ArgumentError("T and Y share some column names:[:t₂]") MLJBase.reformat(tmle, T, W, Y)
+
+    # Check table conversion of y
+    T = (t₁=[1, 0, 0, 1], t₂=[1, 0, 1, 0])
+    W = (w₁=[1, 2, 3, 4], w₂=[1, 2, 3, 4])
+    Y = [1, 2, 3, 4]
+    T, W, Ynew = MLJBase.reformat(tmle, T, W, Y)
+    @test Ynew == (y=Y,)
+    T, W, Ynew_new = MLJBase.reformat(tmle, T, W, Y)
+    @test Ynew_new == Ynew
+
+    # Check ordering of T columns and the queries
+    T = (t₂=[1, 0, 0, 1], t₁=[1, 0, 1, 0])
+    @test_throws ArgumentError("The variables in T and one of the queries seem to differ,"*
+                               " please use the same variable names. \n Hint: The ordering in the queries and T should match.") MLJBase.reformat(tmle, T, W, Y)
+end
+
 
 end;
 
