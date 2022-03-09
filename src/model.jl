@@ -100,8 +100,11 @@ function MLJBase.fit(tmle::TMLEstimator,
         # Filter missing values from tables
         T_, W_, y_ = TableOperations.dropmissing(Ts, Ws, ys)
         
+        # Thot is a Floating point representation of T
+        # y_ is a vector
         Thot_ = transform(Hmach, T_)
         y_ = first(y_)
+
         # Fitting E[Y|T, W]
         X = node((t, w) -> merge(t, w), Thot_, W_)
         Q̅mach = machine(tmle.Q̅, X, y_)
