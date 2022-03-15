@@ -37,9 +37,10 @@ totable(x::AbstractVector) = (y=x,)
 totable(x) = x
 
 function merge_and_dropmissing(tables::Vararg)
-    return mapreduce(t->Tables.columntable(t), merge, tables) |>
-                TableOperations.dropmissing |> Tables.columntable
-
+    return mapreduce(t->Tables.columntable(t), merge, tables) |> 
+        TableOperations.dropmissing |> 
+        Tables.columntable |>
+        disallowmissings
 end
 
 TableOperations.select(t::AbstractNode, columns...) =
@@ -51,13 +52,20 @@ TableOperations.select(t::AbstractNode, columns::AbstractNode) =
 Tables.columnnames(t::AbstractNode) = 
     node(Tables.columnnames, t)
 
-function TableOperations.dropmissing(tables::Vararg{AbstractNode})
-    table = node(merge_and_dropmissing, tables...)
-    return Tuple(TableOperations.select(table, Tables.columnnames(t)) for t in tables)
+function disallowmissings(T)
+    newcols = AbstractVector[]
+    sch = Tables.schema(T)
+    Tables.eachcolumn(sch, T) do col, _, _
+        push!(newcols, disallowmissing(col))
+    end
+    return NamedTuple{sch.names}(newcols)
 end
 
-
-Base.first(y::AbstractNode) = node(Base.first, y)
+function TableOperations.dropmissing(tables::Vararg{AbstractNode})
+    table = node(merge_and_dropmissing, tables...)
+    table = node(disallowmissings, table)
+    return Tuple(TableOperations.select(table, Tables.columnnames(t)) for t in tables)
+end
 
 ###############################################################################
 ## Offset

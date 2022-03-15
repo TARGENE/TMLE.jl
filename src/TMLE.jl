@@ -8,7 +8,7 @@ using HypothesisTests
 using Base: Iterators, ImmutableDict
 using MLJGLMInterface
 using MLJModels
-
+using Missings
 
 # #############################################################################
 # OVERLOADED METHODS

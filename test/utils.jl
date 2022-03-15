@@ -287,6 +287,9 @@ end
         Column2 = [4, 4],
         Column3 = [3, 9]
         )
+    @test eltype(T.t₁) == eltype(T.t₂) == eltype(T.Column3) == Int
+
+    T = TMLE.disallowmissings(T)
     
     T₁ = source(T₁)
     T₂ = source(T₂)
