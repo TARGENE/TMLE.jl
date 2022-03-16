@@ -81,14 +81,11 @@ function MLJBase.fit(tmle::TMLEstimator,
     Ws = source(W)
     Ys = source(Y)
 
-    # Filtering missing values before G fit
-    T, W = TableOperations.dropmissing(Ts, Ws)
-
     # Fitting the encoder
-    Hmach = machine(OneHotEncoder(drop_last=true), T)
+    Hmach = machine(OneHotEncoder(drop_last=true), Ts)
 
     # Fitting P(T|W)
-    Gmach = machine(tmle.G, W, adapt(T))
+    Gmach = machine(tmle.G, Ws, adapt(Ts))
 
     reported = []
     predicted = []
