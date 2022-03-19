@@ -21,8 +21,9 @@ Base.merge(ndt₁::AbstractNode, ndt₂::AbstractNode) =
 
 Adapts the type of the treatment variable passed to the G learner
 """
-adapt(T::NamedTuple{<:Any, NTuple{1, Z}}) where Z = T[1]
-adapt(T) = T
+adapt(T) =
+    size(Tables.columnnames(T), 1) == 1 ? Tables.getcolumn(T, 1) : T
+
 adapt(T::AbstractNode) = node(adapt, T)
 
 
