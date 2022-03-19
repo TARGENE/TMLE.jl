@@ -96,13 +96,13 @@ end
 @testset "Test multiple targets with missing data" begin
     n = 100
     rng = StableRNG(123)
-    T = (t=categorical(rand(rng, [0, 1], n)),)
-    W = Tables.table(rand(rng, n, 2))
+    T = Tables.table(categorical(rand(rng, [0, 1], n)))
+    W = (w=rand(rng, n),)
     Y = (
         y₁ = vcat(rand(rng, n-10), repeat([missing], 10)),
         y₂ = vcat(repeat([missing], 20), rand(rng, n-20))
     )
-    query = Query((t=0,), (t=1,))
+    query = Query((Column1=0,), (Column1=1,))
     Q̅ = MLJ.DeterministicConstantRegressor()
     G = ConstantClassifier()
 
