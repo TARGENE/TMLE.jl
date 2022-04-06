@@ -4,26 +4,26 @@ using Test
 using Tables
 using TableOperations
 using TMLE
-using MLJ
+using MLJBase
 using StableRNGs
 using Distributions
 using CategoricalArrays
 using Base: ImmutableDict
+using MLJGLMInterface: LinearBinaryClassifier
+using MLJLinearModels
+using MLJModels
 
-LinearBinaryClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
-LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
-LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 
 @testset "Test expected_value & maybelogit" begin
     n = 100
-    X = MLJ.table(rand(n, 3))
+    X = MLJBase.table(rand(n, 3))
 
     # Probabilistic Classifier
     y = categorical(rand([0, 1], n))
     mach = machine(ConstantClassifier(), X, y)
     fit!(mach; verbosity=0)
     proba = mach.fitresult[2][2]
-    ŷ = MLJ.predict(mach)
+    ŷ = MLJBase.predict(mach)
     expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
     @test expectation == repeat([proba], n)
     @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == TMLE.logit(expectation)
@@ -32,7 +32,7 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
     y = rand(n)
     mach = machine(ConstantRegressor(), X, y)
     fit!(mach; verbosity=0)
-    ŷ = MLJ.predict(mach)
+    ŷ = MLJBase.predict(mach)
     expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
     @test expectation ≈ repeat([mean(y)], n) atol=1e-10
     @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == expectation
@@ -40,7 +40,7 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
     # Deterministic Regressor
     mach = machine(LinearRegressor(), X, y)
     fit!(mach; verbosity=0)
-    ŷ = MLJ.predict(mach)
+    ŷ = MLJBase.predict(mach)
     expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
     @test expectation == ŷ
     @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == expectation
@@ -96,7 +96,7 @@ end
     # Using a trivial classifier
     # that outputs the proportions of of the classes
     T = (t₁ = categorical(["a", "b", "c", "a", "a", "b", "a"]),)
-    W = MLJ.table(rand(7, 3))
+    W = MLJBase.table(rand(7, 3))
 
     Gmach = machine(ConstantClassifier(), 
                     W,
@@ -119,7 +119,7 @@ end
     # that outputs the proportions of of the classes
     T = (t₁ = categorical([1, 0, 0, 1, 1, 1, 0]),
          t₂ = categorical([1, 1, 1, 1, 1, 0, 0]))
-    W = MLJ.table(rand(7, 3))
+    W = MLJBase.table(rand(7, 3))
 
     Gmach = machine(FullCategoricalJoint(ConstantClassifier()), 
                     W, 
@@ -143,7 +143,7 @@ end
     T = (t₁ = categorical(["a", "a", "b", "b", "c", "b", "b"]),
          t₂ = categorical([3, 2, 1, 1, 2, 2, 2]),
          t₃ = categorical([true, false, true, false, false, false, false]))
-    W = MLJ.table(rand(7, 3))
+    W = MLJBase.table(rand(7, 3))
 
     Gmach = machine(FullCategoricalJoint(ConstantClassifier()), 
                     W, 
@@ -168,14 +168,14 @@ end
 
     # When Y is binary
     y = categorical([1, 1, 1, 1, 0, 0, 0, 0, 0, 0])
-    mach = machine(ConstantClassifier(), MLJ.table(X), y)
+    mach = machine(ConstantClassifier(), MLJBase.table(X), y)
     fit!(mach, verbosity=0)
     # Should be equal to logit(Ê[Y|X])= logit(4/10) = -0.4054651081081643
     @test TMLE.compute_offset(mach, X) == repeat([-0.4054651081081643], n)
 
     # When Y is continuous
     y = [1., 2., 3, 4, 5, 6, 7, 8, 9, 10]
-    mach = machine(MLJ.DeterministicConstantRegressor(), MLJ.table(X), y)
+    mach = machine(MLJModels.DeterministicConstantRegressor(), MLJBase.table(X), y)
     fit!(mach, verbosity=0)
     # Should be equal to Ê[Y|X] = 5.5
     @test TMLE.compute_offset(mach, X) == repeat([5.5], n)
@@ -253,7 +253,7 @@ end
     n = 10000
     rng = StableRNG(123)
     T = (t=categorical(rand(rng, Bernoulli(0.001), n)),)
-    W = MLJ.table(rand(rng, n, 3))
+    W = MLJBase.table(rand(rng, n, 3))
     y = rand(rng, n)
     query = Query((t=true,), (t=false,))
 

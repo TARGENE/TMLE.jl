@@ -1,4 +1,4 @@
-using MLJ
+using MLJBase
 
 
 function asymptotics(estimator, problem_fn, rng, Ns)

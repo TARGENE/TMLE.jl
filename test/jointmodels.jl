@@ -2,11 +2,10 @@ module TestJointModels
 
 using Test
 using TMLE
-using MLJ
 using StatsBase
 using StableRNGs
-
-LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
+using MLJBase
+using MLJLinearModels
 
 @testset "Test FullCategoricalJoint" begin
     rng = StableRNG(123)
@@ -16,7 +15,7 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
     Y = (Y₁ = Y[:, 1], Y₂ = Y[:, 2])
     
     jointmodel = FullCategoricalJoint(LogisticClassifier())
-    mach = machine(jointmodel, MLJ.table(X), Y)
+    mach = machine(jointmodel, MLJBase.table(X), Y)
     fit!(mach, verbosity=0)
 
     # The encoding should reflect all combinations
@@ -38,8 +37,8 @@ LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
     y_multi = TMLE.encode(Y, mach)
     @test y_multi == categorical([5, 3, 6, 4, 9, 9, 6, 9, 3, 7])
 
-    ypred = MLJ.predict(mach)
-    @test ypred[1] isa MLJ.UnivariateFinite
+    ypred = MLJBase.predict(mach)
+    @test ypred[1] isa MLJBase.UnivariateFinite
 
     d = TMLE.density(mach, X, Y)
     @test d == [pdf(p, y_multi[i]) for (i, p) in enumerate(ypred)]
@@ -50,7 +49,7 @@ end
     n = 10
     X = rand(rng, n, 4)
     y = categorical(sample(rng, ["A", "G", "C"], n))
-    mach = machine(LogisticClassifier(), MLJ.table(X), y)
+    mach = machine(LogisticClassifier(), MLJBase.table(X), y)
     fit!(mach, verbosity=0)
 
     d = TMLE.density(mach, X, y)

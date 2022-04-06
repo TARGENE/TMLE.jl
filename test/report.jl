@@ -2,8 +2,10 @@ module TestReport
 
 using Test
 using TMLE
-using MLJ
+using MLJBase
+using MLJModels
 using StableRNGs
+using CategoricalArrays
 using HypothesisTests
 
 

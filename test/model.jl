@@ -3,11 +3,11 @@ module TestModel
 using Test
 using Tables
 using TMLE
-using MLJ
 using StableRNGs
 using StatsBase
 using Distributions
 using MLJBase
+using MLJModels
 
 
 @testset "Test sub machines have been fitted correctly" begin
@@ -103,7 +103,7 @@ end
         y₂ = vcat(repeat([missing], 20), rand(rng, n-20))
     )
     query = Query((Column1=0,), (Column1=1,))
-    Q̅ = MLJ.DeterministicConstantRegressor()
+    Q̅ = MLJModels.DeterministicConstantRegressor()
     G = ConstantClassifier()
 
     tmle = TMLEstimator(Q̅, G, query)
@@ -122,7 +122,7 @@ end
     Y = (y₁ = [1, 2, 3, 4], y₂ = [1, 2, 3, 4])
 
     query = Query((t₁=0, t₂=0), (t₁=1, t₂=1))
-    Q̅ = MLJ.DeterministicConstantRegressor()
+    Q̅ = MLJModels.DeterministicConstantRegressor()
     G = ConstantClassifier()
 
     tmle = TMLEstimator(Q̅, G, query)

@@ -4,17 +4,19 @@ include("helper_fns.jl")
 
 using Test
 using TMLE
-using MLJ
+using MLJBase
 using Distributions
 using Random
 using StableRNGs
 using Tables
 using StatsBase
+using MLJModels
+using MLJLinearModels
 
 mutable struct InteractionTransformer <: Static end
     
-function MLJ.transform(a::InteractionTransformer, _, X)
-    Xmatrix = MLJ.matrix(X)
+function MLJBase.transform(a::InteractionTransformer, _, X)
+    Xmatrix = MLJBase.matrix(X)
     nrows, ncols = size(Xmatrix)
     ninter = Int(ncols*(ncols-1)/2)
     Xinteracts = Matrix{Float64}(undef, nrows, ninter)
@@ -25,12 +27,8 @@ function MLJ.transform(a::InteractionTransformer, _, X)
             Xinteracts[:, i] = Xmatrix[:, col₁] .* Xmatrix[:, col₂]
         end
     end
-    return MLJ.table(hcat(Xmatrix, Xinteracts))
+    return MLJBase.table(hcat(Xmatrix, Xinteracts))
 end
-
-
-LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
-LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
 
 cont_interacter = InteractionTransformer |> LinearRegressor
 cat_interacter = InteractionTransformer |> LogisticClassifier
@@ -54,7 +52,7 @@ function binary_target_binary_treatment_pb(rng;n=100)
     y = [rand(rng, Bernoulli(μy[i])) for i in 1:n]
 
     # Respect the Tables.jl interface and convert types
-    W = MLJ.table(float(W))
+    W = MLJBase.table(float(W))
     T = (T₁ = categorical(T₁), T₂ = categorical(T₂))
     y = categorical(y)
 
@@ -134,7 +132,7 @@ function binary_target_categorical_treatment_pb(rng;n=100)
         temp -= μy_fn(w, (T₁=categorical(["CG"], levels=levels₁), T₂=categorical(["AT"], levels=levels₂)), Hmach)[1]
         ATE += temp*0.5*0.5*0.5
     end
-    return T, MLJ.table(float(W)), categorical(y), ATE
+    return T, MLJBase.table(float(W)), categorical(y), ATE
 end
 
 
@@ -155,7 +153,7 @@ function continuous_target_binary_treatment_pb(rng;n=100)
     y = μy + rand(rng, Normal(0, 0.1), n)
 
     # Respect the Tables.jl interface and convert types
-    W = MLJ.table(float(W))
+    W = MLJBase.table(float(W))
     T = (T₁ = categorical(T₁), T₂ = categorical(T₂))
 
     # Compute the theoretical ATE
@@ -216,7 +214,7 @@ end
 @testset "Test Double Robustness IATE on continuous_target_binary_treatment_pb" begin
     query = Query((T₁=true, T₂=true), (T₁=false, T₂=false))
     # When Q̅ is misspecified but G is well specified
-    Q̅ = MLJ.DeterministicConstantRegressor()
+    Q̅ = MLJModels.DeterministicConstantRegressor()
     G = FullCategoricalJoint(LogisticClassifier())
     tmle = TMLEstimator(Q̅, G, query)
 

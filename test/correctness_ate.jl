@@ -6,13 +6,12 @@ using TMLE
 using Random
 using Test
 using Distributions
-using MLJ
+using MLJBase
+using MLJLinearModels
+using MLJModels
 using StableRNGs
 using StatsBase
 using HypothesisTests
-
-LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
-LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
 
 Ns = [100, 1000, 10000, 100000]
 
@@ -48,7 +47,7 @@ function continuous_target_binary_treatment_pb(rng;n=100)
     t = rand(rng, Unif, n) .< TMLE.expit(0.5W[:, 1] + 1.5W[:, 2] - W[:,3])
     y = t + 2W[:, 1] + 3W[:, 2] - 4W[:, 3] + rand(rng, Normal(0,1), n)
     # Type coercion
-    W = MLJ.table(W)
+    W = MLJBase.table(W)
     t = (t=categorical(t),)
     return t, W, y, 1
 end
@@ -67,7 +66,7 @@ function continuous_target_categorical_treatment_pb(rng;n=100, control="TT", tre
     # Ew[E[Y|t,w]] = ∑ᵤ (ft(T) + fw(w))p(w) = ft(t) + 0.5
     ATE = (ft(treatment) + 0.5) -  (ft(control) + 0.5)
     # Type coercion
-    W = MLJ.table(W)
+    W = MLJBase.table(W)
     T = (T=categorical(T),)
     return T, W, y, ATE
 end
@@ -76,7 +75,7 @@ end
 @testset "Test Double Robustness ATE on continuous_target_categorical_treatment_pb" begin
     query = Query((T="AA",), (T="TT",))
     # When Q̅ is misspecified but G is well specified
-    Q̅ = MLJ.DeterministicConstantRegressor()
+    Q̅ = MLJModels.DeterministicConstantRegressor()
     G = LogisticClassifier()
     tmle = TMLEstimator(Q̅, G, query)
 
@@ -139,7 +138,7 @@ end
 @testset "Test Double Robustness ATE on continuous_target_binary_treatment_pb" begin
     query = Query((t=true,), (t=false,))
     # When Q̅ is misspecified but G is well specified
-    Q̅ = MLJ.DeterministicConstantRegressor()
+    Q̅ = MLJModels.DeterministicConstantRegressor()
     G = LogisticClassifier()
     tmle = TMLEstimator(Q̅, G, query)
 
