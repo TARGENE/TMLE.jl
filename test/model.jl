@@ -23,7 +23,7 @@ using MLJModels
     G = FullCategoricalJoint(ConstantClassifier())
 
     tmle = TMLEstimator(Q̅, G, query)
-
+    TMLE.fit(tmle, T, W, y)
     mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
 

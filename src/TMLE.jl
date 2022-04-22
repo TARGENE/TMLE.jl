@@ -25,11 +25,13 @@ export TMLEstimator, Query, Report
 export FullCategoricalJoint
 export fit
 export ztest, pvalue, confint, queryreport, queryreports, briefreport
+export MachineReportBuilder
 
 # #############################################################################
 # INCLUDES
 # #############################################################################
 
+include("callbacks.jl")
 include("query.jl")
 include("model.jl")
 include("report.jl")

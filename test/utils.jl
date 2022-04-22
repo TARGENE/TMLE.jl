@@ -288,19 +288,14 @@ end
         Column3 = [3, 9]
         )
     @test eltype(T.t₁) == eltype(T.t₂) == eltype(T.Column3) == Int
-
-    T = TMLE.disallowmissings(T)
-    
-    T₁ = source(T₁)
-    T₂ = source(T₂)
     
     filteredT₁, filteredT₂ = TableOperations.dropmissing(T₁, T₂)
-    @test filteredT₁() == (
+    @test filteredT₁ == (
         t₁ = [1, 2],
         t₂ = [0, 3]
     )
-    @test filteredT₂() == [8  4  3
-                           8  4  9] |> Tables.table |> Tables.columntable
+    @test filteredT₂ == [8  4  3
+                         8  4  9] |> Tables.table |> Tables.columntable
 
 end
 
