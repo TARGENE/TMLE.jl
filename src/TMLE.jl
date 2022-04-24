@@ -14,27 +14,26 @@ using Missings
 # OVERLOADED METHODS
 # #############################################################################
 
-import MLJBase.fit
 import MLJBase.check
 
 # #############################################################################
 # EXPORTS
 # #############################################################################
 
-export TMLEstimator, Query, Report
+export TMLEstimator, Query, TMLEReport
 export FullCategoricalJoint
 export fit
-export ztest, pvalue, confint, queryreport, queryreports, briefreport
-export MachineReportBuilder
+export ztest, pvalue, confint, summarize
+export MachineReporter, Reporter
 
 # #############################################################################
 # INCLUDES
 # #############################################################################
 
-include("callbacks.jl")
 include("query.jl")
 include("model.jl")
 include("report.jl")
+include("callbacks.jl")
 include("jointmodels.jl")
 include("utils.jl")
 

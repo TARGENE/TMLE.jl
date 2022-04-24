@@ -18,8 +18,8 @@ Adapts the type of the treatment variable passed to the G learner
 adapt(T) =
     size(Tables.columnnames(T), 1) == 1 ? Tables.getcolumn(T, 1) : T
 
-log_over_threshold(covariate, threshold) =
-    findall(x -> x >= 1/threshold, covariate)
+low_propensity_scores(Gmach, W, T, threshold) =
+    findall(<(threshold), density(Gmach, W, T))
 
 
 totable(x::AbstractVector) = (y=x,)
@@ -149,19 +149,19 @@ For instance, if the order of Interaction is 2 with binary variables, this is co
 AggregatedCounterfactual = Fluctuation(t₁=1, t₂=1, W=w) - Fluctuation(t₁=1, t₂=0, W=w)
                 - Fluctuation(t₁=0, t₂=1, W=w) + Fluctuation(t₁=0, t₂=0, W=w)
 """
-function estimation_report(Fmach::Machine,
-                            Q̅mach::Machine,
-                            Gmach::Machine,
-                            Hmach::Machine,
-                            W,
-                            T,
-                            observed_fluct,
-                            ys,
-                            covariate,
-                            indicators, 
-                            threshold,
-                            query,
-                            target_name)
+function tmlereport(Fmach::Machine,
+                    Q̅mach::Machine,
+                    Gmach::Machine,
+                    Hmach::Machine,
+                    W,
+                    T,
+                    observed_fluct,
+                    ys,
+                    covariate,
+                    indicators, 
+                    threshold,
+                    query,
+                    target_name)
 
     tmle_ct_agg = zeros(nrows(T))
     initial_ct_agg = zeros(nrows(T))
@@ -187,5 +187,5 @@ function estimation_report(Fmach::Machine,
     tmle_estimate = mean(tmle_ct_agg)
     inf_curve = influencecurve(covariate, ys, observed_fluct, tmle_ct_agg, tmle_estimate)
 
-    return Report(target_name, query, inf_curve, tmle_estimate, initial_estimate)
+    return TMLEReport(target_name, query, inf_curve, tmle_estimate, initial_estimate)
 end

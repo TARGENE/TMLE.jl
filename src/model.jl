@@ -72,9 +72,9 @@ using the TMLE framework.
     to drastically reduce the computational time.
 """
 function MLJBase.fit(tmle::TMLEstimator, T, W, Y; 
-    verbosity::Int=1, 
-    cache=false,
-    callbacks=[MachineReportBuilder()])
+                        verbosity::Int=1, 
+                        cache=false,
+                        callbacks=[MachineReporter(), Reporter()])
 
     T, W, Y = MLJBase.reformat(tmle::TMLEstimator, T, W, Y)
     # Fitting the encoder
@@ -85,8 +85,8 @@ function MLJBase.fit(tmle::TMLEstimator, T, W, Y;
     Gmach = machine(tmle.G, W, adapt(T), cache=cache)
     fit_with_callbacks!(Gmach, callbacks, verbosity, :G)
 
-    queryreports = NamedTuple{}()
-    extreme_propensity = nothing
+    estimation_report = (low_propensity_scores=low_propensity_scores(Gmach, W, T, tmle.threshold),)
+
     # Loop over targets, an estimator is fit for each target
     for (target_idx, target_name) in enumerate(Tables.columnnames(Y))
         # Get the target as a table
@@ -110,18 +110,16 @@ function MLJBase.fit(tmle::TMLEstimator, T, W, Y;
             indicators = indicator_fns(query)
             covariate = compute_covariate(Gmach, W_, T_, indicators; 
                                         threshold=tmle.threshold)
-            # Log extreme values
-            extreme_propensity = log_over_threshold(covariate, tmle.threshold)
 
             # Fluctuate E[Y|T, W] 
             # on the covariate and the offset 
             Xfluct = fluctuation_input(covariate, offset)
             Fmach = machine(tmle.F, Xfluct, y_, cache=cache)
-            fit_with_callbacks!(Fmach, callbacks, verbosity, Symbol(:Q, '_', target_idx, '_', query_idx))
+            fit_with_callbacks!(Fmach, callbacks, verbosity, Symbol(:F, '_', target_idx, '_', query_idx))
 
             observed_fluct = predict_mean(Fmach, Xfluct)
 
-            queryreport = estimation_report(Fmach,
+            tmle_report = tmlereport(Fmach,
                             Q̅mach,
                             Gmach,
                             Hmach,
@@ -134,13 +132,11 @@ function MLJBase.fit(tmle::TMLEstimator, T, W, Y;
                             tmle.threshold,
                             query,
                             target_name)
-            report_key = queryreportname(target_idx, query_idx)
-            queryreports = merge(queryreports, NamedTuple{(report_key,)}([queryreport]))
-            # This is actually empty but required
+            
+            after_tmle(callbacks, tmle_report, target_idx, query_idx)
         end
     end
-    estimation_report_ = (queryreports=queryreports,)
-    return finalize_with_callbacks!(estimation_report_, callbacks)
+    return finalize(callbacks, estimation_report)
 end
 
 
@@ -148,19 +144,7 @@ end
 ## Complementary methods
 ###############################################################################
 
-function fit_with_callbacks!(mach, callbacks, verbosity, id)
-    fit!(mach, verbosity=verbosity)
-    for callback in callbacks
-        after_machine_fit(callback, mach, id)
-    end
-end
 
-function finalize_with_callbacks!(estimation_report::NamedTuple, callbacks)
-    for callback in callbacks
-        estimation_report = finalize(estimation_report, callback)
-    end
-    return estimation_report
-end
 
 function check_columnnames(T, W, Y)
     Tnames = Tables.columnnames(T)

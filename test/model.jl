@@ -23,9 +23,8 @@ using MLJModels
     G = FullCategoricalJoint(ConstantClassifier())
 
     tmle = TMLEstimator(Q̅, G, query)
-    TMLE.fit(tmle, T, W, y)
-    mach = machine(tmle, T, W, y)
-    fit!(mach, verbosity=0)
+    result = TMLE.fit(tmle, T, W, y, verbosity=0)
+
 
     # Fit outside of tmle
     Hmach = machine(OneHotEncoder(drop_last=true), T)
@@ -34,11 +33,11 @@ using MLJModels
     X = merge(Thot, W)
     Q̅mach = machine(Q̅, X, y)
     fit!(Q̅mach, verbosity=0)
-    @test Q̅mach.fitresult == fitted_params(mach).Q̅.target_distribution
+    @test Q̅mach.fitresult == result.machines.Q[1].fitresult
 
     Gmach = machine(G, W, T)
     fit!(Gmach, verbosity=0)
-    @test Gmach.fitresult == fitted_params(mach).G.fitresult
+    @test Gmach.fitresult == result.machines.G.fitresult
 end
 
 
@@ -57,13 +56,10 @@ end
     Q̅ = ConstantClassifier()
     G = FullCategoricalJoint(ConstantClassifier())
     tmle = TMLEstimator(Q̅, G, query)
+    result = TMLE.fit(tmle, T, W, y, verbosity=0)
 
-    mach = machine(tmle, T, W, y)
-    fit!(mach, verbosity=0)
-
-    # Test the various api results functions
-
-    res = briefreport(mach)[1]
+    report = result.queryreports[1,1]
+    res = summarize(report)
     @test res.estimate ≈ -1.59 atol=1e-2
     @test res.stderror ≈ 1.32 atol=1e-2
     @test res.mean_inf_curve ≈ -1.52e-8 atol=1e-2
@@ -108,11 +104,10 @@ end
 
     tmle = TMLEstimator(Q̅, G, query)
 
-    mach = machine(tmle, T, W, Y)
-    fit!(mach, verbosity = 0)
-    
-    @test length(report(mach).machines[4].data[2]) == 90
-    @test length(report(mach).machines[1].data[2]) == 80
+    fitresult = TMLE.fit(tmle, T, W, Y, verbosity=0, cache=true)
+    length(fitresult.machines.Q[1].data[2])
+    @test length(fitresult.machines.Q[1].data[2]) == 90
+    @test length(fitresult.machines.Q[2].data[2]) == 80
 end
 
 @testset "Test reformat" begin
