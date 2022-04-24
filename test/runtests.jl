@@ -9,5 +9,4 @@ using Test
     @test include("correctness_iate.jl")
     @test include("report.jl")
     @test include("query.jl")
-    @test include("callbacks.jl")
 end

@@ -103,37 +103,3 @@ after_tmle(callback::Reporter, report::TMLEReport, target_id::Int, query_id::Int
 finalize(callback::Reporter, estimation_report::NamedTuple) = 
     (estimation_report..., tmlereports=callback.state)
 
-"""
-A callback to save the TMLE estimation results to disk instead of keeping them in memory
-"""
-mutable struct JLD2Saver <: Callback
-    file::JLD2.JLDFile
-    save_machines::Bool
-    JLD2Saver(filepath::String, save_machines::Bool=false) = new(jldopen(filepath, "w"), save_machines)
-end
-
-function after_tmle(callback::JLD2Saver, report::TMLEReport, target_id::Int, query_id::Int)
-    if !haskey(callback.file, "tmlereports")
-        group = JLD2.Group(callback.file, "tmlereports")
-    else
-        group = callback.file["tmlereports"]
-    end
-    group[string(target_id, "_", query_id)] = report
-end
-
-function after_fit(callback::JLD2Saver, mach::Machine, id::Symbol)
-    if callback.save_machines
-        if !haskey(callback.file, "machines")
-            group = JLD2.Group(callback.file, "machines")
-        else
-            group = callback.file["machines"]
-        end
-        group[string(id)] = mach
-    end
-end
-
-function finalize(callback::JLD2Saver, estimation_report::NamedTuple)
-    callback.file["low_propensity_scores"] = estimation_report.low_propensity_scores
-    close(callback.file)
-    return estimation_report
-end
