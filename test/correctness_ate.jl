@@ -186,18 +186,18 @@ end
 
     # Check results for the first target
     # First query: ATE₁
-    s₁ = summarize(result.queryreports[1,1])
+    s₁ = summarize(result.tmlereports[1,1])
     @test s₁.confint[1] <= ATE₁ <= s₁.confint[2]
     # Second query: ATE₂
-    s₂ = summarize(result.queryreports[1,2])
+    s₂ = summarize(result.tmlereports[1,2])
     @test s₂.confint[1] <= ATE₂ <= s₂.confint[2]
 
     # Check results for the second target which is just Random
-    s₁ = summarize(result.queryreports[2,1])
+    s₁ = summarize(result.tmlereports[2,1])
     # First query:
     @test s₁.confint[1] <= 0 <= s₁.confint[2]
     # Second query:  
-    s₂ = summarize(result.queryreports[2,2])
+    s₂ = summarize(result.tmlereports[2,2])
     @test s₂.confint[1] <= 0 <= s₂.confint[2]
 end
 

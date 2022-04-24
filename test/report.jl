@@ -43,7 +43,7 @@ end
     fitresult = TMLE.fit(tmle, T, W, Y, verbosity=0)
 
     # briefreport
-    s = summarize(fitresult.queryreports)
+    s = summarize(fitresult.tmlereports)
     @test s[1,1].query.name == "Query1"
     @test s[2,1].query.name == "Query1"
     @test s[1,2].query.name == "Query2"
@@ -51,13 +51,13 @@ end
 
 
     # z-test
-    ztest_results = ztest(fitresult.queryreports)
+    ztest_results = ztest(fitresult.tmlereports)
     for (key, testres) in ztest_results
         @test testres isa OneSampleZTest
     end
 
     # Paired ztest
-    testres = ztest(fitresult.queryreports[1,1], fitresult.queryreports[1,2])
+    testres = ztest(fitresult.tmlereports[1,1], fitresult.tmlereports[1,2])
     @test testres isa OneSampleZTest
 end
 

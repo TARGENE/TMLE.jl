@@ -10,7 +10,7 @@ function asymptotics(estimator, problem_fn, rng, Ns)
         for i in 1:10
             T, W, y, ATE = problem_fn(rng; n=n)
             result = TMLE.fit(estimator, T, W, y; verbosity=0, callbacks=[Reporter()])
-            estimate = result.queryreports[1,1].estimate
+            estimate = result.tmlereports[1,1].estimate
             push!(estimates_at_n, estimate)
         end
         push!(abs_mean_rel_errors, 100mean([abs((x-ATE)/ATE) for x in estimates_at_n]))

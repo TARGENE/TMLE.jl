@@ -101,4 +101,4 @@ after_tmle(callback::Reporter, report::TMLEReport, target_id::Int, query_id::Int
     callback.state[(target_id, query_id)] = report
 
 finalize(callback::Reporter, estimation_report::NamedTuple) = 
-    (estimation_report..., queryreports=callback.state)
+    (estimation_report..., tmlereports=callback.state)

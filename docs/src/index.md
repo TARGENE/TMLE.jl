@@ -124,7 +124,7 @@ tmle = TMLEstimator(Q, G, query)
 fitresult = TMLE.fit(tmle, T, W, y)
 
 # Report
-summarize(fitresult.queryreports)
+summarize(fitresult.tmlereports)
 ```
 
 The content of the brief report is a Tuple that for each target/query pair reports a NamedTuple containing the following fields:
@@ -215,7 +215,7 @@ The `fitted_params` function is the regular `MLJ` entrypoint to retrieve all fit
 - `report`
 
 ```julia 
-fitresult.queryreports
+fitresult.tmlereports
 ```
 
 The full report of the fitted_machine, including an entry for each query denoted by fields `target_$i_query_$j` where `i,j` index the targets and queries respectively. Each of this entry is a `Report` entity that contains all the necessary information you might need to extract for this specific query.
@@ -227,7 +227,7 @@ The full report of the fitted_machine, including an entry for each query denoted
 This is probably the main entry point to access your results:
 
 ```julia
-s = summarize(fitresult.queryreports[1, 1])
+s = summarize(fitresult.tmlereports[1, 1])
 ```
 
 - `ztest(mach, target_idx, query_idx)`
@@ -235,7 +235,7 @@ s = summarize(fitresult.queryreports[1, 1])
 It can be called either on the machine by providing a sequence of indices (see the [multiple-queries section](#multiple-queries) for an exemple for more than 1 query) or on the query report itself.
 
 ```julia
-ztest(fitresult.queryreports[1, 1])
+ztest(fitresult.tmlereports[1, 1])
 ```
 
 It is a simple wrapper over the `OneSampleZTest` from the [HypothesisTests.jl](https://juliastats.org/HypothesisTests.jl/stable/) package and will provide a confidence interval, a p-value, etc....
@@ -310,7 +310,7 @@ And fit it!
 ```julia
 fitresult = TMLE.fit(tmle, T, W, y)
 
-summarize(fitresult.queryreports[1,1])
+summarize(fitresult.tmlereports[1,1])
 ```
 
 
@@ -356,7 +356,7 @@ tmle = TMLEstimator(Q, G, queries...)
 fitresult = TMLE.fit(tmle, T, W, Y)
 
 # Report
-summarize(fitresult.queryreports)
+summarize(fitresult.tmlereports)
 ```
 
 The report contains a `Report` for each target/query pair.
@@ -364,13 +364,13 @@ The report contains a `Report` for each target/query pair.
 One can for instance perform a paired Z-Test to compare if the estimate resulting from two different queries for the first target is significantly different. Here we compare the first and third query:
 
 ```julia
-ztest(fitresult.queryreports[1, 1], fitresult.queryreports[1, 3])
+ztest(fitresult.tmlereports[1, 1], fitresult.tmlereports[1, 3])
 ```
 
 Or perform a simple Z-Test for a simple target/query, here y₂ and the first query:
 
 ```julia
-ztest(fitresult.queryreports[2, 1])
+ztest(fitresult.tmlereports[2, 1])
 ```
 
 which will output a Tuple of three tests.

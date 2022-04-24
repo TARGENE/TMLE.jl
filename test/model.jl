@@ -58,7 +58,7 @@ end
     tmle = TMLEstimator(Q̅, G, query)
     result = TMLE.fit(tmle, T, W, y, verbosity=0)
 
-    report = result.queryreports[1,1]
+    report = result.tmlereports[1,1]
     res = summarize(report)
     @test res.estimate ≈ -1.59 atol=1e-2
     @test res.stderror ≈ 1.32 atol=1e-2
