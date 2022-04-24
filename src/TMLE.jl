@@ -9,7 +9,6 @@ using Base: Iterators, ImmutableDict
 using MLJGLMInterface
 using MLJModels
 using Missings
-using JLD2
 
 # #############################################################################
 # OVERLOADED METHODS
