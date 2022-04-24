@@ -9,6 +9,7 @@ using Base: Iterators, ImmutableDict
 using MLJGLMInterface
 using MLJModels
 using Missings
+using JLD2
 
 # #############################################################################
 # OVERLOADED METHODS
@@ -24,7 +25,7 @@ export TMLEstimator, Query, TMLEReport
 export FullCategoricalJoint
 export fit
 export ztest, pvalue, confint, summarize
-export MachineReporter, Reporter
+export MachineReporter, Reporter, JLD2Saver
 
 # #############################################################################
 # INCLUDES
