@@ -14,12 +14,12 @@ using HypothesisTests
     r1 = TMLE.TMLEReport("y", query, [1, 2, 3, 4], 1, 0.8)
     s1 = summarize(r1)
     @test s1.query == query
-    @test s1.pvalue ≈ 5.88e-8 atol=1e-2
-    @test s1.confint[1] ≈ 2.234 atol=1e-2
-    @test s1.confint[2] ≈ 4.765 atol=1e-2
+    @test s1.pvalue ≈ 0.46 atol=1e-2
+    @test s1.confint[1] ≈ -1.68 atol=1e-2
+    @test s1.confint[2] ≈ 3.68 atol=1e-2
     @test s1.estimate == 1.0
     @test s1.initial_estimate == 0.8
-    @test s1.stderror ≈ 0.645 atol=1e-2
+    @test s1.stderror ≈ 1.36 atol=1e-2
     @test s1.mean_inf_curve == 2.5
 end
 
@@ -42,13 +42,17 @@ end
     
     fitresult = TMLE.fit(tmle, T, W, Y, verbosity=0)
 
+    tmlereport = fitresult.tmlereports[1,1]
+    z1 = ztest(tmlereport)
+    confint(z1)
+    z2 = OneSampleZTest(tmlereport.estimate, sqrt(mean(tmlereport.influence_curve.^2)), size(tmlereport.influence_curve, 1))
+    confint(z2)
     # briefreport
     s = summarize(fitresult.tmlereports)
     @test s[1,1].query.name == "Query1"
     @test s[2,1].query.name == "Query1"
     @test s[1,2].query.name == "Query2"
     @test s[2,2].query.name == "Query2"
-
 
     # z-test
     ztest_results = ztest(fitresult.tmlereports)

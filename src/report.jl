@@ -45,7 +45,7 @@ We can then perform a Z-Test for a given Report object. It will test weither the
 effect size is significantly different from 0 under those assumptions.
 """ 
 ztest(r::TMLEReport) = 
-    OneSampleZTest(r.estimate .+ r.influence_curve)
+    OneSampleZTest(r.estimate, sqrt(mean(r.influence_curve.^2)), size(r.influence_curve, 1))
 
 ztest(tmle_reports::Dict) =
     Dict((key, ztest(report)) for (key,report) in tmle_reports)

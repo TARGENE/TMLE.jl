@@ -58,14 +58,14 @@ end
     tmle = TMLEstimator(Q̅, G, query)
     result = TMLE.fit(tmle, T, W, y, verbosity=0)
 
-    report = result.tmlereports[1,1]
-    res = summarize(report)
+    tmlereport = result.tmlereports[1,1]
+    res = summarize(tmlereport)
     @test res.estimate ≈ -1.59 atol=1e-2
     @test res.stderror ≈ 1.32 atol=1e-2
     @test res.mean_inf_curve ≈ -1.52e-8 atol=1e-2
     @test res.pvalue ≈ 0.23 atol=1e-2
     @test res.confint[1] ≈ -4.18 atol=1e-2
-    @test res.confint[2] ≈ 1.01 atol=1e-2
+    @test res.confint[2] ≈ 0.99 atol=1e-2
 end
 
 
