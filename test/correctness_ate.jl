@@ -52,7 +52,6 @@ function continuous_target_binary_treatment_pb(rng;n=100)
     return t, W, y, 1
 end
 
-
 function continuous_target_categorical_treatment_pb(rng;n=100, control="TT", treatment="AA")
     ft(T) = (T .== "AA") - (T .== "AT") + 2(T .== "TT")
     fw(W) = 2W[:, 1] + 3W[:, 2] - 4W[:, 3]
@@ -70,7 +69,6 @@ function continuous_target_categorical_treatment_pb(rng;n=100, control="TT", tre
     T = (T=categorical(T),)
     return T, W, y, ATE
 end
-
 
 @testset "Test Double Robustness ATE on continuous_target_categorical_treatment_pb" begin
     query = Query((T="AA",), (T="TT",))
@@ -183,24 +181,24 @@ end
     y₂ = rand(rng, n)
 
     y = (y₁=y₁, y₂=y₂)
-    mach = machine(tmle, t, W, y)
-    fit!(mach, verbosity=0)
+
+    result = TMLE.fit(tmle, t, W, y, verbosity=0)
 
     # Check results for the first target
     # First query: ATE₁
-    conf_interval = confint(ztest(mach, 1, 1))
-    @test conf_interval[1] <= ATE₁ <= conf_interval[2]
+    s₁ = summarize(result.tmlereports[1,1])
+    @test s₁.confint[1] <= ATE₁ <= s₁.confint[2]
     # Second query: ATE₂
-    conf_interval = confint(ztest(mach, 1, 2))
-    @test conf_interval[1] <= ATE₂ <= conf_interval[2]
+    s₂ = summarize(result.tmlereports[1,2])
+    @test s₂.confint[1] <= ATE₂ <= s₂.confint[2]
 
     # Check results for the second target which is just Random
-    conf_interval = confint(ztest(mach, 2, 1))
+    s₁ = summarize(result.tmlereports[2,1])
     # First query:
-    @test conf_interval[1] <= 0 <= conf_interval[2]
+    @test s₁.confint[1] <= 0 <= s₁.confint[2]
     # Second query:  
-    conf_interval = confint(ztest(mach, 2, 2))
-    @test conf_interval[1] <= 0 <= conf_interval[2]
+    s₂ = summarize(result.tmlereports[2,2])
+    @test s₂.confint[1] <= 0 <= s₂.confint[2]
 end
 
 

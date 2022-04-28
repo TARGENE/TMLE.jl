@@ -71,31 +71,28 @@ using the TMLE framework.
     is fit for each column in Y. If the number of target variables in large, it helps 
     to drastically reduce the computational time.
 """
-function MLJBase.fit(tmle::TMLEstimator, 
-                 verbosity::Int, 
-                 T,
-                 W, 
-                 Y)
-    
-    Ts = source(T)
-    Ws = source(W)
-    Ys = source(Y)
+function MLJBase.fit(tmle::TMLEstimator, T, W, Y; 
+                        verbosity::Int=1, 
+                        cache=false,
+                        callbacks=[MachineReporter(), Reporter()])
 
+    T, W, Y = MLJBase.reformat(tmle::TMLEstimator, T, W, Y)
     # Fitting the encoder
-    Hmach = machine(OneHotEncoder(drop_last=true), Ts)
+    Hmach = machine(OneHotEncoder(drop_last=true), T, cache=cache)
+    fit_with_callbacks!(Hmach, callbacks, verbosity, :Encoder)
 
     # Fitting P(T|W)
-    Gmach = machine(tmle.G, Ws, adapt(Ts))
+    Gmach = machine(tmle.G, W, adapt(T), cache=cache)
+    fit_with_callbacks!(Gmach, callbacks, verbosity, :G)
 
-    reported = []
-    predicted = []
-    extreme_propensity = nothing
+    estimation_report = (low_propensity_scores=low_propensity_scores(Gmach, W, T, tmle.threshold),)
+
     # Loop over targets, an estimator is fit for each target
     for (target_idx, target_name) in enumerate(Tables.columnnames(Y))
         # Get the target as a table
-        ys = TableOperations.select(Ys, target_name)
+        y = Tables.columntable(TableOperations.select(Y, target_name))
         # Filter missing values from tables
-        T_, W_, y_ = TableOperations.dropmissing(Ts, Ws, ys)
+        T_, W_, y_ = TableOperations.dropmissing(T, W, y)
         
         # Thot is a Floating point representation of T
         # y_ is a vector
@@ -103,8 +100,9 @@ function MLJBase.fit(tmle::TMLEstimator,
         y_ = first(y_)
 
         # Fitting E[Y|T, W]
-        X = node((t, w) -> merge(t, w), Thot_, W_)
-        Q̅mach = machine(tmle.Q̅, X, y_)
+        X = merge(Thot_, W_)
+        Q̅mach = machine(tmle.Q̅, X, y_, cache=cache)
+        fit_with_callbacks!(Q̅mach, callbacks, verbosity, Symbol(:Q, '_', target_idx))
 
         offset = compute_offset(Q̅mach, X)
         # Loop over queries that will define new covariate values
@@ -112,17 +110,16 @@ function MLJBase.fit(tmle::TMLEstimator,
             indicators = indicator_fns(query)
             covariate = compute_covariate(Gmach, W_, T_, indicators; 
                                         threshold=tmle.threshold)
-            # Log extreme values
-            extreme_propensity = log_over_threshold(covariate, tmle.threshold)
 
             # Fluctuate E[Y|T, W] 
             # on the covariate and the offset 
             Xfluct = fluctuation_input(covariate, offset)
-            Fmach = machine(tmle.F, Xfluct, y_)
-            
+            Fmach = machine(tmle.F, Xfluct, y_, cache=cache)
+            fit_with_callbacks!(Fmach, callbacks, verbosity, Symbol(:F, '_', target_idx, '_', query_idx))
+
             observed_fluct = predict_mean(Fmach, Xfluct)
 
-            queryreport = estimation_report(Fmach,
+            tmle_report = tmlereport(Fmach,
                             Q̅mach,
                             Gmach,
                             Hmach,
@@ -135,26 +132,19 @@ function MLJBase.fit(tmle::TMLEstimator,
                             tmle.threshold,
                             query,
                             target_name)
-            report_key = queryreportname(target_idx, query_idx)
-            push!(reported, NamedTuple{(report_key,)}([queryreport]))
-            # This is actually empty but required
-            push!(predicted, observed_fluct)
+            
+            after_tmle(callbacks, tmle_report, target_idx, query_idx)
         end
     end
-
-    predicted = hcat(predicted...)
-
-    mach = machine(Deterministic(), Ts, Ws, Ys; 
-            predict=predicted, 
-            report=(extreme_propensity_idx=extreme_propensity, merge(reported...)...)
-    )
-    return!(mach, tmle, verbosity)
+    return finalize(callbacks, estimation_report)
 end
 
 
 ###############################################################################
 ## Complementary methods
 ###############################################################################
+
+
 
 function check_columnnames(T, W, Y)
     Tnames = Tables.columnnames(T)
@@ -170,13 +160,11 @@ function check_columnnames(T, W, Y)
             throw(ArgumentError(string(input₁, " and ", input₂, " share some column names:", columns_intersection)))
         end
     end
-
 end
-
 
 function MLJBase.reformat(tmle::TMLEstimator, T, W, Y)
     Y = totable(Y)
     check_columnnames(T, W, Y)
     check_ordering(tmle.queries, T)
-   return  (T, W, Y)
+   return (T, W, Y)
 end

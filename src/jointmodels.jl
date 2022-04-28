@@ -45,8 +45,6 @@ encode(Y::AbstractNode, m::Machine{FullCategoricalJoint,}) =
 
 
 density(ŷ, y) = pdf.(ŷ, y)
-density(ŷ::AbstractNode, y::AbstractNode) = 
-    node((ŷ, y) -> density(ŷ, y), ŷ, y)
 
 
 function density(m::Machine{FullCategoricalJoint,}, X, Y)

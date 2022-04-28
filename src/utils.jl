@@ -3,19 +3,13 @@
 ###############################################################################
 
 logit(X) = log.(X ./ (1 .- X))
-logit(X::AbstractNode) = node(x->logit(x), X)
-
 expit(X) = 1 ./ (1 .+ exp.(-X))
-expit(X::AbstractNode) = node(x->expit(x), X)
 
 """
 
 Let's default to no warnings for now.
 """
 MLJBase.check(model::TMLEstimator, args... ; full=false) = true
-
-Base.merge(ndt₁::AbstractNode, ndt₂::AbstractNode) = 
-    node((ndt₁, ndt₂) -> merge(ndt₁, ndt₂), ndt₁, ndt₂)
 
 """
 
@@ -24,34 +18,19 @@ Adapts the type of the treatment variable passed to the G learner
 adapt(T) =
     size(Tables.columnnames(T), 1) == 1 ? Tables.getcolumn(T, 1) : T
 
-adapt(T::AbstractNode) = node(adapt, T)
+low_propensity_scores(Gmach, W, T, threshold) =
+    findall(<(threshold), density(Gmach, W, T))
 
-
-function log_over_threshold(covariate::AbstractNode, threshold)
-    node(cov -> findall(x -> x >= 1/threshold, cov), covariate)
-end
-
-Tables.getcolumn(T::AbstractNode, name::Symbol) = 
-    node(T->Tables.getcolumn(T, name), T)
 
 totable(x::AbstractVector) = (y=x,)
 totable(x) = x
 
-function merge_and_dropmissing(tables::Vararg)
+function merge_and_dropmissing(tables...)
     return mapreduce(t->Tables.columntable(t), merge, tables) |> 
         TableOperations.dropmissing |> 
         Tables.columntable |>
         disallowmissings
 end
-
-TableOperations.select(t::AbstractNode, columns...) =
-    node(t -> Tables.columntable(TableOperations.select(t, columns...)), t)
-
-TableOperations.select(t::AbstractNode, columns::AbstractNode) =
-    node((t, columns) -> Tables.columntable(TableOperations.select(t, columns...)), t, columns)
-
-Tables.columnnames(t::AbstractNode) = 
-    node(Tables.columnnames, t)
 
 function disallowmissings(T)
     newcols = AbstractVector[]
@@ -62,26 +41,19 @@ function disallowmissings(T)
     return NamedTuple{sch.names}(newcols)
 end
 
-function TableOperations.dropmissing(tables::Vararg{AbstractNode})
-    table = node(merge_and_dropmissing, tables...)
-    table = node(disallowmissings, table)
-    return Tuple(TableOperations.select(table, Tables.columnnames(t)) for t in tables)
+function TableOperations.dropmissing(tables...)
+    table = merge_and_dropmissing(tables...)
+    table = disallowmissings(table)
+    return Tuple(Tables.columntable(TableOperations.select(table, Tables.columnnames(t)...)) for t in tables)
 end
 
 ###############################################################################
 ## Offset
 ###############################################################################
 expected_value(ŷ, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:Finite}}) = pdf.(ŷ, levels(first(ŷ))[2])
-expected_value(ŷ::AbstractNode, t::Type{<:Probabilistic}, s::Type{<:AbstractArray{<:Finite}}) = 
-    node(ŷ->expected_value(ŷ, t, s), ŷ)
-
 expected_value(ŷ, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:MLJBase.Continuous}}) = mean.(ŷ)
-expected_value(ŷ::AbstractNode, t::Type{<:Probabilistic}, s::Type{<:AbstractArray{<:MLJBase.Continuous}}) = 
-    node(ŷ->expected_value(ŷ, t, s), ŷ)
-
 expected_value(ŷ, ::Type{<:Deterministic}, ::Type{<:AbstractArray{<:MLJBase.Continuous}}) = ŷ
-expected_value(ŷ::AbstractNode, t::Type{<:Deterministic}, s::Type{<:AbstractArray{<:MLJBase.Continuous}}) = 
-    node(ŷ->expected_value(ŷ, t, s), ŷ)
+
 
 maybelogit(x, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:Finite}}) = logit(x)
 maybelogit(x, _, _) = x
@@ -108,31 +80,9 @@ function indicator_values(indicators::ImmutableDict{<:NTuple{N, Any}, ValType}, 
     covariate
 end
 
-function _indicator_values(indicators::ImmutableDict{<:NTuple{N, Any}, ValType}, T) where {N, ValType}
-    n = nrows(T)
-    T_ = hcat(T...)
-    covariate = zeros(ValType, n)
-    for i in 1:n
-        vals = view(T_, i, :)
-        if haskey(indicators, vals)
-            covariate[i] = indicators[vals]
-        end
-    end
-    covariate
-end
-
-
-indicator_values(indicators::ImmutableDict{<:NTuple{N, Any}, ValType}, T::AbstractNode) where {N, ValType} = 
-    node(t -> indicator_values(indicators, t), T)
-
 
 plateau_likelihood(likelihood, threshold) = max.(threshold, likelihood)
-plateau_likelihood(likelihood::AbstractNode, threshold) = 
-    node(l -> plateau_likelihood(l, threshold), likelihood)
 
-elemwise_divide(x, y) = x ./ y
-elemwise_divide(x::AbstractNode, y::AbstractNode) = 
-    node((x, y) -> elemwise_divide(x,y), x, y)
 
 """
 For each data point, computes: (-1)^(interaction-oder - j)
@@ -147,7 +97,7 @@ function compute_covariate(Gmach::Machine, W, T, indicators; threshold=0.005)
 
     likelihood = plateau_likelihood(likelihood, threshold)
     
-    return elemwise_divide(indic_vals, likelihood)
+    return indic_vals ./ likelihood
 end
 
 
@@ -159,8 +109,7 @@ influencecurve(covariate, y, observed_fluct, ct_fluct, estimate) =
     covariate .* (float(y) .- observed_fluct) .+ ct_fluct .- estimate
 
 fluctuation_input(covariate, offset) = (covariate=covariate, offset=offset)
-fluctuation_input(covariate::AbstractNode, offset::AbstractNode) =
-    node((c, o) -> fluctuation_input(c, o), covariate, offset)
+
     
 function counterfactualTreatment(vals, T)
     Tnames = Tables.columnnames(T)
@@ -190,24 +139,6 @@ end
 ## Report Generation
 ###############################################################################
 
-function estimation_report(Fmach::Machine,
-    Q̅mach::Machine,
-    Gmach::Machine,
-    Hmach::Machine,
-    W::AbstractNode,
-    T::AbstractNode,
-    observed_fluct::AbstractNode,
-    ys::AbstractNode,
-    covariate::AbstractNode,
-    indicators,
-    threshold,
-    query,
-    target_name)
-
-    node((w, t, o, y, c) -> estimation_report(Fmach, Q̅mach, Gmach, Hmach, w, t, o, y, c, indicators, threshold, query, target_name), 
-                                W, T, observed_fluct, ys, covariate)
-end
-
 """
 
 For a given query, identified by `indicators`, reports the different quantities of
@@ -218,19 +149,19 @@ For instance, if the order of Interaction is 2 with binary variables, this is co
 AggregatedCounterfactual = Fluctuation(t₁=1, t₂=1, W=w) - Fluctuation(t₁=1, t₂=0, W=w)
                 - Fluctuation(t₁=0, t₂=1, W=w) + Fluctuation(t₁=0, t₂=0, W=w)
 """
-function estimation_report(Fmach::Machine,
-                            Q̅mach::Machine,
-                            Gmach::Machine,
-                            Hmach::Machine,
-                            W,
-                            T,
-                            observed_fluct,
-                            ys,
-                            covariate,
-                            indicators, 
-                            threshold,
-                            query,
-                            target_name)
+function tmlereport(Fmach::Machine,
+                    Q̅mach::Machine,
+                    Gmach::Machine,
+                    Hmach::Machine,
+                    W,
+                    T,
+                    observed_fluct,
+                    ys,
+                    covariate,
+                    indicators, 
+                    threshold,
+                    query,
+                    target_name)
 
     tmle_ct_agg = zeros(nrows(T))
     initial_ct_agg = zeros(nrows(T))
@@ -256,5 +187,5 @@ function estimation_report(Fmach::Machine,
     tmle_estimate = mean(tmle_ct_agg)
     inf_curve = influencecurve(covariate, ys, observed_fluct, tmle_ct_agg, tmle_estimate)
 
-    return Report(target_name, query, inf_curve, tmle_estimate, initial_estimate)
+    return TMLEReport(target_name, query, inf_curve, tmle_estimate, initial_estimate)
 end

@@ -246,10 +246,6 @@ end
 end
 
 @testset "Test log_over_threshold" begin
-    covariate = source([4, 2, 3])
-    @test TMLE.log_over_threshold(covariate, 0.4)() == [1, 3]
-
-    # End to end in the fit process
     n = 10000
     rng = StableRNG(123)
     T = (t=categorical(rand(rng, Bernoulli(0.001), n)),)
@@ -261,9 +257,11 @@ end
     G = LogisticClassifier()
     tmle = TMLEstimator(Q̅, G, query)
 
-    mach = machine(tmle, T, W, y)
-    fit!(mach, verbosity=0)
-    @test length(report(mach).extreme_propensity_idx) == 12
+    fitresult = TMLE.fit(tmle, T, W, y, verbosity=0)
+
+    d = TMLE.density(fitresult.machines.G, W, T)
+    @test all(<(0.005), d[fitresult.low_propensity_scores])
+    @test length(fitresult.low_propensity_scores) == 12
 end
 
 
@@ -288,19 +286,14 @@ end
         Column3 = [3, 9]
         )
     @test eltype(T.t₁) == eltype(T.t₂) == eltype(T.Column3) == Int
-
-    T = TMLE.disallowmissings(T)
-    
-    T₁ = source(T₁)
-    T₂ = source(T₂)
     
     filteredT₁, filteredT₂ = TableOperations.dropmissing(T₁, T₂)
-    @test filteredT₁() == (
+    @test filteredT₁ == (
         t₁ = [1, 2],
         t₂ = [0, 3]
     )
-    @test filteredT₂() == [8  4  3
-                           8  4  9] |> Tables.table |> Tables.columntable
+    @test filteredT₂ == [8  4  3
+                         8  4  9] |> Tables.table |> Tables.columntable
 
 end
 
