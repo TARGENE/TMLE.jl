@@ -127,13 +127,16 @@ fitresult = TMLE.fit(tmle, T, W, y)
 summarize(fitresult.tmlereports)
 ```
 
-The content of the brief report is a Tuple that for each target/query pair reports a NamedTuple containing the following fields:
+The fitresult object is a `NamedTuple` that contains various pieces of information that can be investigated. Note that it is by design constructed with callbacks, which means you can always modify it's content to fit your own needs.
+
+Of particular interest is the `tmlereports` field which provides all the information you may need for each query/target you provided as an input.
+The `summarize` function returns a summary that for each target/query pair reports a NamedTuple containing the following fields:
 - target_name: If only one target is provided (y is a vector) it is denoted by `y` otherwise it corresponds to the columnname in the table Y.
 - query: The associated query
 - pvalue: The p-value
 - confint: A 95% confidence interval around the estimated quantity
 - estimate: An estimate of the quantity of interest
-- initial_estimated: The initial estimate that we would have reached without applying the tmle step
+- initial_estimate: The initial estimate that we would have reached without applying the tmle step
 - stderror: The estimate of the standard error
 - mean_inf_curve: The empirical mean of the influence curve
 
@@ -199,47 +202,44 @@ fitresult = TMLE.fit(tmle, T, W, y)
 ```
 
 Their are various ways in which you can investigate the results:
-#### Regular MLJ entrypoints: `fitted_params` and `report`
+#### Classic fitresult entrypoints: `machines`, `tmlereports` and `low_propensity_scores`
 
-- `machines`
+The default behavior of the procedure is to output a `NamedTuple` with 3 main fields, that are described here:
 
-```julia 
-fitresult.machines
-```
-
-The `fitted_params` function is the regular `MLJ` entrypoint to retrieve all fitted parameters for all submachines in our TMLEstimator machine, it gives access to a `NamedTuple` that contains all results from the fit, including:
-- A fitresult for Q
-- A fitresult for G
-- A fitresult for the fluctuation denoted F
-
-- `report`
+- `tmlereports`: This is the main entrypoint of interest since it contains the estimation results.
 
 ```julia 
 fitresult.tmlereports
 ```
 
-The full report of the fitted_machine, including an entry for each query denoted by fields `target_$i_query_$j` where `i,j` index the targets and queries respectively. Each of this entry is a `Report` entity that contains all the necessary information you might need to extract for this specific query.
+It is a dictionnary with keys (target_id, query_id) in the order provided to the `TMLEEstimator`. You can for instance access influence curves, estimate values etc... The convenience method `summarize` described in the Quick Start provides usual summary statistics of interest.
 
-#### TMLE.jl Specific entrypoints
+- `machines`: To access all the `MLJ.machines` that have been fitted during the estimation process.
 
-- `summarize(::TMLEReport)`
-
-This is probably the main entry point to access your results:
-
-```julia
-s = summarize(fitresult.tmlereports[1, 1])
+```julia 
+fitresult.machines
 ```
 
-- `ztest(mach, target_idx, query_idx)`
+The default callback will build a `NamedTuple` containing the following fields:
+    - Encoder: The OneHotEncoder used to convert the treatment variables to floating points.
+    - G: For the propensity score machine.
+    - Q: A vector of machines, one for each target.
+    - F: A dictionnary of machines with keys (target_id, query_id) in the order provided to the `TMLEEstimator`.
 
-It can be called either on the machine by providing a sequence of indices (see the [multiple-queries section](#multiple-queries) for an exemple for more than 1 query) or on the query report itself.
+Regular `MLJ` entrypoints such as `fitted_params` or `report` can be used on any of those machines.
 
-```julia
-ztest(fitresult.tmlereports[1, 1])
-```
+- `low_propensity_scores`: Because the influence curve is computed by division of p(T|W), it is important to warranty those numbers don't get too small.
 
-It is a simple wrapper over the `OneSampleZTest` from the [HypothesisTests.jl](https://juliastats.org/HypothesisTests.jl/stable/) package and will provide a confidence interval, a p-value, etc....
 
+#### Hypothesis testing
+
+Because the TMLE has the nice property of being asymptotically Normal it can be used to build confidence interval and hypothesis testing via regular Z-Tests. The `ztest` function is a simple wrapper around the `OneSampleZTest` from the [HypothesisTests.jl](https://juliastats.org/HypothesisTests.jl/stable/) package. You can call `pvalue` or `confint` on the returned object.
+
+- `ztest(tmlrereport::TMLEReport)`
+
+Alternatively the `summarize` function will compute all essential statistics in one go:
+
+- `summarize(r::TMLEReport; tail=:both, level=0.95)`
 
 #### Conslusion
 
@@ -374,6 +374,9 @@ ztest(fitresult.tmlereports[2, 1])
 ```
 
 which will output a Tuple of three tests.
+
+## Callbacks
+
 
 ## API 
 
