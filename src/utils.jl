@@ -69,8 +69,9 @@ end
 ## Covariate
 ###############################################################################
 
-function indicator_values(indicators::ImmutableDict{<:NTuple{N, Any}, ValType}, T) where {N, ValType}
-    covariate = zeros(ValType, nrows(T))
+function indicator_values(indicators, T)
+    N = length(first(keys(indicators)))
+    covariate = zeros(Float64, nrows(T))
     for (i, row) in enumerate(Tables.rows(T))
         vals = Tuple(Tables.getcolumn(row, nm) for nm in 1:N)
         if haskey(indicators, vals)
@@ -90,10 +91,10 @@ Where j is the number of treatments different from the reference in the query.
 """
 function compute_covariate(Gmach::Machine, W, T, indicators; threshold=0.005)
     # Compute the indicator value
-    indic_vals = indicator_values(indicators, T)
+    indic_vals = TMLE.indicator_values(indicators, T)
 
     # Compute density and truncate
-    likelihood = density(Gmach, W, T)
+    likelihood = TMLE.density(Gmach, W, T)
 
     likelihood = plateau_likelihood(likelihood, threshold)
     

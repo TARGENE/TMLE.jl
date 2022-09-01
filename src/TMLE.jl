@@ -25,6 +25,9 @@ export FullCategoricalJoint
 export fit
 export ztest, pvalue, confint, summarize
 export MachineReporter, Reporter, JLD2Saver
+export ConditionalMean, ATE
+export TMLECache
+export tmle, tmle!
 
 # #############################################################################
 # INCLUDES
@@ -36,6 +39,6 @@ include("report.jl")
 include("callbacks.jl")
 include("jointmodels.jl")
 include("utils.jl")
-
+include("parameters.jl")
 
 end
