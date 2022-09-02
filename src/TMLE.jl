@@ -9,6 +9,7 @@ using Base: Iterators, ImmutableDict
 using MLJGLMInterface
 using MLJModels
 using Missings
+using Statistics
 
 # #############################################################################
 # OVERLOADED METHODS
@@ -28,6 +29,7 @@ export MachineReporter, Reporter, JLD2Saver
 export ConditionalMean, ATE
 export TMLECache
 export tmle, tmle!
+export var, estimate, OneSampleTTest
 
 # #############################################################################
 # INCLUDES
@@ -40,5 +42,7 @@ include("callbacks.jl")
 include("jointmodels.jl")
 include("utils.jl")
 include("parameters.jl")
+include("cache.jl")
+include("estimate.jl")
 
 end

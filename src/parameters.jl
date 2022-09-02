@@ -59,29 +59,6 @@ mutable struct NuisanceParameters
     F::Union{Nothing, MLJBase.Machine}
 end
 
-"""
-This structure is used as a cache for both:
-    - η_spec: The specification of the learning algorithms used to estimate the nuisance parameters
-    - η: nuisance parameters
-    - data: dataset changes
-
-If the input data does not change, then the nuisance parameters do not have to be estimated again.
-"""
-mutable struct TMLECache
-    Ψ::Parameter
-    η_spec::NamedTuple
-    dataset
-    η
-    function TMLECache(Ψ, η_spec, dataset)
-        dataset = Dict(
-            :source => dataset,
-            :no_missing => nomissing(dataset)
-        )
-        η = NuisanceParameters(nothing, nothing, nothing, nothing)
-        new(Ψ, η_spec, dataset, η)
-    end
-end
-
 function nomissing(table)
     sch = Tables.schema(table)
     for type in sch.types
@@ -99,125 +76,49 @@ function nomissing(table, columns)
     return nomissing(columns)
 end
 
-"""
-This structure stores everything there is to know about an estimation result:
-    - Ψ: The parameter of interest
-    - estimate: The targeted estimate for that parameter
-    - eic: The efficient influence curve
-"""
-struct EstimationResult
-    Ψ::Parameter
-    Ψ̂::AbstractFloat
-    IC::AbstractVector
-end
+log_fit(verbosity, model) = 
+    verbosity >= 1 && @info string("→ Fitting ", model)
 
-
-function update!(cache::TMLECache, Ψ::Parameter)
-    if keys(cache.Ψ.treatment) != keys(Ψ.treatment)
-        cache.η.G = nothing
-        cache.η.Q = nothing
-        cache.η.H = nothing
-    end
-    if cache.Ψ.confounders != Ψ.confounders || cache.Ψ.covariates != Ψ.covariates
-        cache.η.G = nothing
-        cache.η.Q = nothing
-    end
-    if cache.Ψ.target != Ψ.target
-        cache.η.Q = nothing
-    end
-    cache.Ψ = Ψ
-end
-
-function update!(cache::TMLECache, η_spec::NamedTuple)
-    if cache.η_spec.G != η_spec.G
-        cache.η.G = nothing
-    end
-    if cache.η_spec.Q != η_spec.Q
-        cache.η.Q = nothing
-    end
-    cache.η_spec = η_spec
-end
-
-function tmle(Ψ::Parameter, η_spec::NamedTuple, dataset; verbosity=1, threshold=1e-8)
-    cache = TMLECache(Ψ, η_spec, dataset)
-    Ψ, η_spec, dataset, η = cache.Ψ, cache.η_spec, cache.dataset, cache.η
-    
-    # Initial fit
-    verbosity >= 1 && @info "Fitting the nuisance parameters..."
-    TMLE.fit!(η, η_spec, Ψ, dataset, verbosity=verbosity)
-    
-    # Estimation results before TMLE
-    dataset = dataset[:no_missing]
-    ICᵢ = gradient(Ψ, η, dataset; threshold=threshold)
-    Ψ̂ᵢ = estimate(Ψ, η, dataset; threshold=threshold)
-    resultᵢ = EstimationResult(Ψ, Ψ̂ᵢ, ICᵢ)
-    
-    # TMLE step
-    verbosity >= 1 && @info "Targeting the nuisance parameters..."
-    tmle!(η, Ψ, dataset, verbosity=verbosity, threshold=threshold)
-    
-    # Estimation results after TMLE
-    IC = gradient(Ψ, η, dataset; threshold=threshold)
-    Ψ̂ = estimate(Ψ, η, dataset; threshold=threshold)
-    result = EstimationResult(Ψ, Ψ̂, IC)
-
-    verbosity >= 1 && @info "Thank you."
-    return result, resultᵢ, cache
-end
-
-function update!(cache::TMLECache, Ψ::Parameter, η_spec::NamedTuple)
-    update!(cache, Ψ)
-    update!(cache, η_spec)
-    tmle!(cache, verbosity=verbosity)
-end
-
-function tmle!(cache::TMLECache; Ψ::Parameter, verbosity=1)
-    update!(cache, Ψ)
-    tmle!(cache, verbosity=verbosity)
-end
-
-function tmle!(cache::TMLECache; η_spec::NamedTuple, verbosity=1)
-    update!(cache, η_spec)
-    tmle!(cache, verbosity=verbosity)
-end
-
-function tmle!(cache::TMLECache; Ψ::Parameter, η_spec::NamedTuple, verbosity=1)
-    update!(cache, Ψ, η_spec)
-    dataset = TMLE.selectcols(cache.dataset, TMLE.variables(cache.Ψ))
-    fit!(cache.η, cache.Ψ, dataset, verbosity=verbosity)
-    fluctuate!(cache.η, dataset, verbosity=verbosity)
-end
+log_no_fit(verbosity, model) =
+    verbosity >= 1 && @info string("→ Reusing previous ", model)
 
 function fit!(η::NuisanceParameters, η_spec, Ψ::Parameter, dataset; verbosity=1)
     # Fitting P(T|W)
     # Only rows with missing values in either W or Tₜ are removed
     if η.G === nothing
-        verbosity >= 1 && @info "→ Fitting P(T|W)"
+        log_fit(verbosity, "P(T|W)")
         nomissing_WT = nomissing(dataset[:source], treatment_and_confounders(Ψ))
         W = confounders(nomissing_WT, Ψ)
         T = treatments(nomissing_WT, Ψ)
         mach = machine(η_spec.G, W, adapt(T))
         MLJBase.fit!(mach, verbosity=verbosity-1)
         η.G = mach
+    else
+        log_no_fit(verbosity, "P(T|W)")
     end
 
     # Fitting E[Y|X]
     if η.Q === nothing
-        verbosity >= 1 && @info "→ Fitting E[Y|X]"
         # Data
         X = Qinputs(dataset[:no_missing], Ψ)
         y = target(dataset[:no_missing], Ψ)
 
         # Fitting the Encoder
         if η.H === nothing
+            log_fit(verbosity, "Encoder")
             mach = machine(OneHotEncoder(features=treatments(Ψ), drop_last=true, ordered_factor=false), X)
             MLJBase.fit!(mach, verbosity=verbosity-1)
             η.H = mach
+        else
+            log_no_fit(verbosity, "Encoder")
         end
-
+        log_fit(verbosity, "E[Y|X]")
         mach = machine(η_spec.Q, MLJBase.transform(η.H, X), y)
         MLJBase.fit!(mach, verbosity=verbosity-1)
         η.Q = mach
+    else
+        log_no_fit(verbosity, "Encoder")
+        log_no_fit(verbosity, "E[Y|X]")
     end
 end
 
