@@ -201,7 +201,7 @@ function fit!(η::NuisanceParameters, η_spec, Ψ::Parameter, dataset; verbosity
         nomissing_WT = nomissing(dataset[:source], treatment_and_confounders(Ψ))
         W = confounders(nomissing_WT, Ψ)
         T = treatments(nomissing_WT, Ψ)
-        mach = machine(η_spec.G, W, adapt(T))
+        mach = machine(adapt(η_spec.G, T), W, adapt(T))
         MLJBase.fit!(mach, verbosity=verbosity-1)
         η.G = mach
     else

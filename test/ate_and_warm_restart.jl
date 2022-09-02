@@ -18,8 +18,8 @@ using CategoricalArrays
 # - Mean 1 treatment
 # - Mean multiple treatments
 
-# - ATE 1 treatment: check
-# - ATE multiple treatments
+# - ATE 1 treatment: done
+# - ATE multiple treatments : done
 
 # - IATE 2 treatments
 # - IATE 3 treatments
@@ -40,6 +40,10 @@ using CategoricalArrays
 
 
 # C) Composition of EstimationResult
+
+# D) Unit tests
+# - gradient parts
+# - estimate
 
 function covers(result, Ψ₀; level=0.05)
     test = OneSampleTTest(result, Ψ₀)
@@ -215,7 +219,7 @@ end
 end
 
 @testset "Test ATE with multiple treatments" begin
-    dataset = build_dataset(;n=1000)
+    dataset = build_dataset(;n=10000)
     # Define the parameter of interest
     Ψ = ATE(
         target=:y₁,
@@ -228,8 +232,32 @@ end
         Q = LinearRegressor(),
         G = LogisticClassifier(lambda=0)
     )
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=1);
+    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
 
+    Ψ₀ = -0.5
+    @test covers(tmle_result, Ψ₀)
+    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+
+    # Let's switch case and control for T₂
+    Ψ = ATE(
+        target=:y₁,
+        treatment=(T₁=(case=1, control=0), T₂=(case=0, control=1)),
+        confounders=[:W₁, :W₂],
+        covariates=[:C₁]
+    )
+    log_sequence = (
+        (:info, "Fitting the nuisance parameters..."),
+        (:info, "→ Reusing previous P(T|W)"),
+        (:info, "→ Reusing previous Encoder"),
+        (:info, "→ Reusing previous E[Y|X]"),
+        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Thank you.")
+    )
+    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+
+    Ψ₀ = -1.5
+    @test covers(tmle_result, Ψ₀)
+    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
 
 end
 

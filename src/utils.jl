@@ -16,8 +16,8 @@ log_no_fit(verbosity, model) =
 
 Adapts the type of the treatment variable passed to the G learner
 """
-adapt(T) =
-    size(Tables.columnnames(T), 1) == 1 ? Tables.getcolumn(T, 1) : T
+adapt(T) = size(Tables.columnnames(T), 1) == 1 ? Tables.getcolumn(T, 1) : T
+adapt(model, T) = size(Tables.columnnames(T), 1) == 1 ? model : FullCategoricalJoint(model)
 
 low_propensity_scores(Gmach, W, T, threshold) =
     findall(<(threshold), density(Gmach, W, T))
