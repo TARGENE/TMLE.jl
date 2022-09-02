@@ -1,6 +1,19 @@
+const causal_graph = """
+     T  ←  W  
+      ↘   ↙ 
+        Y  ← C
+
+## Notation:
+
+- Y: target
+- T: treatment
+- W: confounders
+- C: covariates
+- X = (W, C, T) 
 """
-A parameter is a functional, it takes as input a distribution and outputs a real number.
-Since the full distribution is usually not necessary, it is replaced by nuisance parameters.
+
+"""
+A Parameter is a functional on distribution space Ψ: ℳ → ℜ. 
 """
 abstract type Parameter end
 
@@ -11,7 +24,11 @@ Mathematical definition:
 
     Eₓ[E[Y|T=t, X]]
 
-# Arguments:
+# Causal graph:
+
+$causal_graph
+
+# Fields:
     - target: A symbol identifying the target variable of interest
     - treatment: A NamedTuple linking each treatment variable to a value
     - confounders: Confounding variables affecting both the target and the treatment
@@ -41,7 +58,7 @@ struct CM <: Parameter
 end
 
 CM(;target, treatment, confounders, covariates=[]) = 
-CM(target, treatment, confounders, covariates)
+    CM(target, treatment, confounders, covariates)
 
 """
 # ATE: Average Treatment Effect
@@ -50,7 +67,11 @@ Mathematical definition:
 
     Eₓ[E[Y|T=case, X]] - Eₓ[E[Y|T=control, X]]
 
-# Arguments:
+# Causal graph:
+
+$causal_graph
+
+# Fields:
     - target: A symbol identifying the target variable of interest
     - treatment: A NamedTuple linking each treatment variable to case/control values
     - confounders: Confounding variables affecting both the target and the treatment
@@ -89,7 +110,11 @@ Mathematical definition for pairwise interaction:
 
     Eₓ[E[Y|T₁=1, T₂=1, X]] - Eₓ[E[Y|T₁=1, T₂=0, X]] - Eₓ[E[Y|T₁=0, T₂=1, X]] + Eₓ[E[Y|T₁=0, T₂=0, X]]
 
-# Arguments:
+# Causal graph:
+
+$causal_graph
+
+# Fields:
     - target: A symbol identifying the target variable of interest
     - treatment: A NamedTuple linking each treatment variable to case/control values
     - confounders: Confounding variables affecting both the target and the treatment
@@ -137,6 +162,24 @@ Qinputs(dataset, Ψ::Parameter) =
     selectcols(dataset, vcat(confounders_and_covariates(Ψ), treatments(Ψ)))
 
 
+"""
+# NuisanceParameters
+
+The set of estimators that need to be estimated but are not of direct interest.
+
+# Causal graph:
+
+$causal_graph
+
+# Fields:
+
+All fields are MLJBase.Machine.
+
+    - Q: An estimator of E[Y|X]
+    - G: An estimator of P(T|W)
+    - H: A one-hot-encoder categorical treatments
+    - F: A generalized linear model to fluctuate E[Y|X]
+"""
 mutable struct NuisanceParameters
     Q::Union{Nothing, MLJBase.Machine}
     G::Union{Nothing, MLJBase.Machine}
@@ -144,6 +187,12 @@ mutable struct NuisanceParameters
     F::Union{Nothing, MLJBase.Machine}
 end
 
+"""
+    fit!(η::NuisanceParameters, η_spec, Ψ::Parameter, dataset; verbosity=1)
+
+Fits the nuisance parameters η on the dataset using the specifications from η_spec
+and the variables defined by Ψ.
+"""
 function fit!(η::NuisanceParameters, η_spec, Ψ::Parameter, dataset; verbosity=1)
     # Fitting P(T|W)
     # Only rows with missing values in either W or Tₜ are removed
@@ -193,18 +242,6 @@ function fluctuation_input(dataset, η, Ψ; threshold=1e-8)
     covariate = compute_covariate(η.G, W, T, indicators; 
                                         threshold=threshold)
     return fluctuation_input(covariate, offset)
-end
-
-interaction_combinations(Ψ::Parameter) =
-    Iterators.product((values(Ψ.treatment[T]) for T in treatments(Ψ))...)
-
-function indicator_fns(Ψ::Parameter)
-    N = length(treatments(Ψ))
-    indicators = Dict()
-    for comb in interaction_combinations(Ψ)
-        indicators[comb] = (-1)^(N - sum(comb[i] == Ψ.treatment[i].case for i in 1:N))
-    end
-    return indicators
 end
 
 function tmle!(η::NuisanceParameters, Ψ, dataset; verbosity=1, threshold=1e-8)

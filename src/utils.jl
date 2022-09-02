@@ -12,7 +12,6 @@ log_fit(verbosity, model) =
 log_no_fit(verbosity, model) =
     verbosity >= 1 && @info string("→ Reusing previous ", model)
 
-
 """
 
 Adapts the type of the treatment variable passed to the G learner
@@ -42,6 +41,29 @@ end
 function nomissing(table, columns)
     columns = selectcols(table, columns)
     return nomissing(columns)
+end
+
+ncases(value, Ψ::Parameter) = sum(value[i] == Ψ.treatment[i].case for i in eachindex(value))
+
+function indicator_fns(Ψ::IATE)
+    N = length(treatments(Ψ))
+    indicators = Dict()
+    for cf in Iterators.product((values(Ψ.treatment[T]) for T in treatments(Ψ))...)
+        indicators[cf] = (-1)^(N - ncases(cf, Ψ))
+    end
+    return indicators
+end
+
+indicator_fns(Ψ::CM) = Dict(values(Ψ.treatment) => 1)
+
+function indicator_fns(Ψ::ATE) 
+    case = []
+    control = []
+    for treatment in Ψ.treatment
+        push!(case, treatment.case)
+        push!(control, treatment.control)
+    end
+    return Dict(Tuple(case) => 1, Tuple(control) => -1)
 end
 
 

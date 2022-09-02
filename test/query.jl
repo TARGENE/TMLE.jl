@@ -63,39 +63,7 @@ end
     end
 end
 
-@testset "Test indicator_fns" begin
-    # For 1 treatment variable
-    query = Query((t₁="a",),  (t₁="b",))
-    indicators = TMLE.indicator_fns(query)
-    @test indicators isa Base.ImmutableDict
-    @test indicators[("a",)] == 1
-    @test indicators[("b",)] == -1
 
-    # For 2 treatment variables:
-    # The "case" treatment is: (true, false) 
-    query = Query((t₁=true, t₂ = false), (t₁=false, t₂ = true))
-    indicators = TMLE.indicator_fns(query)
-
-    @test indicators[(1, 0)] == 1
-    @test indicators[(0, 0)] == -1
-    @test indicators[(1, 1)] == -1
-    @test indicators[(0, 1)] == 1
-
-
-    # For 3 treatment variables:
-    # The "case" treatment is: (a, c, true) 
-    query = Query(case=(t₁="a", t₂="c", t₃=true), control=(t₁="b", t₂="d", t₃=false))
-    indicators = TMLE.indicator_fns(query)
-    @test indicators[("b", "c", 1)] == -1 # (-1)^{2}=1
-    @test indicators[("a", "c", 1)] == 1  # (-1)^{0}=1
-    @test indicators[("b", "d", 0)] == -1 # (-1)^{3}=-1
-    @test indicators[("b", "c", 0)] == 1  # (-1)^{2}=1
-    @test indicators[("a", "d", 1)] == -1 # (-1)^{1}=-1
-    @test indicators[("a", "c", 0)] == -1 # (-1)^{1}=-1
-    @test indicators[("a", "d", 0)] == 1  # (-1)^{2}=1
-    @test indicators[("b", "d", 1)] == 1  # (-1)^{2}=1
-
-end
 
 end
 

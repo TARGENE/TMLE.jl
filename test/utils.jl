@@ -13,6 +13,55 @@ using MLJGLMInterface: LinearBinaryClassifier
 using MLJLinearModels
 using MLJModels
 
+@testset "Test indicator_fns" begin
+    # Conditional Mean
+    Ψ = CM(
+        target=:y, 
+        treatment=(T₁="A", T₂=1),
+        confounders=[:W]
+    )
+    @test TMLE.indicator_fns(Ψ) == Dict(("A", 1) => 1)
+    # ATE
+    Ψ = ATE(
+        target=:y, 
+        treatment=(T₁=(case="A", control="B"), T₂=(control=0, case=1)),
+        confounders=[:W]
+    )
+    @test TMLE.indicator_fns(Ψ) == Dict(
+        ("A", 1) => 1,
+        ("B", 0) => -1
+    )
+    # 2-points IATE
+    Ψ = IATE(
+        target=:y, 
+        treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0)),
+        confounders=[:W]
+    )
+    @test TMLE.indicator_fns(Ψ) == Dict(
+        ("A", 1) => 1,
+        ("A", 0) => -1,
+        ("B", 1) => -1,
+        ("B", 0) => 1
+    )
+    # 3-points IATE
+    Ψ = IATE(
+        target=:y, 
+        treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0), T₃=(control="D", case="C")),
+        confounders=[:W]
+    )
+    @test TMLE.indicator_fns(Ψ) == Dict(
+        ("A", 1, "D") => -1,
+        ("A", 1, "C") => 1,
+        ("B", 0, "D") => -1,
+        ("B", 0, "C") => 1,
+        ("B", 1, "C") => -1,
+        ("A", 0, "D") => 1,
+        ("B", 1, "D") => 1,
+        ("A", 0, "C") => -1
+    )
+
+end
+
 
 @testset "Test expected_value & maybelogit" begin
     n = 100
