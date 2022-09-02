@@ -5,11 +5,13 @@
 logit(X) = log.(X ./ (1 .- X))
 expit(X) = 1 ./ (1 .+ exp.(-X))
 
-"""
 
-Let's default to no warnings for now.
-"""
-MLJBase.check(model::TMLEstimator, args... ; full=false) = true
+log_fit(verbosity, model) = 
+    verbosity >= 1 && @info string("→ Fitting ", model)
+
+log_no_fit(verbosity, model) =
+    verbosity >= 1 && @info string("→ Reusing previous ", model)
+
 
 """
 
@@ -25,27 +27,23 @@ low_propensity_scores(Gmach, W, T, threshold) =
 totable(x::AbstractVector) = (y=x,)
 totable(x) = x
 
-function merge_and_dropmissing(tables...)
-    return mapreduce(t->Tables.columntable(t), merge, tables) |> 
-        TableOperations.dropmissing |> 
-        Tables.columntable |>
-        disallowmissings
-end
-
-function disallowmissings(T)
-    newcols = AbstractVector[]
-    sch = Tables.schema(T)
-    Tables.eachcolumn(sch, T) do col, _, _
-        push!(newcols, disallowmissing(col))
+function nomissing(table)
+    sch = Tables.schema(table)
+    for type in sch.types
+        if nonmissingtype(type) != type
+            return table |> 
+                   TableOperations.dropmissing |> 
+                   Tables.columntable
+        end
     end
-    return NamedTuple{sch.names}(newcols)
+    return table
 end
 
-function TableOperations.dropmissing(tables...)
-    table = merge_and_dropmissing(tables...)
-    table = disallowmissings(table)
-    return Tuple(Tables.columntable(TableOperations.select(table, Tables.columnnames(t)...)) for t in tables)
+function nomissing(table, columns)
+    columns = selectcols(table, columns)
+    return nomissing(columns)
 end
+
 
 ###############################################################################
 ## Offset
@@ -111,7 +109,6 @@ influencecurve(covariate, y, observed_fluct, ct_fluct, estimate) =
 
 fluctuation_input(covariate, offset) = (covariate=covariate, offset=offset)
 
-    
 function counterfactualTreatment(vals, T)
     Tnames = Tables.columnnames(T)
     n = nrows(T)
@@ -121,72 +118,4 @@ function counterfactualTreatment(vals, T)
 end
 
 
-function compute_fluctuation(Fmach::Machine, 
-                             Q̅mach::Machine, 
-                             Gmach::Machine, 
-                             indicators,
-                             W, 
-                             T,
-                             X; 
-                             threshold=0.005)
-    offset = compute_offset(Q̅mach, X)
-    covariate = compute_covariate(Gmach, W, T, indicators; 
-                                    threshold=threshold)
-    Xfluct = fluctuation_input(covariate, offset)
-    return predict_mean(Fmach, Xfluct)
-end
 
-###############################################################################
-## Report Generation
-###############################################################################
-
-"""
-
-For a given query, identified by `indicators`, reports the different quantities of
-interest. An important intermediate quantity is obtained by aggregation of 
-E[Y|T, W] evaluated at the various counterfactual values of the treatment.
-For instance, if the order of Interaction is 2 with binary variables, this is computed as:
-
-AggregatedCounterfactual = Fluctuation(t₁=1, t₂=1, W=w) - Fluctuation(t₁=1, t₂=0, W=w)
-                - Fluctuation(t₁=0, t₂=1, W=w) + Fluctuation(t₁=0, t₂=0, W=w)
-"""
-function tmlereport(Fmach::Machine,
-                    Q̅mach::Machine,
-                    Gmach::Machine,
-                    Hmach::Machine,
-                    W,
-                    T,
-                    observed_fluct,
-                    ys,
-                    covariate,
-                    indicators, 
-                    threshold,
-                    query,
-                    target_name)
-
-    tmle_ct_agg = zeros(nrows(T))
-    initial_ct_agg = zeros(nrows(T))
-    for (vals, sign) in indicators 
-        counterfactualT = counterfactualTreatment(vals, T)
-        Thot = transform(Hmach, counterfactualT)
-        X = merge(Thot, W)
-
-        initial_expectation = expected_value(MLJBase.predict(Q̅mach, X), typeof(Q̅mach.model), target_scitype(Q̅mach.model))
-        initial_ct_agg .+= sign.*initial_expectation
-        
-        tmle_ct_agg .+= sign.*compute_fluctuation(Fmach, 
-                    Q̅mach, 
-                    Gmach,
-                    indicators,
-                    W, 
-                    counterfactualT,
-                    X; 
-                    threshold=threshold)
-    end
-
-    initial_estimate = mean(initial_ct_agg)
-    tmle_estimate = mean(tmle_ct_agg)
-    inf_curve = influencecurve(covariate, ys, observed_fluct, tmle_ct_agg, tmle_estimate)
-
-    return TMLEReport(target_name, query, inf_curve, tmle_estimate, initial_estimate)
-end

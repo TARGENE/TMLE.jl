@@ -26,7 +26,7 @@ export FullCategoricalJoint
 export fit
 export ztest, pvalue, confint, summarize
 export MachineReporter, Reporter, JLD2Saver
-export ConditionalMean, ATE
+export CM, ATE, IATE
 export TMLECache
 export tmle, tmle!
 export var, estimate, OneSampleTTest

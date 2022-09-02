@@ -5,19 +5,73 @@ Since the full distribution is usually not necessary, it is replaced by nuisance
 abstract type Parameter end
 
 """
-For a treatment specification T=t and a set of confounding variables and covariates X: 
-    Ψₜ = Eₓ[E[Y|T=t, X]]
+# CM: Conditional Mean
+
+Mathematical definition: 
+
+    Eₓ[E[Y|T=t, X]]
+
+# Arguments:
+    - target: A symbol identifying the target variable of interest
+    - treatment: A NamedTuple linking each treatment variable to a value
+    - confounders: Confounding variables affecting both the target and the treatment
+    - covariates: Optional extra variables affecting the target only
+
+# Examples:
+```julia
+CM₁ = CM(
+    target=:Y₁,
+    treatment=(T₁=1,),
+    confounders=[:W₁, :W₂],
+    covariates=[:C₁]
+)
+
+CM₂ = CM(
+    target=:Y₂,
+    treatment=(T₁=1, T₂="A"),
+    confounders=[:W₁],
+)
+```
 """
-struct ConditionalMean <: Parameter
+struct CM <: Parameter
     target::Symbol
     treatment::NamedTuple
     confounders::AbstractVector{Symbol}
     covariates::AbstractVector{Symbol}
 end
 
-ConditionalMean(;target, treatment, confounders, covariates=[]) = 
-    ConditionalMean(target, treatment, confounders, covariates)
+CM(;target, treatment, confounders, covariates=[]) = 
+CM(target, treatment, confounders, covariates)
 
+"""
+# ATE: Average Treatment Effect
+
+Mathematical definition: 
+
+    Eₓ[E[Y|T=case, X]] - Eₓ[E[Y|T=control, X]]
+
+# Arguments:
+    - target: A symbol identifying the target variable of interest
+    - treatment: A NamedTuple linking each treatment variable to case/control values
+    - confounders: Confounding variables affecting both the target and the treatment
+    - covariates: Optional extra variables affecting the target only
+
+# Examples:
+```julia
+ATE₁ = ATE(
+    target=:Y₁,
+    treatment=(T₁=(case=1, control=0),),
+    confounders=[:W₁, :W₂],
+    covariates=[:C₁]
+)
+
+ATE₂ = ATE(
+    target=:Y₂,
+    treatment=(T₁=(case=1, control=0), T₂=(case="A", control="B")),
+    confounders=[:W₁],
+)
+```
+"""
 struct ATE <: Parameter
     target::Symbol
     treatment::NamedTuple
@@ -28,6 +82,37 @@ end
 ATE(;target, treatment, confounders, covariates=[]) = 
     ATE(target, treatment, confounders, covariates)
 
+"""
+# IATE: Interaction Average Treatment Effect
+
+Mathematical definition for pairwise interaction:
+
+    Eₓ[E[Y|T₁=1, T₂=1, X]] - Eₓ[E[Y|T₁=1, T₂=0, X]] - Eₓ[E[Y|T₁=0, T₂=1, X]] + Eₓ[E[Y|T₁=0, T₂=0, X]]
+
+# Arguments:
+    - target: A symbol identifying the target variable of interest
+    - treatment: A NamedTuple linking each treatment variable to case/control values
+    - confounders: Confounding variables affecting both the target and the treatment
+    - covariates: Optional extra variables affecting the target only
+
+# Examples:
+```julia
+IATE₁ = IATE(
+    target=:Y₁,
+    treatment=(T₁=(case=1, control=0), T₂=(case="A", control="B")),
+    confounders=[:W₁],
+)
+```
+"""
+struct IATE <: Parameter
+    target::Symbol
+    treatment::NamedTuple
+    confounders::AbstractVector{Symbol}
+    covariates::AbstractVector{Symbol}
+end
+
+IATE(;target, treatment, confounders, covariates=[]) = 
+    IATE(target, treatment, confounders, covariates)
 
 selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.columntable
 
@@ -58,29 +143,6 @@ mutable struct NuisanceParameters
     H::Union{Nothing, MLJBase.Machine}
     F::Union{Nothing, MLJBase.Machine}
 end
-
-function nomissing(table)
-    sch = Tables.schema(table)
-    for type in sch.types
-        if nonmissingtype(type) != type
-            return table |> 
-                   TableOperations.dropmissing |> 
-                   Tables.columntable
-        end
-    end
-    return table
-end
-
-function nomissing(table, columns)
-    columns = selectcols(table, columns)
-    return nomissing(columns)
-end
-
-log_fit(verbosity, model) = 
-    verbosity >= 1 && @info string("→ Fitting ", model)
-
-log_no_fit(verbosity, model) =
-    verbosity >= 1 && @info string("→ Reusing previous ", model)
 
 function fit!(η::NuisanceParameters, η_spec, Ψ::Parameter, dataset; verbosity=1)
     # Fitting P(T|W)
