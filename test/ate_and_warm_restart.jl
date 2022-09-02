@@ -55,8 +55,10 @@ closer_than_initial(tmle_result, initial_result, Ψ₀) =
 """
 Results derived by hand for this dataset:
 
-- ATE(y, T₁, W₁, W₂, C₁) = 1 - 4E[C₁] = 1 - 2 = -1
-- ATE(y, T₂, W₁, W₂, C₁) = E[W₂] = 0.5
+- ATE(y₁, T₁, W₁, W₂, C₁) = 1 - 4E[C₁] = 1 - 2 = -1
+- ATE(y₁, T₂, W₁, W₂, C₁) = E[W₂] = 0.5
+- ATE(y₁, (T₁, T₂), W₁, W₂, C₁) = E[-4C₁ + 1 + W₂] = -0.5
+- ATE(y₂, T₂, W₁, W₂, C₁) = 10
 """
 function build_dataset(;n=100)
     rng = StableRNG(123)
@@ -212,5 +214,23 @@ end
 
 end
 
+@testset "Test ATE with multiple treatments" begin
+    dataset = build_dataset(;n=1000)
+    # Define the parameter of interest
+    Ψ = ATE(
+        target=:y₁,
+        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        confounders=[:W₁, :W₂],
+        covariates=[:C₁]
+    )
+    # Define the nuisance parameters specification
+    η_spec = (
+        Q = LinearRegressor(),
+        G = LogisticClassifier(lambda=0)
+    )
+    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=1);
+
+
+end
 
 end
