@@ -88,7 +88,7 @@ function build_dataset(;n=100)
         )
 end
 
-@testset "Test Warm restart for ATE estimation" begin
+@testset "Test Warm restart: ATE single treatment" begin
     dataset = build_dataset(;n=1000)
     # Define the parameter of interest
     Ψ = ATE(
@@ -218,7 +218,7 @@ end
 
 end
 
-@testset "Test ATE with multiple treatments" begin
+@testset "Test Warm restart: ATE multiple treatment" begin
     dataset = build_dataset(;n=10000)
     # Define the parameter of interest
     Ψ = ATE(
@@ -259,6 +259,46 @@ end
     @test covers(tmle_result, Ψ₀)
     @test closer_than_initial(tmle_result, initial_result, Ψ₀)
 
+end
+
+@testset "Test Warm restart: CM multiple treatment" begin
+    dataset = build_dataset(;n=10000)
+    Ψ = CM(
+        target=:y₁,
+        treatment=(T₁=1, T₂=1),
+        confounders=[:W₁, :W₂],
+        covariates=[:C₁]
+    )
+    η_spec = (
+        Q = LinearRegressor(),
+        G = LogisticClassifier(lambda=0)
+    )
+    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+
+    Ψ₀ = 3
+    @test covers(tmle_result, Ψ₀)
+    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+
+    # Let's switch case and control for T₂
+    Ψ = CM(
+        target=:y₁,
+        treatment=(T₁=1, T₂=0),
+        confounders=[:W₁, :W₂],
+        covariates=[:C₁]
+    )
+    log_sequence = (
+        (:info, "Fitting the nuisance parameters..."),
+        (:info, "→ Reusing previous P(T|W)"),
+        (:info, "→ Reusing previous Encoder"),
+        (:info, "→ Reusing previous E[Y|X]"),
+        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Thank you.")
+    )
+    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+
+    Ψ₀ = 2.5
+    @test covers(tmle_result, Ψ₀)
+    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
 end
 
 end
