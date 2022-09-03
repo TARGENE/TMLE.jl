@@ -1,6 +1,7 @@
 module TestWarmRestart
 
 using Test
+using Tables
 using StableRNGs
 using TMLE
 using DataFrames
@@ -16,7 +17,7 @@ using CategoricalArrays
 # 2/ comparison with initial estimate
 
 # - Mean 1 treatment
-# - Mean multiple treatments
+# - Mean multiple treatments : Done
 
 # - ATE 1 treatment: done
 # - ATE multiple treatments : done
@@ -77,7 +78,7 @@ function build_dataset(;n=100)
     # target | Confounders, Covariates, Treatments - T₁.*T₂
     y₁ = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .+ T₁ + T₂.*W₂ .+ rand(rng, Normal(0, 0.1), n)
     y₂ = 1 .+ 10T₂ .+ rand(rng, Normal(0, 0.1), n)
-    return DataFrame(
+    return (
         T₁ = categorical(T₁),
         T₂ = categorical(T₂),
         W₁ = W₁, 
@@ -88,8 +89,10 @@ function build_dataset(;n=100)
         )
 end
 
-@testset "Test Warm restart: ATE single treatment" begin
-    dataset = build_dataset(;n=1000)
+table_types = (Tables.columntable, DataFrame)
+
+@testset "Test Warm restart: ATE single treatment, $tt" for tt in table_types
+    dataset = tt(build_dataset(;n=1000))
     # Define the parameter of interest
     Ψ = ATE(
         target=:y₁,
@@ -218,8 +221,8 @@ end
 
 end
 
-@testset "Test Warm restart: ATE multiple treatment" begin
-    dataset = build_dataset(;n=10000)
+@testset "Test Warm restart: ATE multiple treatment, $tt" for tt in table_types
+    dataset = tt(build_dataset(;n=10000))
     # Define the parameter of interest
     Ψ = ATE(
         target=:y₁,
@@ -261,8 +264,8 @@ end
 
 end
 
-@testset "Test Warm restart: CM multiple treatment" begin
-    dataset = build_dataset(;n=10000)
+@testset "Test Warm restart: CM, $tt" for tt in table_types
+    dataset = tt(build_dataset(;n=10000))
     Ψ = CM(
         target=:y₁,
         treatment=(T₁=1, T₂=1),
@@ -297,6 +300,48 @@ end
     tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     Ψ₀ = 2.5
+    @test covers(tmle_result, Ψ₀)
+    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+
+    # Change the target
+    Ψ = CM(
+        target=:y₂,
+        treatment=(T₁=1, T₂=0),
+        confounders=[:W₁, :W₂],
+        covariates=[:C₁]
+    )
+    log_sequence = (
+        (:info, "Fitting the nuisance parameters..."),
+        (:info, "→ Reusing previous P(T|W)"),
+        (:info, "→ Reusing previous Encoder"),
+        (:info, "→ Fitting E[Y|X]"),
+        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Thank you.")
+    )
+    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+
+    Ψ₀ = 1
+    @test covers(tmle_result, Ψ₀)
+    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+
+    # Change the treatment
+    Ψ = CM(
+        target=:y₂,
+        treatment=(T₂=1,),
+        confounders=[:W₁, :W₂],
+        covariates=[:C₁]
+    )
+    log_sequence = (
+        (:info, "Fitting the nuisance parameters..."),
+        (:info, "→ Fitting P(T|W)"),
+        (:info, "→ Fitting Encoder"),
+        (:info, "→ Fitting E[Y|X]"),
+        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Thank you.")
+    )
+    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+
+    Ψ₀ = 11
     @test covers(tmle_result, Ψ₀)
     @test closer_than_initial(tmle_result, initial_result, Ψ₀)
 end
