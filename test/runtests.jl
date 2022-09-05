@@ -4,9 +4,8 @@ using Test
 @time begin
     @test include("jointmodels.jl")
     @test include("utils.jl")
-    @test include("model.jl")
-    @test include("correctness_ate.jl")
-    @test include("correctness_iate.jl")
-    @test include("report.jl")
-    @test include("query.jl")
+    @test include("double_robustness_ate.jl")
+    @test include("double_robustness_iate.jl")
+    @test include("warm_restart.jl")
+    @test include("parameters.jl")
 end

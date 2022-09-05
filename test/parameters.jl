@@ -65,3 +65,5 @@ using MLJModels
     cf_agg_after_fluct = TMLE.counterfactual_aggregate(Ψ, η, dataset)
     @test cf_agg_after_fluct != cf_agg
 end
+
+true
