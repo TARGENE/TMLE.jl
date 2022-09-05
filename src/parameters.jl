@@ -187,6 +187,9 @@ mutable struct NuisanceParameters
     F::Union{Nothing, MLJBase.Machine}
 end
 
+
+encoder(Ψ::Parameter) = OneHotEncoder(features=treatments(Ψ), drop_last=true, ordered_factor=false)
+
 """
     fit!(η::NuisanceParameters, η_spec, Ψ::Parameter, dataset; verbosity=1)
 
@@ -217,7 +220,7 @@ function fit!(η::NuisanceParameters, η_spec, Ψ::Parameter, dataset; verbosity
         # Fitting the Encoder
         if η.H === nothing
             log_fit(verbosity, "Encoder")
-            mach = machine(OneHotEncoder(features=treatments(Ψ), drop_last=true, ordered_factor=false), X)
+            mach = machine(encoder(Ψ), X)
             MLJBase.fit!(mach, verbosity=verbosity-1)
             η.H = mach
         else
@@ -265,7 +268,11 @@ end
 function outcome_mean(η, Ψ, dataset; threshold=1e-8)
     if η.F isa Nothing
         X = Qinputs(dataset, Ψ)
-        return expected_value(MLJBase.predict(η.Q, X), typeof(η.Q.model), target_scitype(η.Q.model))
+        return expected_value(
+            MLJBase.predict(η.Q,  MLJBase.transform(η.H, X)), 
+            typeof(η.Q.model), 
+            target_scitype(η.Q.model)
+        )
     else
         X = fluctuation_input(dataset, η, Ψ, threshold=threshold)
         return predict_mean(η.F, X)
@@ -278,7 +285,7 @@ function counterfactual_aggregate(Ψ, η, dataset; threshold=1e-8)
     counterfactual_aggregate_ = zeros(nrows(T))
     for (vals, sign) in TMLE.indicator_fns(Ψ)
         Tc = TMLE.counterfactualTreatment(vals, T)
-        Xc = merge(WC, Tc)
+        Xc = Qinputs(merge(WC, Tc), Ψ)
         counterfactual_aggregate_ .+= sign.* TMLE.outcome_mean(η, Ψ, Xc, threshold=threshold)
     end
     return counterfactual_aggregate_
@@ -291,11 +298,11 @@ end
 
 function gradient_Y_X(Ψ, η, dataset; threshold=1e-8)
     indicators = TMLE.indicator_fns(Ψ)
-    W = confounders(dataset, Ψ)
-    T = treatments(dataset, Ψ)
+    W = TMLE.confounders(dataset, Ψ)
+    T = TMLE.treatments(dataset, Ψ)
     covariate = TMLE.compute_covariate(η.G, W, T, indicators; 
                                         threshold=threshold)
-    return covariate .* (target(dataset, Ψ) .- outcome_mean(η, Ψ, dataset, threshold=threshold))
+    return covariate .* (float(TMLE.target(dataset, Ψ)) .- outcome_mean(η, Ψ, dataset, threshold=threshold))
 end
 
 gradient(Ψ, η, dataset; threshold=1e-8) = gradient_Y_X(Ψ, η, dataset; threshold=threshold) .+ gradient_W(Ψ, η, dataset; threshold=threshold)
