@@ -30,9 +30,10 @@ function nomissing(table)
     sch = Tables.schema(table)
     for type in sch.types
         if nonmissingtype(type) != type
-            return table |> 
-                   TableOperations.dropmissing |> 
-                   Tables.columntable
+            coltable = table |> 
+                       TableOperations.dropmissing |> 
+                       Tables.columntable
+            return NamedTuple{keys(coltable)}([disallowmissing(col) for col in coltable])
         end
     end
     return table

@@ -175,8 +175,6 @@ function continuous_target_binary_treatment_pb(rng;n=100)
         temp -= μy_fn(w, [0], [1])[1]
         IATE += temp*0.5*0.5*0.5
     end
-    println("Y start: \n ---")
-    println(y[1:5])
 
     return (T₁=T₁, T₂=T₂,  W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], y=y), IATE
 end
