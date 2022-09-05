@@ -75,9 +75,10 @@ function build_dataset(;n=100)
     # Treatment | Confounders
     T₁ = rand(rng, Uniform(), n) .< TMLE.expit(0.5sin.(W₁) .- 1.5W₂)
     T₂ = rand(rng, Uniform(), n) .< TMLE.expit(-3W₁ - 1.5W₂)
-    # target | Confounders, Covariates, Treatments - T₁.*T₂
+    # target | Confounders, Covariates, Treatments
     y₁ = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .+ T₁ + T₂.*W₂ .+ rand(rng, Normal(0, 0.1), n)
     y₂ = 1 .+ 10T₂ .+ rand(rng, Normal(0, 0.1), n)
+    y₃ = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .- 2T₂.*T₁.*W₂ .+ rand(rng, Normal(0, 0.1), n)
     return (
         T₁ = categorical(T₁),
         T₂ = categorical(T₂),
@@ -85,7 +86,8 @@ function build_dataset(;n=100)
         W₂ = W₂,
         C₁ = C₁,
         y₁ = y₁,
-        y₂ = y₂
+        y₂ = y₂,
+        y₃ = y₃
         )
 end
 
@@ -222,6 +224,7 @@ table_types = (Tables.columntable, DataFrame)
 end
 
 @testset "Test Warm restart: ATE multiple treatment, $tt" for tt in table_types
+    # Note a larger sample size seems necessary here
     dataset = tt(build_dataset(;n=10000))
     # Define the parameter of interest
     Ψ = ATE(
@@ -344,6 +347,66 @@ end
     Ψ₀ = 11
     @test covers(tmle_result, Ψ₀)
     @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+end
+
+@testset "Test Warm restart: pairwise IATE, $tt" for tt in table_types
+    dataset = tt(build_dataset(;n=10000))
+    Ψ = IATE(
+        target=:y₃,
+        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        confounders=[:W₁, :W₂],
+        covariates=[:C₁]
+    )
+    η_spec = (
+        Q = LinearRegressor(),
+        G = LogisticClassifier(lambda=0)
+    )
+    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+
+    Ψ₀ = -1
+    @test covers(tmle_result, Ψ₀)
+    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+
+    # Remove covariate from fit
+    Ψ = IATE(
+        target=:y₃,
+        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        confounders=[:W₁, :W₂],
+    )
+    log_sequence = (
+        (:info, "Fitting the nuisance parameters..."),
+        (:info, "→ Reusing previous P(T|W)"),
+        (:info, "→ Reusing previous Encoder"),
+        (:info, "→ Fitting E[Y|X]"),
+        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Thank you.")
+    )
+    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+
+    @test covers(tmle_result, Ψ₀)
+    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+
+    # Changing the treatments values
+    Ψ = IATE(
+        target=:y₃,
+        treatment=(T₁=(case=0, control=1), T₂=(case=1, control=0)),
+        confounders=[:W₁, :W₂],
+    )
+    log_sequence = (
+        (:info, "Fitting the nuisance parameters..."),
+        (:info, "→ Reusing previous P(T|W)"),
+        (:info, "→ Reusing previous Encoder"),
+        (:info, "→ Reusing previous E[Y|X]"),
+        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Thank you.")
+    )
+    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+
+    Ψ₀ = - Ψ₀
+    @test covers(tmle_result, Ψ₀)
+    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+
+
 end
 
 end
