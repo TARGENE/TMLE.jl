@@ -49,21 +49,21 @@ end
     n = 10
     X = rand(rng, n, 4)
     y = categorical(sample(rng, ["A", "G", "C"], n))
-    mach = machine(LogisticClassifier(lambda=1), MLJBase.table(X), y)
+    mach = machine(LogisticClassifier(), MLJBase.table(X), y)
     fit!(mach, verbosity=0)
 
     d = TMLE.density(mach, X, y)
 
-    @test d ≈ [0.565,
-                0.218,
-                0.256,
-                0.573,
-                0.286,
-                0.612,
-                0.599,
-                0.604,
-                0.295,
-                0.656] atol=1e-2
+    @test d ≈ [0.481
+                0.201
+                0.204
+                0.478
+                0.317
+                0.501
+                0.497
+                0.515
+                0.326
+                0.498] atol=1e-2
 end
 
 end

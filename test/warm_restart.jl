@@ -12,6 +12,7 @@ using CategoricalArrays
 # A) End to end tests to perform:
 # - Understand why not always closer to truth than initial estimate
 # Maybe due to GLM numerical optimization, to be checked and update tests
+# - Investigate breaking cases for TMLE in double robustness too. Maybe interaction logistic classifier underfitting?
 
 # - IATE 3 treatments
 

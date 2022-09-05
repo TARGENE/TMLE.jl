@@ -1,3 +1,5 @@
+module TestParameters
+
 using Test
 using TMLE
 using Distributions
@@ -67,6 +69,8 @@ using CategoricalArrays
     tmle!(η, Ψ, dataset)
     cf_agg_after_fluct = TMLE.counterfactual_aggregate(Ψ, η, dataset)
     @test cf_agg_after_fluct != cf_agg
+end
+
 end
 
 true
