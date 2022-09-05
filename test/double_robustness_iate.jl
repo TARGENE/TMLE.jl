@@ -52,11 +52,12 @@ function binary_target_binary_treatment_pb(rng;n=100)
     y = [rand(rng, Bernoulli(μy[i])) for i in 1:n]
 
     # Respect the Tables.jl interface and convert types
-    W = MLJBase.table(float(W))
-    T = (T₁ = categorical(T₁), T₂ = categorical(T₂))
+    W = float(W)
+    T₁ = categorical(T₁)
+    T₂ = categorical(T₂)
     y = categorical(y)
 
-    # Compute the theoretical ATE
+    # Compute the theoretical IATE
     Wcomb = [1 1 1;
             1 1 0;
             1 0 0;
@@ -65,22 +66,22 @@ function binary_target_binary_treatment_pb(rng;n=100)
             0 0 0;
             0 0 1;
             0 1 1]
-    ATE = 0
+    IATE = 0
     for i in 1:8
         w = reshape(Wcomb[i, :], 1, 3)
         temp = μy_fn(w, [1], [1])[1]
         temp += μy_fn(w, [0], [0])[1]
         temp -= μy_fn(w, [1], [0])[1]
         temp -= μy_fn(w, [0], [1])[1]
-        ATE += temp*0.5*0.5*0.5
+        IATE += temp*0.5*0.5*0.5
     end
-    return T, W, y, ATE
+    return (T₁=T₁, T₂=T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], y=y), IATE
 end
 
 
 function binary_target_categorical_treatment_pb(rng;n=100)
     function μy_fn(W, T, Hmach)
-        Thot = transform(Hmach, T)
+        Thot = MLJBase.transform(Hmach, T)
         TMLE.expit(2W[:, 1] .+ 1W[:, 2] .- 2W[:, 3] 
                     .- Thot[1] .+ Thot[2] .+ 2Thot[3] .- 3Thot[4]
                     .+ 2*Thot[1].*Thot[2]
@@ -110,8 +111,7 @@ function binary_target_categorical_treatment_pb(rng;n=100)
     μy = μy_fn(W, T, Hmach)
     y = [rand(rng, Bernoulli(μy[i])) for i in 1:n]
 
-
-    # Compute the theoretical ATE for the query
+    # Compute the theoretical IATE for the query
     # (CC, AT) against (CG, AA)
     Wcomb = [1 1 1;
             1 1 0;
@@ -121,7 +121,7 @@ function binary_target_categorical_treatment_pb(rng;n=100)
             0 0 0;
             0 0 1;
             0 1 1]
-    ATE = 0
+            IATE = 0
     levels₁ = levels(T.T₁)
     levels₂ = levels(T.T₂)
     for i in 1:8
@@ -130,9 +130,9 @@ function binary_target_categorical_treatment_pb(rng;n=100)
         temp += μy_fn(w, (T₁=categorical(["CG"], levels=levels₁), T₂=categorical(["AA"], levels=levels₂)), Hmach)[1]
         temp -= μy_fn(w, (T₁=categorical(["CC"], levels=levels₁), T₂=categorical(["AA"], levels=levels₂)), Hmach)[1]
         temp -= μy_fn(w, (T₁=categorical(["CG"], levels=levels₁), T₂=categorical(["AT"], levels=levels₂)), Hmach)[1]
-        ATE += temp*0.5*0.5*0.5
+        IATE += temp*0.5*0.5*0.5
     end
-    return T, MLJBase.table(float(W)), categorical(y), ATE
+    return (T₁=T.T₁, T₂=T.T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], y=categorical(y)), IATE
 end
 
 
@@ -153,8 +153,9 @@ function continuous_target_binary_treatment_pb(rng;n=100)
     y = μy + rand(rng, Normal(0, 0.1), n)
 
     # Respect the Tables.jl interface and convert types
-    W = MLJBase.table(float(W))
-    T = (T₁ = categorical(T₁), T₂ = categorical(T₂))
+    W = float(W)
+    T₁ = categorical(T₁)
+    T₂ = categorical(T₂)
 
     # Compute the theoretical ATE
     Wcomb = [1 1 1;
@@ -165,114 +166,145 @@ function continuous_target_binary_treatment_pb(rng;n=100)
             0 0 0;
             0 0 1;
             0 1 1]
-    ATE = 0
+    IATE = 0
     for i in 1:8
         w = reshape(Wcomb[i, :], 1, 3)
         temp = μy_fn(w, [1], [1])[1]
         temp += μy_fn(w, [0], [0])[1]
         temp -= μy_fn(w, [1], [0])[1]
         temp -= μy_fn(w, [0], [1])[1]
-        ATE += temp*0.5*0.5*0.5
+        IATE += temp*0.5*0.5*0.5
     end
-    return T, W, y, ATE
+    return (T₁=T₁, T₂=T₂,  W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], y=y), IATE
 end
 
-
-
 @testset "Test Double Robustness IATE on binary_target_binary_treatment_pb" begin
-    query = Query((T₁=true, T₂=true), (T₁=false, T₂=false))
-    # When Q̅ is misspecified but G is well specified
-    Q̅ = ConstantClassifier()
-    G = FullCategoricalJoint(LogisticClassifier())
-    tmle = TMLEstimator(Q̅, G, query)
-    
-    abs_mean_rel_errors, abs_vars = asymptotics(
-            tmle,                                 
-            binary_target_binary_treatment_pb,
-            StableRNG(123),
-            Ns
-            )
-    @test all(abs_mean_rel_errors .< [69, 14, 5, 1.5])
-    @test all(abs_vars .< [0.05, 0.002, 0.0003, 3.5e-5])
+    Ψ = IATE(
+        target=:y,
+        treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
+        confounders = [:W₁, :W₂, :W₃]
+    )
+    # When Q is misspecified but G is well specified
+    η_spec = (
+        Q = ConstantClassifier(),
+        G = LogisticClassifier(lambda=0)
+    )
+    tmle_results, initial_results, Ψ₀ = asymptotics(
+        Ψ, 
+        η_spec, 
+        binary_target_binary_treatment_pb, 
+        StableRNG(123), 
+        Ns)
+    @test all_tmle_better_than_initial(tmle_results, initial_results, Ψ₀)
+    @test first_better_than_last(tmle_results, Ψ₀)
+    @test tolerance(tmle_results[end], Ψ₀, 0.011)
+    @test all_solves_ice(tmle_results, tol=1e-7) 
 
-    # When Q̅ is well specified  but G is misspecified
-    Q̅ = cat_interacter
-    G = FullCategoricalJoint(ConstantClassifier())
-    tmle = TMLEstimator(Q̅, G, query)
+    # When Q is well specified  but G is misspecified
+    η_spec = (
+        Q = cat_interacter,
+        G = ConstantClassifier()
+    )
     
-    abs_mean_rel_errors, abs_vars = asymptotics(
-            tmle,                                 
-            binary_target_binary_treatment_pb,
-            StableRNG(123),
-            Ns
-            )
-    @test all(abs_mean_rel_errors .< [53, 13, 4.5, 1.4])
-    @test all(abs_vars .< [0.03, 0.002, 0.0003, 2.7e-5])
+    tmle_results, initial_results, Ψ₀ = asymptotics(
+        Ψ, 
+        η_spec, 
+        binary_target_binary_treatment_pb, 
+        StableRNG(123), 
+        Ns)
+    # 3/4 are better
+    @test sum(abserrors(tmle_results, Ψ₀) .< abserrors(initial_results, Ψ₀)) == 3
+    @test first_better_than_last(tmle_results, Ψ₀)
+    @test tolerance(tmle_results[end], Ψ₀, 0.011)
+    @test all_solves_ice(tmle_results, tol=1e-7)
 
 end
 
 @testset "Test Double Robustness IATE on continuous_target_binary_treatment_pb" begin
-    query = Query((T₁=true, T₂=true), (T₁=false, T₂=false))
-    # When Q̅ is misspecified but G is well specified
-    Q̅ = MLJModels.DeterministicConstantRegressor()
-    G = FullCategoricalJoint(LogisticClassifier())
-    tmle = TMLEstimator(Q̅, G, query)
+    Ψ = IATE(
+        target=:y,
+        treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
+        confounders = [:W₁, :W₂, :W₃]
+    )
+    # When Q is misspecified but G is well specified
+    η_spec = (
+        Q = MLJModels.DeterministicConstantRegressor(),
+        G = LogisticClassifier(lambda=0)
+    )
 
-    abs_mean_rel_errors, abs_vars = asymptotics(
-            tmle,                                 
-            continuous_target_binary_treatment_pb,
-            StableRNG(123),
-            Ns
-            )
-    @test all(abs_mean_rel_errors .< [18, 1.6, 0.5, 0.2])
-    @test all(abs_vars .< [0.08, 0.002, 0.0002, 1.5e-5])
+    tmle_results, initial_results, Ψ₀ = asymptotics(
+        Ψ, 
+        η_spec, 
+        continuous_target_binary_treatment_pb, 
+        StableRNG(123), 
+        Ns)
 
-    # When Q̅ is well specified  but G is misspecified
-    Q̅ = cont_interacter
-    G = FullCategoricalJoint(ConstantClassifier())
-    tmle = TMLEstimator(Q̅, G, query)
-    
-    abs_mean_rel_errors, abs_vars = asymptotics(
-            tmle,                                 
-            continuous_target_binary_treatment_pb,
-            StableRNG(123),
-            Ns
-            )
-    @test all(abs_mean_rel_errors .< [2.3, 0.6, 0.3, 0.06])
-    @test all(abs_vars .< [0.003, 0.0003, 2.5e-5, 2e-6])
+    @test all_tmle_better_than_initial(tmle_results, initial_results, Ψ₀)
+    @test first_better_than_last(tmle_results, Ψ₀)
+    @test tolerance(tmle_results[end], Ψ₀, 0.011)
+    @test all_solves_ice(tmle_results, tol=1e-7) 
 
+    # When Q is well specified  but G is misspecified
+    η_spec = (
+        Q = cont_interacter,
+        G = ConstantClassifier()
+    )
+
+    tmle_results, initial_results, Ψ₀ = asymptotics(
+        Ψ, 
+        η_spec, 
+        continuous_target_binary_treatment_pb, 
+        StableRNG(123), 
+        Ns)
+
+    @test sum(abserrors(tmle_results, Ψ₀) .< abserrors(initial_results, Ψ₀)) == 3
+    @test first_better_than_last(tmle_results, Ψ₀)
+    @test tolerance(tmle_results[end], Ψ₀, 0.011)
+    @test all_solves_ice(tmle_results, tol=1e-7) 
 end
 
 
 @testset "Test Double Robustness IATE on binary_target_categorical_treatment_pb" begin
-    query = Query((T₁="CC", T₂="AT"), (T₁="CG", T₂="AA"))
-    # When Q̅ is misspecified but G is well specified
-    Q̅ = ConstantClassifier()
-    G = FullCategoricalJoint(LogisticClassifier())
-    tmle = TMLEstimator(Q̅, G, query)
+    Ψ = IATE(
+        target=:y,
+        treatment=(T₁=(case="CC", control="CG"), T₂=(case="AT", control="AA")),
+        confounders = [:W₁, :W₂, :W₃]
+    )
+    # When Q is misspecified but G is well specified
+    η_spec = (
+        Q = ConstantClassifier(),
+        G = LogisticClassifier(lambda=0)
+    )
 
-    abs_mean_rel_errors, abs_vars = asymptotics(
-            tmle,                                 
-            binary_target_categorical_treatment_pb,
-            StableRNG(123),
-            Ns
-            )
-    @test all(abs_mean_rel_errors .< [31, 8, 2, 0.6])
-    @test all(abs_vars .< [0.03, 0.006, 0.0004, 2.7e-5])
+    tmle_results, initial_results, Ψ₀ = asymptotics(
+        Ψ, 
+        η_spec, 
+        binary_target_categorical_treatment_pb, 
+        StableRNG(123), 
+        Ns)
 
-    # When Q̅ is well specified but G is misspecified
-    Q̅ = cat_interacter
-    G = FullCategoricalJoint(ConstantClassifier())
-    tmle = TMLEstimator(Q̅, G, query)
+    @test all_tmle_better_than_initial(tmle_results, initial_results, Ψ₀)
+    @test first_better_than_last(tmle_results, Ψ₀)
+    @test tolerance(tmle_results[end], Ψ₀, 0.011)
+    @test all_solves_ice(tmle_results, tol=1e-7)
 
-    abs_mean_rel_errors, abs_vars = asymptotics(
-            tmle,                                 
-            binary_target_categorical_treatment_pb,
-            StableRNG(123),
-            Ns
-            )
-    @test all(abs_mean_rel_errors .< [22, 7, 2.1, 0.7])
-    @test all(abs_vars .< [0.04, 0.005, 0.0004, 3.5e-5])
+    # When Q is well specified but G is misspecified
+    η_spec = (
+        Q = cat_interacter,
+        G = ConstantClassifier()
+    )
+
+    tmle_results, initial_results, Ψ₀ = asymptotics(
+        Ψ, 
+        η_spec, 
+        binary_target_categorical_treatment_pb, 
+        StableRNG(123), 
+        Ns)
+
+    @test all_tmle_better_than_initial(tmle_results, initial_results, Ψ₀)
+    @test first_better_than_last(tmle_results, Ψ₀)
+    @test tolerance(tmle_results[end], Ψ₀, 0.011)
+    @test all_solves_ice(tmle_results, tol=1e-7)
 end
 
 
