@@ -76,10 +76,10 @@ end
         treatment   = (T=(case="AA", control="TT"),),
         confounders = [:W₁, :W₂, :W₃]
         )
-    # When Q̅ is misspecified but G is well specified
+    # When Q is misspecified but G is well specified
     η_spec = (
         Q = MLJModels.DeterministicConstantRegressor(),
-        G = LogisticClassifier()
+        G = LogisticClassifier(lambda=0)
     )
     tmle_results, initial_results, Ψ₀ = asymptotics(
         Ψ, 
@@ -166,7 +166,7 @@ end
     # When Q is misspecified but G is well specified
     η_spec = (
         Q = MLJModels.DeterministicConstantRegressor(),
-        G = LogisticClassifier()
+        G = LogisticClassifier(lambda=0)
     )
 
     tmle_results, initial_results, Ψ₀ = asymptotics(

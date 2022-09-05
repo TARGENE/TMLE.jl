@@ -5,40 +5,24 @@ using TableOperations
 using CategoricalArrays
 using MLJBase
 using HypothesisTests
-using Base: Iterators, ImmutableDict
+using Base: Iterators
 using MLJGLMInterface
 using MLJModels
 using Missings
 using Statistics
 
 # #############################################################################
-# OVERLOADED METHODS
-# #############################################################################
-
-import MLJBase.check
-
-# #############################################################################
 # EXPORTS
 # #############################################################################
 
-export TMLEstimator, Query, TMLEReport
-export FullCategoricalJoint
-export fit
-export ztest, pvalue, confint, summarize
-export MachineReporter, Reporter, JLD2Saver
 export CM, ATE, IATE
-export TMLECache
 export tmle, tmle!
-export var, estimate, OneSampleTTest
+export var, estimate, OneSampleTTest, pvalue, confint
 
 # #############################################################################
 # INCLUDES
 # #############################################################################
 
-include("query.jl")
-include("model.jl")
-include("report.jl")
-include("callbacks.jl")
 include("jointmodels.jl")
 include("parameters.jl")
 include("utils.jl")

@@ -3,6 +3,9 @@ using TMLE
 using Distributions
 using StableRNGs
 using MLJModels
+using MLJLinearModels
+using MLJBase
+using CategoricalArrays
 
 @testset "Test counterfactual_aggregate" begin
     rng = StableRNG(123)

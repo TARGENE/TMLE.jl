@@ -16,6 +16,6 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
 Distributions = "0.25"
-MLJLinearModels = "0.5"
+MLJLinearModels = "0.7"
 StableRNGs = "1.0"
 StatsBase = "0.33"

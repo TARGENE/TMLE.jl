@@ -1,6 +1,5 @@
 using Test
 
-
 @time begin
     @test include("jointmodels.jl")
     @test include("utils.jl")

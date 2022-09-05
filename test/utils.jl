@@ -8,7 +8,6 @@ using MLJBase
 using StableRNGs
 using Distributions
 using CategoricalArrays
-using Base: ImmutableDict
 using MLJGLMInterface: LinearBinaryClassifier
 using MLJLinearModels
 using MLJModels
@@ -103,7 +102,7 @@ end
 end
 
 @testset "Test indicator_values" begin
-    indicators = ImmutableDict(
+    indicators = Dict(
         ("b", "c", 1) => -1,
         ("a", "c", 1) => 1,
         ("b", "d", 0) => -1,
@@ -151,7 +150,13 @@ end
                     TMLE.adapt(T))
     fit!(Gmach, verbosity=0)
 
-    indicators = TMLE.indicator_fns(Query((t₁="a",), (t₁="b",)))
+    Ψ = ATE(
+        target =:y, 
+        treatment=(t₁=(case="a", control="b"),),
+        confounders = [:x1, :x2, :x3]
+    )
+
+    indicators = TMLE.indicator_fns(Ψ)
 
     cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [1.75,
@@ -169,12 +174,16 @@ end
          t₂ = categorical([1, 1, 1, 1, 1, 0, 0]))
     W = MLJBase.table(rand(7, 3))
 
-    Gmach = machine(FullCategoricalJoint(ConstantClassifier()), 
+    Gmach = machine(TMLE.FullCategoricalJoint(ConstantClassifier()), 
                     W, 
                     T)
     fit!(Gmach, verbosity=0)
-    query = Query((t₁=1, t₂=1), (t₁=0, t₂=0))
-    indicators = TMLE.indicator_fns(query)
+    Ψ = IATE(
+        target =:y, 
+        treatment=(t₁=(case=1, control=0), t₂=(case=1, control=0)),
+        confounders = [:x1, :x2, :x3]
+    )
+    indicators = TMLE.indicator_fns(Ψ)
 
     cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [2.3333333333333335,
@@ -193,12 +202,19 @@ end
          t₃ = categorical([true, false, true, false, false, false, false]))
     W = MLJBase.table(rand(7, 3))
 
-    Gmach = machine(FullCategoricalJoint(ConstantClassifier()), 
+    Gmach = machine(TMLE.FullCategoricalJoint(ConstantClassifier()), 
                     W, 
                     T)
     fit!(Gmach, verbosity=0)
-    query = Query((t₁="a", t₂=1, t₃=true), (t₁="b", t₂=2, t₃=false))
-    indicators = TMLE.indicator_fns(query)
+    Ψ = IATE(
+        target =:y, 
+        treatment=(t₁=(case="a", control="b"), 
+                   t₂=(case=1, control=2), 
+                   t₃=(case=true, control=false)),
+        confounders = [:x1, :x2, :x3]
+    )
+
+    indicators = TMLE.indicator_fns(Ψ)
 
     cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [0,
