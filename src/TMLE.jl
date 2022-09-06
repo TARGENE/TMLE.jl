@@ -10,6 +10,7 @@ using MLJGLMInterface
 using MLJModels
 using Missings
 using Statistics
+using Zygote
 
 # #############################################################################
 # EXPORTS

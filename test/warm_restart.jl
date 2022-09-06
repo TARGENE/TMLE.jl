@@ -18,11 +18,6 @@ using CategoricalArrays
 
 # B) Composition of EstimationResult
 
-# C) Unit tests
-# - gradient parts
-# - estimate
-
-# D) Missing data problem
 
 function covers(result, Ψ₀; level=0.05)
     test = OneSampleTTest(result, Ψ₀)

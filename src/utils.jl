@@ -127,9 +127,6 @@ end
 ## Fluctuation
 ###############################################################################
 
-influencecurve(covariate, y, observed_fluct, ct_fluct, estimate) = 
-    covariate .* (float(y) .- observed_fluct) .+ ct_fluct .- estimate
-
 fluctuation_input(covariate, offset) = (covariate=covariate, offset=offset)
 
 function counterfactualTreatment(vals, T)

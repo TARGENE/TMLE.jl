@@ -291,12 +291,12 @@ function counterfactual_aggregate(Ψ, η, dataset; threshold=1e-8)
     return counterfactual_aggregate_
 end
 
-function gradient_W(Ψ, η, dataset; threshold=1e-8)
+function gradient_W(Ψ::Parameter, η::NuisanceParameters, dataset; threshold=1e-8)
     counterfactual_aggregate_ = counterfactual_aggregate(Ψ, η, dataset; threshold=threshold)
     return counterfactual_aggregate_ .- mean(counterfactual_aggregate_)
 end
 
-function gradient_Y_X(Ψ, η, dataset; threshold=1e-8)
+function gradient_Y_X(Ψ::Parameter, η::NuisanceParameters, dataset; threshold=1e-8)
     indicators = TMLE.indicator_fns(Ψ)
     W = TMLE.confounders(dataset, Ψ)
     T = TMLE.treatments(dataset, Ψ)
@@ -305,6 +305,6 @@ function gradient_Y_X(Ψ, η, dataset; threshold=1e-8)
     return covariate .* (float(TMLE.target(dataset, Ψ)) .- outcome_mean(η, Ψ, dataset, threshold=threshold))
 end
 
-gradient(Ψ, η, dataset; threshold=1e-8) = gradient_Y_X(Ψ, η, dataset; threshold=threshold) .+ gradient_W(Ψ, η, dataset; threshold=threshold)
+gradient(Ψ::Parameter, η::NuisanceParameters, dataset; threshold=1e-8) = gradient_Y_X(Ψ, η, dataset; threshold=threshold) .+ gradient_W(Ψ, η, dataset; threshold=threshold)
 
 estimate(Ψ, η, dataset; threshold=1e-8) = mean(counterfactual_aggregate(Ψ, η, dataset; threshold=threshold))
