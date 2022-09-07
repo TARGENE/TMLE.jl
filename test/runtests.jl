@@ -7,5 +7,6 @@ using Test
     # @test include("double_robustness_iate.jl")
     @test include("warm_restart.jl")
     @test include("parameters.jl")
-    include("missing_values.jl")
+    @test include("missing_values.jl")
+    @test include("composition.jl")
 end

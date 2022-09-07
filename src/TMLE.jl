@@ -11,6 +11,7 @@ using MLJModels
 using Missings
 using Statistics
 using Zygote
+using AbstractDifferentiation
 
 # #############################################################################
 # EXPORTS
@@ -18,7 +19,8 @@ using Zygote
 
 export CM, ATE, IATE
 export tmle, tmle!
-export var, estimate, OneSampleTTest, pvalue, confint
+export var, cov, estimate, OneSampleTTest, pvalue, confint
+export compose
 
 # #############################################################################
 # INCLUDES

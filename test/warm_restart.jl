@@ -13,10 +13,34 @@ using CategoricalArrays
 # - Understand why not always closer to truth than initial estimate
 # Maybe due to GLM numerical optimization, to be checked and update tests
 # - Investigate breaking cases for TMLE in double robustness too. Maybe interaction logistic classifier underfitting?
+# - A good default check is to verify the mean inf curve is always closer to 0 Since
+# this is the action of tmle
 
 # - IATE 3 treatments
 
 # B) Composition of EstimationResult
+# - IATE vs conditional ATEs?
+
+# C) Make a constructor for NuisanceSpec
+
+# D) Documentation
+
+# Welcome to TMLE.jl
+# Overview
+# Installation
+# Quick start
+# User Guide
+## The running example
+## Conditional mean
+## ATE
+## Using the cache
+## Composing parameters
+## IATE
+# API
+## Parameters
+## TMLE
+## Composition
+
 
 
 function covers(result, Ψ₀; level=0.05)

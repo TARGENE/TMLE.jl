@@ -2,7 +2,7 @@
 CurrentModule = TMLE
 ```
 
-# TMLE
+# Welcome to TMLE.jl
 
 The purpose of this package is to provide convenience methods for 
 Targeted Minimum Loss-Based Estimation (TMLE). TMLE is a framework for
