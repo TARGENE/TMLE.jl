@@ -9,19 +9,17 @@ using Distributions
 using MLJLinearModels
 using CategoricalArrays
 
-# A) End to end tests to perform:
+# A) End to end tests to perform: todo after D)
 # - Understand why not always closer to truth than initial estimate
 # Maybe due to GLM numerical optimization, to be checked and update tests
 # - Investigate breaking cases for TMLE in double robustness too. Maybe interaction logistic classifier underfitting?
 # - A good default check is to verify the mean inf curve is always closer to 0 Since
 # this is the action of tmle
 
-# - IATE 3 treatments
+# - IATE 3 treatments? todo after D)
 
 # B) Composition of EstimationResult
-# - IATE vs conditional ATEs?
-
-# C) Make a constructor for NuisanceSpec
+# - IATE vs conditional ATEs? Maybe todo after D) or skip
 
 # D) Documentation
 
@@ -41,6 +39,9 @@ using CategoricalArrays
 ## TMLE
 ## Composition
 
+# E) Make Nuisance more automatic and deal with probabilistic continuous
+# - Probabilistic continuous: rework at least expected_value and offset
+# - Default constructor for NuisanceSpec using GLMs
 
 
 function covers(result, Ψ₀; level=0.05)
@@ -100,9 +101,9 @@ table_types = (Tables.columntable, DataFrame)
         covariates=[:C₁]
     )
     # Define the nuisance parameters specification
-    η_spec = (
-        Q = LinearRegressor(),
-        G = LogisticClassifier(lambda=0)
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        LogisticClassifier(lambda=0)
     )
     # Run TMLE
     log_sequence = (
@@ -231,9 +232,9 @@ end
         covariates=[:C₁]
     )
     # Define the nuisance parameters specification
-    η_spec = (
-        Q = LinearRegressor(),
-        G = LogisticClassifier(lambda=0)
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        LogisticClassifier(lambda=0)
     )
     tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
 
@@ -272,9 +273,9 @@ end
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
-    η_spec = (
-        Q = LinearRegressor(),
-        G = LogisticClassifier(lambda=0)
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        LogisticClassifier(lambda=0)
     )
     tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
 
@@ -354,9 +355,9 @@ end
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
-    η_spec = (
-        Q = LinearRegressor(),
-        G = LogisticClassifier(lambda=0)
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        LogisticClassifier(lambda=0)
     )
     tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
 

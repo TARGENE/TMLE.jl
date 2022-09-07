@@ -17,6 +17,7 @@ using AbstractDifferentiation
 # EXPORTS
 # #############################################################################
 
+export NuisanceSpec
 export CM, ATE, IATE
 export tmle, tmle!
 export var, cov, estimate, OneSampleTTest, pvalue, confint

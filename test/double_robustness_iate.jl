@@ -13,23 +13,6 @@ using StatsBase
 using MLJModels
 using MLJLinearModels
 
-mutable struct InteractionTransformer <: Static end
-    
-function MLJBase.transform(a::InteractionTransformer, _, X)
-    Xmatrix = MLJBase.matrix(X)
-    nrows, ncols = size(Xmatrix)
-    ninter = Int(ncols*(ncols-1)/2)
-    Xinteracts = Matrix{Float64}(undef, nrows, ninter)
-    i = 0
-    for col₁ in 1:(ncols-1)
-        for col₂ in (col₁+1):ncols
-            i += 1
-            Xinteracts[:, i] = Xmatrix[:, col₁] .* Xmatrix[:, col₂]
-        end
-    end
-    return MLJBase.table(hcat(Xmatrix, Xinteracts))
-end
-
 cont_interacter = InteractionTransformer |> LinearRegressor
 cat_interacter = InteractionTransformer |> LogisticClassifier
 Ns = [100, 1000, 10000, 100000]
@@ -186,9 +169,9 @@ end
         confounders = [:W₁, :W₂, :W₃]
     )
     # When Q is misspecified but G is well specified
-    η_spec = (
-        Q = ConstantClassifier(),
-        G = LogisticClassifier(lambda=0)
+    η_spec = NuisanceSpec(
+        ConstantClassifier(),
+        LogisticClassifier(lambda=0)
     )
     tmle_results, initial_results, Ψ₀ = asymptotics(
         Ψ, 
@@ -202,9 +185,9 @@ end
     @test all_solves_ice(tmle_results, tol=1e-7) 
 
     # When Q is well specified  but G is misspecified
-    η_spec = (
-        Q = cat_interacter,
-        G = ConstantClassifier()
+    η_spec = NuisanceSpec(
+        cat_interacter,
+        ConstantClassifier()
     )
     
     tmle_results, initial_results, Ψ₀ = asymptotics(
@@ -229,9 +212,9 @@ end
         confounders = [:W₁, :W₂, :W₃]
     )
     # When Q is misspecified but G is well specified
-    η_spec = (
-        Q = MLJModels.DeterministicConstantRegressor(),
-        G = LogisticClassifier(lambda=0)
+    η_spec = NuisanceSpec(
+        MLJModels.DeterministicConstantRegressor(),
+        LogisticClassifier(lambda=0)
     )
 
     tmle_results, initial_results, Ψ₀ = asymptotics(
@@ -247,9 +230,9 @@ end
     @test all_solves_ice(tmle_results, tol=1e-7) 
 
     # When Q is well specified  but G is misspecified
-    η_spec = (
-        Q = cont_interacter,
-        G = ConstantClassifier()
+    η_spec = NuisanceSpec(
+        cont_interacter,
+        ConstantClassifier()
     )
 
     tmle_results, initial_results, Ψ₀ = asymptotics(
@@ -273,9 +256,9 @@ end
         confounders = [:W₁, :W₂, :W₃]
     )
     # When Q is misspecified but G is well specified
-    η_spec = (
-        Q = ConstantClassifier(),
-        G = LogisticClassifier(lambda=0)
+    η_spec = NuisanceSpec(
+        ConstantClassifier(),
+        LogisticClassifier(lambda=0)
     )
 
     tmle_results, initial_results, Ψ₀ = asymptotics(
@@ -291,9 +274,9 @@ end
     @test all_solves_ice(tmle_results, tol=1e-7)
 
     # When Q is well specified but G is misspecified
-    η_spec = (
-        Q = cat_interacter,
-        G = ConstantClassifier()
+    η_spec = NuisanceSpec(
+        cat_interacter,
+        ConstantClassifier()
     )
 
     tmle_results, initial_results, Ψ₀ = asymptotics(

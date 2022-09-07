@@ -38,9 +38,9 @@ end
 
 @testset "Test composition CM(1) - CM(0) = ATE(1,0)" begin
     dataset = make_dataset(;n=1000)
-    η_spec = (
-        G = LogisticClassifier(lambda=0),
-        Q = LinearRegressor()
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        LogisticClassifier(lambda=0)
     )
     # Conditional Mean T = 1
     CM_result₁, _, cache = tmle(basicCM(1), η_spec, dataset, verbosity=0)
@@ -62,9 +62,9 @@ end
 
 @testset "Test compose multidimensional function" begin
     dataset = make_dataset(;n=1000)
-    η_spec = (
-        G = LogisticClassifier(lambda=0),
-        Q = LinearRegressor()
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        LogisticClassifier(lambda=0)
     )
     CM_result₁, _, cache = tmle(basicCM(1), η_spec, dataset, verbosity=0)
     CM_result₀, _, cache = tmle!(cache, basicCM(0), verbosity=0)

@@ -77,9 +77,9 @@ end
         confounders = [:W₁, :W₂, :W₃]
         )
     # When Q is misspecified but G is well specified
-    η_spec = (
-        Q = MLJModels.DeterministicConstantRegressor(),
-        G = LogisticClassifier(lambda=0)
+    η_spec = NuisanceSpec(
+        MLJModels.DeterministicConstantRegressor(),
+        LogisticClassifier(lambda=0)
     )
     tmle_results, initial_results, Ψ₀ = asymptotics(
         Ψ, 
@@ -94,9 +94,9 @@ end
     @test all_solves_ice(tmle_results)  
 
     # When Q is well specified but G is misspecified
-    η_spec = (
-        Q = LinearRegressor(),
-        G = ConstantClassifier()
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        ConstantClassifier()
     )
     tmle_results, initial_results, Ψ₀ = asymptotics(
         Ψ, 
@@ -119,9 +119,9 @@ end
         confounders = [:W]
     )
     # When Q is misspecified but G is well specified
-    η_spec = (
-        Q = ConstantClassifier(),
-        G = LogisticClassifier(lambda=0)
+    η_spec = NuisanceSpec(
+        ConstantClassifier(),
+        LogisticClassifier(lambda=0)
     )
     tmle_results, initial_results, Ψ₀ = asymptotics(
         Ψ, 
@@ -136,9 +136,9 @@ end
     @test all_solves_ice(tmle_results, tol=1e-6)
 
     # When Q̅ is well specified but G is misspecified
-    η_spec = (
-        Q = LogisticClassifier(lambda=0),
-        G = ConstantClassifier()
+    η_spec = NuisanceSpec(
+        LogisticClassifier(lambda=0),
+        ConstantClassifier()
     )
 
     tmle_results, initial_results, Ψ₀ = asymptotics(
@@ -164,9 +164,9 @@ end
         confounders = [:W₁, :W₂, :W₃]
     )
     # When Q is misspecified but G is well specified
-    η_spec = (
-        Q = MLJModels.DeterministicConstantRegressor(),
-        G = LogisticClassifier(lambda=0)
+    η_spec = NuisanceSpec(
+        MLJModels.DeterministicConstantRegressor(),
+        LogisticClassifier(lambda=0)
     )
 
     tmle_results, initial_results, Ψ₀ = asymptotics(
@@ -183,9 +183,9 @@ end
     @test all_solves_ice(tmle_results)
 
     # When Q is well specified but G is misspecified
-    η_spec = (
-        Q = LinearRegressor(),
-        G = ConstantClassifier()
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        ConstantClassifier()
     )
     tmle_results, initial_results, Ψ₀ = asymptotics(
         Ψ, 

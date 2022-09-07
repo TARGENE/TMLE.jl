@@ -8,7 +8,7 @@ If the input data does not change, then the nuisance parameters do not have to b
 """
 mutable struct TMLECache
     Ψ::Parameter
-    η_spec::NamedTuple
+    η_spec::NuisanceSpec
     dataset
     η
     function TMLECache(Ψ, η_spec, dataset)
@@ -41,7 +41,7 @@ function update!(cache::TMLECache, Ψ::Parameter)
     cache.Ψ = Ψ
 end
 
-function update!(cache::TMLECache, η_spec::NamedTuple)
+function update!(cache::TMLECache, η_spec::NuisanceSpec)
     if cache.η_spec.G != η_spec.G
         cache.η.G = nothing
     end
@@ -52,12 +52,12 @@ function update!(cache::TMLECache, η_spec::NamedTuple)
     cache.η_spec = η_spec
 end
 
-function update!(cache::TMLECache, Ψ::Parameter, η_spec::NamedTuple)
+function update!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec)
     update!(cache, Ψ)
     update!(cache, η_spec)
 end
 
-function tmle(Ψ::Parameter, η_spec::NamedTuple, dataset; verbosity=1, threshold=1e-8)
+function tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; verbosity=1, threshold=1e-8)
     cache = TMLECache(Ψ, η_spec, dataset)
     return tmle!(cache; verbosity=verbosity, threshold=threshold)
 end
@@ -76,7 +76,7 @@ function tmle!(cache; verbosity=1, threshold=1e-8)
     
     # TMLE step
     verbosity >= 1 && @info "Targeting the nuisance parameters..."
-    tmle!(η, Ψ, dataset, verbosity=verbosity, threshold=threshold)
+    tmle!(η, Ψ, η_spec, dataset, verbosity=verbosity, threshold=threshold)
     
     # Estimation results after TMLE
     IC = gradient(Ψ, η, dataset; threshold=threshold)
@@ -92,12 +92,12 @@ function tmle!(cache::TMLECache, Ψ::Parameter; verbosity=1, threshold=1e-8)
     tmle!(cache, verbosity=verbosity, threshold=threshold)
 end
 
-function tmle!(cache::TMLECache, η_spec::NamedTuple; verbosity=1, threshold=1e-8)
+function tmle!(cache::TMLECache, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
     update!(cache, η_spec)
     tmle!(cache, verbosity=verbosity, threshold=threshold)
 end
 
-function tmle!(cache::TMLECache, Ψ::Parameter, η_spec::NamedTuple; verbosity=1, threshold=1e-8)
+function tmle!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
     update!(cache, Ψ, η_spec)
     fit!(cache, verbosity=verbosity, threshold=threshold)
 end

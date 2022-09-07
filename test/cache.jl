@@ -20,9 +20,9 @@ function fakecache()
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
-    η_spec = (
-        Q = RidgeRegressor(),
-        G = LogisticClassifier(lambda=0)
+    η_spec = NuisanceSpec(
+        RidgeRegressor(),
+        LogisticClassifier(lambda=0)
     )
     dataset = (;)
     cache = TMLE.TMLECache(Ψ, η_spec, dataset)
@@ -114,9 +114,9 @@ end
 @testset "Test update!(cache, η_spec)" begin
     # Change the Q learning stategy
     cache = fakecache()
-    η_spec = (
-        Q = RidgeRegressor(lambda=10),
-        G = LogisticClassifier(lambda=0)
+    η_spec = NuisanceSpec(
+        RidgeRegressor(lambda=10),
+        LogisticClassifier(lambda=0)
     )
     TMLE.update!(cache, η_spec)
     @test cache.η.H !== nothing
@@ -127,9 +127,9 @@ end
 
     # Change the G learning stategy
     cache = fakecache()
-    η_spec = (
-        Q = RidgeRegressor(),
-        G = LogisticClassifier(lambda=10)
+    η_spec = NuisanceSpec(
+        RidgeRegressor(),
+        LogisticClassifier(lambda=10)
     )
     TMLE.update!(cache, η_spec)
     @test cache.η.H !== nothing

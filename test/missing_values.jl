@@ -43,8 +43,8 @@ end
         target=:y, 
         confounders=[:W], 
         treatment=(T=(case=1, control=0),))
-    η_spec = (Q=LinearRegressor(), G=LogisticClassifier(lambda=0))
-    tmle_results, initial_results, cache = tmle(Ψ, η_spec, dataset;verbosity=0)
+    η_spec = NuisanceSpec(LinearRegressor(), LogisticClassifier(lambda=0))
+    tmle_results, initial_results, cache = tmle(Ψ, η_spec, dataset; verbosity=0)
     @test estimate(tmle_results) ≈ 0.986 atol=1e-3
 end
 

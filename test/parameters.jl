@@ -30,16 +30,16 @@ end
         treatment = (T=(case=1, control=0),),
         confounders = [:W]
     )
-    η_spec = (
-        Q = MLJModels.ConstantRegressor(),
-        G = ConstantClassifier()
+    η_spec = NuisanceSpec(
+        MLJModels.ConstantRegressor(),
+        ConstantClassifier()
     )
 
     # Nuisance parameter estimation
     η = TMLE.NuisanceParameters(nothing, nothing, nothing, nothing)
 
     X = (W=dataset.W, T=dataset.T)
-    η.H = machine(TMLE.encoder(Ψ), X)
+    η.H = machine(TMLE.encoder(), X)
     fit!(η.H, verbosity=0)
 
     η.Q = machine(η_spec.Q, MLJBase.transform(η.H, X), dataset.y)
@@ -70,7 +70,7 @@ end
     @test all(coef ≈ -x for x ∈ cf_agg)
 
     # fluctuating
-    tmle!(η, Ψ, dataset)
+    tmle!(η, Ψ, η_spec, dataset)
     cf_agg_after_fluct = TMLE.counterfactual_aggregate(Ψ, η, dataset)
     @test cf_agg_after_fluct != cf_agg
 end

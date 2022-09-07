@@ -187,8 +187,25 @@ mutable struct NuisanceParameters
     F::Union{Nothing, MLJBase.Machine}
 end
 
+struct NuisanceSpec
+    Q::MLJBase.Model
+    G::MLJBase.Model
+    H::MLJBase.Model
+    F::MLJBase.Model
+end
 
-encoder(Ψ::Parameter) = OneHotEncoder(features=treatments(Ψ), drop_last=true, ordered_factor=false)
+NuisanceSpec(Q, G; H=encoder(), F=Q_model(target_scitype(Q))) =
+    NuisanceSpec(Q, G, H, F)
+
+Q_model(::Type{<:AbstractVector{Continuous}}) =
+    LinearRegressor(fit_intercept=false, offsetcol = :offset)
+
+Q_model(::Type{<:AbstractVector{<:Finite}}) =
+    LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
+
+Q_model(t::Type{Any}) = throw(ArgumentError("Cannot proceed with Q model with target_scitype $t"))
+
+encoder() = OneHotEncoder(drop_last=true, ordered_factor=false)
 
 """
     fit!(η::NuisanceParameters, η_spec, Ψ::Parameter, dataset; verbosity=1)
@@ -196,7 +213,7 @@ encoder(Ψ::Parameter) = OneHotEncoder(features=treatments(Ψ), drop_last=true, 
 Fits the nuisance parameters η on the dataset using the specifications from η_spec
 and the variables defined by Ψ.
 """
-function fit!(η::NuisanceParameters, η_spec, Ψ::Parameter, dataset; verbosity=1)
+function fit!(η::NuisanceParameters, η_spec::NuisanceSpec, Ψ::Parameter, dataset; verbosity=1)
     # Fitting P(T|W)
     # Only rows with missing values in either W or Tₜ are removed
     if η.G === nothing
@@ -220,7 +237,7 @@ function fit!(η::NuisanceParameters, η_spec, Ψ::Parameter, dataset; verbosity
         # Fitting the Encoder
         if η.H === nothing
             log_fit(verbosity, "Encoder")
-            mach = machine(encoder(Ψ), X)
+            mach = machine(η_spec.H, X)
             MLJBase.fit!(mach, verbosity=verbosity-1)
             η.H = mach
         else
@@ -247,22 +264,12 @@ function fluctuation_input(dataset, η, Ψ; threshold=1e-8)
     return fluctuation_input(covariate, offset)
 end
 
-function tmle!(η::NuisanceParameters, Ψ, dataset; verbosity=1, threshold=1e-8)
+function tmle!(η::NuisanceParameters, Ψ, η_spec, dataset; verbosity=1, threshold=1e-8)
     X = fluctuation_input(dataset, η, Ψ, threshold=threshold)
     y = target(dataset, Ψ)
-    mach = machine(TMLE.fluctuation_model(η.Q.model), X, y)
+    mach = machine(η_spec.F, X, y)
     MLJBase.fit!(mach, verbosity=verbosity-1)
     η.F = mach
-end
-
-function fluctuation_model(Q)
-    if Q isa Probabilistic
-        return LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
-    elseif Q isa Deterministic
-        return LinearRegressor(fit_intercept=false, offsetcol = :offset)
-    else
-        throw(ArgumentError("Q should be either Probabilistic or Deterministic"))
-    end
 end
 
 function outcome_mean(η, Ψ, dataset; threshold=1e-8)
