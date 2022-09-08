@@ -100,7 +100,7 @@ Y  &\sim \mathcal{Normal}(1 + 3 \cdot T - T \cdot W, 0.01)
 
 which can be simulated in Julia by:
 
-```@jldoctest quick-start
+```@example quick-start
 using Distributions
 using StableRNGs
 using Random
@@ -114,16 +114,18 @@ W = rand(rng, Uniform(), n)
 T = rand(rng, Uniform(), n) .< TMLE.expit(1 .- 2W)
 Y = 1 .+ 3T .- T.*W .+ rand(rng, Normal(0, 0.01), n)
 dataset = (Y=Y, T=categorical(T), W=W)
+nothing # hide
 ```
 
 And say we are interested in the $ATE_{0 \rightarrow 1}(P_0)$:
 
-```@jldoctest quick-start
+```@example quick-start
 Ψ = ATE(
     target      = :Y,
     treatment   = (T=(case=1, control = 0),),
     confounders = [:W]
 )
+nothing # hide
 ```
 
 Note that in this example the ATE can be computed exactly and is given by:
@@ -134,36 +136,23 @@ ATE_{0 \rightarrow 1}(P_0) = \mathbb{E}[1 + 3 - W] - \mathbb{E}[1] = 3 - \mathbb
 
 We next need to define the strategy for learning the nuisance parameters $Q$ and $G$, here we keep things simple and simply use generalized linear models:
 
-```@jldoctest quick-start
+```@example quick-start
 η_spec = NuisanceSpec(
     LinearRegressor(),
     LogisticClassifier(lambda=0)
 )
+nothing # hide
 ```
 
 We are now ready to run the TMLE procedure and look the associated confidence interval:
 
-```@jldoctest quick-start
+```@example quick-start
 result, _, _ = tmle(Ψ, η_spec, dataset)
-test_result = OneSampleTTest(result)
+test_result = OneSampleTTest(result, 2.5)
+```
 
-# output
-
-One sample t-test
------------------
-Population details:
-    parameter of interest:   Mean
-    value under h_0:         0
-    point estimate:          2.49314
-    95% confidence interval: (2.434, 2.552)
-
-Test summary:
-    outcome with 95% confidence: reject h_0
-    two-sided p-value:           <1e-93
-
-Details:
-    number of observations:   100
-    t-statistic:              83.86600564349897
-    degrees of freedom:       99
-    empirical standard error: 0.029727669021042347
+```@example quick-start
+using Test # hide
+@test pvalue(OneSampleTTest(result, 2.5)) > 0.05 # hide
+nothing # hide
 ```

@@ -4,21 +4,11 @@
 CurrentModule = TMLE
 ```
 
-```jldoctest
-a = 1
-b = 2
-a + b
-
-# output
-
-3
-```
-
 ## The Dataset
 
 TMLE.jl should be compatible with any dataset respecting the [Tables.jl](https://tables.juliadata.org/stable/) interface, that is, a structure like a `NamedTuple` or a `DataFrame` from [DataFrames.jl](https://dataframes.juliadata.org/stable/) should work. In the remainder of this section, we will be working with the same dataset and see that we can ask very many questions (Parameters) from it.
 
-```jldoctest user-guide
+```@example user-guide
 using Random
 using Distributions
 using DataFrames
@@ -26,7 +16,7 @@ using StableRNGs
 using CategoricalArrays
 using TMLE
 
-function dataset(;n=100)
+function make_dataset(;n=1000)
     rng = StableRNG(123)
     # Confounders
     W₁ = rand(rng, Uniform(), n)
@@ -47,6 +37,8 @@ function dataset(;n=100)
         Y  = Y
         )
 end
+dataset = make_dataset()
+nothing # hide
 ```
 
 !!! note "Note on Treatment variables"
@@ -56,13 +48,14 @@ end
 
 As described in the [Mathematical setting](@ref) section, we need to provide an estimation strategy for both $Q_0$ and $G_0$. For illustration purposes, we here consider a simple strategy where both models are assumed to be generalized linear models. However this is not the recommended practice since there is little chance those functions are actually linear, and theoretical guarantees associated with TMLE may fail to hold. We recommend instead the use of Super Learning which is exemplified in [The benefits of Super Learning](@ref).
 
-```jldoctest user-guide
+```@example user-guide
 using MLJLinearModels
 
 η_spec = NuisanceSpec(
     LinearRegressor(), # Q model
     LogisticClassifier(lambda=0) # G model
 )
+nothing # hide
 ```
 
 !!! note "Practical note on $Q_0$ and $G_0$"
@@ -83,12 +76,13 @@ CM_t(P) = \mathbb{E}[\mathbb{E}[Y|T=t, W]]
 
 The treatment does not have to be restricted to a single variable, we can define for instance $CM_{T_1=1, T_2=1}$:
 
-```jldoctest user-guide
+```@example user-guide
 Ψ = CM(
     target      = :Y,
     treatment   = (T₁=1, T₂=1),
     confounders = [:W₁, :W₂]
 )
+nothing # hide
 ```
 
 In this case, we can compute the exact value of the parameter:
@@ -99,25 +93,22 @@ CM_{T_1=1, T_2=1} = 1 + 2\mathbb{E}[W₁] + 3\mathbb{E}[W₂] - 4\mathbb{E}[C₁
 
 Running a targeted estimation procedure should then be as simple as:
 
-```jldoctest user-guide
-cm_result₁₁, _, _ = tmle(Ψ, η_spec, dataset(;n=100))
+```@example user-guide
+cm_result₁₁, _, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
+nothing # hide
 ```
 
 For now, let's ignore the two `_` outputs and focus on the `result` of type `PointTMLE`, it represents a point estimator of $CM_{T_1=1, T_2=0}$. As such, we can have a look at the value and variance of the estimator, since the estimator is asymptotically normal, a 95% confidence interval can be rougly constructed via:
 
-```jldoctest user-guide
+```@example user-guide
 Ψ̂ = TMLE.estimate(cm_result₁₁)
 σ² = var(cm_result₁₁)
 Ψ̂ - 1.96√σ² <= 0.5 <= Ψ̂ + 1.96√σ²
-
-# output
-
-true
 ```
 
 In fact, we can easily be more rigorous here and perform a standard T test:
 
-```jldoctest user-guide
+```@example user-guide
 OneSampleTTest(cm_result₁₁)
 ```
 
@@ -140,14 +131,14 @@ ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} &= (1 + 2\mathbb{E}[W₁] + 3\mat
 
 Let's see what the TMLE tells us:
 
-```jldoctest user-guide
+```@example user-guide
 Ψ = ATE(
     target      = :Y,
     treatment   = (T₁=(case=1, control=0), T₂=(case=1, control=0)),
     confounders = [:W₁, :W₂]
 )
 
-ate_result, _, _ = tmle(Ψ, η_spec, dataset(;n=100))
+ate_result, _, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 
 OneSampleTTest(ate_result)
 ```
@@ -169,14 +160,14 @@ IATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} &= 1 .+ 2W₁ .+ 3W₂ .- 4C₁.
 
 and run:
 
-```jldoctest user-guide
+```@example user-guide
 Ψ = IATE(
     target      = :Y,
     treatment   = (T₁=(case=1, control=0), T₂=(case=1, control=0)),
     confounders = [:W₁, :W₂]
 )
 
-iate_result, _, _ = tmle(Ψ, η_spec, dataset(;n=100))
+iate_result, _, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 
 OneSampleTTest(iate_result)
 ```
@@ -187,29 +178,109 @@ By leveraging the multivariate Central Limit Theorem and Julia's automatic diffe
 
 For instance, by definition of the ATE, we should be able to retrieve ``ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}`` by composing ``CM_{T_1=1, T_2=1} - CM_{T_1=0, T_2=0}``. We already have almost all of the pieces, we just need an estimate for ``CM_{T_1=0, T_2=0}``, let's get it.
 
-```jldoctest user-guide
+```@example user-guide
 Ψ = CM(
     target      = :Y,
     treatment   = (T₁=0, T₂=0),
     confounders = [:W₁, :W₂]
 )
-cm_result₀₀, _, _ = tmle(Ψ, η_spec, dataset(;n=100))
+cm_result₀₀, _, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
+nothing # hide
 ```
 
-```jldoctest user-guide
+```@example user-guide
 composed_ate_result = compose(-, cm_result₁₁, cm_result₀₀)
+nothing # hide
 ```
 
 We can compare the estimate value, which is simply obtained by applying the function to the arguments:
 
-```jldoctest user-guide
+```@example user-guide
 TMLE.estimate(composed_ate_result), TMLE.estimate(ate_result)
 ```
 
 and the variance:
 
-```jldoctest user-guide
+```@example user-guide
 var(composed_ate_result), var(ate_result)
 ```
 
 ## Using the cache
+
+Oftentimes, we are interested in multiple parameters, or would like to investigate how our estimator is affected by changes in the nuisance parameters specification. In many cases, as long as the dataset under study is the same, it is possible to save some computational time by caching the previously learnt nuisance parameters. We describe below how TMLE.jl proposes to do that in some common scenarios. For that purpose let us add a new target variable (which is simply random noise) to our dataset:
+
+```@example user-guide
+dataset.Ynew = rand(1000)
+nothing # hide
+```
+
+### Scenario 1: Changing the treatment values
+
+Let us say we are interested in two ATE parameters: ``ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}`` and ``ATE_{T_1=1 \rightarrow 0, T_2=0 \rightarrow 1}`` (Notice how the setting for $T_1$ has changed).
+
+Let us start afresh an compute the first ATE:
+
+```@example user-guide
+Ψ = ATE(
+    target      = :Y,
+    treatment   = (T₁=(case=1, control=0), T₂=(case=1, control=0)),
+    confounders = [:W₁, :W₂]
+)
+
+ate_result₁, _, cache = tmle(Ψ, η_spec, dataset)
+nothing # hide
+```
+
+Notice the logs are informing you of all the nuisance parameters that are being fitted.
+
+Let us now investigate the second ATE by using the cache:
+
+```@example user-guide
+Ψ = ATE(
+    target      = :Y,
+    treatment   = (T₁=(case=0, control=1), T₂=(case=1, control=0)),
+    confounders = [:W₁, :W₂]
+)
+
+ate_result₂, _, cache = tmle!(cache, Ψ)
+nothing # hide
+```
+
+You should see that the logs are actually now telling you which nuisance parameters have been reused, i.e. all of them, only the targeting step needs to be done! This is because we already had nuisance estimators that matched our target parameter.
+
+### Scenario 2: Changing the target
+
+Let us now imagine that we are interested in another target: $Ynew$, we can say so by defining a new parameter and running the TMLE procedure using the cache:
+
+```@example user-guide
+Ψ = ATE(
+    target      = :Ynew,
+    treatment   = (T₁=(case=1, control=0), T₂=(case=1, control=0)),
+    confounders = [:W₁, :W₂]
+)
+
+ate_result₃, _, cache = tmle!(cache, Ψ)
+nothing # hide
+```
+
+As you can see, only $Q$ has been updated because the existing cached $G$ already matches our target parameter and cane be reused.
+
+### Scenario 3: Changing the nuisance parameters specification
+
+Another common situation is to try a new model for a given nuisance parameter (or both). Here we can try a new regularization parameter for our logistic regression:
+
+```@example user-guide
+η_spec = NuisanceSpec(
+    LinearRegressor(), # Q model
+    LogisticClassifier(lambda=0.001) # Updated G model
+)
+
+ate_result₄, _, cache = tmle!(cache, η_spec)
+nothing # hide
+```
+
+Since we have only updated $G$'s specification, only this model is fitted again.
+
+### Scenario N
+
+Feel free to play around with the cache and to report any non consistent behaviour.
