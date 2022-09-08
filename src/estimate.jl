@@ -17,6 +17,9 @@ estimate(r::ComposedTMLE) = length(r.Ψ̂) == 1 ? r.Ψ̂[1] : r.Ψ̂
 Statistics.var(r::PointTMLE) = var(r.IC)/size(r.IC, 1)
 Statistics.var(r::ComposedTMLE) = length(r.σ̂) == 1 ? r.σ̂[1] : r.σ̂
 
+HypothesisTests.OneSampleZTest(r::PointTMLE, Ψ₀=0) = OneSampleZTest(estimate(r), std(r.IC), size(r.IC, 1), Ψ₀)
+
+
 HypothesisTests.OneSampleTTest(r::PointTMLE, Ψ₀=0) = OneSampleTTest(estimate(r), std(r.IC), size(r.IC, 1), Ψ₀)
 function HypothesisTests.OneSampleTTest(r::ComposedTMLE, Ψ₀=0) 
     @assert length(r.Ψ̂) > 1 "OneSampleTTest is only implemeted for real-valued statistics."
