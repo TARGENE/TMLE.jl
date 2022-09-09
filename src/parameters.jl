@@ -194,6 +194,18 @@ struct NuisanceSpec
     F::MLJBase.Model
 end
 
+"""
+    NuisanceSpec(Q, G; H=encoder(), F=Q_model(target_scitype(Q)))
+
+Specification of the nuisance parameters to be learnt.
+
+# Arguments:
+
+- Q: For the estimation of E₀[Y|T=case, X]
+- G: For the estimation of P₀(T|W)
+- H: The encoder to deal with categorical treatments
+- F: The generalized linear model used to fluctuate the initial Q
+"""
 NuisanceSpec(Q, G; H=encoder(), F=Q_model(target_scitype(Q))) =
     NuisanceSpec(Q, G, H, F)
 

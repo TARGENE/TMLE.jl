@@ -42,7 +42,7 @@ nothing # hide
 ```
 
 !!! note "Note on Treatment variables"
-    It should be noted that the treatment variables **must** be categorical.
+    It should be noted that the treatment variables **must** be [categorical](https://categoricalarrays.juliadata.org/stable/). Since the treatment is also used as an input to the ``Q_0`` learner, a `OneHotEncoder` is used by default (see [The Nuisance Parameters](@ref) section).
 
 ## The Nuisance Parameters
 
@@ -63,6 +63,8 @@ nothing # hide
     - ``Q_0 = \mathbf{E}_0[Y|T=t, W=w, C=c]``, $Y$ can be either continuous or categorical, in our example it is continuous and a `LinearRegressor` is a correct choice.
     - ``G_0 = P_0(T|W)``, $T$ are always categorical variables. If T is a single treatment with only 2 levels, a logistic regression will work, if T has more than two levels a multinomial regression for instance would be suitable. If there are more than 2 treatment variables (with potentially more than 2 levels), then, the joint distribution is learnt and a multinomial regression would also work. In any case, the `LogisticClassifier` from [MLJLinearModels](https://juliaai.github.io/MLJLinearModels.jl/stable/) is a suitable choice.
     For more information on available models and their uses, we refer to the [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/) documentation
+
+The `NuisanceSpec` struct also holds a specification for the `OneHotEncoder` necessary for the encoding of treatment variables and a generalized linear model for the fluctuation model. Unless you know what you are doing, there is little chance you need to modify those.
 
 ## Parameters
 

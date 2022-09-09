@@ -13,7 +13,9 @@ TMLE.jl is a Julia implementation of the Targeted Minimum Loss-Based Estimation 
 Even though the TMLE framework is not restricted to causal inference, the scope of the present package is currently restricted to so called "causal effects" and the following causal graph is assumed throughout:
 
 ```@raw html
+<div style="text-align:center">
 <img src="assets/causal_graph.png" alt="Causal Model" style="width:400px;"/>
+</div>
 ```
 
 whith the following general interpration of variables:

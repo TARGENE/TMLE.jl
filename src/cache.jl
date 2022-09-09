@@ -57,6 +57,19 @@ function update!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec)
     update!(cache, η_spec)
 end
 
+"""
+    tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; verbosity=1, threshold=1e-8)
+
+Main entrypoint to run the TMLE procedure.
+
+# Arguments
+
+- Ψ: The parameter of interest
+- η_spec: The specification for learning `Q_0` and `G_0`
+- dataset: A tabular dataset respecting the Table.jl interface
+- verbosity: The logging level
+- threshold: To avoid small values of Ĝ to cause the "clever covariate" to explode
+"""
 function tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; verbosity=1, threshold=1e-8)
     cache = TMLECache(Ψ, η_spec, dataset)
     return tmle!(cache; verbosity=verbosity, threshold=threshold)
@@ -87,16 +100,32 @@ function tmle!(cache; verbosity=1, threshold=1e-8)
     return result, resultᵢ, cache
 end
 
+"""
+    tmle!(cache::TMLECache, Ψ::Parameter; verbosity=1, threshold=1e-8)
+
+Runs the TMLE procedure for the new parameter Ψ while potentially reusing cached nuisance parameters.
+"""
 function tmle!(cache::TMLECache, Ψ::Parameter; verbosity=1, threshold=1e-8)
     update!(cache, Ψ)
     tmle!(cache, verbosity=verbosity, threshold=threshold)
 end
 
+"""
+    tmle!(cache::TMLECache, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
+
+Runs the TMLE procedure for the new nuisance parameters specification η_spec while potentially reusing cached nuisance parameters.
+"""
 function tmle!(cache::TMLECache, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
     update!(cache, η_spec)
     tmle!(cache, verbosity=verbosity, threshold=threshold)
 end
 
+"""
+    tmle!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
+
+Runs the TMLE procedure for the new parameter Ψ and the new nuisance parameters specification η_spec 
+while potentially reusing cached nuisance parameters.
+"""
 function tmle!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
     update!(cache, Ψ, η_spec)
     fit!(cache, verbosity=verbosity, threshold=threshold)
