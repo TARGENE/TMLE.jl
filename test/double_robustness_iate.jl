@@ -1,6 +1,6 @@
 module TestInteractionATE
 
-include("helper_fns.jl")
+include("interaction_transformer.jl")
 
 using Test
 using TMLE
@@ -15,10 +15,10 @@ using MLJLinearModels
 
 cont_interacter = InteractionTransformer |> LinearRegressor
 cat_interacter = InteractionTransformer |> LogisticClassifier
-Ns = [100, 1000, 10000, 100000]
 
 
-function binary_target_binary_treatment_pb(rng;n=100)
+function binary_target_binary_treatment_pb(;n=100)
+    rng = StableRNG(123)
     μy_fn(W, T₁, T₂) = TMLE.expit(2W[:, 1] .+ 1W[:, 2] .- 2W[:, 3] .- T₁ .+ T₂ .+ 2*T₁ .* T₂)
     # Sampling W: Bernoulli
     W = rand(rng, Bernoulli(0.5), n, 3)
@@ -62,7 +62,8 @@ function binary_target_binary_treatment_pb(rng;n=100)
 end
 
 
-function binary_target_categorical_treatment_pb(rng;n=100)
+function binary_target_categorical_treatment_pb(;n=100)
+    rng = StableRNG(123)
     function μy_fn(W, T, Hmach)
         Thot = MLJBase.transform(Hmach, T)
         TMLE.expit(2W[:, 1] .+ 1W[:, 2] .- 2W[:, 3] 
@@ -119,7 +120,8 @@ function binary_target_categorical_treatment_pb(rng;n=100)
 end
 
 
-function continuous_target_binary_treatment_pb(rng;n=100)
+function continuous_target_binary_treatment_pb(;n=100)
+    rng = StableRNG(123)
     μy_fn(W, T₁, T₂) = 2W[:, 1] .+ 1W[:, 2] .- 2W[:, 3] .- T₁ .+ T₂ .+ 2*T₁ .* T₂
     # Sampling W: Bernoulli
     W = rand(rng, Bernoulli(0.5), n, 3)
@@ -163,6 +165,7 @@ function continuous_target_binary_treatment_pb(rng;n=100)
 end
 
 @testset "Test Double Robustness IATE on binary_target_binary_treatment_pb" begin
+    dataset, Ψ₀ = binary_target_binary_treatment_pb(n=1000)
     Ψ = IATE(
         target=:y,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
@@ -173,39 +176,31 @@ end
         ConstantClassifier(),
         LogisticClassifier(lambda=0)
     )
-    tmle_results, initial_results, Ψ₀ = asymptotics(
-        Ψ, 
-        η_spec, 
-        binary_target_binary_treatment_pb, 
-        StableRNG(123), 
-        Ns)
-    @test all_tmle_better_than_initial(tmle_results, initial_results, Ψ₀)
-    @test first_better_than_last(tmle_results, Ψ₀)
-    @test tolerance(tmle_results[end], Ψ₀, 0.011)
-    @test all_solves_ice(tmle_results, tol=1e-7) 
+    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
+    Ψ̂ = TMLE.estimate(tmle_result)
+    lb, ub = confint(OneSampleTTest(tmle_result))
+    @test lb ≤ Ψ̂ ≤ ub
+    @test Ψ̂ ≈ 0.287 atol=1e-3
+    # The initial estimate is far away
+    @test TMLE.estimate(initial_result) == 0
 
     # When Q is well specified  but G is misspecified
     η_spec = NuisanceSpec(
-        cat_interacter,
+        LogisticClassifier(lambda=0),
         ConstantClassifier()
     )
     
-    tmle_results, initial_results, Ψ₀ = asymptotics(
-        Ψ, 
-        η_spec, 
-        binary_target_binary_treatment_pb, 
-        StableRNG(123), 
-        Ns)
-    # 3/4 are better
-    @test sum(abserrors(tmle_results, Ψ₀) .< abserrors(initial_results, Ψ₀)) == 3
-    @test first_better_than_last(tmle_results, Ψ₀)
-    # This is quite far away...
-    @test tolerance(tmle_results[end], Ψ₀, 0.5)
-    @test all_solves_ice(tmle_results, tol=1e-8)
-
+    tmle_result, initial_result, cache = tmle!(cache, η_spec, verbosity=0)
+    Ψ̂ = TMLE.estimate(tmle_result)
+    lb, ub = confint(OneSampleTTest(tmle_result))
+    @test lb ≤ Ψ̂ ≤ ub
+    @test Ψ̂ ≈ 0.288 atol=1e-3
+    # Since Q is well specified, it still gets the correct answer in this case
+    @test TMLE.estimate(initial_result) ≈ -0.0003 atol=1e-4
 end
 
 @testset "Test Double Robustness IATE on continuous_target_binary_treatment_pb" begin
+    dataset, Ψ₀ = continuous_target_binary_treatment_pb(n=1000)
     Ψ = IATE(
         target=:y,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
@@ -217,17 +212,13 @@ end
         LogisticClassifier(lambda=0)
     )
 
-    tmle_results, initial_results, Ψ₀ = asymptotics(
-        Ψ, 
-        η_spec, 
-        continuous_target_binary_treatment_pb, 
-        StableRNG(123), 
-        Ns)
-
-    @test all_tmle_better_than_initial(tmle_results, initial_results, Ψ₀)
-    @test first_better_than_last(tmle_results, Ψ₀)
-    @test tolerance(tmle_results[end], Ψ₀, 0.011)
-    @test all_solves_ice(tmle_results, tol=1e-7) 
+    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
+    Ψ̂ = TMLE.estimate(tmle_result)
+    lb, ub = confint(OneSampleTTest(tmle_result))
+    @test lb ≤ Ψ̂ ≤ ub
+    @test Ψ̂ ≈ 1.947 atol=1e-3
+    # The initial estimate is far away
+    @test TMLE.estimate(initial_result) == 0 
 
     # When Q is well specified  but G is misspecified
     η_spec = NuisanceSpec(
@@ -235,21 +226,18 @@ end
         ConstantClassifier()
     )
 
-    tmle_results, initial_results, Ψ₀ = asymptotics(
-        Ψ, 
-        η_spec, 
-        continuous_target_binary_treatment_pb, 
-        StableRNG(123), 
-        Ns)
-
-    @test sum(abserrors(tmle_results, Ψ₀) .< abserrors(initial_results, Ψ₀)) == 3
-    @test first_better_than_last(tmle_results, Ψ₀)
-    @test tolerance(tmle_results[end], Ψ₀, 0.011)
-    @test all_solves_ice(tmle_results, tol=1e-7) 
+    tmle_result, initial_result, cache = tmle!(cache, η_spec, verbosity=0)
+    Ψ̂ = TMLE.estimate(tmle_result)
+    lb, ub = confint(OneSampleTTest(tmle_result))
+    @test lb ≤ Ψ̂ ≤ ub
+    @test Ψ̂ ≈ 1.999 atol=1e-3
+    # Since Q is well specified, it still gets the correct answer in this case
+    @test TMLE.estimate(initial_result) ≈ 1.999 atol=1e-3
 end
 
 
 @testset "Test Double Robustness IATE on binary_target_categorical_treatment_pb" begin
+    dataset, Ψ₀ = binary_target_categorical_treatment_pb(n=1000)
     Ψ = IATE(
         target=:y,
         treatment=(T₁=(case="CC", control="CG"), T₂=(case="AT", control="AA")),
@@ -261,17 +249,13 @@ end
         LogisticClassifier(lambda=0)
     )
 
-    tmle_results, initial_results, Ψ₀ = asymptotics(
-        Ψ, 
-        η_spec, 
-        binary_target_categorical_treatment_pb, 
-        StableRNG(123), 
-        Ns)
-
-    @test all_tmle_better_than_initial(tmle_results, initial_results, Ψ₀)
-    @test first_better_than_last(tmle_results, Ψ₀)
-    @test tolerance(tmle_results[end], Ψ₀, 0.011)
-    @test all_solves_ice(tmle_results, tol=1e-7)
+    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
+    Ψ̂ = TMLE.estimate(tmle_result)
+    lb, ub = confint(OneSampleTTest(tmle_result))
+    @test lb ≤ Ψ̂ ≤ ub
+    @test Ψ̂ ≈ -0.736 atol=1e-3
+    # The initial estimate is far away
+    @test TMLE.estimate(initial_result) == 0 
 
     # When Q is well specified but G is misspecified
     η_spec = NuisanceSpec(
@@ -279,17 +263,13 @@ end
         ConstantClassifier()
     )
 
-    tmle_results, initial_results, Ψ₀ = asymptotics(
-        Ψ, 
-        η_spec, 
-        binary_target_categorical_treatment_pb, 
-        StableRNG(123), 
-        Ns)
-
-    @test all_tmle_better_than_initial(tmle_results, initial_results, Ψ₀)
-    @test first_better_than_last(tmle_results, Ψ₀)
-    @test tolerance(tmle_results[end], Ψ₀, 0.011)
-    @test all_solves_ice(tmle_results, tol=1e-7)
+    tmle_result, initial_result, cache = tmle!(cache, η_spec, verbosity=0)
+    Ψ̂ = TMLE.estimate(tmle_result)
+    lb, ub = confint(OneSampleTTest(tmle_result))
+    @test lb ≤ Ψ̂ ≤ ub
+    @test Ψ̂ ≈ -0.779 atol=1e-3
+    # Here the initial cannot get it it seems
+    @test TMLE.estimate(initial_result) ≈ -0.017 atol=1e-3
 end
 
 
