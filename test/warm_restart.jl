@@ -9,40 +9,6 @@ using Distributions
 using MLJLinearModels
 using CategoricalArrays
 
-# A) End to end tests to perform: todo after D)
-# - Understand why not always closer to truth than initial estimate
-# Maybe due to GLM numerical optimization, to be checked and update tests
-# - Investigate breaking cases for TMLE in double robustness too. Maybe interaction logistic classifier underfitting?
-# - A good default check is to verify the mean inf curve is always closer to 0 Since
-# this is the action of tmle
-
-# - IATE 3 treatments? todo after D)
-
-# B) Composition of EstimationResult
-# - IATE vs conditional ATEs? Maybe todo after D) or skip
-
-# D) Documentation
-
-# Welcome to TMLE.jl
-# Overview
-# Installation
-# Quick start
-# User Guide
-## The running example
-## Conditional mean
-## ATE
-## Using the cache
-## Composing parameters
-## IATE
-# API
-## Parameters
-## TMLE
-## Composition
-
-# E) Make Nuisance more automatic and deal with probabilistic continuous
-# - Probabilistic continuous: rework at least expected_value and offset
-# - Default constructor for NuisanceSpec using GLMs
-
 
 function covers(result, Ψ₀; level=0.05)
     test = OneSampleTTest(result, Ψ₀)

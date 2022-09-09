@@ -1,5 +1,5 @@
 #=
-# Be a Super Learner
+# Becoming a Super Learner
 
 ## What this tutorial is about
 
