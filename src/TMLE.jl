@@ -27,6 +27,7 @@ export compose
 # INCLUDES
 # #############################################################################
 
+include("treatment_transformer.jl")
 include("jointmodels.jl")
 include("parameters.jl")
 include("utils.jl")

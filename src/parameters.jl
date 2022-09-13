@@ -203,10 +203,10 @@ Specification of the nuisance parameters to be learnt.
 
 - Q: For the estimation of E₀[Y|T=case, X]
 - G: For the estimation of P₀(T|W)
-- H: The encoder to deal with categorical treatments
+- H: The `TreatmentTransformer`` to deal with categorical treatments
 - F: The generalized linear model used to fluctuate the initial Q
 """
-NuisanceSpec(Q, G; H=encoder(), F=Q_model(target_scitype(Q))) =
+NuisanceSpec(Q, G; H=TreatmentTransformer(), F=Q_model(target_scitype(Q))) =
     NuisanceSpec(Q, G, H, F)
 
 Q_model(::Type{<:AbstractVector{Continuous}}) =
@@ -217,7 +217,6 @@ Q_model(::Type{<:AbstractVector{<:Finite}}) =
 
 Q_model(t::Type{Any}) = throw(ArgumentError("Cannot proceed with Q model with target_scitype $t"))
 
-encoder() = OneHotEncoder(drop_last=true, ordered_factor=false)
 
 """
     fit!(η::NuisanceParameters, η_spec, Ψ::Parameter, dataset; verbosity=1)
