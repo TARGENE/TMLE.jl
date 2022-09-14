@@ -8,7 +8,7 @@ using DataFrames
 using Distributions
 using MLJLinearModels
 using CategoricalArrays
-
+using LogExpFunctions
 
 function covers(result, Ψ₀; level=0.05)
     test = OneSampleTTest(result, Ψ₀)
@@ -37,8 +37,8 @@ function build_dataset(;n=100)
     # Covariates
     C₁ = rand(rng, n)
     # Treatment | Confounders
-    T₁ = rand(rng, Uniform(), n) .< TMLE.expit(0.5sin.(W₁) .- 1.5W₂)
-    T₂ = rand(rng, Uniform(), n) .< TMLE.expit(-3W₁ - 1.5W₂)
+    T₁ = rand(rng, Uniform(), n) .< logistic.(0.5sin.(W₁) .- 1.5W₂)
+    T₂ = rand(rng, Uniform(), n) .< logistic.(-3W₁ - 1.5W₂)
     # target | Confounders, Covariates, Treatments
     y₁ = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .+ T₁ + T₂.*W₂ .+ rand(rng, Normal(0, 0.1), n)
     y₂ = 1 .+ 10T₂ .+ rand(rng, Normal(0, 0.1), n)

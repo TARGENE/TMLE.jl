@@ -95,7 +95,7 @@ For instance, assume the following simple data generating process:
 ```math
 \begin{aligned}
 W  &\sim \mathcal{Uniform}(0, 1) \\
-T  &\sim \mathcal{Bernoulli}(expit(1-2 \cdot W)) \\
+T  &\sim \mathcal{Bernoulli}(logistic(1-2 \cdot W)) \\
 Y  &\sim \mathcal{Normal}(1 + 3 \cdot T - T \cdot W, 0.01)
 \end{aligned}
 ```
@@ -109,11 +109,12 @@ using Random
 using CategoricalArrays
 using MLJLinearModels
 using TMLE
+using LogExpFunctions
 
 rng = StableRNG(123)
 n = 100
 W = rand(rng, Uniform(), n)
-T = rand(rng, Uniform(), n) .< TMLE.expit(1 .- 2W)
+T = rand(rng, Uniform(), n) .< logistic.(1 .- 2W)
 Y = 1 .+ 3T .- T.*W .+ rand(rng, Normal(0, 0.01), n)
 dataset = (Y=Y, T=categorical(T), W=W)
 nothing # hide

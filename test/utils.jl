@@ -61,7 +61,7 @@ using MLJModels
 end
 
 
-@testset "Test expected_value & maybelogit" begin
+@testset "Test expected_value" begin
     n = 100
     X = MLJBase.table(rand(n, 3))
 
@@ -231,7 +231,7 @@ end
     y = categorical([1, 1, 1, 1, 0, 0, 0, 0, 0, 0])
     mach = machine(ConstantClassifier(), MLJBase.table(X), y)
     fit!(mach, verbosity=0)
-    ŷ = predict(mach)
+    ŷ = MLJBase.predict(mach)
     # Should be equal to logit(Ê[Y|X])= logit(4/10) = -0.4054651081081643
     @test TMLE.compute_offset(ŷ) == repeat([-0.4054651081081643], n)
 
@@ -243,15 +243,6 @@ end
     # Should be equal to Ê[Y|X] = 5.5
     @test TMLE.compute_offset(ŷ) == repeat([5.5], n)
     
-end
-
-@testset "Test logit" begin
-    @test TMLE.logit([0.4, 0.8, 0.2]) ≈ [
-        -0.40546510810,
-        1.38629436112,
-        -1.38629436112
-    ]
-    @test TMLE.logit([1, 0]) == [Inf, -Inf]
 end
 
 end;

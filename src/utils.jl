@@ -2,10 +2,6 @@
 ## General Utilities
 ###############################################################################
 
-logit(X) = log.(X ./ (1 .- X))
-expit(X) = 1 ./ (1 .+ exp.(-X))
-
-
 log_fit(verbosity, model) = 
     verbosity >= 1 && @info string("→ Fitting ", model)
 
@@ -75,7 +71,7 @@ expected_value(ŷ::UnivariateFiniteVector{Multiclass{2}}) = pdf.(ŷ, levels(firs
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
-compute_offset(ŷ::UnivariateFiniteVector{Multiclass{2}}) = logit(expected_value(ŷ))
+compute_offset(ŷ::UnivariateFiniteVector{Multiclass{2}}) = logit.(expected_value(ŷ))
 compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
 compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 

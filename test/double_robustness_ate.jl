@@ -10,6 +10,7 @@ using MLJModels
 using StableRNGs
 using StatsBase
 using HypothesisTests
+using LogExpFunctions
 
 """
 Q and G are two logistic models
@@ -46,7 +47,7 @@ function continuous_target_binary_treatment_pb(;n=100)
     Unif = Uniform(0, 1)
     W = float(rand(rng, Bernoulli(0.5), n, 3))
     W₁, W₂, W₃ = W[:, 1], W[:, 2], W[:, 3]
-    t = rand(rng, Unif, n) .< TMLE.expit(0.5W₁ + 1.5W₂ - W₃)
+    t = rand(rng, Unif, n) .< logistic.(0.5W₁ + 1.5W₂ - W₃)
     y = 4t + 25W₁ + 3W₂ - 4W₃ + rand(rng, Normal(0, 0.1), n)
     # Type coercion
     T = categorical(t)

@@ -13,6 +13,7 @@ using Statistics
 using Distributions
 using Zygote
 using AbstractDifferentiation
+using LogExpFunctions
 
 # #############################################################################
 # EXPORTS

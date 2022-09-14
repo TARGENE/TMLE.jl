@@ -36,7 +36,7 @@ using MLJ
 using TMLE
 
 μY(T, W₁, W₂) = sin.(10T.*W₁).*exp.(-1 .+ 2W₁.*W₂ .- T.*W₂) .- cos.(10T.*W₂).*log.(2 .- W₁.*W₂)
-μT(W₁, W₂) = TMLE.expit(10sin.(W₁) .- 1.5W₂)
+μT(W₁, W₂) = logistic.(10sin.(W₁) .- 1.5W₂)
 
 function hard_problem(;n=1000, doT=nothing)
     rng = StableRNG(123)

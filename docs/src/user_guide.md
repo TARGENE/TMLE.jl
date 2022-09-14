@@ -15,6 +15,7 @@ using DataFrames
 using StableRNGs
 using CategoricalArrays
 using TMLE
+using LogExpFunctions
 
 function make_dataset(;n=1000)
     rng = StableRNG(123)
@@ -24,8 +25,8 @@ function make_dataset(;n=1000)
     # Covariates
     C₁ = rand(rng, Uniform(), n)
     # Treatment | Confounders
-    T₁ = rand(rng, Uniform(), n) .< TMLE.expit(0.5sin.(W₁) .- 1.5W₂)
-    T₂ = rand(rng, Uniform(), n) .< TMLE.expit(-3W₁ - 1.5W₂)
+    T₁ = rand(rng, Uniform(), n) .< logistic.(0.5sin.(W₁) .- 1.5W₂)
+    T₂ = rand(rng, Uniform(), n) .< logistic.(-3W₁ - 1.5W₂)
     # Target | Confounders, Covariates, Treatments
     Y = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .- 2T₂.*T₁.*W₂ .+ rand(rng, Normal(0, 0.1), n)
     return DataFrame(

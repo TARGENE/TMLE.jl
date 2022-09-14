@@ -12,6 +12,7 @@ using Tables
 using StatsBase
 using MLJModels
 using MLJLinearModels
+using LogExpFunctions
 
 cont_interacter = InteractionTransformer |> LinearRegressor
 cat_interacter = InteractionTransformer |> LogisticClassifier
@@ -19,7 +20,7 @@ cat_interacter = InteractionTransformer |> LogisticClassifier
 
 function binary_target_binary_treatment_pb(;n=100)
     rng = StableRNG(123)
-    μy_fn(W, T₁, T₂) = TMLE.expit(2W[:, 1] .+ 1W[:, 2] .- 2W[:, 3] .- T₁ .+ T₂ .+ 2*T₁ .* T₂)
+    μy_fn(W, T₁, T₂) = logistic.(2W[:, 1] .+ 1W[:, 2] .- 2W[:, 3] .- T₁ .+ T₂ .+ 2*T₁ .* T₂)
     # Sampling W: Bernoulli
     W = rand(rng, Bernoulli(0.5), n, 3)
 
@@ -66,7 +67,7 @@ function binary_target_categorical_treatment_pb(;n=100)
     rng = StableRNG(123)
     function μy_fn(W, T, Hmach)
         Thot = MLJBase.transform(Hmach, T)
-        TMLE.expit(2W[:, 1] .+ 1W[:, 2] .- 2W[:, 3] 
+        logistic.(2W[:, 1] .+ 1W[:, 2] .- 2W[:, 3] 
                     .- Thot[1] .+ Thot[2] .+ 2Thot[3] .- 3Thot[4]
                     .+ 2*Thot[1].*Thot[2]
                     .+ 1*Thot[1].*Thot[3]

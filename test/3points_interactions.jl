@@ -9,6 +9,7 @@ using TMLE
 using MLJLinearModels
 using CategoricalArrays
 using Test
+using LogExpFunctions
 
 interacter = InteractionTransformer(order=3) |> LinearRegressor()
 
@@ -16,7 +17,7 @@ function make_dataset(;n=1000)
     rng = StableRNG(123)
     W = rand(rng, Uniform(), n)
     T₁ = rand(rng, Uniform(), n) .< W
-    T₂ = rand(rng, Uniform(), n) .< TMLE.expit(1 .- 2W)
+    T₂ = rand(rng, Uniform(), n) .< logistic.(1 .- 2W)
     T₃ = rand(rng, [0, 1], n)
 
     y = 2 .- 2T₁.*T₂.*T₃.*(W .+ 10) + rand(rng, Normal(0, 0.03), n)
