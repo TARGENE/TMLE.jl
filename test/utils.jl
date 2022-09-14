@@ -71,26 +71,23 @@ end
     fit!(mach; verbosity=0)
     proba = mach.fitresult[2][2]
     ŷ = MLJBase.predict(mach)
-    expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    expectation = TMLE.expected_value(ŷ)
     @test expectation == repeat([proba], n)
-    @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == TMLE.logit(expectation)
 
     # Probabilistic Regressor
     y = rand(n)
     mach = machine(ConstantRegressor(), X, y)
     fit!(mach; verbosity=0)
     ŷ = MLJBase.predict(mach)
-    expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    expectation = TMLE.expected_value(ŷ)
     @test expectation ≈ repeat([mean(y)], n) atol=1e-10
-    @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == expectation
 
     # Deterministic Regressor
     mach = machine(LinearRegressor(), X, y)
     fit!(mach; verbosity=0)
     ŷ = MLJBase.predict(mach)
-    expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    expectation = TMLE.expected_value(ŷ)
     @test expectation == ŷ
-    @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == expectation
 end
 
 @testset "Test adapt" begin
@@ -234,15 +231,17 @@ end
     y = categorical([1, 1, 1, 1, 0, 0, 0, 0, 0, 0])
     mach = machine(ConstantClassifier(), MLJBase.table(X), y)
     fit!(mach, verbosity=0)
+    ŷ = predict(mach)
     # Should be equal to logit(Ê[Y|X])= logit(4/10) = -0.4054651081081643
-    @test TMLE.compute_offset(mach, X) == repeat([-0.4054651081081643], n)
+    @test TMLE.compute_offset(ŷ) == repeat([-0.4054651081081643], n)
 
     # When Y is continuous
     y = [1., 2., 3, 4, 5, 6, 7, 8, 9, 10]
     mach = machine(MLJModels.DeterministicConstantRegressor(), MLJBase.table(X), y)
     fit!(mach, verbosity=0)
+    ŷ = predict(mach)
     # Should be equal to Ê[Y|X] = 5.5
-    @test TMLE.compute_offset(mach, X) == repeat([5.5], n)
+    @test TMLE.compute_offset(ŷ) == repeat([5.5], n)
     
 end
 

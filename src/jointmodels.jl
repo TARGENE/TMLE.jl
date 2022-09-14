@@ -20,7 +20,7 @@ function MLJBase.fit(model::FullCategoricalJoint, verbosity::Int, X, Y)
 
     # Fit the underlying model
     y_multi = encode(Y, encoding, collect(values(encoding)))
-    fitresult, cache, report = fit(model.model, verbosity, X, y_multi)
+    fitresult, cache, report = MLJBase.fit(model.model, verbosity, X, y_multi)
 
     return (encoding=encoding, levels=levels(y_multi), model_fitresult=fitresult), cache, report
 end

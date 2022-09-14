@@ -71,20 +71,13 @@ end
 ###############################################################################
 ## Offset
 ###############################################################################
-expected_value(ŷ, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:Finite}}) = pdf.(ŷ, levels(first(ŷ))[2])
-expected_value(ŷ, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:MLJBase.Continuous}}) = mean.(ŷ)
-expected_value(ŷ, ::Type{<:Deterministic}, ::Type{<:AbstractArray{<:MLJBase.Continuous}}) = ŷ
+expected_value(ŷ::UnivariateFiniteVector{Multiclass{2}}) = pdf.(ŷ, levels(first(ŷ))[2])
+expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
+expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
-
-maybelogit(x, ::Type{<:Probabilistic}, ::Type{<:AbstractArray{<:Finite}}) = logit(x)
-maybelogit(x, _, _) = x
-
-function compute_offset(mach::Machine, X)
-    ŷ = MLJBase.predict(mach, X)
-    expectation = expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
-    return maybelogit(expectation, typeof(mach.model), target_scitype(mach.model))
-end
-
+compute_offset(ŷ::UnivariateFiniteVector{Multiclass{2}}) = logit(expected_value(ŷ))
+compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
+compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 
 ###############################################################################
 ## Covariate

@@ -59,8 +59,8 @@ end
     fit!(η.Q, verbosity=0)
     X₁ = (W=dataset.W, T=categorical(ones(Int, n), levels=levels(dataset.T)))
     X₀ = (W=dataset.W, T=categorical(zeros(Int, n), levels=levels(dataset.T)))
-    ŷ₁ =  predict_mean(η.Q, MLJBase.transform(η.H, X₁)) 
-    ŷ₀ = predict_mean(η.Q, MLJBase.transform(η.H, X₀))
+    ŷ₁ =  TMLE.expected_value(predict(η.Q, MLJBase.transform(η.H, X₁)))
+    ŷ₀ = TMLE.expected_value(predict(η.Q, MLJBase.transform(η.H, X₀)))
     expected_cf_agg = ŷ₁ - ŷ₀
     cf_agg = TMLE.counterfactual_aggregate(Ψ, η, dataset; threshold=1e-8)
     @test cf_agg == expected_cf_agg

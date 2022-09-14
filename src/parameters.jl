@@ -209,7 +209,7 @@ Specification of the nuisance parameters to be learnt.
 NuisanceSpec(Q, G; H=TreatmentTransformer(), F=Q_model(target_scitype(Q))) =
     NuisanceSpec(Q, G, H, F)
 
-Q_model(::Type{<:AbstractVector{Continuous}}) =
+Q_model(::Type{<:AbstractVector{<:MLJBase.Continuous}}) =
     LinearRegressor(fit_intercept=false, offsetcol = :offset)
 
 Q_model(::Type{<:AbstractVector{<:Finite}}) =
@@ -266,7 +266,8 @@ end
 
 function fluctuation_input(dataset, η, Ψ; threshold=1e-8)
     X = Qinputs(dataset, Ψ)
-    offset = compute_offset(η.Q, MLJBase.transform(η.H, X))
+    ŷ = MLJBase.predict(η.Q, MLJBase.transform(η.H, X))
+    offset = compute_offset(ŷ)
     indicators = indicator_fns(Ψ)
     W = confounders(X, Ψ)
     T = treatments(X, Ψ)
@@ -286,15 +287,12 @@ end
 function outcome_mean(η, Ψ, dataset; threshold=1e-8)
     if η.F isa Nothing
         X = Qinputs(dataset, Ψ)
-        return expected_value(
-            MLJBase.predict(η.Q,  MLJBase.transform(η.H, X)), 
-            typeof(η.Q.model), 
-            target_scitype(η.Q.model)
-        )
+        ŷ = MLJBase.predict(η.Q,  MLJBase.transform(η.H, X))
     else
         X = fluctuation_input(dataset, η, Ψ, threshold=threshold)
-        return predict_mean(η.F, X)
+        ŷ = predict(η.F, X)
     end
+    return expected_value(ŷ)
 end
 
 function counterfactual_aggregate(Ψ, η, dataset; threshold=1e-8)
