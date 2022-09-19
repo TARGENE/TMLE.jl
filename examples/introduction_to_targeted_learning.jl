@@ -1,0 +1,236 @@
+#=
+# Introduction to Targeted Learning
+
+## Taller is better?
+
+One is often interested in the effect of a given variable (treatment) on an outcome. 
+For instance, one could be interested in the effect of an individual's characteristics 
+on their climbing ability. In this tutorial we investigate this question using the famous 
+[8anu-climbing-logbook](https://www.kaggle.com/datasets/dcohen21/8anu-climbing-logbook)
+dataset. More precisely, we will investigate the effect of height on the average and maximum 
+climbing grades reached by individuals.
+
+=#
+using SQLite
+using DataFrames
+using CategoricalArrays
+using CairoMakie
+using Statistics
+
+function bucketize(v; buckets=[160., 170., 180., 190., 200.])
+    bucketized = Vector{Int}()
+    max_val = maximum(v)
+    buckets = copy(buckets)
+    if max_val != buckets[end]
+        append!(buckets, max_val) 
+    end
+    for index in eachindex(v)
+        x = v[index]
+        for bucket_limit in buckets
+            if x <= bucket_limit
+                push!(bucketized, bucket_limit)
+                break
+            end
+        end
+    end 
+    return categorical(bucketized)
+end
+
+function load_dataset(;db_path = "/Users/olivierlabayle/Documents/database.sqlite", height_buckets = [160., 170., 180., 190., 200.])
+    db = SQLite.DB(db_path)
+    dataset = DBInterface.execute(
+        db, 
+        """SELECT CAST(height AS float) AS height, 
+                  CAST(sex AS float) AS sex, 
+                  CAST(max_score AS FLOAT) AS max_score, 
+                  mean_score FROM 
+            (SELECT user_id, MAX(score) as max_score, AVG(score) as mean_score FROM ascent 
+                INNER JOIN grade 
+                ON ascent.grade_id = grade.id
+                GROUP BY user_id) as score_table
+                INNER JOIN user
+                ON score_table.user_id = user.id
+                WHERE user.height > 150 AND user.height < 220;"""
+        ) |> DataFrame
+
+    dataset.categorical_height = bucketize(dataset.height; buckets=height_buckets)
+
+    for height in height_buckets
+        dataset[!, "counterfactual_height_$height"] .= height
+    end
+
+    return dataset
+end
+
+function plot_climbing_data(dataset)
+    overall = combine(groupby(dataset, :height), :mean_score => mean, :max_score => mean)
+    bysex = combine(groupby(dataset, [:sex, :height]), :mean_score => mean, :max_score => mean)
+    females = filter(x -> x.sex == 1, bysex)
+    males = filter(x -> x.sex == 0, bysex)
+    fig = Figure()
+    axis₁ = Axis(fig[1, 1], xlabel="Height", ylabel="Mean mean Score")
+    scatter!(axis₁, overall.height, overall.mean_score_mean, label="Overall")
+    scatter!(axis₁, females.height, females.mean_score_mean, label="Females")
+    scatter!(axis₁, males.height, males.mean_score_mean, label="Males")
+    axislegend()
+    axis₂ = Axis(fig[1, 2], xlabel="Height", ylabel="Mean max Score")
+    scatter!(axis₂, overall.height, overall.max_score_mean, label="Overall")
+    scatter!(axis₂, females.height, females.max_score_mean, label="Females")
+    scatter!(axis₂, males.height, males.max_score_mean, label="Males")
+    axislegend()
+    fig
+end
+
+height_buckets = [160., 170., 180., 190., 200., 220.]
+dataset = load_dataset(height_buckets=height_buckets)
+plot_climbing_data(dataset)
+
+#=
+## The causal model
+
+In order to draw causal conclusions we must first come up with a causal model of the problem. 
+If you are new to causal inference, you can have a look at Judea Pearl's [primer](http://bayes.cs.ucla.edu/PRIMER/),
+if you are not interested in causal inference but only on the targeted approach you can jump to the next section.
+Causal models are typically represented by directed acyclic graphs like the following one:
+
+```@raw html
+<div style="text-align:center">
+<img src="assets/climbing_graph.png" alt="Causal Model of Climing Performance" style="width:400px;"/>
+</div>
+```
+
+One of the major result in causal inference, the so-called backdoor-criterion, tells us
+that a causal effect of a treatment on an outcome can be obtained by "adjusting" for all 
+back-door paths into the treatment and outcome variables. In our example it seems natural 
+to assume that an individual's sex can be influencing both their height and climbing performance 
+and is thus one such variable. There could be many other such variables, and we should adjust
+for all of them otherwise our effect size won't be carrying a causal interpretation. When we say
+"adjust" for variables, we formally mean integrate over those variables:
+
+```math
+p^{do(height=h)}(score=s) = \int_g p(score=s | height=h, gender=g)
+```
+
+For the sake of this tutorial we will assume that gender is the only confounding variable and 
+can now move to the statistical estimation procedure.
+
+## The conceptual shift: from statistical models to parameters 
+
+Traditional estimation methods start from a conveniently chosen parametric statistical model, proceed with maximum likelihood estimation 
+and finally **interpret** one of the model's parameter as the seeked effect size. For instance, a linear model is often assumed and in our scenario 
+could be formalized as :
+
+```math
+Y =  \alpha + \beta \cdot X + \epsilon , \epsilon \sim \mathcal{N}(0, \sigma^2)
+```
+
+where ``\alpha``, ``\beta`` and ``\sigma^2`` are parameters to be estimated. In this case, ``\beta`` would be understood as 
+the effect of X on Y. The problem with this approach is that if the model is wrong there is no 
+guarantee that ``\beta`` will actually correspond to any effect size at all. We refer to such approaches as model-based 
+because the model is the starting point of the analysis. Targeted Learning on the other hand, can be considered parameter-based 
+because the starting point of the analysis is the question of interest. But how do you formulate a question without a model? The 
+reality is that it requires some mathematical abstraction, which can be intimidating at first and keep you astray. Please do not, 
+in fact you don't need to understand the mathematical details to use this package, and if you are trying to estimate some standard
+effect size, there is a high chance the parameter you are looking for is the Average Treatment Effect (ATE). Conceptually, you can think 
+of the observed data as being generated by some complicated process which we will denote by ``P_0``. The ``0`` subscript reminds us
+that this the ground truth, some unknown process that we can only witness through the observed data. A parameter, or question of interest is 
+simply a summary of this highly complicated ``P_0``. In our climbing example, we could ask the following question: 
+"What average improvement in climbing grades would someone see after a year if they started climbing 3 times a week as compared to climbing only once a week". 
+As you can see, the question is quite precise and the answer is expected to be a single number, for instance it could be 0, 1, 2, 3 grades...
+Formally this is represented by the ATE as follows:
+
+```math
+ATE_{0, C=3 \rightarrow C=4} =  \mathbf{E}_0[\mathbf{E}_0[Y|C=4, W]] - \mathbf{E}_0[\mathbf{E}_0[Y|C=3, W]]
+```
+
+where the ``\mathbf{E}_0`` symbol is the expecation (average) operator, the inner one is taken over ``Y`` and the outer one over ``W``. 
+In essence, we are only looking at the average difference in outcomes for two different groups ``C=4`` and ``C=3``, and the presence of the extra 
+``W`` is due to our causal understanding of climbing progression.
+However you can notice that no particular model is assumed to define the ATE, it is simply depending on ``P_0`` via the average ``\mathbf{E}_0``.
+Now that we have defined our target quantity, we can proceed to estimation.
+
+## The naive estimator
+
+The most common estimation strategy, and that which is used by Targeted Learning is the so-called plugin-estimation. The idea is simple, because 
+we have defined our quantity of interest (the ATE) as a function of ``P_0``, we only need to come up with an estimate ``\hat{P}_n`` for ``P_0`` and 
+then compute the ATE on this estimated ``\hat{P}_n``. In fact, in most cases, we don't even need to come up with a complete estimate for ``P_0`` but only 
+the relevant parts of it. By looking at the ATE's formula, we can see that each term consists of two nested expectations, there are thus two such relevant parts 
+that we need to estimate.
+
+The first one is the conditional mean of the outcome given the climbing frequency and the confounders:
+
+```math
+\mathcal{Q}_0(c, w) = \mathbf{E}_0[Y|C=c, W=w]
+```
+
+The second one is the mean of ``\mathcal{Q}_0(c, w)`` over ``w``:
+
+```math
+\mu_{0, W}(c) = \mathbf{E}_0[\mathcal{Q}_0(c, W)]
+```
+
+Using [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/), we can define an estimator for ``\mathcal{Q}_0`` as follows: 
+=#
+using MLJ
+using MLJLinearModels
+using EvoTrees
+using MLJModels
+using NearestNeighborModels
+
+Q̂_spec = Stack(
+    metalearner = LinearRegressor(),
+    lr = LinearRegressor(),
+    evo = EvoTreeRegressor(),
+    knn = KNNRegressor(),
+    constant = DeterministicConstantRegressor()
+)
+
+#=
+and compute the naive estimate by using the empirical distribution for ``\mu_{0, W}``, which is computing the empirical mean.
+We can do this for both the `mean_score` and `max_score` outcomes and with or without confounding adjustment to see the 
+difference.
+=#
+
+naive_estimate(mach, X_high, X_low) = 
+    mean(predict(mach, X_high) .- predict(mach, X_low))
+
+function counterfactualX(dataset, features, height) 
+    if :sex in features
+        return dataset[!, ["counterfactual_height_$height", "sex"]]
+    else
+        return dataset[!, ["counterfactual_height_$height"]]
+    end
+end
+
+results = DataFrame(height_high=[], height_low=[], target=[], features=[], estimate=[])
+for target in (:mean_score, :max_score)
+    for features in [[:height, :sex], [:height]]
+        mach = machine(
+            Q̂_spec, 
+            dataset[!, features], 
+            dataset[!, target]
+        )
+        fit!(mach, verbosity=0)
+        for (low, high) in zip(height_buckets[1:end-1], height_buckets[2:end])
+            X_high =  counterfactualX(dataset, features, high) 
+            X_low = counterfactualX(dataset, features, low) 
+            estimate = naive_estimate(mach, X_high, X_low)
+            push!(results, (high, low, target, join(features, :_), estimate))
+        end
+    end
+end
+results
+
+#=
+Now the estimate is only...
+
+The problem with the naive approach is that the use of the data is targeted towards the estimation of ``\mathcal{Q}_0``.
+However, we are not interested in ``\mathcal{Q}_0`` but in the ATE, this is where the targeted step comes in, it will shift 
+our initial estimator of ``\mathcal{Q}_0`` to reduce the bias of our ATE estimator.
+
+## Targeting the naive estimator
+
+
+=#
+
+

@@ -26,7 +26,10 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "User Guide" => "user_guide.md",
-        "Examples" => [joinpath("examples", "super_learning.md")],
+        "Examples" => [
+            joinpath("examples", "introduction_to_targeted_learning.md"), 
+            joinpath("examples", "super_learning.md")
+            ],
         "API Reference" => "api.md"
     ],
 )

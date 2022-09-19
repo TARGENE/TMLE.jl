@@ -34,6 +34,7 @@ using CairoMakie
 using CategoricalArrays
 using MLJ
 using TMLE
+using LogExpFunctions
 
 μY(T, W₁, W₂) = sin.(10T.*W₁).*exp.(-1 .+ 2W₁.*W₂ .- T.*W₂) .- cos.(10T.*W₂).*log.(2 .- W₁.*W₂)
 μT(W₁, W₂) = logistic.(10sin.(W₁) .- 1.5W₂)
