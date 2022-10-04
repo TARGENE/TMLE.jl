@@ -12,6 +12,16 @@ using MLJGLMInterface: LinearBinaryClassifier
 using MLJLinearModels
 using MLJModels
 
+function test_params_match(parameters, expected_params)
+    for (param, expected_param) in zip(parameters, expected_params)
+        @test typeof(param) == typeof(expected_param)
+        @test param.target == expected_param.target
+        @test param.treatment == expected_param.treatment
+        @test param.confounders == expected_param.confounders
+        @test param.covariates == expected_param.covariates
+    end
+end
+
 @testset "Test indicator_fns" begin
     # Conditional Mean
     Ψ = CM(
@@ -244,6 +254,61 @@ end
     @test TMLE.compute_offset(ŷ) == repeat([5.5], n)
     
 end
+
+
+@testset "Test parameters_from_yaml" begin
+    # No covariate
+    param_file = joinpath("data", "parameters.yaml")
+    parameters = parameters_from_yaml(param_file)
+    expected_params =[
+        IATE(;
+            target=:Y1, 
+            treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
+            confounders=[:W1], 
+            covariates=Symbol[]
+        ),
+        IATE(;
+            target=:Y2, 
+            treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
+            confounders=[:W1], 
+            covariates=Symbol[]
+        ),
+        ATE(;
+            target=:Y1, 
+            treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
+            confounders=[:W1], 
+            covariates=Symbol[]
+        ),
+        ATE(;
+            target=:Y2, 
+            treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
+            confounders=[:W1], 
+            covariates=Symbol[]
+        ),
+        CM(;target=:Y1, treatment=(T2 = 0, T1 = 1), confounders=[:W1], covariates=Symbol[]),
+        CM(;target=:Y2, treatment=(T2 = 0, T1 = 1), confounders=[:W1], covariates=Symbol[])
+    ]
+    test_params_match(parameters, expected_params)
+    # With covariate
+    param_file = joinpath("data", "parameters_with_covariates.yaml")
+    parameters = parameters_from_yaml(param_file)
+    expected_params = [
+        IATE(;
+            target=:Y1, 
+            treatment=(T2 = (case = "AC", control = "CC"), T1 = (case = 2, control = 1)), 
+            confounders=[:W1], 
+            covariates=[:C1])
+        ATE(;
+            target=:Y1, 
+            treatment=(T2 = (case = "AC", control = "CC"), T1 = (case = 2, control = 0)), 
+            confounders=[:W1], 
+            covariates=[:C1])
+        CM(target=:Y1, treatment=(T2 = 0, T1 = 0), confounders=[:W1], covariates=[:C1])
+    ]
+    test_params_match(parameters, expected_params)
+
+end
+
 
 end;
 

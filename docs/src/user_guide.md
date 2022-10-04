@@ -208,6 +208,45 @@ and the variance:
 var(composed_ate_result), var(ate_result)
 ```
 
+### Reading Parameters from YAML files
+
+It may be useful to declare a list of parameter files for a given causal model from a file. We provide this functionality using the YAML format and the `parameters_from_yaml` function. A parameters configuration file contains 4 mandatory and 1 optional sections. The variables sections: `T`, `Y`, `W`, `C` are lists of variables corresponding to treatments, targets, confounders and covariates (optional) respectively. The `Parameters` section is a list of parameters to be generated, with the causal model specified by the variables sections. The `name` subsection identifies the type of the parameter and the other subsections describe the exact treatment values specifications. Since a parameter corresponds to only one target, if multiple targets are present in the parameter file, as many parameters are generated for each target.
+
+```yaml
+T:
+  - T1
+  - T2
+
+C: # Optional
+  - C1
+
+W:
+  - W1
+
+Y:
+  - Y1
+  - Y2
+
+Parameters:
+  - name: IATE
+    T1:
+      case: 2
+      control: 1
+    T2:
+      case: "AC"
+      control: "CC"
+  - name: ATE
+    T1:
+      case: 2
+      control: 0
+    T2:
+      case: "AC"
+      control: "CC"
+  - name: CM
+    T1: 0
+    T2: 0
+```
+
 ## Using the cache
 
 Oftentimes, we are interested in multiple parameters, or would like to investigate how our estimator is affected by changes in the nuisance parameters specification. In many cases, as long as the dataset under study is the same, it is possible to save some computational time by caching the previously learnt nuisance parameters. We describe below how TMLE.jl proposes to do that in some common scenarios. For that purpose let us add a new target variable (which is simply random noise) to our dataset:

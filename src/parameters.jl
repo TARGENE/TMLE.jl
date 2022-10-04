@@ -324,3 +324,31 @@ end
 gradient(Ψ::Parameter, η::NuisanceParameters, dataset; threshold=1e-8) = gradient_Y_X(Ψ, η, dataset; threshold=threshold) .+ gradient_W(Ψ, η, dataset; threshold=threshold)
 
 estimate(Ψ, η, dataset; threshold=1e-8) = mean(counterfactual_aggregate(Ψ, η, dataset; threshold=threshold))
+
+
+namedtuples_from_dicts(d) = d
+namedtuples_from_dicts(d::Dict) = 
+    NamedTuple{Tuple(keys(d))}([namedtuples_from_dicts(val) for val in values(d)])
+
+
+"""
+    parameters_from_yaml(path)
+
+Instantiate parameters described in the provided YAML file.
+"""
+function parameters_from_yaml(path)
+    config = YAML.load_file(path; dicttype=Dict{Symbol,Any})
+    parameters = Parameter[]
+    W = Symbol.(config[:W])
+    C = haskey(config, :C) ? Symbol.(config[:C]) : []
+    Ys = Symbol.(config[:Y])
+    for param_entry in config[:Parameters]
+        param_string = pop!(param_entry, :name)
+        paramtype = getfield(TMLE, Symbol(param_string))
+        T = namedtuples_from_dicts(param_entry)
+        for Y in Ys
+            push!(parameters, paramtype(;target=Y, treatment=T, confounders=W, covariates=C))
+        end
+    end
+    return parameters
+end

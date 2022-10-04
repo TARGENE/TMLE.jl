@@ -14,6 +14,7 @@ using Distributions
 using Zygote
 using AbstractDifferentiation
 using LogExpFunctions
+using YAML
 
 # #############################################################################
 # EXPORTS
@@ -24,6 +25,7 @@ export CM, ATE, IATE
 export tmle, tmle!
 export var, cov, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
+export parameters_from_yaml
 
 # #############################################################################
 # INCLUDES
