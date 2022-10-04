@@ -43,7 +43,7 @@ nothing # hide
 ```
 
 !!! note "Note on Treatment variables"
-    It should be noted that the treatment variables **must** be [categorical](https://categoricalarrays.juliadata.org/stable/). Since the treatment is also used as an input to the ``Q_0`` learner, a `OneHotEncoder` is used by default (see [The Nuisance Parameters](@ref) section).
+    It should be noted that the treatment variables **must** be [categorical](https://categoricalarrays.juliadata.org/stable/). Since the treatment is also used as an input to the ``Q_0`` learner, a `OneHotEncoder` is used by default (see [The Nuisance Parameters](@ref) section). If a numerical representation is more appropriate (ordinal variables), use the keyword `ordered=true` when constructing a `categorical` vector, the `OneHotEncoder` will ignore those variables and their floating point representation will be used.
 
 ## The Nuisance Parameters
 
