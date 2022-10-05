@@ -1,0 +1,29 @@
+T:
+  - T1
+  - T2
+
+W:
+  - W1
+
+Y:
+  - Y1
+  - Y2
+
+Parameters:
+  - name: IATE
+    T1:
+      case: 1
+      control: 0
+    T2:
+      case: 1
+      control: 0
+  - name: ATE
+    T1:
+      case: 1
+      control: 0
+    T2:
+      case: 1
+      control: 0
+  - name: CM
+    T1: 1
+    T2: 0

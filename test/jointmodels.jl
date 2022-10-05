@@ -14,7 +14,7 @@ using MLJLinearModels
     Y = categorical(sample(rng, ["A", "G", "C"], (n, 2)))
     Y = (Y₁ = Y[:, 1], Y₂ = Y[:, 2])
     
-    jointmodel = FullCategoricalJoint(LogisticClassifier())
+    jointmodel = TMLE.FullCategoricalJoint(LogisticClassifier(lambda=0))
     mach = machine(jointmodel, MLJBase.table(X), Y)
     fit!(mach, verbosity=0)
 
@@ -54,16 +54,16 @@ end
 
     d = TMLE.density(mach, X, y)
 
-    @test d ≈ [0.565,
-                0.218,
-                0.256,
-                0.573,
-                0.286,
-                0.612,
-                0.599,
-                0.604,
-                0.295,
-                0.656] atol=1e-2
+    @test d ≈ [0.481
+                0.201
+                0.204
+                0.478
+                0.317
+                0.501
+                0.497
+                0.515
+                0.326
+                0.498] atol=1e-2
 end
 
 end

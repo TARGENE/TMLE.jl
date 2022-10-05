@@ -1,0 +1,30 @@
+T:
+  - T1
+
+C:
+  - C1
+
+W:
+  - W1
+
+Y:
+  - Y1
+
+Parameters:
+  - name: IATE
+    T1:
+      case: 2
+      control: 1
+    T2:
+      case: "AC"
+      control: "CC"
+  - name: ATE
+    T1:
+      case: 2
+      control: 0
+    T2:
+      case: "AC"
+      control: "CC"
+  - name: CM
+    T1: 0
+    T2: 0

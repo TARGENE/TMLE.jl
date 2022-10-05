@@ -8,13 +8,70 @@ using MLJBase
 using StableRNGs
 using Distributions
 using CategoricalArrays
-using Base: ImmutableDict
 using MLJGLMInterface: LinearBinaryClassifier
 using MLJLinearModels
 using MLJModels
 
+function test_params_match(parameters, expected_params)
+    for (param, expected_param) in zip(parameters, expected_params)
+        @test typeof(param) == typeof(expected_param)
+        @test param.target == expected_param.target
+        @test param.treatment == expected_param.treatment
+        @test param.confounders == expected_param.confounders
+        @test param.covariates == expected_param.covariates
+    end
+end
 
-@testset "Test expected_value & maybelogit" begin
+@testset "Test indicator_fns" begin
+    # Conditional Mean
+    Ψ = CM(
+        target=:y, 
+        treatment=(T₁="A", T₂=1),
+        confounders=[:W]
+    )
+    @test TMLE.indicator_fns(Ψ) == Dict(("A", 1) => 1)
+    # ATE
+    Ψ = ATE(
+        target=:y, 
+        treatment=(T₁=(case="A", control="B"), T₂=(control=0, case=1)),
+        confounders=[:W]
+    )
+    @test TMLE.indicator_fns(Ψ) == Dict(
+        ("A", 1) => 1,
+        ("B", 0) => -1
+    )
+    # 2-points IATE
+    Ψ = IATE(
+        target=:y, 
+        treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0)),
+        confounders=[:W]
+    )
+    @test TMLE.indicator_fns(Ψ) == Dict(
+        ("A", 1) => 1,
+        ("A", 0) => -1,
+        ("B", 1) => -1,
+        ("B", 0) => 1
+    )
+    # 3-points IATE
+    Ψ = IATE(
+        target=:y, 
+        treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0), T₃=(control="D", case="C")),
+        confounders=[:W]
+    )
+    @test TMLE.indicator_fns(Ψ) == Dict(
+        ("A", 1, "D") => -1,
+        ("A", 1, "C") => 1,
+        ("B", 0, "D") => -1,
+        ("B", 0, "C") => 1,
+        ("B", 1, "C") => -1,
+        ("A", 0, "D") => 1,
+        ("B", 1, "D") => 1,
+        ("A", 0, "C") => -1
+    )
+end
+
+
+@testset "Test expected_value" begin
     n = 100
     X = MLJBase.table(rand(n, 3))
 
@@ -24,27 +81,23 @@ using MLJModels
     fit!(mach; verbosity=0)
     proba = mach.fitresult[2][2]
     ŷ = MLJBase.predict(mach)
-    expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    expectation = TMLE.expected_value(ŷ)
     @test expectation == repeat([proba], n)
-    @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == TMLE.logit(expectation)
 
     # Probabilistic Regressor
     y = rand(n)
     mach = machine(ConstantRegressor(), X, y)
     fit!(mach; verbosity=0)
     ŷ = MLJBase.predict(mach)
-    expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    expectation = TMLE.expected_value(ŷ)
     @test expectation ≈ repeat([mean(y)], n) atol=1e-10
-    @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == expectation
 
     # Deterministic Regressor
     mach = machine(LinearRegressor(), X, y)
     fit!(mach; verbosity=0)
     ŷ = MLJBase.predict(mach)
-    expectation = TMLE.expected_value(ŷ, typeof(mach.model), target_scitype(mach.model))
+    expectation = TMLE.expected_value(ŷ)
     @test expectation == ŷ
-    @test TMLE.maybelogit(expectation, typeof(mach.model), target_scitype(mach.model)) == expectation
-
 end
 
 @testset "Test adapt" begin
@@ -56,7 +109,7 @@ end
 end
 
 @testset "Test indicator_values" begin
-    indicators = ImmutableDict(
+    indicators = Dict(
         ("b", "c", 1) => -1,
         ("a", "c", 1) => 1,
         ("b", "d", 0) => -1,
@@ -77,6 +130,7 @@ end
     # @btime TMLE.indicator_values(indicators, T)
     # @btime TMLE._indicator_values(indicators, T)
 end
+
 
 @testset "Test counterfactualTreatment" begin
     vals = (true, "a")
@@ -103,7 +157,13 @@ end
                     TMLE.adapt(T))
     fit!(Gmach, verbosity=0)
 
-    indicators = TMLE.indicator_fns(Query((t₁="a",), (t₁="b",)))
+    Ψ = ATE(
+        target =:y, 
+        treatment=(t₁=(case="a", control="b"),),
+        confounders = [:x1, :x2, :x3]
+    )
+
+    indicators = TMLE.indicator_fns(Ψ)
 
     cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [1.75,
@@ -121,12 +181,16 @@ end
          t₂ = categorical([1, 1, 1, 1, 1, 0, 0]))
     W = MLJBase.table(rand(7, 3))
 
-    Gmach = machine(FullCategoricalJoint(ConstantClassifier()), 
+    Gmach = machine(TMLE.FullCategoricalJoint(ConstantClassifier()), 
                     W, 
                     T)
     fit!(Gmach, verbosity=0)
-    query = Query((t₁=1, t₂=1), (t₁=0, t₂=0))
-    indicators = TMLE.indicator_fns(query)
+    Ψ = IATE(
+        target =:y, 
+        treatment=(t₁=(case=1, control=0), t₂=(case=1, control=0)),
+        confounders = [:x1, :x2, :x3]
+    )
+    indicators = TMLE.indicator_fns(Ψ)
 
     cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [2.3333333333333335,
@@ -145,12 +209,19 @@ end
          t₃ = categorical([true, false, true, false, false, false, false]))
     W = MLJBase.table(rand(7, 3))
 
-    Gmach = machine(FullCategoricalJoint(ConstantClassifier()), 
+    Gmach = machine(TMLE.FullCategoricalJoint(ConstantClassifier()), 
                     W, 
                     T)
     fit!(Gmach, verbosity=0)
-    query = Query((t₁="a", t₂=1, t₃=true), (t₁="b", t₂=2, t₃=false))
-    indicators = TMLE.indicator_fns(query)
+    Ψ = IATE(
+        target =:y, 
+        treatment=(t₁=(case="a", control="b"), 
+                   t₂=(case=1, control=2), 
+                   t₃=(case=true, control=false)),
+        confounders = [:x1, :x2, :x3]
+    )
+
+    indicators = TMLE.indicator_fns(Ψ)
 
     cov = TMLE.compute_covariate(Gmach, W, T, indicators)
     @test cov == [0,
@@ -170,139 +241,74 @@ end
     y = categorical([1, 1, 1, 1, 0, 0, 0, 0, 0, 0])
     mach = machine(ConstantClassifier(), MLJBase.table(X), y)
     fit!(mach, verbosity=0)
+    ŷ = MLJBase.predict(mach)
     # Should be equal to logit(Ê[Y|X])= logit(4/10) = -0.4054651081081643
-    @test TMLE.compute_offset(mach, X) == repeat([-0.4054651081081643], n)
+    @test TMLE.compute_offset(ŷ) == repeat([-0.4054651081081643], n)
 
     # When Y is continuous
     y = [1., 2., 3, 4, 5, 6, 7, 8, 9, 10]
     mach = machine(MLJModels.DeterministicConstantRegressor(), MLJBase.table(X), y)
     fit!(mach, verbosity=0)
+    ŷ = predict(mach)
     # Should be equal to Ê[Y|X] = 5.5
-    @test TMLE.compute_offset(mach, X) == repeat([5.5], n)
+    @test TMLE.compute_offset(ŷ) == repeat([5.5], n)
     
 end
 
-@testset "Test logit" begin
-    @test TMLE.logit([0.4, 0.8, 0.2]) ≈ [
-        -0.40546510810,
-        1.38629436112,
-        -1.38629436112
+
+@testset "Test parameters_from_yaml" begin
+    # No covariate
+    param_file = joinpath("data", "parameters.yaml")
+    parameters = parameters_from_yaml(param_file)
+    expected_params =[
+        IATE(;
+            target=:Y1, 
+            treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
+            confounders=[:W1], 
+            covariates=Symbol[]
+        ),
+        IATE(;
+            target=:Y2, 
+            treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
+            confounders=[:W1], 
+            covariates=Symbol[]
+        ),
+        ATE(;
+            target=:Y1, 
+            treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
+            confounders=[:W1], 
+            covariates=Symbol[]
+        ),
+        ATE(;
+            target=:Y2, 
+            treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
+            confounders=[:W1], 
+            covariates=Symbol[]
+        ),
+        CM(;target=:Y1, treatment=(T2 = 0, T1 = 1), confounders=[:W1], covariates=Symbol[]),
+        CM(;target=:Y2, treatment=(T2 = 0, T1 = 1), confounders=[:W1], covariates=Symbol[])
     ]
-    @test TMLE.logit([1, 0]) == [Inf, -Inf]
-end
-
-
-@testset "Test compute_fluctuation" begin
-    n = 10
-    W = (w₁=ones(n),)
-    T = (t₁=categorical([1, 1, 1, 0, 0, 0, 0, 1, 1, 0]),
-         t₂=categorical([0, 0, 1, 0, 0, 1, 1, 1, 0, 0]))
-    y = categorical([1, 1, 0, 0, 1, 0 , 1, 0, 0, 0])
-    query = Query((t₁=1, t₂=1), (t₁=0, t₂=0))
-    indicators = TMLE.indicator_fns(query)
-
-    # Fit encoder
-    Hmach = machine(OneHotEncoder(features=[:t₁, :t₂], drop_last=true), T)
-    fit!(Hmach, verbosity=0)
-    Thot = transform(Hmach)
-    # Fit Q̅
-    X = merge(Thot, W)
-    Q̅mach = machine(ConstantClassifier(), X, y)
-    fit!(Q̅mach, verbosity=0)
-    # Fit G
-    Gmach = machine(FullCategoricalJoint(ConstantClassifier()), W, T)
-    fit!(Gmach, verbosity=0)
-    # Fit Fluctuation
-    offset = TMLE.compute_offset(Q̅mach, X)
-    covariate = TMLE.compute_covariate(Gmach, W, T, indicators)
-    Xfluct = (covariate=covariate, offset=offset)
-    Fmach = machine(LinearBinaryClassifier(fit_intercept=false, offsetcol=:offset), Xfluct, y)
-    fit!(Fmach, verbosity=0)
-
-    # We are using constant classifiers
-    # The offset is equal to: -0.40546510810 all the time
-    # The covariate is ≈ [-3.3, -3.3, 5., 3.3, 3.3, -5., -5., 5., -3.3, 3.3]
-    # The fluctuation value is equal to Ê[Y|W, T] where Ê is computed via Fmach
-    # The coefficient for the fluctuation seems to be -0.222835 here 
-    expected_mean(cov) = TMLE.expit(-0.40546510 - 0.22283549318*cov)
-    # Let's look at the different counterfactual treatments
-    # T₁₁: cov=5.
-    T₁₁ = (t₁=categorical(ones(n), levels=levels(T[1])), t₂=categorical(ones(n), levels=levels(T[2])))
-    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, indicators, W, T₁₁, X)
-    @test fluct ≈ repeat([expected_mean(5.)], n) atol=1e-5
-    # T₁₀: cov=-3.333333
-    T₁₀ = (t₁=categorical(ones(n), levels=[0, 1]), t₂=categorical(zeros(n), levels=[0, 1]))
-    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, indicators, W, T₁₀, X)
-    @test fluct ≈ repeat([expected_mean(-3.333333)], n) atol=1e-5
-    # T₀₁: cov=-5.
-    T₀₁ = (t₁=categorical(zeros(n), levels=[0, 1]), t₂=categorical(ones(n), levels=[0, 1]))
-    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, indicators, W, T₀₁, X)
-    @test fluct ≈ repeat([expected_mean(-5.)], n) atol=1e-5
-    # T₀₀: cov=3.333333
-    T₀₀ = (t₁=categorical(zeros(n), levels=[0, 1]), t₂=categorical(zeros(n), levels=[0, 1]))
-    fluct = TMLE.compute_fluctuation(Fmach, Q̅mach, Gmach, indicators, W, T₀₀, X)
-    @test fluct ≈ repeat([expected_mean(3.333333)], n) atol=1e-5
+    test_params_match(parameters, expected_params)
+    # With covariate
+    param_file = joinpath("data", "parameters_with_covariates.yaml")
+    parameters = parameters_from_yaml(param_file)
+    expected_params = [
+        IATE(;
+            target=:Y1, 
+            treatment=(T2 = (case = "AC", control = "CC"), T1 = (case = 2, control = 1)), 
+            confounders=[:W1], 
+            covariates=[:C1])
+        ATE(;
+            target=:Y1, 
+            treatment=(T2 = (case = "AC", control = "CC"), T1 = (case = 2, control = 0)), 
+            confounders=[:W1], 
+            covariates=[:C1])
+        CM(target=:Y1, treatment=(T2 = 0, T1 = 0), confounders=[:W1], covariates=[:C1])
+    ]
+    test_params_match(parameters, expected_params)
 
 end
 
-@testset "Test log_over_threshold" begin
-    n = 10000
-    rng = StableRNG(123)
-    T = (t=categorical(rand(rng, Bernoulli(0.001), n)),)
-    W = MLJBase.table(rand(rng, n, 3))
-    y = rand(rng, n)
-    query = Query((t=true,), (t=false,))
-
-    Q̅ = LinearRegressor()
-    G = LogisticClassifier()
-    tmle = TMLEstimator(Q̅, G, query)
-
-    fitresult = TMLE.fit(tmle, T, W, y, verbosity=0)
-
-    d = TMLE.density(fitresult.machines.G, W, T)
-    @test all(<(0.005), d[fitresult.low_propensity_scores])
-    @test length(fitresult.low_propensity_scores) == 12
-end
-
-
-@testset "Test dropmissing" begin
-    T₁ = (
-        t₁=[1, 2, missing, missing, 5, 10], 
-        t₂=[0, 3, 4, 5 ,6, missing],
-        )
-    T₂ = Tables.table([8  4  3
-                       8  4  9
-                       2  5  2
-                       6  3  9
-                       6  4  missing
-                       10  1  8])
-    
-    T = TMLE.merge_and_dropmissing(T₁, T₂)
-    @test T == (
-        t₁ = [1, 2],
-        t₂ = [0, 3],
-        Column1 = [8, 8],
-        Column2 = [4, 4],
-        Column3 = [3, 9]
-        )
-    @test eltype(T.t₁) == eltype(T.t₂) == eltype(T.Column3) == Int
-    
-    filteredT₁, filteredT₂ = TableOperations.dropmissing(T₁, T₂)
-    @test filteredT₁ == (
-        t₁ = [1, 2],
-        t₂ = [0, 3]
-    )
-    @test filteredT₂ == [8  4  3
-                         8  4  9] |> Tables.table |> Tables.columntable
-
-end
-
-@testset "Test influencecurve" begin
-    @test TMLE.influencecurve([1, 1, 1], [1, 0, 1], [0.8, 0.1, 0.8], [0.8, 0.2, 0.8], 1) == 
-        [0.0
-        -0.9
-        0.0]
-end
 
 end;
 
