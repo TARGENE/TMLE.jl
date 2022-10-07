@@ -128,5 +128,5 @@ while potentially reusing cached nuisance parameters.
 """
 function tmle!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
     update!(cache, Ψ, η_spec)
-    fit!(cache, verbosity=verbosity, threshold=threshold)
+    tmle!(cache, verbosity=verbosity, threshold=threshold)
 end
