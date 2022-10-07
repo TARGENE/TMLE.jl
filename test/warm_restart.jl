@@ -372,6 +372,48 @@ end
 
 end
 
+@testset "Test Warm restart: Both Ψ and η changed" begin
+    dataset = build_dataset(;n=10000)
+    # Define the parameter of interest
+    Ψ = ATE(
+        target=:y₁,
+        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        confounders=[:W₁, :W₂],
+        covariates=[:C₁]
+    )
+    # Define the nuisance parameters specification
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        LogisticClassifier(lambda=0)
+    )
+    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+    Ψ₀ = -0.5
+    @test covers(tmle_result, Ψ₀)
+
+    Ψnew = ATE(
+        target=:y₁,
+        treatment=(T₁=(case=0, control=1), T₂=(case=0, control=1)),
+        confounders=[:W₁, :W₂],
+        covariates=[:C₁]
+    )
+    # Define the nuisance parameters specification
+    η_spec_new = NuisanceSpec(
+        LinearRegressor(),
+        LogisticClassifier(lambda=0.1)
+    )
+    log_sequence = (
+        (:info, "Fitting the nuisance parameters..."),
+        (:info, "→ Reusing previous P(T|W)"),
+        (:info, "→ Reusing previous Encoder"),
+        (:info, "→ Reusing previous E[Y|X]"),
+        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Thank you.")
+    )
+    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψnew, η_spec; verbosity=1);
+    Ψ₀ = 0.5
+    @test covers(tmle_result, Ψ₀)
+end
+
 end
 
 true
