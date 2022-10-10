@@ -161,7 +161,7 @@ confounders_and_covariates(dataset, Ψ) = selectcols(dataset, confounders_and_co
 Qinputs(dataset, Ψ::Parameter) = 
     selectcols(dataset, vcat(confounders_and_covariates(Ψ), treatments(Ψ)))
 
-
+allcolumns(Ψ::Parameter) = vcat(confounders_and_covariates(Ψ), treatments(Ψ), target(Ψ))
 """
 # NuisanceParameters
 

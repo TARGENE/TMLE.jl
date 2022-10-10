@@ -14,7 +14,7 @@ mutable struct TMLECache
     function TMLECache(Ψ, η_spec, dataset)
         dataset = Dict(
             :source => dataset,
-            :no_missing => nomissing(dataset)
+            :no_missing => nomissing(dataset, allcolumns(Ψ))
         )
         η = NuisanceParameters(nothing, nothing, nothing, nothing)
         new(Ψ, η_spec, dataset, η)
@@ -22,22 +22,31 @@ mutable struct TMLECache
 end
 
 function update!(cache::TMLECache, Ψ::Parameter)
+    any_variable_changed = false
     if keys(cache.Ψ.treatment) != keys(Ψ.treatment)
         cache.η.G = nothing
         cache.η.Q = nothing
         cache.η.H = nothing
+        any_variable_changed = true
     end
     if cache.Ψ.confounders != Ψ.confounders
         cache.η.G = nothing
         cache.η.Q = nothing
+        any_variable_changed = true
     end
     if cache.Ψ.covariates != Ψ.covariates
         cache.η.Q = nothing
+        any_variable_changed = true
     end
     if cache.Ψ.target != Ψ.target
         cache.η.Q = nothing
+        any_variable_changed = true
     end
     cache.η.F = nothing
+    # Update no missing dataset
+    if any_variable_changed
+        cache.dataset[:no_missing] = nomissing(cache.dataset[:source], allcolumns(Ψ))
+    end
     cache.Ψ = Ψ
 end
 

@@ -6,6 +6,7 @@ using StatsBase
 using StableRNGs
 using MLJBase
 using MLJLinearModels
+using EvoTrees
 
 @testset "Test FullCategoricalJoint" begin
     rng = StableRNG(123)
@@ -14,7 +15,7 @@ using MLJLinearModels
     Y = categorical(sample(rng, ["A", "G", "C"], (n, 2)))
     Y = (Y₁ = Y[:, 1], Y₂ = Y[:, 2])
     
-    jointmodel = TMLE.FullCategoricalJoint(LogisticClassifier(lambda=0))
+    jointmodel = TMLE.FullCategoricalJoint(LogisticClassifier())
     mach = machine(jointmodel, MLJBase.table(X), Y)
     fit!(mach, verbosity=0)
 
@@ -42,6 +43,24 @@ using MLJLinearModels
 
     d = TMLE.density(mach, X, Y)
     @test d == [pdf(p, y_multi[i]) for (i, p) in enumerate(ypred)]
+end
+
+@testset "Test FullCategoricalJoint with model implementing a front-end" begin
+    rng = StableRNG(123)
+    n = 10
+    X = rand(n, 4)
+    Y = categorical(sample(rng, ["A", "G", "C"], (n, 2)))
+    Y = (Y₁ = Y[:, 1], Y₂ = Y[:, 2])
+    
+    jointmodel = TMLE.FullCategoricalJoint(EvoTreeClassifier())
+    mach = machine(jointmodel, MLJBase.table(X), Y)
+    fit!(mach, verbosity=0)
+
+    # The underlying model should have been fitted
+    @test mach.fitresult.model_fitresult isa EvoTrees.GBTree{Float64}
+
+    ypred = MLJBase.predict(mach)
+    @test ypred[1] isa MLJBase.UnivariateFinite
 end
 
 @testset "Test density fallback" begin
