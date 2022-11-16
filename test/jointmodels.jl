@@ -57,7 +57,7 @@ end
     fit!(mach, verbosity=0)
 
     # The underlying model should have been fitted
-    @test mach.fitresult.model_fitresult isa EvoTrees.GBTree{Float64}
+    @test mach.fitresult.model_fitresult isa EvoTrees.EvoTree
 
     ypred = MLJBase.predict(mach)
     @test ypred[1] isa MLJBase.UnivariateFinite
@@ -68,7 +68,7 @@ end
     n = 10
     X = rand(rng, n, 4)
     y = categorical(sample(rng, ["A", "G", "C"], n))
-    mach = machine(LogisticClassifier(), MLJBase.table(X), y)
+    mach = machine(LogisticClassifier(lambda=1.), MLJBase.table(X), y)
     fit!(mach, verbosity=0)
 
     d = TMLE.density(mach, X, y)

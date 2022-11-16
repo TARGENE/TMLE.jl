@@ -1,7 +1,5 @@
 module TestInteractionATE
 
-include("interaction_transformer.jl")
-
 using Test
 using TMLE
 using MLJBase
@@ -14,8 +12,8 @@ using MLJModels
 using MLJLinearModels
 using LogExpFunctions
 
-cont_interacter = InteractionTransformer |> LinearRegressor
-cat_interacter = InteractionTransformer |> LogisticClassifier
+cont_interacter = InteractionTransformer(order=2) |> LinearRegressor
+cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1.)
 
 
 function binary_target_binary_treatment_pb(;n=100)

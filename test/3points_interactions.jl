@@ -1,12 +1,11 @@
 module Test3pointsInteractions
 
-include("interaction_transformer.jl")
-
 using Random
 using StableRNGs
 using Distributions
 using TMLE
 using MLJLinearModels
+using MLJModels
 using CategoricalArrays
 using Test
 using LogExpFunctions
