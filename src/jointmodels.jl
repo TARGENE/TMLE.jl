@@ -7,6 +7,9 @@ mutable struct FullCategoricalJoint <: Supervised
     model
 end
 
+MLJBase.reporting_operations(model::FullCategoricalJoint) = 
+    MLJBase.reporting_operations(model.model)
+
 """
     MLJBase.fit(model::FullCategoricalJoint, verbosity::Int, X, Y)
 

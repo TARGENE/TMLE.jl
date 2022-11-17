@@ -85,6 +85,26 @@ end
                 0.498] atol=1e-2
 end
 
+@testset "Test when reporting_operations is a tuple" begin
+    rng = StableRNG(123)
+    n = 100
+    X, y₁ = MLJBase.make_blobs(n, 2; rng=rng)
+    y₂ = categorical(rand(rng, [0, 1], n))
+    G = TMLE.FullCategoricalJoint(
+        Stack(
+            metalearner=LogisticClassifier(), 
+            lr1=LogisticClassifier(), 
+            lr2=LogisticClassifier(lambda=1.)
+        )
+    )
+
+    mach = machine(G, X, (y₁=y₁, y₂=y₂))
+    fit!(mach, verbosity= 0)
+    # If the reporting_operations wasn't defined,
+    # this would return a tuple
+    @test MLJBase.predict(mach) isa UnivariateFiniteVector
+end
+
 end
 
 true
