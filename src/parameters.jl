@@ -224,7 +224,7 @@ Q_model(t::Type{Any}) = throw(ArgumentError("Cannot proceed with Q model with ta
 Fits the nuisance parameters η on the dataset using the specifications from η_spec
 and the variables defined by Ψ.
 """
-function fit!(η::NuisanceParameters, η_spec::NuisanceSpec, Ψ::Parameter, dataset; verbosity=1)
+function fit!(η::NuisanceParameters, η_spec::NuisanceSpec, Ψ::Parameter, dataset; verbosity=1, mach_cache=false)
     # Fitting P(T|W)
     # Only rows with missing values in either W or Tₜ are removed
     if η.G === nothing
@@ -232,7 +232,7 @@ function fit!(η::NuisanceParameters, η_spec::NuisanceSpec, Ψ::Parameter, data
         nomissing_WT = nomissing(dataset[:source], treatment_and_confounders(Ψ))
         W = confounders(nomissing_WT, Ψ)
         T = treatments(nomissing_WT, Ψ)
-        mach = machine(adapt(η_spec.G, T), W, adapt(T))
+        mach = machine(adapt(η_spec.G, T), W, adapt(T), cache=mach_cache)
         MLJBase.fit!(mach, verbosity=verbosity-1)
         η.G = mach
     else
@@ -248,14 +248,14 @@ function fit!(η::NuisanceParameters, η_spec::NuisanceSpec, Ψ::Parameter, data
         # Fitting the Encoder
         if η.H === nothing
             log_fit(verbosity, "Encoder")
-            mach = machine(η_spec.H, X)
+            mach = machine(η_spec.H, X, cache=mach_cache)
             MLJBase.fit!(mach, verbosity=verbosity-1)
             η.H = mach
         else
             log_no_fit(verbosity, "Encoder")
         end
         log_fit(verbosity, "E[Y|X]")
-        mach = machine(η_spec.Q, MLJBase.transform(η.H, X), y)
+        mach = machine(η_spec.Q, MLJBase.transform(η.H, X), y, cache=mach_cache)
         MLJBase.fit!(mach, verbosity=verbosity-1)
         η.Q = mach
     else
@@ -276,10 +276,10 @@ function fluctuation_input(dataset, η, Ψ; threshold=1e-8)
     return fluctuation_input(covariate, offset)
 end
 
-function tmle!(η::NuisanceParameters, Ψ, η_spec, dataset; verbosity=1, threshold=1e-8)
+function tmle!(η::NuisanceParameters, Ψ, η_spec, dataset; verbosity=1, threshold=1e-8, mach_cache=false)
     X = fluctuation_input(dataset, η, Ψ, threshold=threshold)
     y = target(dataset, Ψ)
-    mach = machine(η_spec.F, X, y)
+    mach = machine(η_spec.F, X, y, cache=mach_cache)
     MLJBase.fit!(mach, verbosity=verbosity-1)
     η.F = mach
 end
