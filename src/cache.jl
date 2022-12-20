@@ -79,16 +79,16 @@ Main entrypoint to run the TMLE procedure.
 - verbosity: The logging level
 - threshold: To avoid small values of Ĝ to cause the "clever covariate" to explode
 """
-function tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; verbosity=1, threshold=1e-8)
+function tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; verbosity=1, threshold=1e-8, mach_cache=false)
     cache = TMLECache(Ψ, η_spec, dataset)
-    return tmle!(cache; verbosity=verbosity, threshold=threshold)
+    return tmle!(cache; verbosity=verbosity, threshold=threshold, mach_cache=mach_cache)
 end
 
-function tmle!(cache; verbosity=1, threshold=1e-8)
+function tmle!(cache; verbosity=1, threshold=1e-8, mach_cache=false)
     Ψ, η_spec, dataset, η = cache.Ψ, cache.η_spec, cache.dataset, cache.η
     # Initial fit
     verbosity >= 1 && @info "Fitting the nuisance parameters..."
-    TMLE.fit!(η, η_spec, Ψ, dataset, verbosity=verbosity)
+    TMLE.fit!(η, η_spec, Ψ, dataset, verbosity=verbosity, mach_cache=mach_cache)
     
     # Estimation results before TMLE
     dataset = dataset[:no_missing]
@@ -98,7 +98,7 @@ function tmle!(cache; verbosity=1, threshold=1e-8)
     
     # TMLE step
     verbosity >= 1 && @info "Targeting the nuisance parameters..."
-    tmle!(η, Ψ, η_spec, dataset, verbosity=verbosity, threshold=threshold)
+    tmle!(η, Ψ, η_spec, dataset, verbosity=verbosity, threshold=threshold, mach_cache=mach_cache)
     
     # Estimation results after TMLE
     IC = gradient(Ψ, η, dataset; threshold=threshold)
