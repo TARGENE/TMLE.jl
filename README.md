@@ -1,8 +1,7 @@
 # TMLE
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://olivierlabayle.github.io/TMLE.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://olivierlabayle.github.io/TMLE.jl/dev)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/olivierlabayle/TMLE.jl/CI)
+![GitHub Workflow Status (with branch)](https://img.shields.io/github/actions/workflow/status/olivierlabayle/TMLE.jl/CI.yml?branch=main)
 ![Codecov](https://img.shields.io/codecov/c/github/olivierlabayle/TMLE.jl)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/olivierlabayle/TMLE.jl)
 
