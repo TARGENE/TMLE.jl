@@ -11,13 +11,14 @@ mutable struct TMLECache
     η_spec::NuisanceSpec
     dataset
     η
-    function TMLECache(Ψ, η_spec, dataset)
+    mach_cache
+    function TMLECache(Ψ, η_spec, dataset, mach_cache)
         dataset = Dict(
             :source => dataset,
             :no_missing => nomissing(dataset, allcolumns(Ψ))
         )
         η = NuisanceParameters(nothing, nothing, nothing, nothing)
-        new(Ψ, η_spec, dataset, η)
+        new(Ψ, η_spec, dataset, η, mach_cache)
     end
 end
 
@@ -78,14 +79,15 @@ Main entrypoint to run the TMLE procedure.
 - dataset: A tabular dataset respecting the Table.jl interface
 - verbosity: The logging level
 - threshold: To avoid small values of Ĝ to cause the "clever covariate" to explode
+- mach_cache: Whether underlying MLJ.machines will cache data or not
 """
 function tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; verbosity=1, threshold=1e-8, mach_cache=false)
-    cache = TMLECache(Ψ, η_spec, dataset)
-    return tmle!(cache; verbosity=verbosity, threshold=threshold, mach_cache=mach_cache)
+    cache = TMLECache(Ψ, η_spec, dataset, mach_cache)
+    return tmle!(cache; verbosity=verbosity, threshold=threshold)
 end
 
-function tmle!(cache; verbosity=1, threshold=1e-8, mach_cache=false)
-    Ψ, η_spec, dataset, η = cache.Ψ, cache.η_spec, cache.dataset, cache.η
+function tmle!(cache; verbosity=1, threshold=1e-8)
+    Ψ, η_spec, dataset, η, mach_cache = cache.Ψ, cache.η_spec, cache.dataset, cache.η, cache.mach_cache
     # Initial fit
     verbosity >= 1 && @info "Fitting the nuisance parameters..."
     TMLE.fit!(η, η_spec, Ψ, dataset, verbosity=verbosity, mach_cache=mach_cache)
@@ -124,7 +126,7 @@ end
 
 Runs the TMLE procedure for the new nuisance parameters specification η_spec while potentially reusing cached nuisance parameters.
 """
-function tmle!(cache::TMLECache, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
+function tmle!(cache::TMLECache, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8, mach_cache=false)
     update!(cache, η_spec)
     tmle!(cache, verbosity=verbosity, threshold=threshold)
 end
