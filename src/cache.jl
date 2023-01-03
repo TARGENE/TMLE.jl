@@ -93,22 +93,20 @@ function tmle!(cache; verbosity=1, threshold=1e-8)
     TMLE.fit!(η, η_spec, Ψ, dataset, verbosity=verbosity, mach_cache=mach_cache)
     
     # Estimation results before TMLE
-    dataset = dataset[:no_missing]
-    ICᵢ = gradient(Ψ, η, dataset; threshold=threshold)
-    Ψ̂ᵢ = estimate(Ψ, η, dataset; threshold=threshold)
-    resultᵢ = PointTMLE(Ψ̂ᵢ, ICᵢ)
+    dataset_source = dataset[:no_missing]
+    Ψ̂ᵢ = estimate(Ψ, η, dataset_source; threshold=threshold)
     
     # TMLE step
     verbosity >= 1 && @info "Targeting the nuisance parameters..."
-    tmle!(η, Ψ, η_spec, dataset, verbosity=verbosity, threshold=threshold, mach_cache=mach_cache)
+    tmle!(η, Ψ, η_spec, dataset_source, verbosity=verbosity, threshold=threshold, mach_cache=mach_cache)
     
     # Estimation results after TMLE
-    IC = gradient(Ψ, η, dataset; threshold=threshold)
-    Ψ̂ = estimate(Ψ, η, dataset; threshold=threshold)
-    result = PointTMLE(Ψ̂, IC)
+    IC = gradient(Ψ, η, dataset_source; threshold=threshold)
+    Ψ̂ = estimate(Ψ, η, dataset_source; threshold=threshold)
+    result = PointTMLE(Ψ̂, IC, Ψ̂ᵢ)
 
     verbosity >= 1 && @info "Thank you."
-    return result, resultᵢ, cache
+    return result, cache
 end
 
 """

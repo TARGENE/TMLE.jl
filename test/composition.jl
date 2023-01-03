@@ -29,8 +29,8 @@ basicCM(val) = CM(
 @testset "Test cov" begin
     n = 10
     X = rand(n, 2)
-    ER₁ = TMLE.PointTMLE(1., X[:, 1])
-    ER₂ = TMLE.PointTMLE(0., X[:, 2])
+    ER₁ = TMLE.PointTMLE(1., X[:, 1], 0.)
+    ER₂ = TMLE.PointTMLE(0., X[:, 2], 0.)
     Σ = cov(ER₁, ER₂)
     @test size(Σ) == (2, 2)
     @test Σ == cov(X) 
@@ -43,9 +43,9 @@ end
         LogisticClassifier(lambda=0)
     )
     # Conditional Mean T = 1
-    CM_result₁, _, cache = tmle(basicCM(1), η_spec, dataset, verbosity=0)
+    CM_result₁, cache = tmle(basicCM(1), η_spec, dataset, verbosity=0)
     # Conditional Mean T = 0
-    CM_result₀, _, cache = tmle!(cache, basicCM(0), verbosity=0)
+    CM_result₀, cache = tmle!(cache, basicCM(0), verbosity=0)
     # Via Composition
     CM_result_composed = compose(-, CM_result₁, CM_result₀)
 
@@ -55,7 +55,7 @@ end
         treatment = (T=(case=1, control=0),),
         confounders = [:W] 
     )
-    ATE_result₁₀, _, cache = tmle!(cache, ATE₁₀, verbosity=0)
+    ATE_result₁₀, cache = tmle!(cache, ATE₁₀, verbosity=0)
     @test TMLE.estimate(ATE_result₁₀) ≈ TMLE.estimate(CM_result_composed) atol = 1e-7
     @test var(ATE_result₁₀) ≈ var(CM_result_composed) atol = 1e-7
 end
@@ -66,8 +66,8 @@ end
         LinearRegressor(),
         LogisticClassifier(lambda=0)
     )
-    CM_result₁, _, cache = tmle(basicCM(1), η_spec, dataset, verbosity=0)
-    CM_result₀, _, cache = tmle!(cache, basicCM(0), verbosity=0)
+    CM_result₁, cache = tmle(basicCM(1), η_spec, dataset, verbosity=0)
+    CM_result₀, cache = tmle!(cache, basicCM(0), verbosity=0)
     f(x, y) = [x^2 - y, x/y, 2x + 3y]
     CM_result_composed = compose(f, CM_result₁, CM_result₀)
 

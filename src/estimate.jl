@@ -4,6 +4,7 @@ abstract type AbstractTMLE end
 struct PointTMLE{T<:AbstractFloat} <: AbstractTMLE
     Ψ̂::T
     IC::Vector{T}
+    Ψ̂ᵢ::T
 end
 
 struct ComposedTMLE{T<:AbstractFloat} <: AbstractTMLE
@@ -11,6 +12,7 @@ struct ComposedTMLE{T<:AbstractFloat} <: AbstractTMLE
     σ̂::Matrix{T}
 end
 
+initial_estimate(r::PointTMLE) = r.Ψ̂ᵢ
 estimate(r::PointTMLE) = r.Ψ̂
 estimate(r::ComposedTMLE) = length(r.Ψ̂) == 1 ? r.Ψ̂[1] : r.Ψ̂
 

@@ -23,7 +23,7 @@ using YAML
 export NuisanceSpec
 export CM, ATE, IATE
 export tmle, tmle!
-export var, cov, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
+export var, cov, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
 export parameters_from_yaml
 

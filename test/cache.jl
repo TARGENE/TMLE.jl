@@ -34,7 +34,7 @@ function fakecache()
         y=rand(n),
         ynew=vcat([missing, missing, missing], rand(n-3))
         )
-    cache = TMLE.TMLECache(Ψ, η_spec, dataset)
+    cache = TMLE.TMLECache(Ψ, η_spec, dataset, false)
     fakefill!(cache)
     return cache
 end

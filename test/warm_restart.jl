@@ -18,8 +18,8 @@ function covers(result, Ψ₀; level=0.05)
     return pval && covered
 end
 
-closer_than_initial(tmle_result, initial_result, Ψ₀) =
-    abs(TMLE.estimate(tmle_result) - Ψ₀) ≤ abs(TMLE.estimate(initial_result) - Ψ₀)
+closer_than_initial(tmle_result, Ψ₀) =
+    abs(TMLE.estimate(tmle_result) - Ψ₀) ≤ abs(initial_estimate(tmle_result) - Ψ₀)
 
 """
 Results derived by hand for this dataset:
@@ -80,7 +80,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle(Ψ, η_spec, dataset; verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle(Ψ, η_spec, dataset; verbosity=1);
     # The TMLE covers the ground truth but the initial estimate does not
     Ψ₀ = -1
     @test covers(tmle_result, Ψ₀)
@@ -102,7 +102,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 1
     @test covers(tmle_result, Ψ₀)
     #@test closer_than_initial(tmle_result, initial_result, Ψ₀)
@@ -121,7 +121,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = -1
     @test covers(tmle_result, Ψ₀)
     #@test closer_than_initial(tmle_result, initial_result, Ψ₀)
@@ -141,10 +141,10 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 0.5
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
     # Remove a confounding variable
     # This will trigger the refit of Q and G
@@ -163,7 +163,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     
     # Change the target
     # This will trigger the refit of Q only
@@ -180,10 +180,10 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 10
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
 end
 
@@ -202,11 +202,11 @@ end
         LinearRegressor(),
         LogisticClassifier(lambda=0)
     )
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+    tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
 
     Ψ₀ = -0.5
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
     # Let's switch case and control for T₂
     Ψ = ATE(
@@ -223,11 +223,11 @@ end
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     Ψ₀ = -1.5
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
 end
 
@@ -243,11 +243,11 @@ end
         LinearRegressor(),
         LogisticClassifier(lambda=0)
     )
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+    tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
 
     Ψ₀ = 3
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
     # Let's switch case and control for T₂
     Ψ = CM(
@@ -264,7 +264,7 @@ end
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     Ψ₀ = 2.5
     @test covers(tmle_result, Ψ₀)
@@ -285,7 +285,7 @@ end
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     Ψ₀ = 1
     @test covers(tmle_result, Ψ₀)
@@ -306,11 +306,11 @@ end
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     Ψ₀ = 11
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 end
 
 @testset "Test Warm restart: pairwise IATE, $tt" for tt in table_types
@@ -325,11 +325,11 @@ end
         LinearRegressor(),
         LogisticClassifier(lambda=0)
     )
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+    tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
 
     Ψ₀ = -1
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
     # Remove covariate from fit
     Ψ = IATE(
@@ -345,10 +345,10 @@ end
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
     # Changing the treatments values
     Ψ = IATE(
@@ -364,11 +364,11 @@ end
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     Ψ₀ = - Ψ₀
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
 end
 
@@ -386,7 +386,7 @@ end
         LinearRegressor(),
         LogisticClassifier(lambda=0)
     )
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+    tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     Ψ₀ = -0.5
     @test covers(tmle_result, Ψ₀)
 
@@ -409,7 +409,7 @@ end
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Thank you.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψnew, η_spec; verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψnew, η_spec; verbosity=1);
     Ψ₀ = 0.5
     @test covers(tmle_result, Ψ₀)
 end

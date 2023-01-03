@@ -302,7 +302,7 @@ function counterfactual_aggregate(Ψ, η, dataset; threshold=1e-8)
     for (vals, sign) in TMLE.indicator_fns(Ψ)
         Tc = TMLE.counterfactualTreatment(vals, T)
         Xc = Qinputs(merge(WC, Tc), Ψ)
-        counterfactual_aggregate_ .+= sign.* TMLE.outcome_mean(η, Ψ, Xc, threshold=threshold)
+        counterfactual_aggregate_ .+= sign .* TMLE.outcome_mean(η, Ψ, Xc, threshold=threshold)
     end
     return counterfactual_aggregate_
 end
