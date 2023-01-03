@@ -141,3 +141,14 @@ function tmle!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec; verbosity
     update!(cache, Ψ, η_spec)
     tmle!(cache, verbosity=verbosity, threshold=threshold)
 end
+
+"""
+    tmle!(cache::TMLECache, η_spec::NuisanceSpec, Ψ::Parameter; verbosity=1, threshold=1e-8)
+
+Runs the TMLE procedure for the new parameter Ψ and the new nuisance parameters specification η_spec 
+while potentially reusing cached nuisance parameters.
+"""
+function tmle!(cache::TMLECache, η_spec::NuisanceSpec, Ψ::Parameter; verbosity=1, threshold=1e-8)
+    update!(cache, Ψ, η_spec)
+    tmle!(cache, verbosity=verbosity, threshold=threshold)
+end

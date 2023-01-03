@@ -323,6 +323,6 @@ nothing # hide
 
 Since we have only updated $G$'s specification, only this model is fitted again.
 
-### Scenario N
+### General behaviour
 
-Feel free to play around with the cache and to report any non consistent behaviour.
+Any change to either the `Parameter` of interest or the `NuisanceSpec` structures will trigger an update of the cache.
