@@ -10,8 +10,8 @@ mutable struct TMLECache
     Ψ::Parameter
     η_spec::NuisanceSpec
     dataset
-    η
-    mach_cache
+    η::NuisanceParameters
+    mach_cache::Bool
     function TMLECache(Ψ, η_spec, dataset, mach_cache)
         dataset = Dict(
             :source => dataset,
