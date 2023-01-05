@@ -115,14 +115,6 @@ end
     @test expectation == ŷ
 end
 
-@testset "Test adapt" begin
-    T = (a=1,)
-    @test TMLE.adapt(T) == 1
-
-    T = (a=1, b=2)
-    @test TMLE.adapt(T) == T
-end
-
 @testset "Test indicator_values" begin
     indicators = Dict(
         "b_&_c_&_true"  => -1,

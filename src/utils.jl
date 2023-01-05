@@ -20,16 +20,6 @@ log_fit(verbosity, model) =
 log_no_fit(verbosity, model) =
     verbosity >= 1 && @info string("→ Reusing previous ", model)
 
-"""
-
-Adapts the type of the treatment variable passed to the G learner
-"""
-adapt(T) = size(Tables.columnnames(T), 1) == 1 ? Tables.getcolumn(T, 1) : T
-adapt(model, T) = size(Tables.columnnames(T), 1) == 1 ? model : FullCategoricalJoint(model)
-
-totable(x::AbstractVector) = (y=x,)
-totable(x) = x
-
 function nomissing(table)
     sch = Tables.schema(table)
     for type in sch.types
@@ -83,8 +73,9 @@ function indicator_values(indicators, jointT)
 end
 
 ###############################################################################
-## Offset
+## Offset & Covariate
 ###############################################################################
+
 expected_value(ŷ::UnivariateFiniteVector{Multiclass{2}}) = pdf.(ŷ, levels(first(ŷ))[2])
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
