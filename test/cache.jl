@@ -61,8 +61,8 @@ end
     cache = fakecache()
     # Since no missing data is present, the columns are just propagated
     # to the no_missing dataset in the sense of ===
-    for colname in keys(cache.dataset[:no_missing])
-        cache.dataset[:no_missing][colname] === cache.dataset[:source][colname]
+    for colname in keys(cache.data[:no_missing])
+        cache.data[:no_missing][colname] === cache.data[:source][colname]
     end
     # New treatment configuration and new confounders set
     # Nuisance parameters can be reused
@@ -78,8 +78,8 @@ end
     @test cache.η.Q === nothing
     @test cache.η.F === nothing
     @test cache.Ψ == Ψ
-    for colname in keys(cache.dataset[:no_missing])
-        @test length(cache.dataset[:no_missing][colname]) == 8
+    for colname in keys(cache.data[:no_missing])
+        @test length(cache.data[:no_missing][colname]) == 8
     end
 
     # Change the target
@@ -97,8 +97,8 @@ end
     @test cache.η.Q === nothing
     @test cache.η.F === nothing
     @test cache.Ψ == Ψ
-    for colname in keys(cache.dataset[:no_missing])
-        @test length(cache.dataset[:no_missing][colname]) == 7
+    for colname in keys(cache.data[:no_missing])
+        @test length(cache.data[:no_missing][colname]) == 7
     end
 
     # Change the covariate
