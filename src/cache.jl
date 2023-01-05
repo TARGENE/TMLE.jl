@@ -13,11 +13,9 @@ mutable struct TMLECache
     η::NuisanceParameters
     mach_cache::Bool
     function TMLECache(Ψ, η_spec, dataset, mach_cache)
-        no_missing_dataset = nomissing(dataset, allcolumns(Ψ))
-        dataset = Dict(
+        dataset = Dict{Symbol, Any}(
             :source => dataset,
-            :no_missing => no_missing_dataset,
-            :joint_treatment => joint_treatment(treatments(no_missing_dataset, Ψ))
+            :no_missing => nomissing(dataset, allcolumns(Ψ)),
         )
         η = NuisanceParameters(nothing, nothing, nothing, nothing)
         new(Ψ, η_spec, dataset, η, mach_cache)
