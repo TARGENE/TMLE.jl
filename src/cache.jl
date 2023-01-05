@@ -27,7 +27,7 @@ function check_treatment_values(cache::TMLECache, Ψ::Parameter)
                 throw(ArgumentError(string(
                     "The ", key, " value '", val, "' for treatment ", T, 
                     " in Ψ does not match (in the sense of ===) ",
-                    "any level of the corresponding variable in the dataset: ", Tlevels)))
+                    "any level of the corresponding variable in the dataset: ", string.(Tlevels))))
         end
     end
 end

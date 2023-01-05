@@ -82,7 +82,7 @@ The treatment does not have to be restricted to a single variable, we can define
 ```@example user-guide
 Ψ = CM(
     target      = :Y,
-    treatment   = (T₁=1, T₂=1),
+    treatment   = (T₁=true, T₂=true),
     confounders = [:W₁, :W₂]
 )
 nothing # hide
@@ -97,7 +97,7 @@ CM_{T_1=1, T_2=1} = 1 + 2\mathbb{E}[W₁] + 3\mathbb{E}[W₂] - 4\mathbb{E}[C₁
 Running a targeted estimation procedure should then be as simple as:
 
 ```@example user-guide
-cm_result₁₁, _, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
+cm_result₁₁, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 nothing # hide
 ```
 
@@ -137,11 +137,11 @@ Let's see what the TMLE tells us:
 ```@example user-guide
 Ψ = ATE(
     target      = :Y,
-    treatment   = (T₁=(case=1, control=0), T₂=(case=1, control=0)),
+    treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
     confounders = [:W₁, :W₂]
 )
 
-ate_result, _, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
+ate_result, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 
 OneSampleTTest(ate_result)
 ```
@@ -166,11 +166,11 @@ and run:
 ```@example user-guide
 Ψ = IATE(
     target      = :Y,
-    treatment   = (T₁=(case=1, control=0), T₂=(case=1, control=0)),
+    treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
     confounders = [:W₁, :W₂]
 )
 
-iate_result, _, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
+iate_result, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 
 OneSampleTTest(iate_result)
 ```
@@ -184,10 +184,10 @@ For instance, by definition of the ATE, we should be able to retrieve ``ATE_{T_1
 ```@example user-guide
 Ψ = CM(
     target      = :Y,
-    treatment   = (T₁=0, T₂=0),
+    treatment   = (T₁=false, T₂=false),
     confounders = [:W₁, :W₂]
 )
-cm_result₀₀, _, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
+cm_result₀₀, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 nothing # hide
 ```
 
@@ -265,11 +265,11 @@ Let us start afresh an compute the first ATE:
 ```@example user-guide
 Ψ = ATE(
     target      = :Y,
-    treatment   = (T₁=(case=1, control=0), T₂=(case=1, control=0)),
+    treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
     confounders = [:W₁, :W₂]
 )
 
-ate_result₁, _, cache = tmle(Ψ, η_spec, dataset)
+ate_result₁, cache = tmle(Ψ, η_spec, dataset)
 nothing # hide
 ```
 
@@ -280,11 +280,11 @@ Let us now investigate the second ATE by using the cache:
 ```@example user-guide
 Ψ = ATE(
     target      = :Y,
-    treatment   = (T₁=(case=0, control=1), T₂=(case=1, control=0)),
+    treatment   = (T₁=(case=false, control=true), T₂=(case=true, control=false)),
     confounders = [:W₁, :W₂]
 )
 
-ate_result₂, _, cache = tmle!(cache, Ψ)
+ate_result₂, cache = tmle!(cache, Ψ)
 nothing # hide
 ```
 
@@ -297,11 +297,11 @@ Let us now imagine that we are interested in another target: $Ynew$, we can say 
 ```@example user-guide
 Ψ = ATE(
     target      = :Ynew,
-    treatment   = (T₁=(case=1, control=0), T₂=(case=1, control=0)),
+    treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
     confounders = [:W₁, :W₂]
 )
 
-ate_result₃, _, cache = tmle!(cache, Ψ)
+ate_result₃, cache = tmle!(cache, Ψ)
 nothing # hide
 ```
 
@@ -317,7 +317,7 @@ Another common situation is to try a new model for a given nuisance parameter (o
     LogisticClassifier(lambda=0.001) # Updated G model
 )
 
-ate_result₄, _, cache = tmle!(cache, η_spec)
+ate_result₄, cache = tmle!(cache, η_spec)
 nothing # hide
 ```
 

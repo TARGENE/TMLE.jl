@@ -63,7 +63,7 @@ end
     @test_throws ArgumentError(string("The case value 'true' for treatment ",
                                "T₂ in Ψ does not match (in the sense",
                                " of ===) any level of the corresponding ",
-                               "variable in the dataset: [0, 1]")) TMLE.check_treatment_values(cache, Ψ)
+                               "variable in the dataset: [\"0\", \"1\"]")) TMLE.check_treatment_values(cache, Ψ)
 end
 
 @testset "Test update!(cache, Ψ)" begin
