@@ -192,6 +192,7 @@ struct NuisanceSpec
     G::MLJBase.Model
     H::MLJBase.Model
     F::MLJBase.Model
+    cache::Bool
 end
 
 """
@@ -205,17 +206,18 @@ Specification of the nuisance parameters to be learnt.
 - G: For the estimation of P₀(T|W)
 - H: The `TreatmentTransformer`` to deal with categorical treatments
 - F: The generalized linear model used to fluctuate the initial Q
+- cache: Whether corresponding machines will cache data or not.
 """
-NuisanceSpec(Q, G; H=TreatmentTransformer(), F=Q_model(target_scitype(Q))) =
-    NuisanceSpec(Q, G, H, F)
+NuisanceSpec(Q, G; H=TreatmentTransformer(), F=F_model(target_scitype(Q)), cache=true) =
+    NuisanceSpec(Q, G, H, F, cache)
 
-Q_model(::Type{<:AbstractVector{<:MLJBase.Continuous}}) =
+F_model(::Type{<:AbstractVector{<:MLJBase.Continuous}}) =
     LinearRegressor(fit_intercept=false, offsetcol = :offset)
 
-Q_model(::Type{<:AbstractVector{<:Finite}}) =
+F_model(::Type{<:AbstractVector{<:Finite}}) =
     LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
 
-Q_model(t::Type{Any}) = throw(ArgumentError("Cannot proceed with Q model with target_scitype $t"))
+F_model(t::Type{Any}) = throw(ArgumentError("Cannot proceed with Q model with target_scitype $t"))
 
 namedtuples_from_dicts(d) = d
 namedtuples_from_dicts(d::Dict) = 

@@ -11,14 +11,13 @@ mutable struct TMLECache
     η_spec::NuisanceSpec
     data
     η::NuisanceParameters
-    mach_cache::Bool
-    function TMLECache(Ψ, η_spec, dataset, mach_cache)
+    function TMLECache(Ψ, η_spec, dataset)
         data = Dict{Symbol, Any}(
             :source => dataset,
             :no_missing => nomissing(dataset, allcolumns(Ψ)),
         )
         η = NuisanceParameters(nothing, nothing, nothing, nothing)
-        new(Ψ, η_spec, data, η, mach_cache)
+        new(Ψ, η_spec, data, η)
     end
 end
 
@@ -83,8 +82,8 @@ Main entrypoint to run the TMLE procedure.
 - threshold: To avoid small values of Ĝ to cause the "clever covariate" to explode
 - mach_cache: Whether underlying MLJ.machines will cache data or not
 """
-function tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; verbosity=1, threshold=1e-8, mach_cache=false)
-    cache = TMLECache(Ψ, η_spec, dataset, mach_cache)
+function tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; verbosity=1, threshold=1e-8)
+    cache = TMLECache(Ψ, η_spec, dataset)
     return tmle!(cache; verbosity=verbosity, threshold=threshold)
 end
 
@@ -163,7 +162,7 @@ function fit_nuisance!(cache::TMLECache; verbosity=1)
         nomissing_WT = nomissing(cache.data[:source], treatment_and_confounders(Ψ))
         W = confounders(nomissing_WT, Ψ)
         jointT = joint_treatment(treatments(nomissing_WT, Ψ))
-        mach = machine(η_spec.G, W, jointT, cache=cache.mach_cache)
+        mach = machine(η_spec.G, W, jointT, cache=η_spec.cache)
         MLJBase.fit!(mach, verbosity=verbosity-1)
         η.G = mach
         cache.data[:jointT_levels] = levels(jointT)
@@ -180,7 +179,7 @@ function fit_nuisance!(cache::TMLECache; verbosity=1)
         # Fitting the Encoder
         if η.H === nothing
             log_fit(verbosity, "Encoder")
-            mach = machine(η_spec.H, X, cache=cache.mach_cache)
+            mach = machine(η_spec.H, X, cache=η_spec.cache)
             MLJBase.fit!(mach, verbosity=verbosity-1)
             η.H = mach
         else
@@ -189,7 +188,7 @@ function fit_nuisance!(cache::TMLECache; verbosity=1)
         log_fit(verbosity, "E[Y|X]")
         Xfloat = MLJBase.transform(η.H, X)
         cache.data[:Xfloat] = Xfloat
-        mach = machine(η_spec.Q, Xfloat, y, cache=cache.mach_cache)
+        mach = machine(η_spec.Q, Xfloat, y, cache=η_spec.cache)
         MLJBase.fit!(mach, verbosity=verbosity-1)
         η.Q = mach
     else
@@ -208,7 +207,7 @@ function tmle_step!(cache::TMLECache; verbosity=1, threshold=1e-8)
     covariate = TMLE.compute_covariate(jointT, W, cache.Ψ, cache.η.G; threshold=threshold)
     X = TMLE.fluctuation_input(covariate, offset)
     y = TMLE.target(cache.data[:no_missing], cache.Ψ)
-    mach = machine(cache.η_spec.F, X, y, cache=cache.mach_cache)
+    mach = machine(cache.η_spec.F, X, y, cache=cache.η_spec.cache)
     MLJBase.fit!(mach, verbosity=verbosity-1)
     # Update cache
     cache.η.F = mach
