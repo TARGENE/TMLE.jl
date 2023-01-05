@@ -12,17 +12,60 @@ struct ComposedTMLE{T<:AbstractFloat} <: AbstractTMLE
     σ̂::Matrix{T}
 end
 
+"""
+    initial_estimate(r::PointTMLE)
+
+Retrieves the initial estimate: before the TMLE step.
+"""
 initial_estimate(r::PointTMLE) = r.Ψ̂ᵢ
+
+"""
+    estimate(r::PointTMLE)
+
+Retrieves the final estimate: after the TMLE step.
+"""
 estimate(r::PointTMLE) = r.Ψ̂
+
+"""
+    estimate(r::ComposedTMLE)
+
+Retrieves the final estimate: after the TMLE step.
+"""
 estimate(r::ComposedTMLE) = length(r.Ψ̂) == 1 ? r.Ψ̂[1] : r.Ψ̂
 
+"""
+    var(r::PointTMLE)
+
+Computes the estimated variance associated with the estimate.
+"""
 Statistics.var(r::PointTMLE) = var(r.IC)/size(r.IC, 1)
+
+"""
+    var(r::ComposedTMLE)
+
+Computes the estimated variance associated with the estimate.
+"""
 Statistics.var(r::ComposedTMLE) = length(r.σ̂) == 1 ? r.σ̂[1] : r.σ̂
 
+"""
+    OneSampleZTest(r::PointTMLE, Ψ₀=0)
+
+Performs a Z test on the PointTMLE.
+"""
 HypothesisTests.OneSampleZTest(r::PointTMLE, Ψ₀=0) = OneSampleZTest(estimate(r), std(r.IC), size(r.IC, 1), Ψ₀)
 
+"""
+    OneSampleTTest(r::PointTMLE, Ψ₀=0)
 
+Performs a T test on the PointTMLE.
+"""
 HypothesisTests.OneSampleTTest(r::PointTMLE, Ψ₀=0) = OneSampleTTest(estimate(r), std(r.IC), size(r.IC, 1), Ψ₀)
+
+"""
+    OneSampleTTest(r::ComposedTMLE, Ψ₀=0)
+
+Performs a T test on the ComposedTMLE.
+"""
 function HypothesisTests.OneSampleTTest(r::ComposedTMLE, Ψ₀=0) 
     @assert length(r.Ψ̂) > 1 "OneSampleTTest is only implemeted for real-valued statistics."
     return OneSampleTTest(estimate(r), sqrt(var(r)), 1, Ψ₀)

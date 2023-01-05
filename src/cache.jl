@@ -1,10 +1,12 @@
 """
-This structure is used as a cache for both:
-    - η_spec: The specification of the learning algorithms used to estimate the nuisance parameters
-    - η: nuisance parameters
+This structure is used as a cache for:
     - data: data changes
-
-If the input data does not change, then the nuisance parameters do not have to be estimated again.
+    - η: The nuisance parameters estimators
+    - Ψ: The parameter of interest
+    - η_spec: The specification of the learning algorithms used to estimate the nuisance parameters
+    
+In many cases, if some of those fields do not change, the nuisance parameters do not have to be estimated again hence
+saving computations.
 """
 mutable struct TMLECache
     data
@@ -99,7 +101,6 @@ Main entrypoint to run the TMLE procedure.
 - dataset: A tabular dataset respecting the Table.jl interface
 - verbosity: The logging level
 - threshold: To avoid small values of Ĝ to cause the "clever covariate" to explode
-- mach_cache: Whether underlying MLJ.machines will cache data or not
 """
 function tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; verbosity=1, threshold=1e-8)
     cache = TMLECache(dataset)
