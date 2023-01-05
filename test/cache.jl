@@ -31,16 +31,6 @@ function fakefill!(cache)
 end
 
 function fakecache()
-    Ψ = ATE(
-        target=:y,
-        treatment=(T₁=(case=1, control=0),),
-        confounders=[:W₁],
-        covariates=[:C₁]
-    )
-    η_spec = NuisanceSpec(
-        RidgeRegressor(),
-        LogisticClassifier(lambda=0)
-    )
     n = 10
     dataset = (
         W₁=vcat(missing, rand(n-1)),
@@ -51,19 +41,43 @@ function fakecache()
         y=rand(n),
         ynew=vcat([missing, missing, missing], rand(n-3))
         )
-    cache = TMLE.TMLECache(Ψ, η_spec, dataset)
-    fakefill!(cache)
+    cache = TMLE.TMLECache(dataset)
     return cache
 end
 
-
 @testset "Test update!(cache, Ψ)" begin
     cache = fakecache()
+    @test !isdefined(cache, :Ψ)
+    @test !isdefined(cache, :η_spec)
+
+    Ψ = ATE(
+        target=:y,
+        treatment=(T₁=(case=1, control=0),),
+        confounders=[:W₁],
+        covariates=[:C₁]
+    )
+    η_spec = NuisanceSpec(
+        RidgeRegressor(),
+        LogisticClassifier(lambda=0)
+    )
+    TMLE.update!(cache, Ψ, η_spec)
+    @test cache.Ψ == Ψ
+    @test cache.η_spec == η_spec
+    @test cache.η.Q === nothing
+    @test cache.η.H === nothing
+    @test cache.η.G === nothing
+    @test cache.η.F === nothing
     # Since no missing data is present, the columns are just propagated
     # to the no_missing dataset in the sense of ===
     for colname in keys(cache.data[:no_missing])
         cache.data[:no_missing][colname] === cache.data[:source][colname]
     end
+    # Pretend the cache nuisance parameters have been estimated
+    fakefill!(cache)
+    @test cache.η.H !== nothing
+    @test cache.η.G !== nothing
+    @test cache.η.Q !== nothing
+    @test cache.η.F !== nothing
     # New treatment configuration and new confounders set
     # Nuisance parameters can be reused
     Ψ = ATE(
@@ -84,11 +98,11 @@ end
 
     # Change the target
     # E[Y|X] must be refit
-    cache = fakecache()
+    fakefill!(cache)
     Ψ = ATE(
         target=:ynew,
         treatment=(T₁=(case=0, control=1),),
-        confounders=[:W₁],
+        confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
     TMLE.update!(cache, Ψ)
@@ -103,11 +117,11 @@ end
 
     # Change the covariate
     # E[Y|X] must be refit
-    cache = fakecache()
+    fakefill!(cache)
     Ψ = ATE(
-        target=:y,
+        target=:ynew,
         treatment=(T₁=(case=0, control=1),),
-        confounders=[:W₁],
+        confounders=[:W₁, :W₂],
     )
     TMLE.update!(cache, Ψ)
     @test cache.η.H !== nothing
@@ -118,12 +132,11 @@ end
 
     # Change only treatment setting
     # only F needs refit
-    cache = fakecache()
+    fakefill!(cache)
     Ψ = ATE(
-        target=:y,
-        treatment=(T₁=(case=0, control=1),),
-        confounders=[:W₁],
-        covariates=[:C₁]
+        target=:ynew,
+        treatment=(T₁=(case=1, control=0),),
+        confounders=[:W₁, :W₂],
     )
     TMLE.update!(cache, Ψ)
     @test cache.η.H !== nothing
@@ -134,12 +147,11 @@ end
 
     # Change the treatments
     # all η must be refit
-    cache = fakecache()
+    fakefill!(cache)
     Ψ = ATE(
-        target=:y,
-        treatment=(T₂=(case=0, control=1),),
-        confounders=[:W₁],
-        covariates=[:C₁]
+        target=:ynew,
+        treatment=(T₂=(case=1, control=0),),
+        confounders=[:W₁, :W₂],
     )
     TMLE.update!(cache, Ψ)
     @test cache.η.H === nothing
@@ -147,12 +159,23 @@ end
     @test cache.η.Q === nothing
     @test cache.η.F === nothing
     @test cache.Ψ == Ψ
-
 end
 
 @testset "Test update!(cache, η_spec)" begin
-    # Change the Q learning stategy
     cache = fakecache()
+    Ψ = ATE(
+        target=:y,
+        treatment=(T₁=(case=1, control=0),),
+        confounders=[:W₁],
+        covariates=[:C₁]
+    )
+    η_spec = NuisanceSpec(
+        RidgeRegressor(),
+        LogisticClassifier(lambda=0)
+    )
+    TMLE.update!(cache, Ψ, η_spec)
+    fakefill!(cache)
+    # Change the Q learning stategy
     η_spec = NuisanceSpec(
         RidgeRegressor(lambda=10),
         LogisticClassifier(lambda=0)
@@ -165,9 +188,9 @@ end
     @test cache.η_spec == η_spec
 
     # Change the G learning stategy
-    cache = fakecache()
+    fakefill!(cache)
     η_spec = NuisanceSpec(
-        RidgeRegressor(),
+        RidgeRegressor(lambda=10),
         LogisticClassifier(lambda=10)
     )
     TMLE.update!(cache, η_spec)

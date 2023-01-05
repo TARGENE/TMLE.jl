@@ -7,60 +7,63 @@ This structure is used as a cache for both:
 If the input data does not change, then the nuisance parameters do not have to be estimated again.
 """
 mutable struct TMLECache
-    Ψ::Parameter
-    η_spec::NuisanceSpec
     data
     η::NuisanceParameters
-    function TMLECache(Ψ, η_spec, dataset)
-        data = Dict{Symbol, Any}(
-            :source => dataset,
-            :no_missing => nomissing(dataset, allcolumns(Ψ)),
-        )
+    Ψ::Parameter
+    η_spec::NuisanceSpec
+    function TMLECache(dataset)
+        data = Dict{Symbol, Any}(:source => dataset)
         η = NuisanceParameters(nothing, nothing, nothing, nothing)
-        new(Ψ, η_spec, data, η)
+        new(data, η)
     end
 end
 
 function update!(cache::TMLECache, Ψ::Parameter)
     any_variable_changed = false
-    treatment_changed = false
-    if keys(cache.Ψ.treatment) != keys(Ψ.treatment)
-        cache.η.G = nothing
-        cache.η.Q = nothing
-        cache.η.H = nothing
+    if !isdefined(cache, :Ψ)
         any_variable_changed = true
-        treatment_changed = true
+    else
+        if keys(cache.Ψ.treatment) != keys(Ψ.treatment)
+            cache.η.G = nothing
+            cache.η.Q = nothing
+            cache.η.H = nothing
+            any_variable_changed = true
+        end
+        if cache.Ψ.confounders != Ψ.confounders
+            cache.η.G = nothing
+            cache.η.Q = nothing
+            any_variable_changed = true
+        end
+        if cache.Ψ.covariates != Ψ.covariates
+            cache.η.Q = nothing
+            any_variable_changed = true
+        end
+        if cache.Ψ.target != Ψ.target
+            cache.η.Q = nothing
+            any_variable_changed = true
+        end
+        cache.η.F = nothing
     end
-    if cache.Ψ.confounders != Ψ.confounders
-        cache.η.G = nothing
-        cache.η.Q = nothing
-        any_variable_changed = true
-    end
-    if cache.Ψ.covariates != Ψ.covariates
-        cache.η.Q = nothing
-        any_variable_changed = true
-    end
-    if cache.Ψ.target != Ψ.target
-        cache.η.Q = nothing
-        any_variable_changed = true
-    end
-    cache.η.F = nothing
     # Update no missing dataset
     if any_variable_changed
         cache.data[:no_missing] = nomissing(cache.data[:source], allcolumns(Ψ))
     end
     cache.Ψ = Ψ
+    return cache
 end
 
 function update!(cache::TMLECache, η_spec::NuisanceSpec)
-    if cache.η_spec.G != η_spec.G
-        cache.η.G = nothing
+    if isdefined(cache, :η_spec)
+        if cache.η_spec.G != η_spec.G
+            cache.η.G = nothing
+        end
+        if cache.η_spec.Q != η_spec.Q
+            cache.η.Q = nothing
+        end
+        cache.η.F = nothing
     end
-    if cache.η_spec.Q != η_spec.Q
-        cache.η.Q = nothing
-    end
-    cache.η.F = nothing
     cache.η_spec = η_spec
+    return cache
 end
 
 function update!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec)
@@ -83,7 +86,8 @@ Main entrypoint to run the TMLE procedure.
 - mach_cache: Whether underlying MLJ.machines will cache data or not
 """
 function tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; verbosity=1, threshold=1e-8)
-    cache = TMLECache(Ψ, η_spec, dataset)
+    cache = TMLECache(dataset)
+    update!(cache, Ψ, η_spec)
     return tmle!(cache; verbosity=verbosity, threshold=threshold)
 end
 
