@@ -3,7 +3,24 @@ module TestCache
 using Test
 using TMLE
 using MLJLinearModels
+using MLJModels
+using CategoricalArrays
 using MLJBase
+using StableRNGs
+using Distributions
+
+function naive_dataset(;n=100)
+    rng = StableRNG(123)
+    W = rand(rng, Uniform(), n)
+    T = rand(rng, [0, 1], n)
+    y = 3W .+ T .+ T.*W + rand(rng, Normal(0, 0.05), n)
+    return (
+        y = y,
+        W = W,
+        T = categorical(T)
+    )
+end
+
 
 function fakefill!(cache)
     n = 10
@@ -159,6 +176,50 @@ end
     @test cache.η.Q !== nothing
     @test cache.η.F === nothing
     @test cache.η_spec == η_spec
+end
+
+@testset "Test counterfactual_aggregate" begin
+    n=100
+    dataset = naive_dataset(;n=n)
+    Ψ = ATE(
+        target = :y,
+        treatment = (T=(case=1, control=0),),
+        confounders = [:W]
+    )
+    η_spec = NuisanceSpec(
+        MLJModels.ConstantRegressor(),
+        ConstantClassifier()
+    )
+    # Nuisance parameter estimation
+    _, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+
+    # The inital estimator for Q is a constant predictor, 
+    # its  prediction is the same for each counterfactual
+    # and the initial aggregate is zero.
+    # Since G is also constant the output after fluctuating 
+    # must be constant over the counterfactual dataset
+    counterfactual_aggregate, counterfactual_aggregateᵢ = TMLE.counterfactual_aggregates(cache; threshold=1e-8)
+    @test counterfactual_aggregateᵢ == zeros(n)
+    @test all(first(counterfactual_aggregate) .== counterfactual_aggregate)
+
+    # Replacing Q with a linear regression
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        ConstantClassifier()
+    )
+    tmle!(cache, η_spec, verbosity=0);
+    X₁ = (W=dataset.W, T=categorical(ones(Int, n), levels=levels(dataset.T)))
+    X₀ = (W=dataset.W, T=categorical(zeros(Int, n), levels=levels(dataset.T)))
+    ŷ₁ =  TMLE.expected_value(MLJBase.predict(cache.η.Q, MLJBase.transform(cache.η.H, X₁)))
+    ŷ₀ = TMLE.expected_value(MLJBase.predict(cache.η.Q, MLJBase.transform(cache.η.H, X₀)))
+    expected_cf_agg = ŷ₁ - ŷ₀
+    counterfactual_aggregate, counterfactual_aggregateᵢ = TMLE.counterfactual_aggregates(cache; threshold=1e-8)
+    @test counterfactual_aggregateᵢ == expected_cf_agg
+    # This is the coefficient in the linear regression model
+    var, coef = fitted_params(cache.η.Q).coefs[2]
+    @test var == :T__0
+    @test all(coef ≈ -x for x ∈ counterfactual_aggregateᵢ)
+
 end
 
 end

@@ -22,6 +22,7 @@ using YAML
 
 export NuisanceSpec
 export CM, ATE, IATE
+export TMLECache
 export tmle, tmle!
 export var, cov, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
@@ -32,7 +33,6 @@ export parameters_from_yaml
 # #############################################################################
 
 include("treatment_transformer.jl")
-include("jointmodels.jl")
 include("parameters.jl")
 include("utils.jl")
 include("cache.jl")

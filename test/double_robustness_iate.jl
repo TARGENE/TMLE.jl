@@ -76,7 +76,7 @@ function binary_target_categorical_treatment_pb(;n=100)
                     )
     end
     # Sampling W:
-    W = rand(rng, Bernoulli(0.5), n, 3)
+    W = float(rand(rng, Bernoulli(0.5), n, 3))
 
     # Sampling T from W:
     # T₁, T₂ will have 3 categories each
@@ -175,7 +175,7 @@ end
         ConstantClassifier(),
         LogisticClassifier(lambda=0)
     )
-    tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
+    tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0);
     Ψ̂ = TMLE.estimate(tmle_result)
     lb, ub = confint(OneSampleTTest(tmle_result))
     @test lb ≤ Ψ̂ ≤ ub
@@ -248,7 +248,7 @@ end
         LogisticClassifier(lambda=0)
     )
 
-    tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
+    tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0);
     Ψ̂ = TMLE.estimate(tmle_result)
     lb, ub = confint(OneSampleTTest(tmle_result))
     @test lb ≤ Ψ̂ ≤ ub

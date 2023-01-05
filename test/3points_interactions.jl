@@ -28,7 +28,7 @@ end
     Ψ = IATE(
         target      = :y,
         confounders = [:W],
-        treatment   = (T₁=(case=1, control=0), T₂=(case=1, control=0), T₃=(case=1, control=0))
+        treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false), T₃=(case=1, control=0))
     )
     η_spec = NuisanceSpec(
         interacter,

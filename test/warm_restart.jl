@@ -62,7 +62,7 @@ table_types = (Tables.columntable, DataFrame)
     # Define the parameter of interest
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₁=(case=1, control=0),),
+        treatment=(T₁=(case=true, control=false),),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -78,7 +78,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "→ Fitting Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle(Ψ, η_spec, dataset; verbosity=1);
     # The TMLE covers the ground truth but the initial estimate does not
@@ -90,7 +90,7 @@ table_types = (Tables.columntable, DataFrame)
     # Nuisance parameters should not fitted again
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₁=(case=0, control=1),),
+        treatment=(T₁=(case=false, control=true),),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -100,7 +100,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 1
@@ -110,7 +110,7 @@ table_types = (Tables.columntable, DataFrame)
     # Remove the covariate variable, this will trigger the refit of Q
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₁=(case=1, control=0),),
+        treatment=(T₁=(case=true, control=false),),
         confounders=[:W₁, :W₂],
     )
     log_sequence = (
@@ -119,7 +119,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = -1
@@ -130,7 +130,7 @@ table_types = (Tables.columntable, DataFrame)
     # This will trigger the refit of all η
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₂=(case=1, control=0),),
+        treatment=(T₂=(case=true, control=false),),
         confounders=[:W₁, :W₂],
     )
     log_sequence = (
@@ -139,7 +139,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "→ Fitting Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 0.5
@@ -152,7 +152,7 @@ table_types = (Tables.columntable, DataFrame)
     # we can't have ground truth coverage on this setting
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₂=(case=1, control=0),),
+        treatment=(T₂=(case=true, control=false),),
         confounders=[:W₁],
     )
     log_sequence = (
@@ -161,7 +161,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     
@@ -169,7 +169,7 @@ table_types = (Tables.columntable, DataFrame)
     # This will trigger the refit of Q only
     Ψ = ATE(
         target=:y₂,
-        treatment=(T₂=(case=1, control=0),),
+        treatment=(T₂=(case=true, control=false),),
         confounders=[:W₁],
     )
     log_sequence = (
@@ -178,7 +178,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 10
@@ -193,7 +193,7 @@ end
     # Define the parameter of interest
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -211,7 +211,7 @@ end
     # Let's switch case and control for T₂
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₁=(case=1, control=0), T₂=(case=0, control=1)),
+        treatment=(T₁=(case=true, control=false), T₂=(case=false, control=true)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -221,7 +221,7 @@ end
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
@@ -235,7 +235,7 @@ end
     dataset = tt(build_dataset(;n=10000))
     Ψ = CM(
         target=:y₁,
-        treatment=(T₁=1, T₂=1),
+        treatment=(T₁=true, T₂=true),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -252,7 +252,7 @@ end
     # Let's switch case and control for T₂
     Ψ = CM(
         target=:y₁,
-        treatment=(T₁=1, T₂=0),
+        treatment=(T₁=true, T₂=false),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -262,7 +262,7 @@ end
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
@@ -273,7 +273,7 @@ end
     # Change the target
     Ψ = CM(
         target=:y₂,
-        treatment=(T₁=1, T₂=0),
+        treatment=(T₁=true, T₂=false),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -283,7 +283,7 @@ end
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
@@ -294,7 +294,7 @@ end
     # Change the treatment
     Ψ = CM(
         target=:y₂,
-        treatment=(T₂=1,),
+        treatment=(T₂=true,),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -304,7 +304,7 @@ end
         (:info, "→ Fitting Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
@@ -317,7 +317,7 @@ end
     dataset = tt(build_dataset(;n=10000))
     Ψ = IATE(
         target=:y₃,
-        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -334,7 +334,7 @@ end
     # Remove covariate from fit
     Ψ = IATE(
         target=:y₃,
-        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
     )
     log_sequence = (
@@ -343,7 +343,7 @@ end
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
@@ -353,7 +353,7 @@ end
     # Changing the treatments values
     Ψ = IATE(
         target=:y₃,
-        treatment=(T₁=(case=0, control=1), T₂=(case=1, control=0)),
+        treatment=(T₁=(case=false, control=true), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
     )
     log_sequence = (
@@ -362,7 +362,7 @@ end
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
@@ -377,7 +377,7 @@ end
     # Define the parameter of interest
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -392,7 +392,7 @@ end
 
     Ψnew = ATE(
         target=:y₁,
-        treatment=(T₁=(case=0, control=1), T₂=(case=0, control=1)),
+        treatment=(T₁=(case=false, control=true), T₂=(case=false, control=true)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -407,7 +407,7 @@ end
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψnew, η_spec; verbosity=1);
     Ψ₀ = 0.5
