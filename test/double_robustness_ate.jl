@@ -83,7 +83,8 @@ end
         MLJModels.DeterministicConstantRegressor(),
         LogisticClassifier(lambda=0)
     )
-    tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
+    cache = TMLECache(dataset)
+    tmle_result, cache = tmle!(cache, Ψ, η_spec, verbosity=0)
     Ψ̂ = TMLE.estimate(tmle_result)
     lb, ub = confint(OneSampleTTest(tmle_result))
     @test lb ≤ Ψ̂ ≤ ub

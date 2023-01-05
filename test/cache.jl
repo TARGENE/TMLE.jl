@@ -45,6 +45,27 @@ function fakecache()
     return cache
 end
 
+@testset "Test check_treatment_values" begin
+    cache = fakecache()
+    Ψ = ATE(
+        target=:y,
+        treatment=(T₁=(case=1, control=0),),
+        confounders=[:W₁],
+    )
+    TMLE.check_treatment_values(cache, Ψ)
+    Ψ = ATE(
+        target=:y,
+        treatment=(
+            T₁=(case=1, control=0), 
+            T₂=(case=true, control=false),),
+        confounders=[:W₁],
+    )
+    @test_throws ArgumentError(string("The case value 'true' for treatment ",
+                               "T₂ in Ψ does not match (in the sense",
+                               " of ===) any level of the corresponding ",
+                               "variable in the dataset: [0, 1]")) TMLE.check_treatment_values(cache, Ψ)
+end
+
 @testset "Test update!(cache, Ψ)" begin
     cache = fakecache()
     @test !isdefined(cache, :Ψ)

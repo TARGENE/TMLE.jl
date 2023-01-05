@@ -18,7 +18,23 @@ mutable struct TMLECache
     end
 end
 
+function check_treatment_values(cache::TMLECache, Ψ::Parameter)
+    for T in treatments(Ψ)
+        Tlevels = levels(Tables.getcolumn(cache.data[:source], T))
+        Tsetting = getproperty(Ψ.treatment, T)
+        for (key, val) in zip(keys(Tsetting), Tsetting) 
+            any(val .=== Tlevels) || 
+                throw(ArgumentError(string(
+                    "The ", key, " value '", val, "' for treatment ", T, 
+                    " in Ψ does not match (in the sense of ===) ",
+                    "any level of the corresponding variable in the dataset: ", Tlevels)))
+        end
+    end
+end
+
+
 function update!(cache::TMLECache, Ψ::Parameter)
+    check_treatment_values(cache, Ψ)
     any_variable_changed = false
     if !isdefined(cache, :Ψ)
         any_variable_changed = true

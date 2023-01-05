@@ -20,9 +20,7 @@ using YAML
 # EXPORTS
 # #############################################################################
 
-export NuisanceSpec
-export CM, ATE, IATE
-export TMLECache
+export NuisanceSpec, TMLECache, CM, ATE, IATE
 export tmle, tmle!
 export var, cov, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
