@@ -2,6 +2,12 @@
 ## General Utilities
 ###############################################################################
 
+function logit!(v)
+    for i in eachindex(v)
+        v[i] = logit(v[i])
+    end
+end
+
 function plateau!(v::AbstractVector, threshold)
     for i in eachindex(v)
         v[i] = max(v[i], threshold)
@@ -42,11 +48,11 @@ ncases(value, Ψ::Parameter) = sum(value[i] == Ψ.treatment[i].case for i in eac
 
 function indicator_fns(Ψ::IATE, f::Function)
     N = length(treatments(Ψ))
-    indicators = Dict()
+    key_vals = Pair[]
     for cf in Iterators.product((values(Ψ.treatment[T]) for T in treatments(Ψ))...)
-        indicators[f(cf)] = (-1)^(N - ncases(cf, Ψ))
+        push!(key_vals, f(cf) => (-1)^(N - ncases(cf, Ψ)))
     end
-    return indicators
+    return Dict(key_vals...)
 end
 
 indicator_fns(Ψ::CM, f::Function) = Dict(f(values(Ψ.treatment)) => 1)
@@ -65,9 +71,7 @@ function indicator_values(indicators, jointT)
     indic = zeros(Float64, nrows(jointT))
     for i in eachindex(jointT)
         val = jointT[i]
-        if haskey(indicators, val)
-            indic[i] = indicators[val]
-        end
+        indic[i] = get(indicators, val, 0.)
     end
     return indic
 end
@@ -80,13 +84,16 @@ expected_value(ŷ::UnivariateFiniteVector{Multiclass{2}}) = pdf.(ŷ, levels(firs
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
-compute_offset(ŷ::UnivariateFiniteVector{Multiclass{2}}) = logit.(expected_value(ŷ))
+function compute_offset(ŷ::UnivariateFiniteVector{Multiclass{2}})
+    μy = expected_value(ŷ)
+    logit!(μy)
+    return μy
+end
 compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
 compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 
-function compute_covariate(jointT, W, Ψ, G; threshold=0.005)
+function compute_covariate(jointT, W, G, indicator_fns; threshold=0.005)
     # Compute the indicator values
-    indicator_fns = TMLE.indicator_fns(Ψ, TMLE.joint_name)
     indic_vals = TMLE.indicator_values(indicator_fns, jointT)
     # Compute density and truncate
     ŷ = MLJBase.predict(G, W)

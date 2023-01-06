@@ -167,8 +167,9 @@ end
         treatment=(t₁=(case="a", control="b"),),
         confounders = [:x1, :x2, :x3]
     )
+    indicator_fns = TMLE.indicator_fns(Ψ, TMLE.joint_name)
 
-    cov = TMLE.compute_covariate(jointT, W, Ψ, Gmach)
+    cov = TMLE.compute_covariate(jointT, W, Gmach, indicator_fns)
     @test cov == [1.75,
                  -3.5,
                  0.0,
@@ -192,8 +193,9 @@ end
         treatment=(t₁=(case=1, control=0), t₂=(case=1, control=0)),
         confounders = [:x1, :x2, :x3]
     )
+    indicator_fns = TMLE.indicator_fns(Ψ, TMLE.joint_name)
 
-    cov = TMLE.compute_covariate(jointT, W, Ψ, Gmach)
+    cov = TMLE.compute_covariate(jointT, W, Gmach, indicator_fns)
     @test cov == [2.3333333333333335,
                  -3.5,
                  -3.5,
@@ -222,8 +224,9 @@ end
                    t₃=(case=true, control=false)),
         confounders = [:x1, :x2, :x3]
     )
+    indicator_fns = TMLE.indicator_fns(Ψ, TMLE.joint_name)
 
-    cov = TMLE.compute_covariate(jointT, W, Ψ, Gmach)
+    cov = TMLE.compute_covariate(jointT, W, Gmach, indicator_fns)
     @test cov == [0,
                   7.0,
                  -7,

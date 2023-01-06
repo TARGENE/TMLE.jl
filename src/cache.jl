@@ -66,7 +66,12 @@ function update!(cache::TMLECache, Ψ::Parameter)
     if any_variable_changed
         cache.data[:no_missing] = nomissing(cache.data[:source], allcolumns(Ψ))
     end
+    # Update indicator functions
+    cache.data[:indicators_str] = indicator_fns(Ψ, joint_name)
+    cache.data[:indicators_tuple] = indicator_fns(Ψ, x -> x)
+    # Update Ψ
     cache.Ψ = Ψ
+    
     return cache
 end
 
@@ -225,7 +230,7 @@ function tmle_step!(cache::TMLECache; verbosity=1, threshold=1e-8)
     offset = TMLE.compute_offset(ŷ)
     W = TMLE.confounders(cache.data[:no_missing], cache.Ψ)
     jointT = TMLE.joint_treatment(TMLE.treatments(cache.data[:no_missing], cache.Ψ))
-    covariate = TMLE.compute_covariate(jointT, W, cache.Ψ, cache.η.G; threshold=threshold)
+    covariate = TMLE.compute_covariate(jointT, W, cache.η.G, cache.data[:indicators_str]; threshold=threshold)
     X = TMLE.fluctuation_input(covariate, offset)
     y = TMLE.target(cache.data[:no_missing], cache.Ψ)
     mach = machine(cache.η_spec.F, X, y, cache=cache.η_spec.cache)
@@ -245,7 +250,7 @@ function counterfactual_aggregates(cache::TMLECache; threshold=1e-8)
     counterfactual_aggregateᵢ = zeros(n)
     counterfactual_aggregate = zeros(n)
     # Loop over Treatment settings
-    for (vals, sign) in TMLE.indicator_fns(cache.Ψ, x -> x)
+    for (vals, sign) in cache.data[:indicators_tuple]
         # Counterfactual dataset for a given treatment setting
         Tc = TMLE.counterfactualTreatment(vals, Ttemplate)
         Xc = Qinputs(merge(WC, Tc), cache.Ψ)
@@ -255,7 +260,7 @@ function counterfactual_aggregates(cache::TMLECache; threshold=1e-8)
         # Counterfactual predictions with F
         offset = compute_offset(ŷᵢ)
         jointT = categorical(repeat([joint_name(vals)], n), levels=cache.data[:jointT_levels])
-        covariate = compute_covariate(jointT, confounders(WC, cache.Ψ), cache.Ψ, cache.η.G; threshold=threshold)
+        covariate = compute_covariate(jointT, confounders(WC, cache.Ψ), cache.η.G, cache.data[:indicators_str]; threshold=threshold)
         Xfluct = fluctuation_input(covariate, offset)
         ŷ = predict(cache.η.F, Xfluct)
         counterfactual_aggregate .+= sign .* expected_value(ŷ)
