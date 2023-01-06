@@ -20,10 +20,9 @@ using YAML
 # EXPORTS
 # #############################################################################
 
-export NuisanceSpec
-export CM, ATE, IATE
+export NuisanceSpec, TMLECache, CM, ATE, IATE
 export tmle, tmle!
-export var, cov, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
+export var, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
 export parameters_from_yaml
 
@@ -32,7 +31,6 @@ export parameters_from_yaml
 # #############################################################################
 
 include("treatment_transformer.jl")
-include("jointmodels.jl")
 include("parameters.jl")
 include("utils.jl")
 include("cache.jl")

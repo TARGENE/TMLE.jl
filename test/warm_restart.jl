@@ -18,8 +18,8 @@ function covers(result, Ψ₀; level=0.05)
     return pval && covered
 end
 
-closer_than_initial(tmle_result, initial_result, Ψ₀) =
-    abs(TMLE.estimate(tmle_result) - Ψ₀) ≤ abs(TMLE.estimate(initial_result) - Ψ₀)
+closer_than_initial(tmle_result, Ψ₀) =
+    abs(TMLE.estimate(tmle_result) - Ψ₀) ≤ abs(initial_estimate(tmle_result) - Ψ₀)
 
 """
 Results derived by hand for this dataset:
@@ -62,7 +62,7 @@ table_types = (Tables.columntable, DataFrame)
     # Define the parameter of interest
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₁=(case=1, control=0),),
+        treatment=(T₁=(case=true, control=false),),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -78,9 +78,9 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "→ Fitting Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle(Ψ, η_spec, dataset; verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle(Ψ, η_spec, dataset; verbosity=1);
     # The TMLE covers the ground truth but the initial estimate does not
     Ψ₀ = -1
     @test covers(tmle_result, Ψ₀)
@@ -90,7 +90,7 @@ table_types = (Tables.columntable, DataFrame)
     # Nuisance parameters should not fitted again
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₁=(case=0, control=1),),
+        treatment=(T₁=(case=false, control=true),),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -100,9 +100,9 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 1
     @test covers(tmle_result, Ψ₀)
     #@test closer_than_initial(tmle_result, initial_result, Ψ₀)
@@ -110,7 +110,7 @@ table_types = (Tables.columntable, DataFrame)
     # Remove the covariate variable, this will trigger the refit of Q
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₁=(case=1, control=0),),
+        treatment=(T₁=(case=true, control=false),),
         confounders=[:W₁, :W₂],
     )
     log_sequence = (
@@ -119,9 +119,9 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = -1
     @test covers(tmle_result, Ψ₀)
     #@test closer_than_initial(tmle_result, initial_result, Ψ₀)
@@ -130,7 +130,7 @@ table_types = (Tables.columntable, DataFrame)
     # This will trigger the refit of all η
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₂=(case=1, control=0),),
+        treatment=(T₂=(case=true, control=false),),
         confounders=[:W₁, :W₂],
     )
     log_sequence = (
@@ -139,12 +139,12 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "→ Fitting Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 0.5
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
     # Remove a confounding variable
     # This will trigger the refit of Q and G
@@ -152,7 +152,7 @@ table_types = (Tables.columntable, DataFrame)
     # we can't have ground truth coverage on this setting
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₂=(case=1, control=0),),
+        treatment=(T₂=(case=true, control=false),),
         confounders=[:W₁],
     )
     log_sequence = (
@@ -161,15 +161,15 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     
     # Change the target
     # This will trigger the refit of Q only
     Ψ = ATE(
         target=:y₂,
-        treatment=(T₂=(case=1, control=0),),
+        treatment=(T₂=(case=true, control=false),),
         confounders=[:W₁],
     )
     log_sequence = (
@@ -178,12 +178,12 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 10
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
 end
 
@@ -193,7 +193,7 @@ end
     # Define the parameter of interest
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -202,16 +202,16 @@ end
         LinearRegressor(),
         LogisticClassifier(lambda=0)
     )
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+    tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
 
     Ψ₀ = -0.5
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
     # Let's switch case and control for T₂
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₁=(case=1, control=0), T₂=(case=0, control=1)),
+        treatment=(T₁=(case=true, control=false), T₂=(case=false, control=true)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -221,13 +221,13 @@ end
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     Ψ₀ = -1.5
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
 end
 
@@ -235,7 +235,7 @@ end
     dataset = tt(build_dataset(;n=10000))
     Ψ = CM(
         target=:y₁,
-        treatment=(T₁=1, T₂=1),
+        treatment=(T₁=true, T₂=true),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -243,16 +243,16 @@ end
         LinearRegressor(),
         LogisticClassifier(lambda=0)
     )
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+    tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
 
     Ψ₀ = 3
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
     # Let's switch case and control for T₂
     Ψ = CM(
         target=:y₁,
-        treatment=(T₁=1, T₂=0),
+        treatment=(T₁=true, T₂=false),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -262,9 +262,9 @@ end
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     Ψ₀ = 2.5
     @test covers(tmle_result, Ψ₀)
@@ -273,7 +273,7 @@ end
     # Change the target
     Ψ = CM(
         target=:y₂,
-        treatment=(T₁=1, T₂=0),
+        treatment=(T₁=true, T₂=false),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -283,9 +283,9 @@ end
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     Ψ₀ = 1
     @test covers(tmle_result, Ψ₀)
@@ -294,7 +294,7 @@ end
     # Change the treatment
     Ψ = CM(
         target=:y₂,
-        treatment=(T₂=1,),
+        treatment=(T₂=true,),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -304,20 +304,20 @@ end
         (:info, "→ Fitting Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     Ψ₀ = 11
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 end
 
 @testset "Test Warm restart: pairwise IATE, $tt" for tt in table_types
     dataset = tt(build_dataset(;n=10000))
     Ψ = IATE(
         target=:y₃,
-        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -325,16 +325,16 @@ end
         LinearRegressor(),
         LogisticClassifier(lambda=0)
     )
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+    tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
 
     Ψ₀ = -1
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
     # Remove covariate from fit
     Ψ = IATE(
         target=:y₃,
-        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
     )
     log_sequence = (
@@ -343,17 +343,17 @@ end
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
     # Changing the treatments values
     Ψ = IATE(
         target=:y₃,
-        treatment=(T₁=(case=0, control=1), T₂=(case=1, control=0)),
+        treatment=(T₁=(case=false, control=true), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
     )
     log_sequence = (
@@ -362,13 +362,13 @@ end
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
 
     Ψ₀ = - Ψ₀
     @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    @test closer_than_initial(tmle_result, Ψ₀)
 
 end
 
@@ -377,7 +377,7 @@ end
     # Define the parameter of interest
     Ψ = ATE(
         target=:y₁,
-        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -386,13 +386,13 @@ end
         LinearRegressor(),
         LogisticClassifier(lambda=0)
     )
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+    tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     Ψ₀ = -0.5
     @test covers(tmle_result, Ψ₀)
 
     Ψnew = ATE(
         target=:y₁,
-        treatment=(T₁=(case=0, control=1), T₂=(case=0, control=1)),
+        treatment=(T₁=(case=false, control=true), T₂=(case=false, control=true)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
@@ -407,9 +407,9 @@ end
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
         (:info, "Targeting the nuisance parameters..."),
-        (:info, "Thank you.")
+        (:info, "Done.")
     )
-    tmle_result, initial_result, cache = @test_logs log_sequence... tmle!(cache, Ψnew, η_spec; verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψnew, η_spec; verbosity=1);
     Ψ₀ = 0.5
     @test covers(tmle_result, Ψ₀)
 end

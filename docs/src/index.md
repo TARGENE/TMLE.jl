@@ -125,7 +125,7 @@ And say we are interested in the $ATE_{0 \rightarrow 1}(P_0)$:
 ```@example quick-start
 Ψ = ATE(
     target      = :Y,
-    treatment   = (T=(case=1, control = 0),),
+    treatment   = (T=(case=true, control = false),),
     confounders = [:W]
 )
 nothing # hide
@@ -150,7 +150,7 @@ nothing # hide
 We are now ready to run the TMLE procedure and look the associated confidence interval:
 
 ```@example quick-start
-result, _, _ = tmle(Ψ, η_spec, dataset)
+result, _ = tmle(Ψ, η_spec, dataset)
 test_result = OneSampleTTest(result, 2.5)
 ```
 

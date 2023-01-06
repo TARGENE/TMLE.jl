@@ -2,25 +2,29 @@
 ## General Utilities
 ###############################################################################
 
+function logit!(v)
+    for i in eachindex(v)
+        v[i] = logit(v[i])
+    end
+end
+
+function plateau!(v::AbstractVector, threshold)
+    for i in eachindex(v)
+        v[i] = max(v[i], threshold)
+    end
+end
+
+joint_name(it) = join(it, "_&_")
+
+joint_treatment(T) =
+    categorical(joint_name.(Tables.rows(T)))
+
+
 log_fit(verbosity, model) = 
     verbosity >= 1 && @info string("→ Fitting ", model)
 
 log_no_fit(verbosity, model) =
     verbosity >= 1 && @info string("→ Reusing previous ", model)
-
-"""
-
-Adapts the type of the treatment variable passed to the G learner
-"""
-adapt(T) = size(Tables.columnnames(T), 1) == 1 ? Tables.getcolumn(T, 1) : T
-adapt(model, T) = size(Tables.columnnames(T), 1) == 1 ? model : FullCategoricalJoint(model)
-
-low_propensity_scores(Gmach, W, T, threshold) =
-    findall(<(threshold), density(Gmach, W, T))
-
-
-totable(x::AbstractVector) = (y=x,)
-totable(x) = x
 
 function nomissing(table)
     sch = Tables.schema(table)
@@ -42,75 +46,62 @@ end
 
 ncases(value, Ψ::Parameter) = sum(value[i] == Ψ.treatment[i].case for i in eachindex(value))
 
-function indicator_fns(Ψ::IATE)
+function indicator_fns(Ψ::IATE, f::Function)
     N = length(treatments(Ψ))
-    indicators = Dict()
+    key_vals = Pair[]
     for cf in Iterators.product((values(Ψ.treatment[T]) for T in treatments(Ψ))...)
-        indicators[cf] = (-1)^(N - ncases(cf, Ψ))
+        push!(key_vals, f(cf) => float((-1)^(N - ncases(cf, Ψ))))
     end
-    return indicators
+    return Dict(key_vals...)
 end
 
-indicator_fns(Ψ::CM) = Dict(values(Ψ.treatment) => 1)
+indicator_fns(Ψ::CM, f::Function) = Dict(f(values(Ψ.treatment)) => 1.)
 
-function indicator_fns(Ψ::ATE) 
+function indicator_fns(Ψ::ATE, f::Function)
     case = []
     control = []
     for treatment in Ψ.treatment
         push!(case, treatment.case)
         push!(control, treatment.control)
     end
-    return Dict(Tuple(case) => 1, Tuple(control) => -1)
+    return Dict(f(Tuple(case)) => 1., f(Tuple(control)) => -1.)
 end
 
+function indicator_values(indicators, jointT)
+    indic = zeros(Float64, nrows(jointT))
+    for i in eachindex(jointT)
+        val = jointT[i]
+        indic[i] = get(indicators, val, 0.)
+    end
+    return indic
+end
 
 ###############################################################################
-## Offset
+## Offset & Covariate
 ###############################################################################
+
 expected_value(ŷ::UnivariateFiniteVector{Multiclass{2}}) = pdf.(ŷ, levels(first(ŷ))[2])
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
-compute_offset(ŷ::UnivariateFiniteVector{Multiclass{2}}) = logit.(expected_value(ŷ))
+function compute_offset(ŷ::UnivariateFiniteVector{Multiclass{2}})
+    μy = expected_value(ŷ)
+    logit!(μy)
+    return μy
+end
 compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
 compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 
-###############################################################################
-## Covariate
-###############################################################################
-
-function indicator_values(indicators, T)
-    N = length(first(keys(indicators)))
-    covariate = zeros(Float64, nrows(T))
-    for (i, row) in enumerate(Tables.rows(T))
-        vals = Tuple(Tables.getcolumn(row, nm) for nm in 1:N)
-        if haskey(indicators, vals)
-            covariate[i] = indicators[vals]
-        end
-    end
-    covariate
-end
-
-
-plateau_likelihood(likelihood, threshold) = max.(threshold, likelihood)
-
-
-"""
-For each data point, computes: (-1)^(interaction-oder - j)
-Where j is the number of treatments different from the reference in the query.
-"""
-function compute_covariate(Gmach::Machine, W, T, indicators; threshold=0.005)
-    # Compute the indicator value
-    indic_vals = TMLE.indicator_values(indicators, T)
-
+function compute_covariate(jointT, W, G, indicator_fns; threshold=0.005)
+    # Compute the indicator values
+    indic_vals = TMLE.indicator_values(indicator_fns, jointT)
     # Compute density and truncate
-    likelihood = TMLE.density(Gmach, W, T)
-
-    likelihood = plateau_likelihood(likelihood, threshold)
-    
-    return indic_vals ./ likelihood
+    ŷ = MLJBase.predict(G, W)
+    d = pdf.(ŷ, jointT)
+    plateau!(d, threshold)
+    indic_vals ./= d
+    return indic_vals
 end
-
 
 ###############################################################################
 ## Fluctuation

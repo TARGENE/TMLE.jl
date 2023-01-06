@@ -28,20 +28,20 @@ end
     Ψ = IATE(
         target      = :y,
         confounders = [:W],
-        treatment   = (T₁=(case=1, control=0), T₂=(case=1, control=0), T₃=(case=1, control=0))
+        treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false), T₃=(case=1, control=0))
     )
     η_spec = NuisanceSpec(
         interacter,
         LogisticClassifier(lambda=0),
     )
 
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
+    tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
     Ψ̂ = TMLE.estimate(tmle_result)
     lb, ub = confint(OneSampleTTest(tmle_result))
     @test lb ≤ Ψ̂ ≤ ub
     @test Ψ̂ ≈ -20.989 atol=1e-3
     # The initial estimate also has the correct answer
-    @test TMLE.estimate(initial_result) ≈ -21.008 atol=1e-3
+    @test initial_estimate(tmle_result) ≈ -21.008 atol=1e-3
 end
 
 end

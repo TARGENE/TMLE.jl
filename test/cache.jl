@@ -3,7 +3,24 @@ module TestCache
 using Test
 using TMLE
 using MLJLinearModels
+using MLJModels
+using CategoricalArrays
 using MLJBase
+using StableRNGs
+using Distributions
+
+function naive_dataset(;n=100)
+    rng = StableRNG(123)
+    W = rand(rng, Uniform(), n)
+    T = rand(rng, [0, 1], n)
+    y = 3W .+ T .+ T.*W + rand(rng, Normal(0, 0.05), n)
+    return (
+        y = y,
+        W = W,
+        T = categorical(T)
+    )
+end
+
 
 function fakefill!(cache)
     n = 10
@@ -14,16 +31,6 @@ function fakefill!(cache)
 end
 
 function fakecache()
-    Ψ = ATE(
-        target=:y,
-        treatment=(T₁=(case=1, control=0),),
-        confounders=[:W₁],
-        covariates=[:C₁]
-    )
-    η_spec = NuisanceSpec(
-        RidgeRegressor(),
-        LogisticClassifier(lambda=0)
-    )
     n = 10
     dataset = (
         W₁=vcat(missing, rand(n-1)),
@@ -34,19 +41,64 @@ function fakecache()
         y=rand(n),
         ynew=vcat([missing, missing, missing], rand(n-3))
         )
-    cache = TMLE.TMLECache(Ψ, η_spec, dataset)
-    fakefill!(cache)
+    cache = TMLE.TMLECache(dataset)
     return cache
 end
 
+@testset "Test check_treatment_values" begin
+    cache = fakecache()
+    Ψ = ATE(
+        target=:y,
+        treatment=(T₁=(case=1, control=0),),
+        confounders=[:W₁],
+    )
+    TMLE.check_treatment_values(cache, Ψ)
+    Ψ = ATE(
+        target=:y,
+        treatment=(
+            T₁=(case=1, control=0), 
+            T₂=(case=true, control=false),),
+        confounders=[:W₁],
+    )
+    @test_throws ArgumentError(string("The case value 'true' for treatment ",
+                               "T₂ in Ψ does not match (in the sense",
+                               " of ===) any level of the corresponding ",
+                               "variable in the dataset: [\"0\", \"1\"]")) TMLE.check_treatment_values(cache, Ψ)
+end
 
 @testset "Test update!(cache, Ψ)" begin
     cache = fakecache()
+    @test !isdefined(cache, :Ψ)
+    @test !isdefined(cache, :η_spec)
+
+    Ψ = ATE(
+        target=:y,
+        treatment=(T₁=(case=1, control=0),),
+        confounders=[:W₁],
+        covariates=[:C₁]
+    )
+    η_spec = NuisanceSpec(
+        RidgeRegressor(),
+        LogisticClassifier(lambda=0)
+    )
+    TMLE.update!(cache, Ψ, η_spec)
+    @test cache.Ψ == Ψ
+    @test cache.η_spec == η_spec
+    @test cache.η.Q === nothing
+    @test cache.η.H === nothing
+    @test cache.η.G === nothing
+    @test cache.η.F === nothing
     # Since no missing data is present, the columns are just propagated
     # to the no_missing dataset in the sense of ===
-    for colname in keys(cache.dataset[:no_missing])
-        cache.dataset[:no_missing][colname] === cache.dataset[:source][colname]
+    for colname in keys(cache.data[:no_missing])
+        cache.data[:no_missing][colname] === cache.data[:source][colname]
     end
+    # Pretend the cache nuisance parameters have been estimated
+    fakefill!(cache)
+    @test cache.η.H !== nothing
+    @test cache.η.G !== nothing
+    @test cache.η.Q !== nothing
+    @test cache.η.F !== nothing
     # New treatment configuration and new confounders set
     # Nuisance parameters can be reused
     Ψ = ATE(
@@ -61,17 +113,17 @@ end
     @test cache.η.Q === nothing
     @test cache.η.F === nothing
     @test cache.Ψ == Ψ
-    for colname in keys(cache.dataset[:no_missing])
-        @test length(cache.dataset[:no_missing][colname]) == 8
+    for colname in keys(cache.data[:no_missing])
+        @test length(cache.data[:no_missing][colname]) == 8
     end
 
     # Change the target
     # E[Y|X] must be refit
-    cache = fakecache()
+    fakefill!(cache)
     Ψ = ATE(
         target=:ynew,
         treatment=(T₁=(case=0, control=1),),
-        confounders=[:W₁],
+        confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
     TMLE.update!(cache, Ψ)
@@ -80,17 +132,17 @@ end
     @test cache.η.Q === nothing
     @test cache.η.F === nothing
     @test cache.Ψ == Ψ
-    for colname in keys(cache.dataset[:no_missing])
-        @test length(cache.dataset[:no_missing][colname]) == 7
+    for colname in keys(cache.data[:no_missing])
+        @test length(cache.data[:no_missing][colname]) == 7
     end
 
     # Change the covariate
     # E[Y|X] must be refit
-    cache = fakecache()
+    fakefill!(cache)
     Ψ = ATE(
-        target=:y,
+        target=:ynew,
         treatment=(T₁=(case=0, control=1),),
-        confounders=[:W₁],
+        confounders=[:W₁, :W₂],
     )
     TMLE.update!(cache, Ψ)
     @test cache.η.H !== nothing
@@ -101,12 +153,11 @@ end
 
     # Change only treatment setting
     # only F needs refit
-    cache = fakecache()
+    fakefill!(cache)
     Ψ = ATE(
-        target=:y,
-        treatment=(T₁=(case=0, control=1),),
-        confounders=[:W₁],
-        covariates=[:C₁]
+        target=:ynew,
+        treatment=(T₁=(case=1, control=0),),
+        confounders=[:W₁, :W₂],
     )
     TMLE.update!(cache, Ψ)
     @test cache.η.H !== nothing
@@ -117,12 +168,11 @@ end
 
     # Change the treatments
     # all η must be refit
-    cache = fakecache()
+    fakefill!(cache)
     Ψ = ATE(
-        target=:y,
-        treatment=(T₂=(case=0, control=1),),
-        confounders=[:W₁],
-        covariates=[:C₁]
+        target=:ynew,
+        treatment=(T₂=(case=1, control=0),),
+        confounders=[:W₁, :W₂],
     )
     TMLE.update!(cache, Ψ)
     @test cache.η.H === nothing
@@ -130,12 +180,23 @@ end
     @test cache.η.Q === nothing
     @test cache.η.F === nothing
     @test cache.Ψ == Ψ
-
 end
 
 @testset "Test update!(cache, η_spec)" begin
-    # Change the Q learning stategy
     cache = fakecache()
+    Ψ = ATE(
+        target=:y,
+        treatment=(T₁=(case=1, control=0),),
+        confounders=[:W₁],
+        covariates=[:C₁]
+    )
+    η_spec = NuisanceSpec(
+        RidgeRegressor(),
+        LogisticClassifier(lambda=0)
+    )
+    TMLE.update!(cache, Ψ, η_spec)
+    fakefill!(cache)
+    # Change the Q learning stategy
     η_spec = NuisanceSpec(
         RidgeRegressor(lambda=10),
         LogisticClassifier(lambda=0)
@@ -148,9 +209,9 @@ end
     @test cache.η_spec == η_spec
 
     # Change the G learning stategy
-    cache = fakecache()
+    fakefill!(cache)
     η_spec = NuisanceSpec(
-        RidgeRegressor(),
+        RidgeRegressor(lambda=10),
         LogisticClassifier(lambda=10)
     )
     TMLE.update!(cache, η_spec)
@@ -159,6 +220,50 @@ end
     @test cache.η.Q !== nothing
     @test cache.η.F === nothing
     @test cache.η_spec == η_spec
+end
+
+@testset "Test counterfactual_aggregate" begin
+    n=100
+    dataset = naive_dataset(;n=n)
+    Ψ = ATE(
+        target = :y,
+        treatment = (T=(case=1, control=0),),
+        confounders = [:W]
+    )
+    η_spec = NuisanceSpec(
+        MLJModels.ConstantRegressor(),
+        ConstantClassifier()
+    )
+    # Nuisance parameter estimation
+    _, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
+
+    # The inital estimator for Q is a constant predictor, 
+    # its  prediction is the same for each counterfactual
+    # and the initial aggregate is zero.
+    # Since G is also constant the output after fluctuating 
+    # must be constant over the counterfactual dataset
+    counterfactual_aggregate, counterfactual_aggregateᵢ = TMLE.counterfactual_aggregates(cache; threshold=1e-8)
+    @test counterfactual_aggregateᵢ == zeros(n)
+    @test all(first(counterfactual_aggregate) .== counterfactual_aggregate)
+
+    # Replacing Q with a linear regression
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        ConstantClassifier()
+    )
+    tmle!(cache, η_spec, verbosity=0);
+    X₁ = (W=dataset.W, T=categorical(ones(Int, n), levels=levels(dataset.T)))
+    X₀ = (W=dataset.W, T=categorical(zeros(Int, n), levels=levels(dataset.T)))
+    ŷ₁ =  TMLE.expected_value(MLJBase.predict(cache.η.Q, MLJBase.transform(cache.η.H, X₁)))
+    ŷ₀ = TMLE.expected_value(MLJBase.predict(cache.η.Q, MLJBase.transform(cache.η.H, X₀)))
+    expected_cf_agg = ŷ₁ - ŷ₀
+    counterfactual_aggregate, counterfactual_aggregateᵢ = TMLE.counterfactual_aggregates(cache; threshold=1e-8)
+    @test counterfactual_aggregateᵢ == expected_cf_agg
+    # This is the coefficient in the linear regression model
+    var, coef = fitted_params(cache.η.Q).coefs[2]
+    @test var == :T__0
+    @test all(coef ≈ -x for x ∈ counterfactual_aggregateᵢ)
+
 end
 
 end

@@ -83,13 +83,14 @@ end
         MLJModels.DeterministicConstantRegressor(),
         LogisticClassifier(lambda=0)
     )
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
+    cache = TMLECache(dataset)
+    tmle_result, cache = tmle!(cache, Ψ, η_spec, verbosity=0)
     Ψ̂ = TMLE.estimate(tmle_result)
     lb, ub = confint(OneSampleTTest(tmle_result))
     @test lb ≤ Ψ̂ ≤ ub
     @test Ψ̂ ≈ -1.026 atol=1e-3
     # The initial estimate is far away
-    @test TMLE.estimate(initial_result) == 0
+    @test initial_estimate(tmle_result) == 0
 
     # When Q is well specified but G is misspecified
     η_spec = NuisanceSpec(
@@ -97,13 +98,13 @@ end
         ConstantClassifier()
     )
 
-    tmle_result, initial_result, cache = tmle!(cache, η_spec, verbosity=0)
+    tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
     Ψ̂ = TMLE.estimate(tmle_result)
     lb, ub = confint(OneSampleTTest(tmle_result))
     @test lb ≤ Ψ̂ ≤ ub
     @test Ψ̂ ≈ -1.034 atol=1e-3
     # Since Q is well specified, it still gets the correct answer in this case
-    @test TMLE.estimate(initial_result) ≈ -1.033 atol=1e-3
+    @test initial_estimate(tmle_result) ≈ -1.033 atol=1e-3
 end
 
 @testset "Test Double Robustness ATE on binary_target_binary_treatment_pb" begin
@@ -118,13 +119,13 @@ end
         ConstantClassifier(),
         LogisticClassifier(lambda=0)
     )
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
+    tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
     Ψ̂ = TMLE.estimate(tmle_result)
     lb, ub = confint(OneSampleTTest(tmle_result))
     @test lb ≤ Ψ̂ ≤ ub
     @test Ψ̂ ≈ 0.580 atol=1e-3
     # The initial estimate is far away
-    @test TMLE.estimate(initial_result) == 0
+    @test initial_estimate(tmle_result) == 0
     
 
     # When Q is well specified but G is misspecified
@@ -133,13 +134,13 @@ end
         ConstantClassifier()
     )
 
-    tmle_result, initial_result, cache = tmle!(cache, η_spec, verbosity=0)
+    tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
     Ψ̂ = TMLE.estimate(tmle_result)
     lb, ub = confint(OneSampleTTest(tmle_result))
     @test lb ≤ Ψ̂ ≤ ub
     @test Ψ̂ ≈ 0.576 atol=1e-3
     # Since Q is well specified, it still gets the correct answer in this case
-    @test TMLE.estimate(initial_result) ≈ 0.576 atol=1e-3
+    @test initial_estimate(tmle_result) ≈ 0.576 atol=1e-3
 end
 
 
@@ -156,26 +157,26 @@ end
         LogisticClassifier(lambda=0)
     )
 
-    tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
+    tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
     Ψ̂ = TMLE.estimate(tmle_result)
     lb, ub = confint(OneSampleTTest(tmle_result))
     @test lb ≤ Ψ̂ ≤ ub
     @test Ψ̂ ≈ 4.108 atol=1e-3
     # The initial estimate is far away
-    @test TMLE.estimate(initial_result) == 0
+    @test initial_estimate(tmle_result) == 0
 
     # When Q is well specified but G is misspecified
     η_spec = NuisanceSpec(
         LinearRegressor(),
         ConstantClassifier()
     )
-    tmle_result, initial_result, cache = tmle!(cache, η_spec, verbosity=0)
+    tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
     Ψ̂ = TMLE.estimate(tmle_result)
     lb, ub = confint(OneSampleTTest(tmle_result))
     @test lb ≤ Ψ̂ ≤ ub
     @test Ψ̂ ≈ 3.985 atol=1e-3
     # Since Q is well specified, it still gets the correct answer in this case
-    @test TMLE.estimate(initial_result) ≈ 3.985 atol=1e-3
+    @test initial_estimate(tmle_result) ≈ 3.985 atol=1e-3
 end
 
 end;
