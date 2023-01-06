@@ -50,12 +50,12 @@ function indicator_fns(Ψ::IATE, f::Function)
     N = length(treatments(Ψ))
     key_vals = Pair[]
     for cf in Iterators.product((values(Ψ.treatment[T]) for T in treatments(Ψ))...)
-        push!(key_vals, f(cf) => (-1)^(N - ncases(cf, Ψ)))
+        push!(key_vals, f(cf) => float((-1)^(N - ncases(cf, Ψ))))
     end
     return Dict(key_vals...)
 end
 
-indicator_fns(Ψ::CM, f::Function) = Dict(f(values(Ψ.treatment)) => 1)
+indicator_fns(Ψ::CM, f::Function) = Dict(f(values(Ψ.treatment)) => 1.)
 
 function indicator_fns(Ψ::ATE, f::Function)
     case = []
@@ -64,7 +64,7 @@ function indicator_fns(Ψ::ATE, f::Function)
         push!(case, treatment.case)
         push!(control, treatment.control)
     end
-    return Dict(f(Tuple(case)) => 1, f(Tuple(control)) => -1)
+    return Dict(f(Tuple(case)) => 1., f(Tuple(control)) => -1.)
 end
 
 function indicator_values(indicators, jointT)

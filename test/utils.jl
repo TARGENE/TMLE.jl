@@ -45,14 +45,15 @@ end
         treatment=(T₁="A", T₂=1),
         confounders=[:W]
     )
-    @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict("A_&_1" => 1)
+
+    @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict{String, Float64}("A_&_1" => 1)
     # ATE
     Ψ = ATE(
         target=:y, 
         treatment=(T₁=(case="A", control="B"), T₂=(control=0, case=1)),
         confounders=[:W]
     )
-    @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict(
+    @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict{String, Float64}(
         "A_&_1" => 1,
         "B_&_0" => -1
     )
@@ -62,7 +63,7 @@ end
         treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0)),
         confounders=[:W]
     )
-    @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict(
+    @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict{String, Float64}(
         "A_&_1" => 1,
         "A_&_0" => -1,
         "B_&_1" => -1,
@@ -74,7 +75,7 @@ end
         treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0), T₃=(control="D", case="C")),
         confounders=[:W]
     )
-    @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict(
+    @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict{String, Float64}(
         "A_&_1_&_D" => -1,
         "A_&_1_&_C" => 1,
         "B_&_0_&_D" => -1,
