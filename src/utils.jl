@@ -107,7 +107,15 @@ end
 ## Fluctuation
 ###############################################################################
 
-fluctuation_input(covariate, offset) = (covariate=covariate, offset=offset)
+fluctuation_input(covariate::AbstractVector{T}, offset::AbstractVector{T}) where T = (covariate=covariate, offset=offset)
+
+"""
+
+The GLM models require inputs of the same type
+"""
+fluctuation_input(covariate::AbstractVector{T1}, offset::AbstractVector{T2}) where {T1, T2} = 
+    (covariate=covariate, offset=convert(Vector{T1}, offset))
+
 
 function counterfactualTreatment(vals, T)
     Tnames = Tables.columnnames(T)
