@@ -313,6 +313,20 @@ end
 
 end
 
+@testset "Test fluctuation_input" begin
+    X = TMLE.fluctuation_input([1., 2.], [1., 2])
+    @test X.covariate isa Vector{Float64}
+    @test X.offset isa Vector{Float64}
+
+    X = TMLE.fluctuation_input([1., 2.], [1.f0, 2.f0])
+    @test X.covariate isa Vector{Float64}
+    @test X.offset isa Vector{Float64}
+
+    X = TMLE.fluctuation_input([1.f0, 2.f0], [1., 2.])
+    @test X.covariate isa Vector{Float32}
+    @test X.offset isa Vector{Float32}
+
+end
 
 end;
 
