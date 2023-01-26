@@ -22,14 +22,13 @@ end
 
 function check_treatment_values(cache::TMLECache, Ψ::Parameter)
     for T in treatments(Ψ)
-        Tlevels = levels(Tables.getcolumn(cache.data[:source], T))
+        Tlevels = string.(levels(Tables.getcolumn(cache.data[:source], T)))
         Tsetting = getproperty(Ψ.treatment, T)
         for (key, val) in zip(keys(Tsetting), Tsetting) 
-            any(val .=== Tlevels) || 
+            any(string(val) .== Tlevels) || 
                 throw(ArgumentError(string(
-                    "The ", key, " value '", val, "' for treatment ", T, 
-                    " in Ψ does not match (in the sense of ===) ",
-                    "any level of the corresponding variable in the dataset: ", string.(Tlevels))))
+                    "The '", key, "' string representation: '", val, "' for treatment ", T, 
+                    " in Ψ does not match any level of the corresponding variable in the dataset: ", string.(Tlevels))))
         end
     end
 end
@@ -189,7 +188,9 @@ function fit_nuisance!(cache::TMLECache; verbosity=1)
         W = confounders(nomissing_WT, Ψ)
         jointT = joint_treatment(treatments(nomissing_WT, Ψ))
         mach = machine(η_spec.G, W, jointT, cache=η_spec.cache)
+        t = time()
         MLJBase.fit!(mach, verbosity=verbosity-1)
+        verbosity >= 2 && @info string("Time to fit P(T|W): ", time() - t, " s.")
         η.G = mach
         cache.data[:jointT_levels] = levels(jointT)
     else
@@ -215,7 +216,9 @@ function fit_nuisance!(cache::TMLECache; verbosity=1)
         Xfloat = MLJBase.transform(η.H, X)
         cache.data[:Xfloat] = Xfloat
         mach = machine(η_spec.Q, Xfloat, y, cache=η_spec.cache)
+        t = time()
         MLJBase.fit!(mach, verbosity=verbosity-1)
+        verbosity >= 2 && @info string("Time to fit E[Y|X]: ", time() - t, " s.")
         η.Q = mach
     else
         log_no_fit(verbosity, "Encoder")
