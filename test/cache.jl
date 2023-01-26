@@ -60,10 +60,9 @@ end
             T₂=(case=true, control=false),),
         confounders=[:W₁],
     )
-    @test_throws ArgumentError(string("The case value 'true' for treatment ",
-                               "T₂ in Ψ does not match (in the sense",
-                               " of ===) any level of the corresponding ",
-                               "variable in the dataset: [\"0\", \"1\"]")) TMLE.check_treatment_values(cache, Ψ)
+    @test_throws ArgumentError(string("The 'case' string representation: 'true' for treatment",
+            " T₂ in Ψ does not match any level of the corresponding variable",
+            " in the dataset: [\"0\", \"1\"]")) TMLE.check_treatment_values(cache, Ψ)
 end
 
 @testset "Test update!(cache, Ψ)" begin
