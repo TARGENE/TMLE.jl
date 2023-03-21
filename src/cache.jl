@@ -122,7 +122,7 @@ function tmle!(cache::TMLECache; verbosity=1, threshold=1e-8)
     tmle_step!(cache, verbosity=verbosity, threshold=threshold)
     
     # Estimation results after TMLE
-    IC, Ψ̂, Ψ̂ᵢ = TMLE.gradient_and_estimates(cache)
+    IC, Ψ̂, Ψ̂ᵢ = TMLE.gradient_and_estimates(cache, threshold=threshold)
     result = PointTMLE(Ψ̂, IC, Ψ̂ᵢ)
 
     verbosity >= 1 && @info "Done."
@@ -144,7 +144,7 @@ end
 
 Runs the TMLE procedure for the new nuisance parameters specification η_spec while potentially reusing cached nuisance parameters.
 """
-function tmle!(cache::TMLECache, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8, mach_cache=false)
+function tmle!(cache::TMLECache, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
     update!(cache, η_spec)
     tmle!(cache, verbosity=verbosity, threshold=threshold)
 end
