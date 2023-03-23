@@ -234,8 +234,7 @@ end
         ConstantClassifier()
     )
     # Nuisance parameter estimation
-    _, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
-
+    tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     # The inital estimator for Q is a constant predictor, 
     # its  prediction is the same for each counterfactual
     # and the initial aggregate is zero.

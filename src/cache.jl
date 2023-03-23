@@ -122,11 +122,12 @@ function tmle!(cache::TMLECache; verbosity=1, threshold=1e-8)
     tmle_step!(cache, verbosity=verbosity, threshold=threshold)
     
     # Estimation results after TMLE
-    IC, Ψ̂, Ψ̂ᵢ = TMLE.gradient_and_estimates(cache, threshold=threshold)
-    result = PointTMLE(Ψ̂, IC, Ψ̂ᵢ)
+    IC, Ψ̂, ICᵢ, Ψ̂ᵢ = TMLE.gradient_and_estimates(cache, threshold=threshold)
+    tmle_result = ALEstimate(Ψ̂, IC)
+    one_step_result = ALEstimate(Ψ̂ᵢ + mean(ICᵢ), ICᵢ)
 
     verbosity >= 1 && @info "Done."
-    return result, cache
+    return TMLEResult(tmle_result, one_step_result, Ψ̂ᵢ), cache
 end
 
 """
@@ -297,7 +298,9 @@ end
 function gradient_and_estimates(cache::TMLECache; threshold=1e-8)
     counterfactual_aggregate, counterfactual_aggregateᵢ = TMLE.counterfactual_aggregates(cache; threshold=threshold)
     Ψ̂, Ψ̂ᵢ = mean(counterfactual_aggregate), mean(counterfactual_aggregateᵢ)
-    IC = gradient_Y_X(cache) .+ gradient_W(counterfactual_aggregate, Ψ̂)
-    return IC, Ψ̂, Ψ̂ᵢ
+    gradient_x_y = gradient_Y_X(cache)
+    IC = gradient_x_y .+ gradient_W(counterfactual_aggregate, Ψ̂)
+    ICᵢ = gradient_x_y .+ gradient_W(counterfactual_aggregate, Ψ̂ᵢ)
+    return IC, Ψ̂, ICᵢ, Ψ̂ᵢ
 end
 

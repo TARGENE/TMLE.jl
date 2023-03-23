@@ -11,7 +11,7 @@ using CategoricalArrays
 using LogExpFunctions
 
 function covers(result, Ψ₀; level=0.05)
-    test = OneSampleTTest(result, Ψ₀)
+    test = OneSampleTTest(result.tmle, Ψ₀)
     pval = level ≤ pvalue(test)
     lower, upper = confint(test)
     covered = lower ≤ Ψ₀ ≤ upper
@@ -19,7 +19,7 @@ function covers(result, Ψ₀; level=0.05)
 end
 
 closer_than_initial(tmle_result, Ψ₀) =
-    abs(TMLE.estimate(tmle_result) - Ψ₀) ≤ abs(initial_estimate(tmle_result) - Ψ₀)
+    abs(TMLE.estimate(tmle_result.tmle) - Ψ₀) ≤ abs(tmle_result.initial - Ψ₀)
 
 """
 Results derived by hand for this dataset:

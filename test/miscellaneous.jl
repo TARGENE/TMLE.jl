@@ -46,7 +46,7 @@ end
         treatment=(T=(case=1, control=0),))
     η_spec = NuisanceSpec(LinearRegressor(), LogisticClassifier(lambda=0))
     tmle_results, cache = tmle(Ψ, η_spec, dataset; verbosity=0)
-    @test estimate(tmle_results) ≈ 0.966 atol=1e-3
+    @test estimate(tmle_results.tmle) ≈ 0.966 atol=1e-3
 end
 
 end

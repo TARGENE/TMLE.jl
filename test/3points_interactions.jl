@@ -36,12 +36,12 @@ end
     )
 
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
-    Ψ̂ = TMLE.estimate(tmle_result)
-    lb, ub = confint(OneSampleTTest(tmle_result))
+    Ψ̂ = TMLE.estimate(tmle_result.tmle)
+    lb, ub = confint(OneSampleTTest(tmle_result.tmle))
     @test lb ≤ Ψ̂ ≤ ub
     @test Ψ̂ ≈ -20.989 atol=1e-3
     # The initial estimate also has the correct answer
-    @test initial_estimate(tmle_result) ≈ -21.008 atol=1e-3
+    @test tmle_result.initial ≈ -21.008 atol=1e-3
 end
 
 end
