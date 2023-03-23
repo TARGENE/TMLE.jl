@@ -5,6 +5,17 @@ struct TMLEResult
     initial
 end
 
+function Base.show(io::IO, r::TMLEResult)
+    tmletest = OneSampleTTest(r.tmle)
+    onesteptest = OneSampleTTest(r.onestep)
+    data = [
+        :TMLE estimate(r.tmle) confint(tmletest) pvalue(tmletest);
+        :OneStep estimate(r.onestep) confint(onesteptest) pvalue(onesteptest);
+        :Naive r.initial nothing nothing
+        ]
+    pretty_table(io, data;header=["Estimator", "Estimate", "95% Confidence Interval", "P-value"])
+end
+
 abstract type AbstractTMLE end
 
 struct ALEstimate{T<:AbstractFloat} <: AbstractTMLE

@@ -15,6 +15,7 @@ using Zygote
 using AbstractDifferentiation
 using LogExpFunctions
 using YAML
+using PrettyTables
 
 # #############################################################################
 # EXPORTS
