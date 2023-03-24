@@ -11,4 +11,5 @@ using Test
     @test include("miscellaneous.jl")
     @test include("composition.jl")
     @test include("treatment_transformer.jl")
+    @test include("fit_nuisance.jl")
 end
