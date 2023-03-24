@@ -57,6 +57,12 @@ end
     @test Qcoefs[3][2] ≈ -3.046 atol=0.001 # target is -3
     @test Qcoefs[4][2] ≈ -2.062 atol=0.001 # target is 2 on T₁=1 but T₁=0 is encoded
     @test fitted_params(cache.η.Q).intercept ≈ 2.053 atol=0.001
+
+    # Fluctuate the inital Q, the log_loss should decrease
+    TMLE.tmle_step!(cache; verbosity=0, threshold=1e-8)
+    ll_fluct = mean(log_loss(cache.data[:Qfluct], dataset.Ybin))
+    ll_init = mean(log_loss(cache.data[:Q₀], dataset.Ybin))
+    @test ll_fluct < ll_init
 end
 
 
@@ -86,6 +92,12 @@ end
     @test Qcoefs[3][2] ≈ -2.999 atol=0.001 # target is -3
     @test Qcoefs[4][2] ≈ -1.988 atol=0.001 # target is 2 on T₁=1 but T₁=0 is encoded
     @test fitted_params(cache.η.Q).intercept ≈ 1.996 atol=0.001
+
+    # Fluctuate the inital Q, the RMSE should decrease
+    TMLE.tmle_step!(cache; verbosity=0, threshold=1e-8)
+    rmse_fluct = rmse(mean.(cache.data[:Qfluct]), dataset.Ycont)
+    rmse_init = rmse(cache.data[:Q₀], dataset.Ycont)
+    @test rmse_fluct < rmse_init
 end
 
 end
