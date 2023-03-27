@@ -145,7 +145,7 @@ end
 
 
 @testset "Test Double Robustness ATE on continuous_target_binary_treatment_pb" begin
-    dataset, Ψ₀ = continuous_target_binary_treatment_pb(n=1000)
+    dataset, Ψ₀ = continuous_target_binary_treatment_pb(n=10_000)
     Ψ = ATE(
         target      = :y,
         treatment   = (T=(case=true, control=false),),
@@ -161,7 +161,7 @@ end
     Ψ̂ = TMLE.estimate(tmle_result.tmle)
     lb, ub = confint(OneSampleTTest(tmle_result.tmle))
     @test lb ≤ Ψ₀ ≤ ub
-    @test Ψ̂ ≈ 4.108 atol=1e-3
+    @test Ψ̂ ≈ 4.076 atol=1e-3
     # The initial estimate is far away
     @test tmle_result.initial == 0
 
@@ -174,9 +174,9 @@ end
     Ψ̂ = TMLE.estimate(tmle_result.tmle)
     lb, ub = confint(OneSampleTTest(tmle_result.tmle))
     @test lb ≤ Ψ₀ ≤ ub
-    @test Ψ̂ ≈ 3.985 atol=1e-3
+    @test Ψ̂ ≈ 3.996 atol=1e-3
     # Since Q is well specified, it still gets the correct answer in this case
-    @test tmle_result.initial ≈ 3.985 atol=1e-3
+    @test tmle_result.initial ≈ 3.996 atol=1e-3
 end
 
 end;
