@@ -10,6 +10,8 @@ using CategoricalArrays
 using Test
 using LogExpFunctions
 
+include("helper_fns.jl")
+
 interacter = InteractionTransformer(order=3) |> LinearRegressor()
 
 function make_dataset(;n=1000)
@@ -36,12 +38,15 @@ end
     )
 
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
-    Ψ̂ = TMLE.estimate(tmle_result.tmle)
+    # TMLE 
     lb, ub = confint(OneSampleTTest(tmle_result.tmle))
-    @test lb ≤ Ψ̂ ≤ ub
-    @test Ψ̂ ≈ -20.989 atol=1e-3
-    # The initial estimate also has the correct answer
-    @test tmle_result.initial ≈ -21.008 atol=1e-3
+    @test lb ≤ Ψ₀ ≤ ub
+    # OneStep
+    lb, ub = confint(OneSampleTTest(tmle_result.onestep))
+    @test lb ≤ Ψ₀ ≤ ub
+    # Risk decreased by fluctuation
+    test_fluct_decreases_risk(cache, target_name=:y)
+
 end
 
 end
