@@ -12,6 +12,8 @@ using StatsBase
 using HypothesisTests
 using LogExpFunctions
 
+include("helper_fns.jl")
+
 """
 Q and G are two logistic models
 """
@@ -72,7 +74,7 @@ function continuous_target_categorical_treatment_pb(;n=100, control="TT", case="
 end
 
 @testset "Test Double Robustness ATE on continuous_target_categorical_treatment_pb" begin
-    dataset, Ψ₀ = continuous_target_categorical_treatment_pb(;n=1000, control="TT", case="AA")
+    dataset, Ψ₀ = continuous_target_categorical_treatment_pb(;n=10_000, control="TT", case="AA")
     Ψ = ATE(
         target      = :y,
         treatment   = (T=(case="AA", control="TT"),),
@@ -85,13 +87,11 @@ end
     )
     cache = TMLECache(dataset)
     tmle_result, cache = tmle!(cache, Ψ, η_spec, verbosity=0)
-    Ψ̂ = TMLE.estimate(tmle_result.tmle)
-    lb, ub = confint(OneSampleTTest(tmle_result.tmle))
-    @test lb ≤ Ψ₀ ≤ ub
-    @test Ψ̂ ≈ -1.036 atol=1e-3
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y)
     # The initial estimate is far away
     @test tmle_result.initial == 0
-
+    
     # When Q is well specified but G is misspecified
     η_spec = NuisanceSpec(
         LinearRegressor(),
@@ -99,16 +99,12 @@ end
     )
 
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
-    Ψ̂ = TMLE.estimate(tmle_result.tmle)
-    lb, ub = confint(OneSampleTTest(tmle_result.tmle))
-    @test lb ≤ Ψ₀ ≤ ub
-    @test Ψ̂ ≈ -1.034 atol=1e-3
-    # Since Q is well specified, it still gets the correct answer in this case
-    @test tmle_result.initial ≈ -1.033 atol=1e-3
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_risk_almost_equal_to_initial(cache, target_name=:y)
 end
 
 @testset "Test Double Robustness ATE on binary_target_binary_treatment_pb" begin
-    dataset, Ψ₀ = binary_target_binary_treatment_pb(;n=1000)
+    dataset, Ψ₀ = binary_target_binary_treatment_pb(;n=10_000)
     Ψ = ATE(
         target = :y,
         treatment = (T=(case=true, control=false),),
@@ -120,27 +116,19 @@ end
         LogisticClassifier(lambda=0)
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
-    Ψ̂ = TMLE.estimate(tmle_result.tmle)
-    lb, ub = confint(OneSampleTTest(tmle_result.tmle))
-    @test lb ≤ Ψ₀ ≤ ub
-    @test Ψ̂ ≈ 0.580 atol=1e-3
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y)
     # The initial estimate is far away
     @test tmle_result.initial == 0
-    
 
     # When Q is well specified but G is misspecified
     η_spec = NuisanceSpec(
         LogisticClassifier(lambda=0),
         ConstantClassifier()
     )
-
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
-    Ψ̂ = TMLE.estimate(tmle_result.tmle)
-    lb, ub = confint(OneSampleTTest(tmle_result.tmle))
-    @test lb ≤ Ψ₀ ≤ ub
-    @test Ψ̂ ≈ 0.577 atol=1e-3
-    # Since Q is well specified, it still gets the correct answer in this case
-    @test tmle_result.initial ≈ 0.577 atol=1e-3
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_risk_almost_equal_to_initial(cache; target_name=:y)
 end
 
 
@@ -158,10 +146,8 @@ end
     )
 
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
-    Ψ̂ = TMLE.estimate(tmle_result.tmle)
-    lb, ub = confint(OneSampleTTest(tmle_result.tmle))
-    @test lb ≤ Ψ₀ ≤ ub
-    @test Ψ̂ ≈ 4.076 atol=1e-3
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y)
     # The initial estimate is far away
     @test tmle_result.initial == 0
 
@@ -171,12 +157,8 @@ end
         ConstantClassifier()
     )
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
-    Ψ̂ = TMLE.estimate(tmle_result.tmle)
-    lb, ub = confint(OneSampleTTest(tmle_result.tmle))
-    @test lb ≤ Ψ₀ ≤ ub
-    @test Ψ̂ ≈ 3.996 atol=1e-3
-    # Since Q is well specified, it still gets the correct answer in this case
-    @test tmle_result.initial ≈ 3.996 atol=1e-3
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y)
 end
 
 end;
