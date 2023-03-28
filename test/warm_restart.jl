@@ -76,6 +76,7 @@ table_types = (Tables.columntable, DataFrame)
     Ψ₀ = -1
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Update the treatment specification
     # Nuisance parameters should not fitted again
@@ -97,6 +98,7 @@ table_types = (Tables.columntable, DataFrame)
     Ψ₀ = 1
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Remove the covariate variable, this will trigger the refit of Q
     Ψ = ATE(
@@ -116,6 +118,7 @@ table_types = (Tables.columntable, DataFrame)
     Ψ₀ = -1
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Change the treatment
     # This will trigger the refit of all η
@@ -136,6 +139,7 @@ table_types = (Tables.columntable, DataFrame)
     Ψ₀ = 0.5
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Remove a confounding variable
     # This will trigger the refit of Q and G
@@ -155,6 +159,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Change the target
     # This will trigger the refit of Q only
@@ -175,6 +180,7 @@ table_types = (Tables.columntable, DataFrame)
     Ψ₀ = 10
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₂)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
 end
 
@@ -196,6 +202,7 @@ end
     Ψ₀ = -0.5
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Let's switch case and control for T₂
     Ψ = ATE(
@@ -216,6 +223,7 @@ end
     Ψ₀ = -1.5
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
 @testset "Test Warm restart: CM, $tt" for tt in table_types
@@ -234,6 +242,7 @@ end
     Ψ₀ = 3
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Let's switch case and control for T₂
     Ψ = CM(
@@ -254,6 +263,7 @@ end
     Ψ₀ = 2.5
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Change the target
     Ψ = CM(
@@ -274,6 +284,7 @@ end
     Ψ₀ = 1
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₂)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Change the treatment
     Ψ = CM(
@@ -294,6 +305,7 @@ end
     Ψ₀ = 11
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₂)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
 @testset "Test Warm restart: pairwise IATE, $tt" for tt in table_types
@@ -312,6 +324,7 @@ end
     Ψ₀ = -1
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₃)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Remove covariate from fit
     Ψ = IATE(
@@ -330,6 +343,7 @@ end
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₃)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Changing the treatments values
     Ψ = IATE(
@@ -349,6 +363,7 @@ end
     Ψ₀ = - Ψ₀
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₃)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
 end
 
@@ -370,6 +385,7 @@ end
     Ψ₀ = -0.5
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     Ψnew = ATE(
         target=:y₁,
@@ -394,6 +410,7 @@ end
     Ψ₀ = 0.5
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
 end

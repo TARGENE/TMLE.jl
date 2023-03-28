@@ -89,6 +89,7 @@ end
     tmle_result, cache = tmle!(cache, Ψ, η_spec, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
     # The initial estimate is far away
     @test tmle_result.initial == 0
     
@@ -101,6 +102,7 @@ end
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_risk_almost_equal_to_initial(cache, target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
 @testset "Test Double Robustness ATE on binary_target_binary_treatment_pb" begin
@@ -118,6 +120,7 @@ end
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-6)
     # The initial estimate is far away
     @test tmle_result.initial == 0
 
@@ -129,6 +132,7 @@ end
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_risk_almost_equal_to_initial(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-6)
 end
 
 
@@ -148,6 +152,7 @@ end
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
     # The initial estimate is far away
     @test tmle_result.initial == 0
 
@@ -159,6 +164,7 @@ end
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
 end;

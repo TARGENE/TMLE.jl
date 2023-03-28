@@ -38,16 +38,11 @@ end
     )
 
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
-    # TMLE 
-    lb, ub = confint(OneSampleTTest(tmle_result.tmle))
-    @test lb ≤ Ψ₀ ≤ ub
-    # OneStep
-    lb, ub = confint(OneSampleTTest(tmle_result.onestep))
-    @test lb ≤ Ψ₀ ≤ ub
-    # Risk decreased by fluctuation
+    test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache, target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
-end
+end 
 
 end
 

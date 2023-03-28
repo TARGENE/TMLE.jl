@@ -20,6 +20,8 @@ mutable struct TMLECache
     end
 end
 
+Base.show(io::IO, cache::TMLECache) = println(typeof(cache))
+
 function check_treatment_values(cache::TMLECache, Ψ::Parameter)
     for T in treatments(Ψ)
         Tlevels = string.(levels(Tables.getcolumn(cache.data[:source], T)))
