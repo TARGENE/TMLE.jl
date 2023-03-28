@@ -8,7 +8,7 @@ using Test
     @test include("3points_interactions.jl")
     @test include("warm_restart.jl")
     @test include("parameters.jl")
-    @test include("miscellaneous.jl")
+    @test include("missing_management.jl")
     @test include("composition.jl")
     @test include("treatment_transformer.jl")
     @test include("fit_nuisance.jl")
