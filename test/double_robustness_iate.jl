@@ -181,6 +181,7 @@ end
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-9)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
     @test tmle_result.initial == 0
 
@@ -194,6 +195,7 @@ end
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-7)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
     @test tmle_result.initial ≈ -0.0 atol=1e-1
 end
@@ -215,6 +217,7 @@ end
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
     @test tmle_result.initial == 0
 
@@ -247,6 +250,7 @@ end
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0);
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
     @test tmle_result.initial == 0 
 
@@ -259,6 +263,7 @@ end
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
     @test tmle_result.initial ≈ -0.01 atol=1e-2
 end
