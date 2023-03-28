@@ -10,16 +10,7 @@ using MLJLinearModels
 using CategoricalArrays
 using LogExpFunctions
 
-function covers(result, Ψ₀; level=0.05)
-    test = OneSampleTTest(result.tmle, Ψ₀)
-    pval = level ≤ pvalue(test)
-    lower, upper = confint(test)
-    covered = lower ≤ Ψ₀ ≤ upper
-    return pval && covered
-end
-
-closer_than_initial(tmle_result, Ψ₀) =
-    abs(TMLE.estimate(tmle_result.tmle) - Ψ₀) ≤ abs(tmle_result.initial - Ψ₀)
+include("helper_fns.jl")
 
 """
 Results derived by hand for this dataset:
@@ -58,7 +49,7 @@ end
 table_types = (Tables.columntable, DataFrame)
 
 @testset "Test Warm restart: ATE single treatment, $tt" for tt in table_types
-    dataset = tt(build_dataset(;n=1000))
+    dataset = tt(build_dataset(;n=50_000))
     # Define the parameter of interest
     Ψ = ATE(
         target=:y₁,
@@ -83,8 +74,8 @@ table_types = (Tables.columntable, DataFrame)
     tmle_result, cache = @test_logs log_sequence... tmle(Ψ, η_spec, dataset; verbosity=1);
     # The TMLE covers the ground truth but the initial estimate does not
     Ψ₀ = -1
-    @test covers(tmle_result, Ψ₀)
-    #@test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₁)
 
     # Update the treatment specification
     # Nuisance parameters should not fitted again
@@ -104,8 +95,8 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 1
-    @test covers(tmle_result, Ψ₀)
-    #@test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₁)
 
     # Remove the covariate variable, this will trigger the refit of Q
     Ψ = ATE(
@@ -123,8 +114,8 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = -1
-    @test covers(tmle_result, Ψ₀)
-    #@test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₁)
 
     # Change the treatment
     # This will trigger the refit of all η
@@ -143,8 +134,8 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 0.5
-    @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₁)
 
     # Remove a confounding variable
     # This will trigger the refit of Q and G
@@ -164,7 +155,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
-    
+
     # Change the target
     # This will trigger the refit of Q only
     Ψ = ATE(
@@ -182,14 +173,13 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 10
-    @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₂)
 
 end
 
 @testset "Test Warm restart: ATE multiple treatment, $tt" for tt in table_types
-    # Note a larger sample size seems necessary here
-    dataset = tt(build_dataset(;n=10000))
+    dataset = tt(build_dataset(;n=50_000))
     # Define the parameter of interest
     Ψ = ATE(
         target=:y₁,
@@ -203,10 +193,9 @@ end
         LogisticClassifier(lambda=0)
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
-
     Ψ₀ = -0.5
-    @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₁)
 
     # Let's switch case and control for T₂
     Ψ = ATE(
@@ -224,15 +213,13 @@ end
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
-
     Ψ₀ = -1.5
-    @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, Ψ₀)
-
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₁)
 end
 
 @testset "Test Warm restart: CM, $tt" for tt in table_types
-    dataset = tt(build_dataset(;n=10000))
+    dataset = tt(build_dataset(;n=50_000))
     Ψ = CM(
         target=:y₁,
         treatment=(T₁=true, T₂=true),
@@ -244,10 +231,9 @@ end
         LogisticClassifier(lambda=0)
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
-
     Ψ₀ = 3
-    @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₁)
 
     # Let's switch case and control for T₂
     Ψ = CM(
@@ -265,10 +251,9 @@ end
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
-
     Ψ₀ = 2.5
-    @test covers(tmle_result, Ψ₀)
-    #@test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₁)
 
     # Change the target
     Ψ = CM(
@@ -286,10 +271,9 @@ end
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
-
     Ψ₀ = 1
-    @test covers(tmle_result, Ψ₀)
-    #@test closer_than_initial(tmle_result, initial_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₂)
 
     # Change the treatment
     Ψ = CM(
@@ -307,14 +291,13 @@ end
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
-
     Ψ₀ = 11
-    @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₂)
 end
 
 @testset "Test Warm restart: pairwise IATE, $tt" for tt in table_types
-    dataset = tt(build_dataset(;n=10000))
+    dataset = tt(build_dataset(;n=50_000))
     Ψ = IATE(
         target=:y₃,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
@@ -326,10 +309,9 @@ end
         LogisticClassifier(lambda=0)
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
-
     Ψ₀ = -1
-    @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₃)
 
     # Remove covariate from fit
     Ψ = IATE(
@@ -346,9 +328,8 @@ end
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
-
-    @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₃)
 
     # Changing the treatments values
     Ψ = IATE(
@@ -365,15 +346,14 @@ end
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
-
     Ψ₀ = - Ψ₀
-    @test covers(tmle_result, Ψ₀)
-    @test closer_than_initial(tmle_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₃)
 
 end
 
 @testset "Test Warm restart: Both Ψ and η changed" begin
-    dataset = build_dataset(;n=10000)
+    dataset = build_dataset(;n=50_000)
     # Define the parameter of interest
     Ψ = ATE(
         target=:y₁,
@@ -388,7 +368,8 @@ end
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     Ψ₀ = -0.5
-    @test covers(tmle_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₁)
 
     Ψnew = ATE(
         target=:y₁,
@@ -411,7 +392,8 @@ end
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψnew, η_spec; verbosity=1);
     Ψ₀ = 0.5
-    @test covers(tmle_result, Ψ₀)
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₁)
 end
 
 end
