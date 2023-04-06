@@ -12,4 +12,5 @@ using Test
     @test include("composition.jl")
     @test include("treatment_transformer.jl")
     @test include("fit_nuisance.jl")
+    @test include("non_regression_test.jl")
 end

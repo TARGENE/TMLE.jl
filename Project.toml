@@ -1,7 +1,7 @@
 name = "TMLE"
 uuid = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
 authors = ["Olivier Labayle"]
-version = "0.9.2"
+version = "0.10.0"
 
 [deps]
 AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
@@ -21,16 +21,16 @@ YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-PrettyTables = "2.2"
 AbstractDifferentiation = "0.4"
 CategoricalArrays = "0.10"
 Distributions = "0.25"
 HypothesisTests = "0.10"
 LogExpFunctions = "0.3"
 MLJBase = "0.19, 0.20, 0.21"
-MLJGLMInterface = "0.1, 0.2, 0.3"
 MLJModels = "0.15, 0.16"
+MLJGLMInterface = "0.3"
 Missings = "1.0"
+PrettyTables = "2.2"
 TableOperations = "1.2"
 Tables = "1.6"
 YAML = "0.4"

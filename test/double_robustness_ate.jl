@@ -73,6 +73,83 @@ function continuous_target_categorical_treatment_pb(;n=100, control="TT", case="
     return (T = categorical(T),  W₁ = W₁, W₂ = W₂, W₃ = W₃, y = y), ATE
 end
 
+
+function dataset_2_treatments_pb(;rng = StableRNG(123), n=100)
+    μY(W₁, W₂, T₁, T₂) = 4T₁ .- 2T₂ .+ 5W₁ .- 3W₂
+    W₁ = rand(rng, Normal(), n)
+    W₂ = rand(rng, Normal(), n)
+    μT₁ = logistic.(0.5W₁ + 1.5W₂)
+    T₁ = float(rand(rng, Uniform(), n) .< μT₁)
+    μT₂ = logistic.(-1.5W₁ + .5W₂ .+ 1)
+    T₂ = float(rand(rng, Uniform(), n) .< μT₂)
+    y = μY(W₁, W₂, T₁, T₂) .+ rand(rng, Normal(), n)
+    # Those ATEs are MC approximations, only reliable with large samples
+    case = ones(n)
+    control = zeros(n)
+    ATE₁₁₋₀₁ = mean(μY(W₁, W₂, case, case) .- μY(W₁, W₂, control, case))
+    ATE₁₁₋₀₀ = mean(μY(W₁, W₂, case, case) .- μY(W₁, W₂, control, control))
+    return (
+        W₁ = W₁,
+        W₂ = W₂,
+        T₁ = categorical(T₁),
+        T₂ = categorical(T₂),
+        y  = y
+    ), ATE₁₁₋₀₁, ATE₁₁₋₀₀
+end
+
+@testset "Test Double Robustness ATE with two treatment variables" begin
+    dataset, ATE₁₁₋₀₁, ATE₁₁₋₀₀ = dataset_2_treatments_pb(;rng = StableRNG(123), n=10_000)
+    cache = TMLECache(dataset)
+    # Test first ATE, only T₁ treatment varies 
+    Ψ = ATE(
+        target      = :y,
+        treatment   = (T₁=(case=1., control=0.), T₂=(case=1., control=1.)),
+        confounders = [:W₁, :W₂]
+    )
+    # When Q is misspecified but G is well specified
+    η_spec = NuisanceSpec(
+        MLJModels.DeterministicConstantRegressor(),
+        LogisticClassifier(lambda=0)
+    )
+    tmle_result, cache = tmle!(cache, Ψ, η_spec, verbosity=0)
+    test_coverage(tmle_result, ATE₁₁₋₀₁)
+    test_fluct_decreases_risk(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+    # When Q is well specified but G is misspecified
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        ConstantClassifier()
+    )
+    tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
+    test_coverage(tmle_result, ATE₁₁₋₀₁)
+    test_fluct_decreases_risk(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+
+    # Test second ATE, two treatment varies 
+    Ψ = ATE(
+        target      = :y,
+        treatment   = (T₁=(case=1., control=0.), T₂=(case=1., control=0.)),
+        confounders = [:W₁, :W₂]
+    )
+    tmle_result, cache = tmle!(cache, Ψ, η_spec, verbosity=0)
+    test_coverage(tmle_result, ATE₁₁₋₀₀)
+    test_fluct_decreases_risk(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+    # When Q is well specified but G is misspecified
+    η_spec = NuisanceSpec(
+        LinearRegressor(),
+        ConstantClassifier()
+    )
+    tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
+    test_coverage(tmle_result, ATE₁₁₋₀₀)
+    test_fluct_decreases_risk(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+end
+
 @testset "Test Double Robustness ATE on continuous_target_categorical_treatment_pb" begin
     dataset, Ψ₀ = continuous_target_categorical_treatment_pb(;n=10_000, control="TT", case="AA")
     Ψ = ATE(
