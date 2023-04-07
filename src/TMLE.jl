@@ -12,11 +12,10 @@ using Missings
 using Statistics
 using Distributions
 using Zygote
-using AbstractDifferentiation
 using LogExpFunctions
 using YAML
 using PrettyTables
-
+import AbstractDifferentiation as AD
 # #############################################################################
 # EXPORTS
 # #############################################################################
