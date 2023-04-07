@@ -8,9 +8,10 @@ using DataFrames
 using CategoricalArrays
 using MLJGLMInterface
 
+
 @testset "Test ATE on perinatal dataset." begin
     # This is a non-regression test which was checked against the R tmle3 package
-    data = CSV.read("perinatal.csv", DataFrame)
+    data = CSV.read(joinpath("data", "perinatal.csv"), DataFrame, missingstring=["", "NA"])
     confounders = [:apgar1, :apgar5, :gagebrth, :mage, :meducyrs, :sexn]
     data.haz01 = categorical(data.haz01)
     data.parity01 = categorical(data.parity01)

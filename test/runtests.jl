@@ -1,6 +1,7 @@
 using Test
 
 @time begin
+    @test include("non_regression_test.jl")
     @test include("cache.jl")
     @test include("utils.jl")
     @test include("double_robustness_ate.jl")
@@ -12,5 +13,4 @@ using Test
     @test include("composition.jl")
     @test include("treatment_transformer.jl")
     @test include("fit_nuisance.jl")
-    @test include("non_regression_test.jl")
 end
