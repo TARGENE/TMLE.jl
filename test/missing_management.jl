@@ -8,6 +8,8 @@ using TMLE
 using CategoricalArrays
 using DataFrames
 
+include("helper_fns.jl")
+
 function dataset_with_missing_and_ordered_treatment(;n=1000)
     rng = StableRNG(123)
     W = rand(rng, n)
@@ -45,8 +47,9 @@ end
         confounders=[:W], 
         treatment=(T=(case=1, control=0),))
     η_spec = NuisanceSpec(LinearRegressor(), LogisticClassifier(lambda=0))
-    tmle_results, cache = tmle(Ψ, η_spec, dataset; verbosity=0)
-    @test estimate(tmle_results) ≈ 0.966 atol=1e-3
+    tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0)
+    test_coverage(tmle_result, 1)
+    test_fluct_decreases_risk(cache; target_name=:y)
 end
 
 end

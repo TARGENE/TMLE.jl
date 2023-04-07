@@ -20,6 +20,8 @@ mutable struct TMLECache
     end
 end
 
+Base.show(io::IO, cache::TMLECache) = println(typeof(cache))
+
 function check_treatment_values(cache::TMLECache, Ψ::Parameter)
     for T in treatments(Ψ)
         Tlevels = string.(levels(Tables.getcolumn(cache.data[:source], T)))
@@ -122,11 +124,12 @@ function tmle!(cache::TMLECache; verbosity=1, threshold=1e-8)
     tmle_step!(cache, verbosity=verbosity, threshold=threshold)
     
     # Estimation results after TMLE
-    IC, Ψ̂, Ψ̂ᵢ = TMLE.gradient_and_estimates(cache)
-    result = PointTMLE(Ψ̂, IC, Ψ̂ᵢ)
+    IC, Ψ̂, ICᵢ, Ψ̂ᵢ = TMLE.gradient_and_estimates(cache, threshold=threshold)
+    tmle_result = ALEstimate(Ψ̂, IC)
+    one_step_result = ALEstimate(Ψ̂ᵢ + mean(ICᵢ), ICᵢ)
 
     verbosity >= 1 && @info "Done."
-    return result, cache
+    return TMLEResult(tmle_result, one_step_result, Ψ̂ᵢ), cache
 end
 
 """
@@ -144,7 +147,7 @@ end
 
 Runs the TMLE procedure for the new nuisance parameters specification η_spec while potentially reusing cached nuisance parameters.
 """
-function tmle!(cache::TMLECache, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8, mach_cache=false)
+function tmle!(cache::TMLECache, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
     update!(cache, η_spec)
     tmle!(cache, verbosity=verbosity, threshold=threshold)
 end
@@ -214,12 +217,12 @@ function fit_nuisance!(cache::TMLECache; verbosity=1)
         end
         log_fit(verbosity, "E[Y|X]")
         Xfloat = MLJBase.transform(η.H, X)
-        cache.data[:Xfloat] = Xfloat
         mach = machine(η_spec.Q, Xfloat, y, cache=η_spec.cache)
         t = time()
         MLJBase.fit!(mach, verbosity=verbosity-1)
         verbosity >= 2 && @info string("Time to fit E[Y|X]: ", time() - t, " s.")
         η.Q = mach
+        cache.data[:Q₀] = MLJBase.predict(mach, Xfloat)
     else
         log_no_fit(verbosity, "Encoder")
         log_no_fit(verbosity, "E[Y|X]")
@@ -229,8 +232,7 @@ end
 
 function tmle_step!(cache::TMLECache; verbosity=1, threshold=1e-8)
     # Fit fluctuation
-    ŷ = MLJBase.predict(cache.η.Q, cache.data[:Xfloat])
-    offset = TMLE.compute_offset(ŷ)
+    offset = TMLE.compute_offset(cache.data[:Q₀])
     W = TMLE.confounders(cache.data[:no_missing], cache.Ψ)
     jointT = TMLE.joint_treatment(TMLE.treatments(cache.data[:no_missing], cache.Ψ))
     covariate = TMLE.compute_covariate(jointT, W, cache.η.G, cache.data[:indicators_str]; threshold=threshold)
@@ -242,7 +244,7 @@ function tmle_step!(cache::TMLECache; verbosity=1, threshold=1e-8)
     cache.η.F = mach
     # This is useful for gradient_Y_X
     cache.data[:covariate] = X.covariate
-    cache.data[:μy] = TMLE.expected_value(MLJBase.predict(mach, X))
+    cache.data[:Qfluct] = MLJBase.predict(mach, X)
 end
 
 function counterfactual_aggregates(cache::TMLECache; threshold=1e-8)
@@ -287,17 +289,21 @@ gradient_W(counterfactual_aggregate, estimate) =
 
 This part of the gradient is evaluated on the original dataset. All quantities have been precomputed and cached.
 """
-function gradient_Y_X(cache::TMLECache)
+function gradients_Y_X(cache::TMLECache)
     covariate = cache.data[:covariate]
-    y = target(cache.data[:no_missing], cache.Ψ)
-    return covariate .* (float(y) .- cache.data[:μy])
+    y = float(target(cache.data[:no_missing], cache.Ψ))
+    gradient_Y_Xᵢ = covariate .* (y .- expected_value(cache.data[:Q₀]))
+    gradient_Y_X_fluct = covariate .* (y .- expected_value(cache.data[:Qfluct]))
+    return gradient_Y_Xᵢ, gradient_Y_X_fluct
 end
 
 
 function gradient_and_estimates(cache::TMLECache; threshold=1e-8)
     counterfactual_aggregate, counterfactual_aggregateᵢ = TMLE.counterfactual_aggregates(cache; threshold=threshold)
     Ψ̂, Ψ̂ᵢ = mean(counterfactual_aggregate), mean(counterfactual_aggregateᵢ)
-    IC = gradient_Y_X(cache) .+ gradient_W(counterfactual_aggregate, Ψ̂)
-    return IC, Ψ̂, Ψ̂ᵢ
+    gradient_Y_Xᵢ, gradient_Y_X_fluct = gradients_Y_X(cache)
+    IC = gradient_Y_X_fluct .+ gradient_W(counterfactual_aggregate, Ψ̂)
+    ICᵢ = gradient_Y_Xᵢ .+ gradient_W(counterfactual_aggregateᵢ, Ψ̂ᵢ)
+    return IC, Ψ̂, ICᵢ, Ψ̂ᵢ
 end
 

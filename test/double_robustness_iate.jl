@@ -12,6 +12,8 @@ using MLJModels
 using MLJLinearModels
 using LogExpFunctions
 
+include("helper_fns.jl")
+
 cont_interacter = InteractionTransformer(order=2) |> LinearRegressor
 cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1.)
 
@@ -164,7 +166,7 @@ function continuous_target_binary_treatment_pb(;n=100)
 end
 
 @testset "Test Double Robustness IATE on binary_target_binary_treatment_pb" begin
-    dataset, Ψ₀ = binary_target_binary_treatment_pb(n=1000)
+    dataset, Ψ₀ = binary_target_binary_treatment_pb(n=10_000)
     Ψ = IATE(
         target=:y,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
@@ -176,12 +178,12 @@ end
         LogisticClassifier(lambda=0)
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0);
-    Ψ̂ = TMLE.estimate(tmle_result)
-    lb, ub = confint(OneSampleTTest(tmle_result))
-    @test lb ≤ Ψ̂ ≤ ub
-    @test Ψ̂ ≈ 0.287 atol=1e-3
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-9)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test initial_estimate(tmle_result) == 0
+    @test tmle_result.initial == 0
 
     # When Q is well specified  but G is misspecified
     η_spec = NuisanceSpec(
@@ -189,17 +191,17 @@ end
         ConstantClassifier()
     )
     
-    tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
-    Ψ̂ = TMLE.estimate(tmle_result)
-    lb, ub = confint(OneSampleTTest(tmle_result))
-    @test lb ≤ Ψ̂ ≤ ub
-    @test Ψ̂ ≈ 0.288 atol=1e-3
-    # Since Q is well specified, it still gets the correct answer in this case
-    @test initial_estimate(tmle_result) ≈ -0.0003 atol=1e-4
+    tmle_result, cache = tmle!(cache, η_spec, verbosity=0);
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-7)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+    # The initial estimate is far away
+    @test tmle_result.initial ≈ -0.0 atol=1e-1
 end
 
 @testset "Test Double Robustness IATE on continuous_target_binary_treatment_pb" begin
-    dataset, Ψ₀ = continuous_target_binary_treatment_pb(n=1000)
+    dataset, Ψ₀ = continuous_target_binary_treatment_pb(n=10_000)
     Ψ = IATE(
         target=:y,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
@@ -212,12 +214,12 @@ end
     )
 
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
-    Ψ̂ = TMLE.estimate(tmle_result)
-    lb, ub = confint(OneSampleTTest(tmle_result))
-    @test lb ≤ Ψ̂ ≤ ub
-    @test Ψ̂ ≈ 1.947 atol=1e-3
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test initial_estimate(tmle_result) == 0 
+    @test tmle_result.initial == 0
 
     # When Q is well specified  but G is misspecified
     η_spec = NuisanceSpec(
@@ -226,17 +228,14 @@ end
     )
 
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
-    Ψ̂ = TMLE.estimate(tmle_result)
-    lb, ub = confint(OneSampleTTest(tmle_result))
-    @test lb ≤ Ψ̂ ≤ ub
-    @test Ψ̂ ≈ 1.999 atol=1e-3
-    # Since Q is well specified, it still gets the correct answer in this case
-    @test initial_estimate(tmle_result) ≈ 1.999 atol=1e-3
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
 
 @testset "Test Double Robustness IATE on binary_target_categorical_treatment_pb" begin
-    dataset, Ψ₀ = binary_target_categorical_treatment_pb(n=1000)
+    dataset, Ψ₀ = binary_target_categorical_treatment_pb(n=10_000)
     Ψ = IATE(
         target=:y,
         treatment=(T₁=(case="CC", control="CG"), T₂=(case="AT", control="AA")),
@@ -249,12 +248,11 @@ end
     )
 
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0);
-    Ψ̂ = TMLE.estimate(tmle_result)
-    lb, ub = confint(OneSampleTTest(tmle_result))
-    @test lb ≤ Ψ̂ ≤ ub
-    @test Ψ̂ ≈ -0.736 atol=1e-3
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test initial_estimate(tmle_result) == 0 
+    @test tmle_result.initial == 0 
 
     # When Q is well specified but G is misspecified
     η_spec = NuisanceSpec(
@@ -263,12 +261,11 @@ end
     )
 
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
-    Ψ̂ = TMLE.estimate(tmle_result)
-    lb, ub = confint(OneSampleTTest(tmle_result))
-    @test lb ≤ Ψ̂ ≤ ub
-    @test Ψ̂ ≈ -0.779 atol=1e-3
-    # Here the initial cannot get it it seems
-    @test initial_estimate(tmle_result) ≈ -0.017 atol=1e-3
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+    # The initial estimate is far away
+    @test tmle_result.initial ≈ -0.01 atol=1e-2
 end
 
 

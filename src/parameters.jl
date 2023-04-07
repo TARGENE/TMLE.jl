@@ -12,17 +12,24 @@ const causal_graph = """
 - X = (W, C, T) 
 """
 
+#####################################################################
+###                    Abstract Parameter                         ###
+#####################################################################
 """
 A Parameter is a functional on distribution space Ψ: ℳ → ℜ. 
 """
 abstract type Parameter end
+
+#####################################################################
+###                      Conditional Mean                         ###
+#####################################################################
 
 """
 # CM: Conditional Mean
 
 Mathematical definition: 
 
-    Eₓ[E[Y|T=t, X]]
+    Eₓ[E[Y|do(T=t), X]]
 
 # Causal graph:
 
@@ -60,12 +67,16 @@ end
 CM(;target, treatment, confounders, covariates=[]) = 
     CM(target, treatment, confounders, covariates)
 
+#####################################################################
+###                  Average Treatment Effect                     ###
+#####################################################################
+
 """
 # ATE: Average Treatment Effect
 
 Mathematical definition: 
 
-    Eₓ[E[Y|T=case, X]] - Eₓ[E[Y|T=control, X]]
+    Eₓ[E[Y|do(T=case), X]] - Eₓ[E[Y|do(T=control), X]]
 
 # Causal graph:
 
@@ -103,12 +114,16 @@ end
 ATE(;target, treatment, confounders, covariates=[]) = 
     ATE(target, treatment, confounders, covariates)
 
+#####################################################################
+###            Interaction Average Treatment Effect               ###
+#####################################################################
+
 """
 # IATE: Interaction Average Treatment Effect
 
 Mathematical definition for pairwise interaction:
 
-    Eₓ[E[Y|T₁=1, T₂=1, X]] - Eₓ[E[Y|T₁=1, T₂=0, X]] - Eₓ[E[Y|T₁=0, T₂=1, X]] + Eₓ[E[Y|T₁=0, T₂=0, X]]
+    Eₓ[E[Y|do(T₁=1, T₂=1), X]] - Eₓ[E[Y|do(T₁=1, T₂=0), X]] - Eₓ[E[Y|do(T₁=0, T₂=1), X]] + Eₓ[E[Y|do(T₁=0, T₂=0), X]]
 
 # Causal graph:
 
@@ -139,29 +154,11 @@ end
 IATE(;target, treatment, confounders, covariates=[]) = 
     IATE(target, treatment, confounders, covariates)
 
-selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.columntable
 
-confounders(Ψ::Parameter) = Ψ.confounders
-confounders(dataset, Ψ) = selectcols(dataset, confounders(Ψ))
+#####################################################################
+###                     Nuisance Parameters                       ###
+#####################################################################
 
-covariates(Ψ::Parameter) = Ψ.covariates
-covariates(dataset, Ψ) = selectcols(dataset, covariates(Ψ))
-
-treatments(Ψ::Parameter) = collect(keys(Ψ.treatment))
-treatments(dataset, Ψ) = selectcols(dataset, treatments(Ψ))
-
-target(Ψ::Parameter) = Ψ.target
-target(dataset, Ψ) = Tables.getcolumn(dataset, target(Ψ))
-
-treatment_and_confounders(Ψ::Parameter) = vcat(confounders(Ψ), treatments(Ψ))
-
-confounders_and_covariates(Ψ::Parameter) = vcat(confounders(Ψ), covariates(Ψ))
-confounders_and_covariates(dataset, Ψ) = selectcols(dataset, confounders_and_covariates(Ψ))
-
-Qinputs(dataset, Ψ::Parameter) = 
-    selectcols(dataset, vcat(confounders_and_covariates(Ψ), treatments(Ψ)))
-
-allcolumns(Ψ::Parameter) = vcat(confounders_and_covariates(Ψ), treatments(Ψ), target(Ψ))
 """
 # NuisanceParameters
 
@@ -210,6 +207,34 @@ Specification of the nuisance parameters to be learnt.
 """
 NuisanceSpec(Q, G; H=TreatmentTransformer(), F=F_model(target_scitype(Q)), cache=true) =
     NuisanceSpec(Q, G, H, F, cache)
+
+#####################################################################
+###                         Methods                               ###
+#####################################################################
+
+selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.columntable
+
+confounders(Ψ::Parameter) = Ψ.confounders
+confounders(dataset, Ψ) = selectcols(dataset, confounders(Ψ))
+
+covariates(Ψ::Parameter) = Ψ.covariates
+covariates(dataset, Ψ) = selectcols(dataset, covariates(Ψ))
+
+treatments(Ψ::Parameter) = collect(keys(Ψ.treatment))
+treatments(dataset, Ψ) = selectcols(dataset, treatments(Ψ))
+
+target(Ψ::Parameter) = Ψ.target
+target(dataset, Ψ) = Tables.getcolumn(dataset, target(Ψ))
+
+treatment_and_confounders(Ψ::Parameter) = vcat(confounders(Ψ), treatments(Ψ))
+
+confounders_and_covariates(Ψ::Parameter) = vcat(confounders(Ψ), covariates(Ψ))
+confounders_and_covariates(dataset, Ψ) = selectcols(dataset, confounders_and_covariates(Ψ))
+
+Qinputs(dataset, Ψ::Parameter) = 
+    selectcols(dataset, vcat(confounders_and_covariates(Ψ), treatments(Ψ)))
+
+allcolumns(Ψ::Parameter) = vcat(confounders_and_covariates(Ψ), treatments(Ψ), target(Ψ))
 
 F_model(::Type{<:AbstractVector{<:MLJBase.Continuous}}) =
     LinearRegressor(fit_intercept=false, offsetcol = :offset)

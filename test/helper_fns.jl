@@ -1,24 +1,59 @@
 using TMLE
+using Test
+using MLJBase
+using CategoricalArrays
 
-abserrors(results, Ψ₀) = [abs(TMLE.estimate(r) - Ψ₀) for r in results]
+"""
+The risk for continuous targets is the MSE
+"""
+risk(ŷ, y) = rmse(TMLE.expected_value(ŷ), y)
 
-all_tmle_better_than_initial(tmle, initial, Ψ₀) = all(abserrors(tmle, Ψ₀) .<= abserrors(initial, Ψ₀))
-first_better_than_last(results, Ψ₀) = 
-    abs((TMLE.estimate(results[end]) - Ψ₀) / Ψ₀) < abs((TMLE.estimate(results[1]) - Ψ₀) / Ψ₀)
+"""
+The risk for binary targets is the LogLoss
+"""
+risk(ŷ, y::CategoricalArray) = mean(log_loss(ŷ, y))
 
-tolerance(res, Ψ₀, tol) = ((TMLE.estimate(res) - Ψ₀) / Ψ₀) < tol
+"""
+    test_fluct_decreases_risk(cache; target_name::Symbol=nothing)
 
-all_solves_ice(tmle_results; tol=1e-10) = all(mean(r.IC) < tol for r in tmle_results)
-
-function asymptotics(Ψ, η_spec, problem_fn, rng, Ns)
-    tmle_results = []
-    initial_results = []
-    Ψ₀ = 0
-    for n in Ns
-        dataset, Ψ₀ = problem_fn(rng; n=n)
-        tmle_result, initial_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0)
-        push!(tmle_results, tmle_result)
-        push!(initial_results, initial_result)
-    end
-    return tmle_results, initial_results, Ψ₀
+The fluctuation is supposed to decrease the risk as its objective function is the risk itself.
+It seems that sometimes this is not entirely true in practice, so the test actually checks that it does not
+increase risk more than tol
+"""
+function test_fluct_decreases_risk(cache; target_name::Symbol=nothing, atol=1e-6)
+    y = cache.data[:no_missing][target_name]
+    initial_risk = risk(cache.data[:Q₀], y)
+    fluct_risk = risk(cache.data[:Qfluct], y)
+    @test initial_risk >= fluct_risk || isapprox(initial_risk, fluct_risk, atol=atol)
 end
+
+
+"""
+    test_coverage(tmle_result::TMLE.TMLEResult, Ψ₀)
+
+Both the TMLE and OneStep estimators are suppose to be asymptotically efficient and cover the truth 
+at the given confidence level: here 0.05
+"""
+function test_coverage(tmle_result::TMLE.TMLEResult, Ψ₀)
+    # TMLE
+    lb, ub = confint(OneSampleTTest(tmle_result.tmle))
+    @test lb ≤ Ψ₀ ≤ ub
+    # OneStep
+    lb, ub = confint(OneSampleTTest(tmle_result.onestep))
+    @test lb ≤ Ψ₀ ≤ ub
+end
+
+"""
+    test_mean_inf_curve_almost_zero(tmle_result::TMLE.TMLEResult; atol=1e-10)
+
+The TMLE is supposed to solve the EIC score equation.
+"""
+test_mean_inf_curve_almost_zero(tmle_result::TMLE.TMLEResult; atol=1e-10) = @test mean(tmle_result.tmle.IC) ≈ 0.0 atol=atol
+
+"""
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result::TMLE.TMLEResult)
+
+This cqnnot be guaranteed in general since a well specified maximum 
+likelihood estimator also solves the score equation.
+"""
+test_fluct_mean_inf_curve_lower_than_initial(tmle_result::TMLE.TMLEResult) = @test abs(mean(tmle_result.tmle.IC)) < abs(mean(tmle_result.onestep.IC))

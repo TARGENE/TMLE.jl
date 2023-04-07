@@ -1,10 +1,26 @@
 
+struct TMLEResult
+    tmle
+    onestep
+    initial
+end
+
+function Base.show(io::IO, r::TMLEResult)
+    tmletest = OneSampleTTest(r.tmle)
+    onesteptest = OneSampleTTest(r.onestep)
+    data = [
+        :TMLE estimate(r.tmle) confint(tmletest) pvalue(tmletest);
+        :OneStep estimate(r.onestep) confint(onesteptest) pvalue(onesteptest);
+        :Naive r.initial nothing nothing
+        ]
+    pretty_table(io, data;header=["Estimator", "Estimate", "95% Confidence Interval", "P-value"])
+end
+
 abstract type AbstractTMLE end
 
-struct PointTMLE{T<:AbstractFloat} <: AbstractTMLE
+struct ALEstimate{T<:AbstractFloat} <: AbstractTMLE
     Ψ̂::T
     IC::Vector{T}
-    Ψ̂ᵢ::T
 end
 
 struct ComposedTMLE{T<:AbstractFloat} <: AbstractTMLE
@@ -12,19 +28,13 @@ struct ComposedTMLE{T<:AbstractFloat} <: AbstractTMLE
     σ̂::Matrix{T}
 end
 
-"""
-    initial_estimate(r::PointTMLE)
-
-Retrieves the initial estimate: before the TMLE step.
-"""
-initial_estimate(r::PointTMLE) = r.Ψ̂ᵢ
 
 """
-    estimate(r::PointTMLE)
+    estimate(r::ALEstimate)
 
 Retrieves the final estimate: after the TMLE step.
 """
-estimate(r::PointTMLE) = r.Ψ̂
+estimate(r::ALEstimate) = r.Ψ̂
 
 """
     estimate(r::ComposedTMLE)
@@ -34,11 +44,11 @@ Retrieves the final estimate: after the TMLE step.
 estimate(r::ComposedTMLE) = length(r.Ψ̂) == 1 ? r.Ψ̂[1] : r.Ψ̂
 
 """
-    var(r::PointTMLE)
+    var(r::ALEstimate)
 
 Computes the estimated variance associated with the estimate.
 """
-Statistics.var(r::PointTMLE) = var(r.IC)/size(r.IC, 1)
+Statistics.var(r::ALEstimate) = var(r.IC)/size(r.IC, 1)
 
 """
     var(r::ComposedTMLE)
@@ -48,18 +58,18 @@ Computes the estimated variance associated with the estimate.
 Statistics.var(r::ComposedTMLE) = length(r.σ̂) == 1 ? r.σ̂[1] : r.σ̂
 
 """
-    OneSampleZTest(r::PointTMLE, Ψ₀=0)
+    OneSampleZTest(r::ALEstimate, Ψ₀=0)
 
-Performs a Z test on the PointTMLE.
+Performs a Z test on the ALEstimate.
 """
-HypothesisTests.OneSampleZTest(r::PointTMLE, Ψ₀=0) = OneSampleZTest(estimate(r), std(r.IC), size(r.IC, 1), Ψ₀)
+HypothesisTests.OneSampleZTest(r::ALEstimate, Ψ₀=0) = OneSampleZTest(estimate(r), std(r.IC), size(r.IC, 1), Ψ₀)
 
 """
-    OneSampleTTest(r::PointTMLE, Ψ₀=0)
+    OneSampleTTest(r::ALEstimate, Ψ₀=0)
 
-Performs a T test on the PointTMLE.
+Performs a T test on the ALEstimate.
 """
-HypothesisTests.OneSampleTTest(r::PointTMLE, Ψ₀=0) = OneSampleTTest(estimate(r), std(r.IC), size(r.IC, 1), Ψ₀)
+HypothesisTests.OneSampleTTest(r::ALEstimate, Ψ₀=0) = OneSampleTTest(estimate(r), std(r.IC), size(r.IC, 1), Ψ₀)
 
 """
     OneSampleTTest(r::ComposedTMLE, Ψ₀=0)
@@ -73,7 +83,7 @@ end
 
 
 """
-    compose(f, estimation_results::Vararg{PointTMLE, N}) where N
+    compose(f, estimation_results::Vararg{ALEstimate, N}) where N
 
 Provides an estimator of f(estimation_results...).
 
@@ -106,7 +116,7 @@ Hence, the only thing we need to do is:
 # Arguments
 
 - f: An array-input differentiable map.
-- estimation_results: 1 or more `PointTMLE` structs.
+- estimation_results: 1 or more `ALEstimate` structs.
 
 # Examples
 
@@ -117,7 +127,7 @@ f(x, y) = [x^2 - y, y - 3x]
 compose(f, res₁, res₂)
 ```
 """
-function compose(f, estimators::Vararg{PointTMLE, N}; backend=AD.ZygoteBackend()) where N
+function compose(f, estimators::Vararg{ALEstimate, N}; backend=AD.ZygoteBackend()) where N
     Σ = cov(estimators...)
     estimates = [estimate(r) for r in estimators]
     f₀, Js = AD.value_and_jacobian(backend, f, estimates...)
@@ -127,7 +137,7 @@ function compose(f, estimators::Vararg{PointTMLE, N}; backend=AD.ZygoteBackend()
     return ComposedTMLE(collect(f₀), σ₀)
 end
 
-function Statistics.cov(estimators::Vararg{PointTMLE, N}) where N
+function Statistics.cov(estimators::Vararg{ALEstimate, N}) where N
     X = hcat([r.IC for r in estimators]...)
     return Statistics.cov(X, dims=1, corrected=true)
 end

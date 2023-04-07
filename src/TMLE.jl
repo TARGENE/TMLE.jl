@@ -12,15 +12,15 @@ using Missings
 using Statistics
 using Distributions
 using Zygote
-using AbstractDifferentiation
 using LogExpFunctions
 using YAML
-
+using PrettyTables
+import AbstractDifferentiation as AD
 # #############################################################################
 # EXPORTS
 # #############################################################################
 
-export NuisanceSpec, TMLECache, CM, ATE, IATE
+export NuisanceSpec, TMLECache, update!, CM, ATE, IATE
 export tmle, tmle!
 export var, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
