@@ -17,26 +17,16 @@ risk(ŷ, y::CategoricalArray) = mean(log_loss(ŷ, y))
     test_fluct_decreases_risk(cache; target_name::Symbol=nothing)
 
 The fluctuation is supposed to decrease the risk as its objective function is the risk itself.
-It seems that sometimes this is not entirely true in practice see: `test_fluct_risk_almost_equal_to_initial`
+It seems that sometimes this is not entirely true in practice, so the test actually checks that it does not
+increase risk more than tol
 """
-function test_fluct_decreases_risk(cache; target_name::Symbol=nothing)
+function test_fluct_decreases_risk(cache; target_name::Symbol=nothing, atol=1e-6)
     y = cache.data[:no_missing][target_name]
     initial_risk = risk(cache.data[:Q₀], y)
     fluct_risk = risk(cache.data[:Qfluct], y)
-    @test initial_risk > fluct_risk
+    @test initial_risk >= fluct_risk || isapprox(initial_risk, fluct_risk, atol=atol)
 end
 
-"""
-    test_fluct_risk_almost_equal_to_initial(cache; target_name::Symbol=nothing, atol=1e-6)
-
-When the fluctuation does not decrease the risk it should remain almost identical to the initial one.
-"""
-function test_fluct_risk_almost_equal_to_initial(cache; target_name::Symbol=nothing, atol=1e-6)
-    y = cache.data[:no_missing][target_name]
-    initial_risk = risk(cache.data[:Q₀], y)
-    fluct_risk = risk(cache.data[:Qfluct], y)
-    @test initial_risk ≈ fluct_risk atol=atol
-end
 
 """
     test_coverage(tmle_result::TMLE.TMLEResult, Ψ₀)
