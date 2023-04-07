@@ -24,7 +24,7 @@ Mathematical definition:
 
     Eₓ[E[Y|T=t, X]]
 
-# Causal graph:
+# Assumed Causal graph:
 
 $causal_graph
 
@@ -67,7 +67,7 @@ Mathematical definition:
 
     Eₓ[E[Y|T=case, X]] - Eₓ[E[Y|T=control, X]]
 
-# Causal graph:
+# Assumed Causal graph:
 
 $causal_graph
 
@@ -110,7 +110,7 @@ Mathematical definition for pairwise interaction:
 
     Eₓ[E[Y|T₁=1, T₂=1, X]] - Eₓ[E[Y|T₁=1, T₂=0, X]] - Eₓ[E[Y|T₁=0, T₂=1, X]] + Eₓ[E[Y|T₁=0, T₂=0, X]]
 
-# Causal graph:
+# Assumed Causal graph:
 
 $causal_graph
 
