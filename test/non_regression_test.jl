@@ -2,12 +2,10 @@ module NonRegressionTest
 
 using Test
 using TMLE
-using MLJLinearModels
 using CSV
 using DataFrames 
 using CategoricalArrays
 using MLJGLMInterface
-
 
 @testset "Test ATE on perinatal dataset." begin
     # This is a non-regression test which was checked against the R tmle3 package
@@ -27,7 +25,7 @@ using MLJGLMInterface
         LinearBinaryClassifier(),
         LinearBinaryClassifier()
     )
-    r, cache = tmle(Ψ, η_spec, data, threshold=0.025)
+    r, cache = tmle(Ψ, η_spec, data, threshold=0.025, verbosity=0)
     l, u = confint(OneSampleTTest(r.tmle))
     @test TMLE.estimate(r.tmle) ≈ -0.185533 atol = 1e-6
     @test l ≈ -0.279246 atol = 1e-6
