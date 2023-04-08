@@ -121,7 +121,7 @@ function counterfactualTreatment(vals, T)
     Tnames = Tables.columnnames(T)
     n = nrows(T)
     NamedTuple{Tnames}(
-            [categorical(repeat([vals[i]], n), levels=levels(Tables.getcolumn(T, name)))
+            [categorical(repeat([vals[i]], n), levels=levels(Tables.getcolumn(T, name)), ordered=isordered(Tables.getcolumn(T, name)))
                             for (i, name) in enumerate(Tnames)])
 end
 

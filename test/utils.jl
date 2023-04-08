@@ -141,7 +141,7 @@ end
 @testset "Test counterfactualTreatment" begin
     vals = (true, "a")
     T = (
-        t₁ = categorical([true, false, false]),
+        t₁ = categorical([true, false, false], ordered=true),
         t₂ = categorical(["a", "a", "c"])
     )
     cfT = TMLE.counterfactualTreatment(vals, T)
@@ -149,6 +149,9 @@ end
         t₁ = categorical([true, true, true]),
         t₂ = categorical(["a", "a", "a"])
     )
+    @test isordered(cfT.t₁)
+    @test !isordered(cfT.t₂)
+
 end
 
 @testset "Test compute_covariate" begin
