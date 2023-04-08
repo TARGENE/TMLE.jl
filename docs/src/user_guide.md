@@ -101,7 +101,7 @@ cm_result₁₁, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 nothing # hide
 ```
 
-For now, let's ignore the two `_` outputs and focus on the `result` of type `PointTMLE`, it represents a point estimator of $CM_{T_1=1, T_2=0}$. As such, we can have a look at the value and variance of the estimator, since the estimator is asymptotically normal, a 95% confidence interval can be rougly constructed via:
+For now, let's ignore the two `_` outputs and focus on the `result` of type `ALEstimate`, it represents a point estimator of $CM_{T_1=1, T_2=0}$. As such, we can have a look at the value and variance of the estimator, since the estimator is asymptotically normal, a 95% confidence interval can be rougly constructed via:
 
 ```@example user-guide
 Ψ̂ = TMLE.estimate(cm_result₁₁)
