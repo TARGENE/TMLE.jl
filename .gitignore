@@ -6,3 +6,4 @@
 /docs/src/examples/
 build/
 sandbox.jl
+Manifest.toml

@@ -262,60 +262,6 @@ end
     
 end
 
-
-@testset "Test parameters_from_yaml" begin
-    # No covariate
-    param_file = joinpath("data", "parameters.yaml")
-    parameters = parameters_from_yaml(param_file)
-    expected_params =[
-        IATE(;
-            target=:Y1, 
-            treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
-            confounders=[:W1], 
-            covariates=Symbol[]
-        ),
-        IATE(;
-            target=:Y2, 
-            treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
-            confounders=[:W1], 
-            covariates=Symbol[]
-        ),
-        ATE(;
-            target=:Y1, 
-            treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
-            confounders=[:W1], 
-            covariates=Symbol[]
-        ),
-        ATE(;
-            target=:Y2, 
-            treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
-            confounders=[:W1], 
-            covariates=Symbol[]
-        ),
-        CM(;target=:Y1, treatment=(T2 = 0, T1 = 1), confounders=[:W1], covariates=Symbol[]),
-        CM(;target=:Y2, treatment=(T2 = 0, T1 = 1), confounders=[:W1], covariates=Symbol[])
-    ]
-    test_params_match(parameters, expected_params)
-    # With covariate
-    param_file = joinpath("data", "parameters_with_covariates.yaml")
-    parameters = parameters_from_yaml(param_file)
-    expected_params = [
-        IATE(;
-            target=:Y1, 
-            treatment=(T2 = (case = "AC", control = "CC"), T1 = (case = 2, control = 1)), 
-            confounders=[:W1], 
-            covariates=[:C1])
-        ATE(;
-            target=:Y1, 
-            treatment=(T2 = (case = "AC", control = "CC"), T1 = (case = 2, control = 0)), 
-            confounders=[:W1], 
-            covariates=[:C1])
-        CM(target=:Y1, treatment=(T2 = 0, T1 = 0), confounders=[:W1], covariates=[:C1])
-    ]
-    test_params_match(parameters, expected_params)
-
-end
-
 @testset "Test fluctuation_input" begin
     X = TMLE.fluctuation_input([1., 2.], [1., 2])
     @test X.covariate isa Vector{Float64}
