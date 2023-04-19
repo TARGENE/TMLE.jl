@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>User Guide · TMLE.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link rel="canonical" href="https://TARGENE.github.io/TMLE.jl/user_guide/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/logo.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.svg" alt="TMLE.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">TMLE.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li class="is-active"><a class="tocitem" href>User Guide</a><ul class="internal"><li><a class="tocitem" href="#The-Dataset"><span>The Dataset</span></a></li><li><a class="tocitem" href="#The-Nuisance-Parameters"><span>The Nuisance Parameters</span></a></li><li><a class="tocitem" href="#Parameters"><span>Parameters</span></a></li><li><a class="tocitem" href="#Using-the-cache"><span>Using the cache</span></a></li></ul></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../examples/super_learning/">Becoming a Super Learner</a></li></ul></li><li><a class="tocitem" href="../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>User Guide</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>User Guide</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/TARGENE/TMLE.jl/blob/main/docs/src/user_guide.md#" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="User-Guide"><a class="docs-heading-anchor" href="#User-Guide">User Guide</a><a id="User-Guide-1"></a><a class="docs-heading-anchor-permalink" href="#User-Guide" title="Permalink"></a></h1><h2 id="The-Dataset"><a class="docs-heading-anchor" href="#The-Dataset">The Dataset</a><a id="The-Dataset-1"></a><a class="docs-heading-anchor-permalink" href="#The-Dataset" title="Permalink"></a></h2><p>TMLE.jl should be compatible with any dataset respecting the <a href="https://tables.juliadata.org/stable/">Tables.jl</a> interface, that is, a structure like a <code>NamedTuple</code> or a <code>DataFrame</code> from <a href="https://dataframes.juliadata.org/stable/">DataFrames.jl</a> should work. In the remainder of this section, we will be working with the same dataset and see that we can ask very many questions (Parameters) from it.</p><pre><code class="language-julia hljs">using Random
+using Distributions
+using DataFrames
+using StableRNGs
+using CategoricalArrays
+using TMLE
+using LogExpFunctions
+
+function make_dataset(;n=1000)
+    rng = StableRNG(123)
+    # Confounders
+    W₁ = rand(rng, Uniform(), n)
+    W₂ = rand(rng, Uniform(), n)
+    # Covariates
+    C₁ = rand(rng, Uniform(), n)
+    # Treatment | Confounders
+    T₁ = rand(rng, Uniform(), n) .&lt; logistic.(0.5sin.(W₁) .- 1.5W₂)
+    T₂ = rand(rng, Uniform(), n) .&lt; logistic.(-3W₁ - 1.5W₂)
+    # Target | Confounders, Covariates, Treatments
+    Y = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .- 2T₂.*T₁.*W₂ .+ rand(rng, Normal(0, 0.1), n)
+    return DataFrame(
+        W₁ = W₁,
+        W₂ = W₂,
+        C₁ = C₁,
+        T₁ = categorical(T₁),
+        T₂ = categorical(T₂),
+        Y  = Y
+        )
+end
+dataset = make_dataset()</code></pre><div class="admonition is-info"><header class="admonition-header">Note on Treatment variables</header><div class="admonition-body"><p>It should be noted that the treatment variables <strong>must</strong> be <a href="https://categoricalarrays.juliadata.org/stable/">categorical</a>. Since the treatment is also used as an input to the <span>$Q_0$</span> learner, a <code>OneHotEncoder</code> is used by default (see <a href="#The-Nuisance-Parameters">The Nuisance Parameters</a> section). If a numerical representation is more appropriate (ordinal variables), use the keyword <code>ordered=true</code> when constructing a <code>categorical</code> vector, the <code>OneHotEncoder</code> will ignore those variables and their floating point representation will be used.</p></div></div><h2 id="The-Nuisance-Parameters"><a class="docs-heading-anchor" href="#The-Nuisance-Parameters">The Nuisance Parameters</a><a id="The-Nuisance-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#The-Nuisance-Parameters" title="Permalink"></a></h2><p>As described in the <a href="../#Mathematical-setting">Mathematical setting</a> section, we need to provide an estimation strategy for both <span>$Q_0$</span> and <span>$G_0$</span>. For illustration purposes, we here consider a simple strategy where both models are assumed to be generalized linear models. However this is not the recommended practice since there is little chance those functions are actually linear, and theoretical guarantees associated with TMLE may fail to hold. We recommend instead the use of Super Learning which is exemplified in <a href="@ref">The benefits of Super Learning</a>.</p><pre><code class="language-julia hljs">using MLJLinearModels
+
+η_spec = NuisanceSpec(
+    LinearRegressor(), # Q model
+    LogisticClassifier(lambda=0) # G model
+)</code></pre><div class="admonition is-info"><header class="admonition-header">Practical note on $Q_0$ and $G_0$</header><div class="admonition-body"><p>The models chosen for the nuisance parameters should be adapted to the outcome they target:</p><ul><li><span>$Q_0 = \mathbf{E}_0[Y|T=t, W=w, C=c]$</span>, <span>$Y$</span> can be either continuous or categorical, in our example it is continuous and a <code>LinearRegressor</code> is a correct choice.</li><li><span>$G_0 = P_0(T|W)$</span>, <span>$T$</span> are always categorical variables. If T is a single treatment with only 2 levels, a logistic regression will work, if T has more than two levels a multinomial regression for instance would be suitable. If there are more than 2 treatment variables (with potentially more than 2 levels), then, the joint distribution is learnt and a multinomial regression would also work. In any case, the <code>LogisticClassifier</code> from <a href="https://juliaai.github.io/MLJLinearModels.jl/stable/">MLJLinearModels</a> is a suitable choice.</li></ul><p>For more information on available models and their uses, we refer to the <a href="https://alan-turing-institute.github.io/MLJ.jl/dev/">MLJ</a> documentation</p></div></div><p>The <code>NuisanceSpec</code> struct also holds a specification for the <code>OneHotEncoder</code> necessary for the encoding of treatment variables and a generalized linear model for the fluctuation model. Unless you know what you are doing, there is little chance you need to modify those.</p><h2 id="Parameters"><a class="docs-heading-anchor" href="#Parameters">Parameters</a><a id="Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Parameters" title="Permalink"></a></h2><h3 id="The-Conditional-mean"><a class="docs-heading-anchor" href="#The-Conditional-mean">The Conditional mean</a><a id="The-Conditional-mean-1"></a><a class="docs-heading-anchor-permalink" href="#The-Conditional-mean" title="Permalink"></a></h3><p>We are now ready to move to the definition of the parameters of interest. The most basic type of parameter is the conditional mean of the target given the treatment:</p><p class="math-container">\[CM_t(P) = \mathbb{E}[\mathbb{E}[Y|T=t, W]]\]</p><p>The treatment does not have to be restricted to a single variable, we can define for instance <span>$CM_{T_1=1, T_2=1}$</span>:</p><pre><code class="language-julia hljs">Ψ = CM(
+    target      = :Y,
+    treatment   = (T₁=true, T₂=true),
+    confounders = [:W₁, :W₂]
+)</code></pre><p>In this case, we can compute the exact value of the parameter:</p><p class="math-container">\[CM_{T_1=1, T_2=1} = 1 + 2\mathbb{E}[W₁] + 3\mathbb{E}[W₂] - 4\mathbb{E}[C₁] - 2\mathbb{E}[W₂] = 0.5\]</p><p>Running a targeted estimation procedure should then be as simple as:</p><pre><code class="language-julia hljs">cm_result₁₁, _ = tmle(Ψ, η_spec, dataset, verbosity=0)</code></pre><p>For now, let&#39;s ignore the two <code>_</code> outputs and focus on the <code>result</code> of type <code>ALEstimate</code>, it represents a point estimator of <span>$CM_{T_1=1, T_2=0}$</span>. As such, we can have a look at the value and variance of the estimator, since the estimator is asymptotically normal, a 95% confidence interval can be rougly constructed via:</p><pre><code class="language- hljs">Ψ̂ = TMLE.estimate(cm_result₁₁)
+σ² = var(cm_result₁₁)
+Ψ̂ - 1.96√σ² &lt;= 0.5 &lt;= Ψ̂ + 1.96√σ²</code></pre><p>In fact, we can easily be more rigorous here and perform a standard T test:</p><pre><code class="language- hljs">OneSampleTTest(cm_result₁₁)</code></pre><h3 id="The-Average-Treatment-Effect"><a class="docs-heading-anchor" href="#The-Average-Treatment-Effect">The Average Treatment Effect</a><a id="The-Average-Treatment-Effect-1"></a><a class="docs-heading-anchor-permalink" href="#The-Average-Treatment-Effect" title="Permalink"></a></h3><p>Let&#39;s now turn our attention to the Average Treatment Effect:</p><p class="math-container">\[ATE_{t_1 \rightarrow t_2}(P) = \mathbb{E}[\mathbb{E}[Y|T=t_2, W]] - \mathbb{E}[\mathbb{E}[Y|T=t_1, W]]\]</p><p>Again, from our dataset, there are many ATEs we may be interested in, let&#39;s assume we are interested in <span>$ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}$</span>. Since we know the generating process, this can be computed exactly and we have:</p><p class="math-container">\[\begin{aligned}
+ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} &amp;= (1 + 2\mathbb{E}[W₁] + 3\mathbb{E}[W₂] - 4\mathbb{E}[C₁] - 2\mathbb{E}[W₂]) - (1 + 2\mathbb{E}[W₁] + 3\mathbb{E}[W₂]) \\
+                                               &amp;= -3
+\end{aligned}                                    \]</p><p>Let&#39;s see what the TMLE tells us:</p><pre><code class="language- hljs">Ψ = ATE(
+    target      = :Y,
+    treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
+    confounders = [:W₁, :W₂]
+)
+
+ate_result, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
+
+OneSampleTTest(ate_result)</code></pre><p>As expected.</p><h3 id="The-Interaction-Average-Treatment-Effect"><a class="docs-heading-anchor" href="#The-Interaction-Average-Treatment-Effect">The Interaction Average Treatment Effect</a><a id="The-Interaction-Average-Treatment-Effect-1"></a><a class="docs-heading-anchor-permalink" href="#The-Interaction-Average-Treatment-Effect" title="Permalink"></a></h3><p>Finally let us look at the most interesting case of interactions, we compute here the <span>$IATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}$</span> since this is the highest order in our data generating process. That being said, you could go after any higher-order (3, 4, ...) interaction if you wanted. However you will inevitably decrease power and encounter positivity violations as you climb the interaction-order ladder.</p><p>Let us provide the ground truth for this pairwise interaction, you can check that:</p><p class="math-container">\[\begin{aligned}
+IATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} &amp;= 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .- 2T₂.*T₁.*W₂ \\
+                                                &amp;= - 1
+\end{aligned}\]</p><p>and run:</p><pre><code class="language- hljs">Ψ = IATE(
+    target      = :Y,
+    treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
+    confounders = [:W₁, :W₂]
+)
+
+iate_result, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
+
+OneSampleTTest(iate_result)</code></pre><h3 id="Composing-Parameters"><a class="docs-heading-anchor" href="#Composing-Parameters">Composing Parameters</a><a id="Composing-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Composing-Parameters" title="Permalink"></a></h3><p>By leveraging the multivariate Central Limit Theorem and Julia&#39;s automatic differentiation facilities, we can actually compute any new parameter estimate from a set of already estimated parameters. By default, TMLE.jl will use <a href="https://fluxml.ai/Zygote.jl/latest/">Zygote</a> but since we are using <a href="https://github.com/JuliaDiff/AbstractDifferentiation.jl">AbstractDifferentiation.jl</a> you can change the backend to your favorite AD system.</p><p>For instance, by definition of the ATE, we should be able to retrieve <span>$ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}$</span> by composing <span>$CM_{T_1=1, T_2=1} - CM_{T_1=0, T_2=0}$</span>. We already have almost all of the pieces, we just need an estimate for <span>$CM_{T_1=0, T_2=0}$</span>, let&#39;s get it.</p><pre><code class="language-julia hljs">Ψ = CM(
+    target      = :Y,
+    treatment   = (T₁=false, T₂=false),
+    confounders = [:W₁, :W₂]
+)
+cm_result₀₀, _ = tmle(Ψ, η_spec, dataset, verbosity=0)</code></pre><pre><code class="language- hljs">composed_ate_result = compose(-, cm_result₁₁, cm_result₀₀)
+nothing # hide</code></pre><p>We can compare the estimate value, which is simply obtained by applying the function to the arguments:</p><pre><code class="language- hljs">TMLE.estimate(composed_ate_result), TMLE.estimate(ate_result)</code></pre><p>and the variance:</p><pre><code class="language- hljs">var(composed_ate_result), var(ate_result)</code></pre><h3 id="Reading-Parameters-from-YAML-files"><a class="docs-heading-anchor" href="#Reading-Parameters-from-YAML-files">Reading Parameters from YAML files</a><a id="Reading-Parameters-from-YAML-files-1"></a><a class="docs-heading-anchor-permalink" href="#Reading-Parameters-from-YAML-files" title="Permalink"></a></h3><p>It may be useful to read and write parameters to text files. We provide this functionality using the YAML format and the <code>parameters_from_yaml</code> and <code>parameters_to_yaml</code> functions. Since YAML is quite sensitive to identation, it is not recommended to write those files by hand. As an illustration, an example of such a file is given below:</p><pre><code class="language-yaml hljs">Parameters:
+  - target: Y1
+    treatment: (T2 = (case = 1, control = 0), T1 = (case = 1, control = 0))
+    confounders:
+      - W1
+      - W2
+    covariates:
+      - C1
+    type: IATE
+  - target: Y3
+    treatment: (T3 = (case = 1, control = 0), T1 = (case = &quot;AC&quot;, control = &quot;CC&quot;))
+    confounders:
+      - W1
+    covariates: []
+    type: ATE
+  - target: Y3
+    treatment: (T3 = &quot;AC&quot;, T1 = &quot;CC&quot;)
+    confounders:
+      - W1
+    covariates: []
+    type: CM</code></pre><h2 id="Using-the-cache"><a class="docs-heading-anchor" href="#Using-the-cache">Using the cache</a><a id="Using-the-cache-1"></a><a class="docs-heading-anchor-permalink" href="#Using-the-cache" title="Permalink"></a></h2><p>Oftentimes, we are interested in multiple parameters, or would like to investigate how our estimator is affected by changes in the nuisance parameters specification. In many cases, as long as the dataset under study is the same, it is possible to save some computational time by caching the previously learnt nuisance parameters. We describe below how TMLE.jl proposes to do that in some common scenarios. For that purpose let us add a new target variable (which is simply random noise) to our dataset:</p><pre><code class="language-julia hljs">dataset.Ynew = rand(1000)</code></pre><h3 id="Scenario-1:-Changing-the-treatment-values"><a class="docs-heading-anchor" href="#Scenario-1:-Changing-the-treatment-values">Scenario 1: Changing the treatment values</a><a id="Scenario-1:-Changing-the-treatment-values-1"></a><a class="docs-heading-anchor-permalink" href="#Scenario-1:-Changing-the-treatment-values" title="Permalink"></a></h3><p>Let us say we are interested in two ATE parameters: <span>$ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}$</span> and <span>$ATE_{T_1=1 \rightarrow 0, T_2=0 \rightarrow 1}$</span> (Notice how the setting for <span>$T_1$</span> has changed).</p><p>Let us start afresh an compute the first ATE:</p><pre><code class="language-julia hljs">Ψ = ATE(
+    target      = :Y,
+    treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
+    confounders = [:W₁, :W₂]
+)
+
+ate_result₁, cache = tmle(Ψ, η_spec, dataset)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Fitting the nuisance parameters...
+[ Info: → Fitting P(T|W)
+[ Info: → Fitting Encoder
+[ Info: → Fitting E[Y|X]
+[ Info: Targeting the nuisance parameters...
+[ Info: Done.</code></pre><p>Notice the logs are informing you of all the nuisance parameters that are being fitted.</p><p>Let us now investigate the second ATE by using the cache:</p><pre><code class="language-julia hljs">Ψ = ATE(
+    target      = :Y,
+    treatment   = (T₁=(case=false, control=true), T₂=(case=true, control=false)),
+    confounders = [:W₁, :W₂]
+)
+
+ate_result₂, cache = tmle!(cache, Ψ)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Fitting the nuisance parameters...
+[ Info: → Reusing previous P(T|W)
+[ Info: → Reusing previous Encoder
+[ Info: → Reusing previous E[Y|X]
+[ Info: Targeting the nuisance parameters...
+[ Info: Done.</code></pre><p>You should see that the logs are actually now telling you which nuisance parameters have been reused, i.e. all of them, only the targeting step needs to be done! This is because we already had nuisance estimators that matched our target parameter.</p><h3 id="Scenario-2:-Changing-the-target"><a class="docs-heading-anchor" href="#Scenario-2:-Changing-the-target">Scenario 2: Changing the target</a><a id="Scenario-2:-Changing-the-target-1"></a><a class="docs-heading-anchor-permalink" href="#Scenario-2:-Changing-the-target" title="Permalink"></a></h3><p>Let us now imagine that we are interested in another target: <span>$Ynew$</span>, we can say so by defining a new parameter and running the TMLE procedure using the cache:</p><pre><code class="language-julia hljs">Ψ = ATE(
+    target      = :Ynew,
+    treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
+    confounders = [:W₁, :W₂]
+)
+
+ate_result₃, cache = tmle!(cache, Ψ)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Fitting the nuisance parameters...
+[ Info: → Reusing previous P(T|W)
+[ Info: → Reusing previous Encoder
+[ Info: → Fitting E[Y|X]
+[ Info: Targeting the nuisance parameters...
+[ Info: Done.</code></pre><p>As you can see, only <span>$Q$</span> has been updated because the existing cached <span>$G$</span> already matches our target parameter and cane be reused.</p><h3 id="Scenario-3:-Changing-the-nuisance-parameters-specification"><a class="docs-heading-anchor" href="#Scenario-3:-Changing-the-nuisance-parameters-specification">Scenario 3: Changing the nuisance parameters specification</a><a id="Scenario-3:-Changing-the-nuisance-parameters-specification-1"></a><a class="docs-heading-anchor-permalink" href="#Scenario-3:-Changing-the-nuisance-parameters-specification" title="Permalink"></a></h3><p>Another common situation is to try a new model for a given nuisance parameter (or both). Here we can try a new regularization parameter for our logistic regression:</p><pre><code class="language-julia hljs">η_spec = NuisanceSpec(
+    LinearRegressor(), # Q model
+    LogisticClassifier(lambda=0.001) # Updated G model
+)
+
+ate_result₄, cache = tmle!(cache, η_spec)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">[ Info: Fitting the nuisance parameters...
+[ Info: → Fitting P(T|W)
+[ Info: → Reusing previous Encoder
+[ Info: → Reusing previous E[Y|X]
+[ Info: Targeting the nuisance parameters...
+[ Info: Done.</code></pre><p>Since we have only updated <span>$G$</span>&#39;s specification, only this model is fitted again.</p><h3 id="General-behaviour"><a class="docs-heading-anchor" href="#General-behaviour">General behaviour</a><a id="General-behaviour-1"></a><a class="docs-heading-anchor-permalink" href="#General-behaviour" title="Permalink"></a></h3><p>Any change to either the <code>Parameter</code> of interest or the <code>NuisanceSpec</code> structures will trigger an update of the cache. If you have a predefined list of parameters to estimate, you can optimize the estimation order of those parameters by calling <code>optimize_ordering!</code> or <code>optimize_ordering</code>. This will order the parameters in order to save the number of required nuisance parameters fits.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../examples/super_learning/">Becoming a Super Learner »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Wednesday 19 April 2023 13:00">Wednesday 19 April 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
