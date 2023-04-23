@@ -250,10 +250,10 @@ end
         ConstantClassifier()
     )
     tmle!(cache, η_spec, verbosity=0);
-    X₁ = (W=dataset.W, T=categorical(ones(Int, n), levels=levels(dataset.T)))
-    X₀ = (W=dataset.W, T=categorical(zeros(Int, n), levels=levels(dataset.T)))
-    ŷ₁ =  TMLE.expected_value(MLJBase.predict(cache.η.Q, MLJBase.transform(cache.η.H, X₁)))
-    ŷ₀ = TMLE.expected_value(MLJBase.predict(cache.η.Q, MLJBase.transform(cache.η.H, X₀)))
+    X₁ = TMLE.Qinputs(cache.η.H, (W=dataset.W, T=categorical(ones(Int, n), levels=levels(dataset.T))), Ψ)
+    X₀ = TMLE.Qinputs(cache.η.H, (W=dataset.W, T=categorical(zeros(Int, n), levels=levels(dataset.T))), Ψ)
+    ŷ₁ =  TMLE.expected_value(MLJBase.predict(cache.η.Q, X₁))
+    ŷ₀ = TMLE.expected_value(MLJBase.predict(cache.η.Q, X₀))
     expected_cf_agg = ŷ₁ - ŷ₀
     counterfactual_aggregate, counterfactual_aggregateᵢ = TMLE.counterfactual_aggregates(cache; threshold=1e-8)
     @test counterfactual_aggregateᵢ == expected_cf_agg

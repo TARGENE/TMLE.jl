@@ -200,29 +200,28 @@ function fit_nuisance!(cache::TMLECache; verbosity=1)
         log_no_fit(verbosity, "P(T|W)")
     end
 
-    # Fitting E[Y|X]
+    
     if η.Q === nothing
-        # Data
-        X = Qinputs(cache.data[:no_missing], Ψ)
-        y = target(cache.data[:no_missing], Ψ)
-
-        # Fitting the Encoder
+        # Fitting the Treatment Encoder
         if η.H === nothing
             log_fit(verbosity, "Encoder")
-            mach = machine(η_spec.H, X, cache=η_spec.cache)
+            mach = machine(η_spec.H, treatments(cache.data[:source], Ψ), cache=η_spec.cache)
             MLJBase.fit!(mach, verbosity=verbosity-1)
             η.H = mach
         else
             log_no_fit(verbosity, "Encoder")
         end
+        # Data
+        X = Qinputs(η.H, cache.data[:no_missing], Ψ)
+        y = target(cache.data[:no_missing], Ψ)
+        # Fitting E[Y|X]
         log_fit(verbosity, "E[Y|X]")
-        Xfloat = MLJBase.transform(η.H, X)
-        mach = machine(η_spec.Q, Xfloat, y, cache=η_spec.cache)
+        mach = machine(η_spec.Q, X, y, cache=η_spec.cache)
         t = time()
         MLJBase.fit!(mach, verbosity=verbosity-1)
         verbosity >= 2 && @info string("Time to fit E[Y|X]: ", time() - t, " s.")
         η.Q = mach
-        cache.data[:Q₀] = MLJBase.predict(mach, Xfloat)
+        cache.data[:Q₀] = MLJBase.predict(mach, X)
     else
         log_no_fit(verbosity, "Encoder")
         log_no_fit(verbosity, "E[Y|X]")
@@ -258,9 +257,9 @@ function counterfactual_aggregates(cache::TMLECache; threshold=1e-8)
     for (vals, sign) in cache.data[:indicators_tuple]
         # Counterfactual dataset for a given treatment setting
         Tc = TMLE.counterfactualTreatment(vals, Ttemplate)
-        Xc = Qinputs(merge(WC, Tc), cache.Ψ)
+        Xc = Qinputs(cache.η.H, merge(WC, Tc), cache.Ψ)
         # Counterfactual predictions with the initial Q
-        ŷᵢ = MLJBase.predict(cache.η.Q,  MLJBase.transform(cache.η.H, Xc))
+        ŷᵢ = MLJBase.predict(cache.η.Q,  Xc)
         counterfactual_aggregateᵢ .+= sign .* expected_value(ŷᵢ)
         # Counterfactual predictions with F
         offset = compute_offset(ŷᵢ)

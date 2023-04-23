@@ -182,6 +182,18 @@ table_types = (Tables.columntable, DataFrame)
     test_fluct_decreases_risk(cache; target_name=:y₂)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
+    # Adding a covariate
+    # This will trigger the refit of Q only
+    Ψ = ATE(
+        target=:y₂,
+        treatment=(T₂=(case=true, control=false),),
+        confounders=[:W₁],
+        covariates=[:C₁]
+    )
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₂)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
 @testset "Test Warm restart: ATE multiple treatment, $tt" for tt in table_types

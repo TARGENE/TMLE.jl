@@ -223,8 +223,14 @@ treatment_and_confounders(Ψ::Parameter) = vcat(confounders(Ψ), treatments(Ψ))
 confounders_and_covariates(Ψ::Parameter) = vcat(confounders(Ψ), covariates(Ψ))
 confounders_and_covariates(dataset, Ψ) = selectcols(dataset, confounders_and_covariates(Ψ))
 
-Qinputs(dataset, Ψ::Parameter) = 
-    selectcols(dataset, vcat(confounders_and_covariates(Ψ), treatments(Ψ)))
+"""
+Merges together confounders, covariates and floating point representation of treatments.
+"""
+Qinputs(H, dataset, Ψ::Parameter) = merge(
+    columntable(confounders_and_covariates(dataset, Ψ)), 
+    MLJBase.transform(H, treatments(dataset, Ψ))
+    )
+
 
 allcolumns(Ψ::Parameter) = vcat(confounders_and_covariates(Ψ), treatments(Ψ), target(Ψ))
 
