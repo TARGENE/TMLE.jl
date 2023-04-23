@@ -1,5 +1,6 @@
 
 struct TMLEResult
+    parameter
     tmle
     onestep
     initial

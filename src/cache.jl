@@ -129,7 +129,7 @@ function tmle!(cache::TMLECache; verbosity=1, threshold=1e-8)
     one_step_result = ALEstimate(Ψ̂ᵢ + mean(ICᵢ), ICᵢ)
 
     verbosity >= 1 && @info "Done."
-    return TMLEResult(tmle_result, one_step_result, Ψ̂ᵢ), cache
+    return TMLEResult(cache.Ψ, tmle_result, one_step_result, Ψ̂ᵢ), cache
 end
 
 """
