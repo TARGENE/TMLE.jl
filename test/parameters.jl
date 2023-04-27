@@ -100,6 +100,16 @@ end
     @test parameters == ordered_parameters
 end
 
+@testset "Test structs are concrete types" begin
+    @test isconcretetype(ATE)
+    @test isconcretetype(IATE)
+    @test isconcretetype(CM)
+    @test isconcretetype(TMLE.ALEstimate{Float64})
+    @test isconcretetype(TMLE.TMLEResult{ATE, Float64})
+    @test isconcretetype(TMLE.TMLEResult{IATE, Float64})
+    @test isconcretetype(TMLE.TMLEResult{CM, Float64})
+end
+
 end
 
 true
