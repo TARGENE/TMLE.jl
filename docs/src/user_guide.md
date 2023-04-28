@@ -101,18 +101,24 @@ cm_result₁₁, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 nothing # hide
 ```
 
-For now, let's ignore the two `_` outputs and focus on the `result` of type `ALEstimate`, it represents a point estimator of $CM_{T_1=1, T_2=0}$. As such, we can have a look at the value and variance of the estimator, since the estimator is asymptotically normal, a 95% confidence interval can be rougly constructed via:
+For now, let's ignore the `_` output and focus on the `TMLEResult`. It contains estimates corresponding to 3 distinct estimators of $CM_{T_1=1, T_2=0}$.
+
+- The `tmle` field contains the Targeted Minimum Loss-based estimate and associated influence curve.
+- The `onestep` field contains the One-Step estimate and associated influence curve.
+- The `initial` field contains the initial or naive estimate.
+
+For both the `tmle` and `onestep`, we can have a look at the value and variance of the estimator, since the estimator is asymptotically normal, a 95% confidence interval can be rougly constructed via:
 
 ```@example user-guide
-Ψ̂ = TMLE.estimate(cm_result₁₁)
-σ² = var(cm_result₁₁)
+Ψ̂ = TMLE.estimate(cm_result₁₁.tmle)
+σ² = var(cm_result₁₁.tmle)
 Ψ̂ - 1.96√σ² <= 0.5 <= Ψ̂ + 1.96√σ²
 ```
 
 In fact, we can easily be more rigorous here and perform a standard T test:
 
 ```@example user-guide
-OneSampleTTest(cm_result₁₁)
+OneSampleTTest(cm_result₁₁.tmle)
 ```
 
 ### The Average Treatment Effect
@@ -143,7 +149,7 @@ Let's see what the TMLE tells us:
 
 ate_result, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 
-OneSampleTTest(ate_result)
+OneSampleTTest(ate_result.tmle)
 ```
 
 As expected.
@@ -172,7 +178,7 @@ and run:
 
 iate_result, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 
-OneSampleTTest(iate_result)
+OneSampleTTest(iate_result.tmle)
 ```
 
 ### Composing Parameters
@@ -192,20 +198,20 @@ nothing # hide
 ```
 
 ```@example user-guide
-composed_ate_result = compose(-, cm_result₁₁, cm_result₀₀)
+composed_ate_result = compose(-, cm_result₁₁.tmle, cm_result₀₀.tmle)
 nothing # hide
 ```
 
 We can compare the estimate value, which is simply obtained by applying the function to the arguments:
 
 ```@example user-guide
-TMLE.estimate(composed_ate_result), TMLE.estimate(ate_result)
+TMLE.estimate(composed_ate_result), TMLE.estimate(ate_result.tmle)
 ```
 
 and the variance:
 
 ```@example user-guide
-var(composed_ate_result), var(ate_result)
+var(composed_ate_result), var(ate_result.tmle)
 ```
 
 ### Reading Parameters from YAML files
