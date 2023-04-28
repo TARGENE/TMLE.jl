@@ -74,6 +74,7 @@ table_types = (Tables.columntable, DataFrame)
     tmle_result, cache = @test_logs log_sequence... tmle(Ψ, η_spec, dataset; verbosity=1);
     # The TMLE covers the ground truth but the initial estimate does not
     Ψ₀ = -1
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -96,6 +97,7 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 1
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -116,6 +118,7 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = -1
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -137,6 +140,7 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 0.5
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -159,6 +163,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    @test tmle_result.parameter == Ψ
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Change the target
@@ -178,10 +183,24 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 10
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₂)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
+    # Adding a covariate
+    # This will trigger the refit of Q only
+    Ψ = ATE(
+        target=:y₂,
+        treatment=(T₂=(case=true, control=false),),
+        confounders=[:W₁],
+        covariates=[:C₁]
+    )
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    @test tmle_result.parameter == Ψ
+    test_coverage(tmle_result, Ψ₀)
+    test_fluct_decreases_risk(cache; target_name=:y₂)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
 @testset "Test Warm restart: ATE multiple treatment, $tt" for tt in table_types
@@ -200,6 +219,7 @@ end
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     Ψ₀ = -0.5
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -221,6 +241,7 @@ end
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = -1.5
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -240,6 +261,7 @@ end
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     Ψ₀ = 3
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -261,6 +283,7 @@ end
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 2.5
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -282,6 +305,7 @@ end
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 1
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₂)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -303,6 +327,7 @@ end
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 11
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₂)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -322,6 +347,7 @@ end
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     Ψ₀ = -1
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₃)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -341,6 +367,7 @@ end
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₃)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -361,6 +388,7 @@ end
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = - Ψ₀
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₃)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -383,6 +411,7 @@ end
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     Ψ₀ = -0.5
+    @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -408,6 +437,7 @@ end
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψnew, η_spec; verbosity=1);
     Ψ₀ = 0.5
+    @test tmle_result.parameter == Ψnew
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)

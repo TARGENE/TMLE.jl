@@ -151,11 +151,11 @@ We are now ready to run the TMLE procedure and look the associated confidence in
 
 ```@example quick-start
 result, _ = tmle(Ψ, η_spec, dataset)
-test_result = OneSampleTTest(result, 2.5)
+result
 ```
 
 ```@example quick-start
 using Test # hide
-@test pvalue(OneSampleTTest(result, 2.5)) > 0.05 # hide
+@test pvalue(OneSampleTTest(result.tmle, 2.5)) > 0.05 # hide
 nothing # hide
 ```

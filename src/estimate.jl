@@ -1,8 +1,21 @@
 
-struct TMLEResult
-    tmle
-    onestep
-    initial
+abstract type AbstractTMLE end
+
+struct ALEstimate{T<:AbstractFloat} <: AbstractTMLE
+    Ψ̂::T
+    IC::Vector{T}
+end
+
+struct ComposedTMLE{T<:AbstractFloat} <: AbstractTMLE
+    Ψ̂::Array{T}
+    σ̂::Matrix{T}
+end
+
+struct TMLEResult{P <: Parameter, T<:AbstractFloat}
+    parameter::P
+    tmle::ALEstimate{T}
+    onestep::ALEstimate{T}
+    initial::T
 end
 
 function Base.show(io::IO, r::TMLEResult)
@@ -16,17 +29,6 @@ function Base.show(io::IO, r::TMLEResult)
     pretty_table(io, data;header=["Estimator", "Estimate", "95% Confidence Interval", "P-value"])
 end
 
-abstract type AbstractTMLE end
-
-struct ALEstimate{T<:AbstractFloat} <: AbstractTMLE
-    Ψ̂::T
-    IC::Vector{T}
-end
-
-struct ComposedTMLE{T<:AbstractFloat} <: AbstractTMLE
-    Ψ̂::Array{T}
-    σ̂::Matrix{T}
-end
 
 
 """

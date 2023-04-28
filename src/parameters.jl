@@ -57,15 +57,12 @@ CM₂ = CM(
 )
 ```
 """
-struct CM <: Parameter
+@option struct CM <: Parameter
     target::Symbol
     treatment::NamedTuple
-    confounders::AbstractVector{Symbol}
-    covariates::AbstractVector{Symbol}
+    confounders::Vector{Symbol}
+    covariates::Vector{Symbol} = Symbol[]
 end
-
-CM(;target, treatment, confounders, covariates=[]) = 
-    CM(target, treatment, confounders, covariates)
 
 #####################################################################
 ###                  Average Treatment Effect                     ###
@@ -104,15 +101,13 @@ ATE₂ = ATE(
 )
 ```
 """
-struct ATE <: Parameter
+@option struct ATE <: Parameter
     target::Symbol
     treatment::NamedTuple
-    confounders::AbstractVector{Symbol}
-    covariates::AbstractVector{Symbol}
+    confounders::Vector{Symbol}
+    covariates::Vector{Symbol} = Symbol[]
 end
 
-ATE(;target, treatment, confounders, covariates=[]) = 
-    ATE(target, treatment, confounders, covariates)
 
 #####################################################################
 ###            Interaction Average Treatment Effect               ###
@@ -144,15 +139,12 @@ IATE₁ = IATE(
 )
 ```
 """
-struct IATE <: Parameter
+@option struct IATE <: Parameter
     target::Symbol
     treatment::NamedTuple
-    confounders::AbstractVector{Symbol}
-    covariates::AbstractVector{Symbol}
+    confounders::Vector{Symbol}
+    covariates::Vector{Symbol} = Symbol[]
 end
-
-IATE(;target, treatment, confounders, covariates=[]) = 
-    IATE(target, treatment, confounders, covariates)
 
 
 #####################################################################
@@ -231,8 +223,14 @@ treatment_and_confounders(Ψ::Parameter) = vcat(confounders(Ψ), treatments(Ψ))
 confounders_and_covariates(Ψ::Parameter) = vcat(confounders(Ψ), covariates(Ψ))
 confounders_and_covariates(dataset, Ψ) = selectcols(dataset, confounders_and_covariates(Ψ))
 
-Qinputs(dataset, Ψ::Parameter) = 
-    selectcols(dataset, vcat(confounders_and_covariates(Ψ), treatments(Ψ)))
+"""
+Merges together confounders, covariates and floating point representation of treatments.
+"""
+Qinputs(H, dataset, Ψ::Parameter) = merge(
+    columntable(confounders_and_covariates(dataset, Ψ)), 
+    MLJBase.transform(H, treatments(dataset, Ψ))
+    )
+
 
 allcolumns(Ψ::Parameter) = vcat(confounders_and_covariates(Ψ), treatments(Ψ), target(Ψ))
 
@@ -249,24 +247,33 @@ namedtuples_from_dicts(d::Dict) =
     NamedTuple{Tuple(keys(d))}([namedtuples_from_dicts(val) for val in values(d)])
 
 
-"""
-    parameters_from_yaml(path)
-
-Instantiate parameters described in the provided YAML file.
-"""
-function parameters_from_yaml(path)
-    config = YAML.load_file(path; dicttype=Dict{Symbol,Any})
-    parameters = Parameter[]
-    W = Symbol.(config[:W])
-    C = haskey(config, :C) ? Symbol.(config[:C]) : []
-    Ys = Symbol.(config[:Y])
-    for param_entry in config[:Parameters]
-        param_string = pop!(param_entry, :name)
-        paramtype = getfield(TMLE, Symbol(param_string))
-        T = namedtuples_from_dicts(param_entry)
-        for Y in Ys
-            push!(parameters, paramtype(;target=Y, treatment=T, confounders=W, covariates=C))
-        end
-    end
-    return parameters
+function param_key(Ψ::Parameter)
+    return (
+        join(Ψ.confounders, "_"),
+        join(keys(Ψ.treatment), "_"),
+        string(Ψ.target),
+        join(Ψ.covariates, "_")
+    )
 end
+
+"""
+    optimize_ordering!(parameters::Vector{<:Parameter})
+
+Reorders the given parameters so that most nuisance parameters fits can be
+reused. Given the assumed causal graph:
+
+$causal_graph
+
+and the requirements to estimate both p(T|W) and E[Y|W, T, C].
+
+A natural ordering of the parameters in order to save computations is given by the
+following variables ordering: (W, T, Y, C)
+"""
+optimize_ordering!(parameters::Vector{<:Parameter}) = sort!(parameters, by=param_key)
+
+"""
+    optimize_ordering(parameters::Vector{<:Parameter})
+
+See [`optimize_ordering!`](@ref)
+"""
+optimize_ordering(parameters::Vector{<:Parameter}) = sort(parameters, by=param_key)

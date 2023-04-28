@@ -101,18 +101,24 @@ cm_result₁₁, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 nothing # hide
 ```
 
-For now, let's ignore the two `_` outputs and focus on the `result` of type `ALEstimate`, it represents a point estimator of $CM_{T_1=1, T_2=0}$. As such, we can have a look at the value and variance of the estimator, since the estimator is asymptotically normal, a 95% confidence interval can be rougly constructed via:
+For now, let's ignore the `_` output and focus on the `TMLEResult`. It contains estimates corresponding to 3 distinct estimators of $CM_{T_1=1, T_2=0}$.
+
+- The `tmle` field contains the Targeted Minimum Loss-based estimate and associated influence curve.
+- The `onestep` field contains the One-Step estimate and associated influence curve.
+- The `initial` field contains the initial or naive estimate.
+
+For both the `tmle` and `onestep`, we can have a look at the value and variance of the estimator, since the estimator is asymptotically normal, a 95% confidence interval can be rougly constructed via:
 
 ```@example user-guide
-Ψ̂ = TMLE.estimate(cm_result₁₁)
-σ² = var(cm_result₁₁)
+Ψ̂ = TMLE.estimate(cm_result₁₁.tmle)
+σ² = var(cm_result₁₁.tmle)
 Ψ̂ - 1.96√σ² <= 0.5 <= Ψ̂ + 1.96√σ²
 ```
 
 In fact, we can easily be more rigorous here and perform a standard T test:
 
 ```@example user-guide
-OneSampleTTest(cm_result₁₁)
+OneSampleTTest(cm_result₁₁.tmle)
 ```
 
 ### The Average Treatment Effect
@@ -143,7 +149,7 @@ Let's see what the TMLE tells us:
 
 ate_result, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 
-OneSampleTTest(ate_result)
+OneSampleTTest(ate_result.tmle)
 ```
 
 As expected.
@@ -172,7 +178,7 @@ and run:
 
 iate_result, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 
-OneSampleTTest(iate_result)
+OneSampleTTest(iate_result.tmle)
 ```
 
 ### Composing Parameters
@@ -192,59 +198,48 @@ nothing # hide
 ```
 
 ```@example user-guide
-composed_ate_result = compose(-, cm_result₁₁, cm_result₀₀)
+composed_ate_result = compose(-, cm_result₁₁.tmle, cm_result₀₀.tmle)
 nothing # hide
 ```
 
 We can compare the estimate value, which is simply obtained by applying the function to the arguments:
 
 ```@example user-guide
-TMLE.estimate(composed_ate_result), TMLE.estimate(ate_result)
+TMLE.estimate(composed_ate_result), TMLE.estimate(ate_result.tmle)
 ```
 
 and the variance:
 
 ```@example user-guide
-var(composed_ate_result), var(ate_result)
+var(composed_ate_result), var(ate_result.tmle)
 ```
 
 ### Reading Parameters from YAML files
 
-It may be useful to declare a list of parameter files for a given causal model from a file. We provide this functionality using the YAML format and the `parameters_from_yaml` function. A parameters configuration file contains 4 mandatory and 1 optional sections. The variables sections: `T`, `Y`, `W`, `C` are lists of variables corresponding to treatments, targets, confounders and covariates (optional) respectively. The `Parameters` section is a list of parameters to be generated, with the causal model specified by the variables sections. The `name` subsection identifies the type of the parameter and the other subsections describe the exact treatment values specifications. Since a parameter corresponds to only one target, if multiple targets are present in the parameter file, as many parameters are generated for each target.
+It may be useful to read and write parameters to text files. We provide this functionality using the YAML format and the `parameters_from_yaml` and `parameters_to_yaml` functions. Since YAML is quite sensitive to identation, it is not recommended to write those files by hand. As an illustration, an example of such a file is given below:
 
 ```yaml
-T:
-  - T1
-  - T2
-
-C: # Optional
-  - C1
-
-W:
-  - W1
-
-Y:
-  - Y1
-  - Y2
-
 Parameters:
-  - name: IATE
-    T1:
-      case: 2
-      control: 1
-    T2:
-      case: "AC"
-      control: "CC"
-  - name: ATE
-    T1:
-      case: 2
-      control: 0
-    T2:
-      case: "AC"
-      control: "CC"
-  - name: CM
-    T1: 0
-    T2: 0
+  - target: Y1
+    treatment: (T2 = (case = 1, control = 0), T1 = (case = 1, control = 0))
+    confounders:
+      - W1
+      - W2
+    covariates:
+      - C1
+    type: IATE
+  - target: Y3
+    treatment: (T3 = (case = 1, control = 0), T1 = (case = "AC", control = "CC"))
+    confounders:
+      - W1
+    covariates: []
+    type: ATE
+  - target: Y3
+    treatment: (T3 = "AC", T1 = "CC")
+    confounders:
+      - W1
+    covariates: []
+    type: CM
 ```
 
 ## Using the cache
@@ -325,4 +320,5 @@ Since we have only updated $G$'s specification, only this model is fitted again.
 
 ### General behaviour
 
-Any change to either the `Parameter` of interest or the `NuisanceSpec` structures will trigger an update of the cache.
+Any change to either the `Parameter` of interest or the `NuisanceSpec` structures will trigger an update of the cache. If you have a predefined
+list of parameters to estimate, you can optimize the estimation order of those parameters by calling `optimize_ordering!` or `optimize_ordering`. This will order the parameters in order to save the number of required nuisance parameters fits.

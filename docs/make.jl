@@ -16,11 +16,11 @@ end
 makedocs(;
     modules=[TMLE],
     authors="Olivier Labayle",
-    repo="https://github.com/olivierlabayle/TMLE.jl/blob/{commit}{path}#{line}",
+    repo="https://github.com/TARGENE/TMLE.jl/blob/{commit}{path}#{line}",
     sitename="TMLE.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://olivierlabayle.github.io/TMLE.jl",
+        canonical="https://TARGENE.github.io/TMLE.jl",
         assets=String["assets/logo.ico"],
     ),
     pages=[
@@ -36,7 +36,7 @@ makedocs(;
 
 @info "Deploying docs..."
 deploydocs(;
-    repo="github.com/olivierlabayle/TMLE.jl",
+    repo="github.com/TARGENE/TMLE.jl",
     devbranch="main",
     push_preview=true
 )
