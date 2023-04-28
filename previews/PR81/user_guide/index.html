@@ -37,12 +37,29 @@ dataset = make_dataset()</code></pre><div class="admonition is-info"><header cla
     target      = :Y,
     treatment   = (T₁=true, T₂=true),
     confounders = [:W₁, :W₂]
-)</code></pre><p>In this case, we can compute the exact value of the parameter:</p><p class="math-container">\[CM_{T_1=1, T_2=1} = 1 + 2\mathbb{E}[W₁] + 3\mathbb{E}[W₂] - 4\mathbb{E}[C₁] - 2\mathbb{E}[W₂] = 0.5\]</p><p>Running a targeted estimation procedure should then be as simple as:</p><pre><code class="language-julia hljs">cm_result₁₁, _ = tmle(Ψ, η_spec, dataset, verbosity=0)</code></pre><p>For now, let&#39;s ignore the two <code>_</code> outputs and focus on the <code>result</code> of type <code>ALEstimate</code>, it represents a point estimator of <span>$CM_{T_1=1, T_2=0}$</span>. As such, we can have a look at the value and variance of the estimator, since the estimator is asymptotically normal, a 95% confidence interval can be rougly constructed via:</p><pre><code class="language- hljs">Ψ̂ = TMLE.estimate(cm_result₁₁)
-σ² = var(cm_result₁₁)
-Ψ̂ - 1.96√σ² &lt;= 0.5 &lt;= Ψ̂ + 1.96√σ²</code></pre><p>In fact, we can easily be more rigorous here and perform a standard T test:</p><pre><code class="language- hljs">OneSampleTTest(cm_result₁₁)</code></pre><h3 id="The-Average-Treatment-Effect"><a class="docs-heading-anchor" href="#The-Average-Treatment-Effect">The Average Treatment Effect</a><a id="The-Average-Treatment-Effect-1"></a><a class="docs-heading-anchor-permalink" href="#The-Average-Treatment-Effect" title="Permalink"></a></h3><p>Let&#39;s now turn our attention to the Average Treatment Effect:</p><p class="math-container">\[ATE_{t_1 \rightarrow t_2}(P) = \mathbb{E}[\mathbb{E}[Y|T=t_2, W]] - \mathbb{E}[\mathbb{E}[Y|T=t_1, W]]\]</p><p>Again, from our dataset, there are many ATEs we may be interested in, let&#39;s assume we are interested in <span>$ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}$</span>. Since we know the generating process, this can be computed exactly and we have:</p><p class="math-container">\[\begin{aligned}
+)</code></pre><p>In this case, we can compute the exact value of the parameter:</p><p class="math-container">\[CM_{T_1=1, T_2=1} = 1 + 2\mathbb{E}[W₁] + 3\mathbb{E}[W₂] - 4\mathbb{E}[C₁] - 2\mathbb{E}[W₂] = 0.5\]</p><p>Running a targeted estimation procedure should then be as simple as:</p><pre><code class="language-julia hljs">cm_result₁₁, _ = tmle(Ψ, η_spec, dataset, verbosity=0)</code></pre><p>For now, let&#39;s ignore the <code>_</code> output and focus on the <code>TMLEResult</code>. It contains estimates corresponding to 3 distinct estimators of <span>$CM_{T_1=1, T_2=0}$</span>.</p><ul><li>The <code>tmle</code> field contains the Targeted Minimum Loss-based estimate and associated influence curve.</li><li>The <code>onestep</code> field contains the One-Step estimate and associated influence curve.</li><li>The <code>initial</code> field contains the initial or naive estimate.</li></ul><p>For both the <code>tmle</code> and <code>onestep</code>, we can have a look at the value and variance of the estimator, since the estimator is asymptotically normal, a 95% confidence interval can be rougly constructed via:</p><pre><code class="language-julia hljs">Ψ̂ = TMLE.estimate(cm_result₁₁.tmle)
+σ² = var(cm_result₁₁.tmle)
+Ψ̂ - 1.96√σ² &lt;= 0.5 &lt;= Ψ̂ + 1.96√σ²</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">true</code></pre><p>In fact, we can easily be more rigorous here and perform a standard T test:</p><pre><code class="language-julia hljs">OneSampleTTest(cm_result₁₁.tmle)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">One sample t-test
+-----------------
+Population details:
+    parameter of interest:   Mean
+    value under h_0:         0
+    point estimate:          0.732457
+    95% confidence interval: (0.4535, 1.011)
+
+Test summary:
+    outcome with 95% confidence: reject h_0
+    two-sided p-value:           &lt;1e-06
+
+Details:
+    number of observations:   1000
+    t-statistic:              5.153082121581544
+    degrees of freedom:       999
+    empirical standard error: 0.142139686758371
+</code></pre><h3 id="The-Average-Treatment-Effect"><a class="docs-heading-anchor" href="#The-Average-Treatment-Effect">The Average Treatment Effect</a><a id="The-Average-Treatment-Effect-1"></a><a class="docs-heading-anchor-permalink" href="#The-Average-Treatment-Effect" title="Permalink"></a></h3><p>Let&#39;s now turn our attention to the Average Treatment Effect:</p><p class="math-container">\[ATE_{t_1 \rightarrow t_2}(P) = \mathbb{E}[\mathbb{E}[Y|T=t_2, W]] - \mathbb{E}[\mathbb{E}[Y|T=t_1, W]]\]</p><p>Again, from our dataset, there are many ATEs we may be interested in, let&#39;s assume we are interested in <span>$ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}$</span>. Since we know the generating process, this can be computed exactly and we have:</p><p class="math-container">\[\begin{aligned}
 ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} &amp;= (1 + 2\mathbb{E}[W₁] + 3\mathbb{E}[W₂] - 4\mathbb{E}[C₁] - 2\mathbb{E}[W₂]) - (1 + 2\mathbb{E}[W₁] + 3\mathbb{E}[W₂]) \\
                                                &amp;= -3
-\end{aligned}                                    \]</p><p>Let&#39;s see what the TMLE tells us:</p><pre><code class="language- hljs">Ψ = ATE(
+\end{aligned}                                    \]</p><p>Let&#39;s see what the TMLE tells us:</p><pre><code class="language-julia hljs">Ψ = ATE(
     target      = :Y,
     treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
     confounders = [:W₁, :W₂]
@@ -50,10 +67,27 @@ ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} &amp;= (1 + 2\mathbb{E}[W₁] + 3
 
 ate_result, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 
-OneSampleTTest(ate_result)</code></pre><p>As expected.</p><h3 id="The-Interaction-Average-Treatment-Effect"><a class="docs-heading-anchor" href="#The-Interaction-Average-Treatment-Effect">The Interaction Average Treatment Effect</a><a id="The-Interaction-Average-Treatment-Effect-1"></a><a class="docs-heading-anchor-permalink" href="#The-Interaction-Average-Treatment-Effect" title="Permalink"></a></h3><p>Finally let us look at the most interesting case of interactions, we compute here the <span>$IATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}$</span> since this is the highest order in our data generating process. That being said, you could go after any higher-order (3, 4, ...) interaction if you wanted. However you will inevitably decrease power and encounter positivity violations as you climb the interaction-order ladder.</p><p>Let us provide the ground truth for this pairwise interaction, you can check that:</p><p class="math-container">\[\begin{aligned}
+OneSampleTTest(ate_result.tmle)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">One sample t-test
+-----------------
+Population details:
+    parameter of interest:   Mean
+    value under h_0:         0
+    point estimate:          -2.77526
+    95% confidence interval: (-3.04, -2.51)
+
+Test summary:
+    outcome with 95% confidence: reject h_0
+    two-sided p-value:           &lt;1e-77
+
+Details:
+    number of observations:   1000
+    t-statistic:              -20.543126187580288
+    degrees of freedom:       999
+    empirical standard error: 0.13509451279239898
+</code></pre><p>As expected.</p><h3 id="The-Interaction-Average-Treatment-Effect"><a class="docs-heading-anchor" href="#The-Interaction-Average-Treatment-Effect">The Interaction Average Treatment Effect</a><a id="The-Interaction-Average-Treatment-Effect-1"></a><a class="docs-heading-anchor-permalink" href="#The-Interaction-Average-Treatment-Effect" title="Permalink"></a></h3><p>Finally let us look at the most interesting case of interactions, we compute here the <span>$IATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}$</span> since this is the highest order in our data generating process. That being said, you could go after any higher-order (3, 4, ...) interaction if you wanted. However you will inevitably decrease power and encounter positivity violations as you climb the interaction-order ladder.</p><p>Let us provide the ground truth for this pairwise interaction, you can check that:</p><p class="math-container">\[\begin{aligned}
 IATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} &amp;= 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .- 2T₂.*T₁.*W₂ \\
                                                 &amp;= - 1
-\end{aligned}\]</p><p>and run:</p><pre><code class="language- hljs">Ψ = IATE(
+\end{aligned}\]</p><p>and run:</p><pre><code class="language-julia hljs">Ψ = IATE(
     target      = :Y,
     treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
     confounders = [:W₁, :W₂]
@@ -61,13 +95,29 @@ IATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} &amp;= 1 .+ 2W₁ .+ 3W₂ .- 4C
 
 iate_result, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 
-OneSampleTTest(iate_result)</code></pre><h3 id="Composing-Parameters"><a class="docs-heading-anchor" href="#Composing-Parameters">Composing Parameters</a><a id="Composing-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Composing-Parameters" title="Permalink"></a></h3><p>By leveraging the multivariate Central Limit Theorem and Julia&#39;s automatic differentiation facilities, we can actually compute any new parameter estimate from a set of already estimated parameters. By default, TMLE.jl will use <a href="https://fluxml.ai/Zygote.jl/latest/">Zygote</a> but since we are using <a href="https://github.com/JuliaDiff/AbstractDifferentiation.jl">AbstractDifferentiation.jl</a> you can change the backend to your favorite AD system.</p><p>For instance, by definition of the ATE, we should be able to retrieve <span>$ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}$</span> by composing <span>$CM_{T_1=1, T_2=1} - CM_{T_1=0, T_2=0}$</span>. We already have almost all of the pieces, we just need an estimate for <span>$CM_{T_1=0, T_2=0}$</span>, let&#39;s get it.</p><pre><code class="language-julia hljs">Ψ = CM(
+OneSampleTTest(iate_result.tmle)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">One sample t-test
+-----------------
+Population details:
+    parameter of interest:   Mean
+    value under h_0:         0
+    point estimate:          -0.672286
+    95% confidence interval: (-0.9899, -0.3546)
+
+Test summary:
+    outcome with 95% confidence: reject h_0
+    two-sided p-value:           &lt;1e-04
+
+Details:
+    number of observations:   1000
+    t-statistic:              -4.153090186278286
+    degrees of freedom:       999
+    empirical standard error: 0.16187620638836014
+</code></pre><h3 id="Composing-Parameters"><a class="docs-heading-anchor" href="#Composing-Parameters">Composing Parameters</a><a id="Composing-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Composing-Parameters" title="Permalink"></a></h3><p>By leveraging the multivariate Central Limit Theorem and Julia&#39;s automatic differentiation facilities, we can actually compute any new parameter estimate from a set of already estimated parameters. By default, TMLE.jl will use <a href="https://fluxml.ai/Zygote.jl/latest/">Zygote</a> but since we are using <a href="https://github.com/JuliaDiff/AbstractDifferentiation.jl">AbstractDifferentiation.jl</a> you can change the backend to your favorite AD system.</p><p>For instance, by definition of the ATE, we should be able to retrieve <span>$ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}$</span> by composing <span>$CM_{T_1=1, T_2=1} - CM_{T_1=0, T_2=0}$</span>. We already have almost all of the pieces, we just need an estimate for <span>$CM_{T_1=0, T_2=0}$</span>, let&#39;s get it.</p><pre><code class="language-julia hljs">Ψ = CM(
     target      = :Y,
     treatment   = (T₁=false, T₂=false),
     confounders = [:W₁, :W₂]
 )
-cm_result₀₀, _ = tmle(Ψ, η_spec, dataset, verbosity=0)</code></pre><pre><code class="language- hljs">composed_ate_result = compose(-, cm_result₁₁, cm_result₀₀)
-nothing # hide</code></pre><p>We can compare the estimate value, which is simply obtained by applying the function to the arguments:</p><pre><code class="language- hljs">TMLE.estimate(composed_ate_result), TMLE.estimate(ate_result)</code></pre><p>and the variance:</p><pre><code class="language- hljs">var(composed_ate_result), var(ate_result)</code></pre><h3 id="Reading-Parameters-from-YAML-files"><a class="docs-heading-anchor" href="#Reading-Parameters-from-YAML-files">Reading Parameters from YAML files</a><a id="Reading-Parameters-from-YAML-files-1"></a><a class="docs-heading-anchor-permalink" href="#Reading-Parameters-from-YAML-files" title="Permalink"></a></h3><p>It may be useful to read and write parameters to text files. We provide this functionality using the YAML format and the <code>parameters_from_yaml</code> and <code>parameters_to_yaml</code> functions. Since YAML is quite sensitive to identation, it is not recommended to write those files by hand. As an illustration, an example of such a file is given below:</p><pre><code class="language-yaml hljs">Parameters:
+cm_result₀₀, _ = tmle(Ψ, η_spec, dataset, verbosity=0)</code></pre><pre><code class="language-julia hljs">composed_ate_result = compose(-, cm_result₁₁.tmle, cm_result₀₀.tmle)</code></pre><p>We can compare the estimate value, which is simply obtained by applying the function to the arguments:</p><pre><code class="language-julia hljs">TMLE.estimate(composed_ate_result), TMLE.estimate(ate_result.tmle)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(-2.7682792665302642, -2.775263623543932)</code></pre><p>and the variance:</p><pre><code class="language-julia hljs">var(composed_ate_result), var(ate_result.tmle)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(0.019667272259948312, 0.01825052738661565)</code></pre><h3 id="Reading-Parameters-from-YAML-files"><a class="docs-heading-anchor" href="#Reading-Parameters-from-YAML-files">Reading Parameters from YAML files</a><a id="Reading-Parameters-from-YAML-files-1"></a><a class="docs-heading-anchor-permalink" href="#Reading-Parameters-from-YAML-files" title="Permalink"></a></h3><p>It may be useful to read and write parameters to text files. We provide this functionality using the YAML format and the <code>parameters_from_yaml</code> and <code>parameters_to_yaml</code> functions. Since YAML is quite sensitive to identation, it is not recommended to write those files by hand. As an illustration, an example of such a file is given below:</p><pre><code class="language-yaml hljs">Parameters:
   - target: Y1
     treatment: (T2 = (case = 1, control = 0), T1 = (case = 1, control = 0))
     confounders:
@@ -130,4 +180,4 @@ ate_result₄, cache = tmle!(cache, η_spec)</code></pre><pre class="documenter-
 [ Info: → Reusing previous Encoder
 [ Info: → Reusing previous E[Y|X]
 [ Info: Targeting the nuisance parameters...
-[ Info: Done.</code></pre><p>Since we have only updated <span>$G$</span>&#39;s specification, only this model is fitted again.</p><h3 id="General-behaviour"><a class="docs-heading-anchor" href="#General-behaviour">General behaviour</a><a id="General-behaviour-1"></a><a class="docs-heading-anchor-permalink" href="#General-behaviour" title="Permalink"></a></h3><p>Any change to either the <code>Parameter</code> of interest or the <code>NuisanceSpec</code> structures will trigger an update of the cache. If you have a predefined list of parameters to estimate, you can optimize the estimation order of those parameters by calling <code>optimize_ordering!</code> or <code>optimize_ordering</code>. This will order the parameters in order to save the number of required nuisance parameters fits.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../examples/super_learning/">Becoming a Super Learner »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Thursday 27 April 2023 10:56">Thursday 27 April 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+[ Info: Done.</code></pre><p>Since we have only updated <span>$G$</span>&#39;s specification, only this model is fitted again.</p><h3 id="General-behaviour"><a class="docs-heading-anchor" href="#General-behaviour">General behaviour</a><a id="General-behaviour-1"></a><a class="docs-heading-anchor-permalink" href="#General-behaviour" title="Permalink"></a></h3><p>Any change to either the <code>Parameter</code> of interest or the <code>NuisanceSpec</code> structures will trigger an update of the cache. If you have a predefined list of parameters to estimate, you can optimize the estimation order of those parameters by calling <code>optimize_ordering!</code> or <code>optimize_ordering</code>. This will order the parameters in order to save the number of required nuisance parameters fits.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../examples/super_learning/">Becoming a Super Learner »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Friday 28 April 2023 10:14">Friday 28 April 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
