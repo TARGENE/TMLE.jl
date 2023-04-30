@@ -30,7 +30,7 @@ end
 
 Write estimation `Parameters` to YAML file.
 """
-function parameters_to_yaml(filepath, parameters::AbstractVector{<:Parameter})
+function parameters_to_yaml(filepath, parameters)
     d = Dict("Parameters" => [param_to_dict(Ψ) for Ψ in parameters])
     YAML.write_file(filepath, d)
 end
