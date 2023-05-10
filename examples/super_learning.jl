@@ -67,13 +67,13 @@ function plot_μY(;npoints=100)
     t = [μT(w₁, w₂) for w₁ in W₁, w₂ in W₂]
     fig = Figure(backgroundcolor = RGBf(0.98, 0.98, 0.98), resolution = (1000, 700))
     ax₁ = Axis3(fig[1, 1], aspect=:data, xlabel="W₁", ylabel="W₂", zlabel="μY")
-    Label(fig[1, 1, Top()], "μY(W₁, W₂, T=1)", textsize = 30, tellwidth=false, tellheight=false)
+    Label(fig[1, 1, Top()], "μY(W₁, W₂, T=1)", fontsize = 30, tellwidth=false, tellheight=false)
     surface!(ax₁, W₁, W₂, y₁)
     ax₀ = Axis3(fig[1, 2], aspect=:data, xlabel="W₁", ylabel="W₂", zlabel="μY")
-    Label(fig[1, 2, Top()], "μY(W₁, W₂, T=0)", textsize = 30, tellwidth=false, tellheight=false)
+    Label(fig[1, 2, Top()], "μY(W₁, W₂, T=0)", fontsize = 30, tellwidth=false, tellheight=false)
     surface!(ax₀, W₁, W₂, y₀)
     axₜ = Axis3(fig[2, :], aspect=:data, xlabel="W₁", ylabel="W₂", zlabel="μT")
-    Label(fig[2, :, Top()], "μT(W₁, W₂)", textsize = 30, tellwidth=false, tellheight=false)
+    Label(fig[2, :, Top()], "μT(W₁, W₂)", fontsize = 30, tellwidth=false, tellheight=false)
     surface!(axₜ, W₁, W₂, t)
     return fig
 end
@@ -196,7 +196,7 @@ Finally run the TMLE procedure and check the result
 =#
 tmle_result, cache = tmle(Ψ, η_spec, dataset)
 
-test_result = OneSampleTTest(tmle_result, ψ₀)
+test_result = OneSampleTTest(tmle_result.tmle, ψ₀)
 
 #=
 Now, what if we had used linear models only instead of the Super Learner? This is easy to check
@@ -209,7 +209,7 @@ Now, what if we had used linear models only instead of the Super Learner? This i
 
 tmle_result_linear, cache = tmle(Ψ, η_spec_linear, dataset)
 
-test_result_linear = OneSampleTTest(tmle_result_linear, ψ₀)
+test_result_linear = OneSampleTTest(tmle_result_linear.tmle, ψ₀)
 
 #
 using Test # hide

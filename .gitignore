@@ -1,9 +1,9 @@
 *.jl.*.cov
 *.jl.cov
 *.jl.mem
-*Manifest.toml
 /docs/build/
 /docs/src/examples/
 build/
 sandbox.jl
-Manifest.toml
+/Manifest.toml
+/test/Manifest.toml
