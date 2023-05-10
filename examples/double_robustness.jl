@@ -2,7 +2,7 @@
 # Model Misspecification & Double Robustness
 
 In this example we illustrate the double robustness property 
-of the TMLE in the classical backdoor adjustment setting for the 
+of TMLE in the classical backdoor adjustment setting for the 
 Average Treatment Effect.
 
 Let's consider the following simple data generating process:
@@ -10,8 +10,8 @@ Let's consider the following simple data generating process:
 ```math
 \begin{aligned}
 W \sim \mathcal{N}(0, 1) \\
-T \sim \mathcal{B}(\frac{1}{1 + \exp{- (0.3 - 0.5 \cdot W) }}) \\
-Y \sim \mathcal{N}(\exp{1 - 10 \cdot T + W}, 1)
+T \sim \mathcal{B}(\frac{1}{1 + e^{-(0.3 - 0.5 \cdot W)}}) \\
+Y \sim \mathcal{N}(e^{1 - 10 \cdot T + W}, 1)
 \end{aligned}
 ```
 
@@ -63,9 +63,20 @@ plotY(data)
 
 #=
 
+Y is thus a non linear function of T and W. Despite the simplicity of the example, 
+it is difficult to find a closed form solution for the true 
+Average Causal Effect. However, since we know the generating process, we 
+can approximate it using a Monte-Carlo approximation. In the next two sections,
+we compare Linear inference and TMLE and see how well they cover this Monte-Carlo approximation.
+
+
 ## Estimation using a Linear model
 
-We will first estimate the effect size using a classical linear inference method
+We first propose to estimate the effect size using the classic linear inference method. 
+Because our model does not contain the data generating process (and is hence mis-specified), 
+there is no guarantee that the true effect size will be covered by our confidence interval. 
+In fact, as the sample size grows, the confidence interval will inevitably shrink and fail 
+to cover the ground truth. This can be seen from the following animation:
 
 =#
 
@@ -135,10 +146,10 @@ make_animation(linear_inference)
 
 ## Estimation using TMLE
 
-Now, we will use Targeted Maximum Likelihood to estimate the Average Treatment Effect. 
+To solve this issue, we will now use TMLE to estimate the Average Treatment Effect. 
 We will keep the mis-specified linear model to estimate `E[Y|T,W]` but will estimate `p(T|W)` with a 
-logistic regression which turns out to be the true generating model. Because TMLE is double robust we see 
-that we now have full coverage. 
+logistic regression which turns out to be the true generating model in this case. Because TMLE is double robust we see 
+that we now have full coverage of the ground truth. 
 =#
 
 function tmle_inference(data)
