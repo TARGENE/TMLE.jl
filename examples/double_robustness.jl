@@ -124,7 +124,6 @@ function make_animation(inference_method)
     record(fig, "$(inference_method).gif", Ns; framerate = 1) do n
         update_observables!(estimates, errors, mcestimates, title, inference_method; n=n, K=100)
     end
-    return fig
 end
 
 make_animation(linear_inference)
