@@ -92,15 +92,22 @@ end
 compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
 compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 
-function compute_covariate(jointT, W, G, indicator_fns; threshold=0.005)
-    # Compute the indicator values
-    indic_vals = TMLE.indicator_values(indicator_fns, jointT)
-    # Compute density and truncate
+function balancing_weights(G::Machine, W, jointT; threshold=0.005)
     ŷ = MLJBase.predict(G, W)
     d = pdf.(ŷ, jointT)
     plateau!(d, threshold)
-    indic_vals ./= d
-    return indic_vals
+    return 1. ./ d
+end
+
+function covariate_and_weights(jointT, W, G, indicator_fns; threshold=0.005, weighted_fluctuation=false)
+    # Compute the indicator values
+    indic_vals = TMLE.indicator_values(indicator_fns, jointT)
+    w = balancing_weights(G, W, jointT, threshold=threshold)
+    if weighted_fluctuation
+        return indic_vals, w
+    end
+    indic_vals .*= w
+    return indic_vals, ones(size(w, 1))
 end
 
 ###############################################################################

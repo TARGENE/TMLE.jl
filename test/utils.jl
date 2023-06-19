@@ -154,7 +154,7 @@ end
 
 end
 
-@testset "Test compute_covariate" begin
+@testset "Test covariate_and_weights" begin
     # First case: 1 categorical variable
     # Using a trivial classifier
     # that outputs the proportions of of the classes
@@ -173,14 +173,14 @@ end
     )
     indicator_fns = TMLE.indicator_fns(Ψ, TMLE.joint_name)
 
-    cov = TMLE.compute_covariate(jointT, W, Gmach, indicator_fns)
-    @test cov == [1.75,
-                 -3.5,
-                 0.0,
-                 1.75,
-                 1.75,
-                 -3.5,
-                 1.75]
+    bw = TMLE.balancing_weights(Gmach, W, jointT)
+    cov, w = TMLE.covariate_and_weights(jointT, W, Gmach, indicator_fns, weighted_fluctuation=true)
+    
+    @test cov == [1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0]
+    @test w == bw == [1.75, 3.5, 7.0, 1.75, 1.75, 3.5, 1.75]
+
+    cov, w = TMLE.covariate_and_weights(jointT, W, Gmach, indicator_fns)
+    @test cov == [1.75, -3.5, 0.0, 1.75, 1.75, -3.5, 1.75]
 
     # Second case: 2 binary variables
     # Using a trivial classifier
@@ -199,7 +199,7 @@ end
     )
     indicator_fns = TMLE.indicator_fns(Ψ, TMLE.joint_name)
 
-    cov = TMLE.compute_covariate(jointT, W, Gmach, indicator_fns)
+    cov, w = TMLE.covariate_and_weights(jointT, W, Gmach, indicator_fns)
     @test cov == [2.3333333333333335,
                  -3.5,
                  -3.5,
@@ -230,7 +230,7 @@ end
     )
     indicator_fns = TMLE.indicator_fns(Ψ, TMLE.joint_name)
 
-    cov = TMLE.compute_covariate(jointT, W, Gmach, indicator_fns)
+    cov, w = TMLE.covariate_and_weights(jointT, W, Gmach, indicator_fns)
     @test cov == [0,
                   7.0,
                  -7,

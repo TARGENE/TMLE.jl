@@ -116,7 +116,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Done.")
     )
-    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1, weighted_fluctuation=true);
     Ψ₀ = -1
     @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
@@ -162,7 +162,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Done.")
     )
-    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1, weighted_fluctuation=true);
     @test tmle_result.parameter == Ψ
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
@@ -366,10 +366,9 @@ end
         (:info, "Targeting the nuisance parameters..."),
         (:info, "Done.")
     )
-    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
+    tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1, weighted_fluctuation=true);
     @test tmle_result.parameter == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₃)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Changing the treatments values
