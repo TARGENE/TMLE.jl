@@ -251,18 +251,18 @@ function tmle_step!(cache::TMLECache; verbosity=1, threshold=1e-8, weighted_fluc
     offset = TMLE.compute_offset(cache.data[:Q₀])
     W = TMLE.confounders(cache.data[:no_missing], cache.Ψ)
     jointT = TMLE.joint_treatment(TMLE.treatments(cache.data[:no_missing], cache.Ψ))
-    covariate, w = TMLE.covariate_and_weights(
+    covariate, weights = TMLE.clever_covariate_and_weights(
         jointT, W, cache.η.G, cache.data[:indicators_str]; 
         threshold=threshold, weighted_fluctuation=weighted_fluctuation
     )
     X = TMLE.fluctuation_input(covariate, offset)
     y = TMLE.target(cache.data[:no_missing], cache.Ψ)
-    mach = machine(cache.η_spec.F, X, y, w, cache=cache.η_spec.cache)
+    mach = machine(cache.η_spec.F, X, y, weights, cache=cache.η_spec.cache)
     MLJBase.fit!(mach, verbosity=verbosity-1)
     # Update cache
     cache.η.F = mach
     # This is useful for gradient_Y_X
-    cache.data[:covariate] = X.covariate .* w
+    cache.data[:covariate] = X.covariate .* weights
     cache.data[:Qfluct] = MLJBase.predict(mach, X)
 end
 
@@ -284,7 +284,7 @@ function counterfactual_aggregates(cache::TMLECache; threshold=1e-8, weighted_fl
         # Counterfactual predictions with F
         offset = compute_offset(ŷᵢ)
         jointT = categorical(repeat([joint_name(vals)], n), levels=cache.data[:jointT_levels])
-        covariate, _ = covariate_and_weights(
+        covariate, _ = clever_covariate_and_weights(
             jointT, confounders(WC, cache.Ψ), cache.η.G, cache.data[:indicators_str]; 
             threshold=threshold, weighted_fluctuation=weighted_fluctuation
         )

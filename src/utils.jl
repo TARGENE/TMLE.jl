@@ -99,15 +99,15 @@ function balancing_weights(G::Machine, W, jointT; threshold=0.005)
     return 1. ./ d
 end
 
-function covariate_and_weights(jointT, W, G, indicator_fns; threshold=0.005, weighted_fluctuation=false)
+function clever_covariate_and_weights(jointT, W, G, indicator_fns; threshold=0.005, weighted_fluctuation=false)
     # Compute the indicator values
     indic_vals = TMLE.indicator_values(indicator_fns, jointT)
-    w = balancing_weights(G, W, jointT, threshold=threshold)
+    weights = balancing_weights(G, W, jointT, threshold=threshold)
     if weighted_fluctuation
-        return indic_vals, w
+        return indic_vals, weights
     end
-    indic_vals .*= w
-    return indic_vals, ones(size(w, 1))
+    indic_vals .*= weights
+    return indic_vals, ones(size(weights, 1))
 end
 
 ###############################################################################
