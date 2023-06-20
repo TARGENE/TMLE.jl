@@ -92,20 +92,27 @@ end
 compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
 compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 
-function balancing_weights(G::Machine, W, jointT; threshold=0.005)
+function balancing_weights(G::Machine, W, jointT; threshold=1e-8)
     ŷ = MLJBase.predict(G, W)
     d = pdf.(ŷ, jointT)
     plateau!(d, threshold)
     return 1. ./ d
 end
 
-function clever_covariate_and_weights(jointT, W, G, indicator_fns; threshold=0.005, weighted_fluctuation=false)
+"""
+    clever_covariate_and_weights(jointT, W, G, indicator_fns; threshold=1e-8, weighted_fluctuation=false)
+
+Computes the clever covariate and weights that are used to fluctuate the initial Q.
+See [here](https://lendle.github.io/TargetedLearning.jl/user-guide/ctmle/#fluctuating-barq_n).
+"""
+function clever_covariate_and_weights(jointT, W, G, indicator_fns; threshold=1e-8, weighted_fluctuation=false)
     # Compute the indicator values
     indic_vals = TMLE.indicator_values(indicator_fns, jointT)
     weights = balancing_weights(G, W, jointT, threshold=threshold)
     if weighted_fluctuation
         return indic_vals, weights
     end
+    # Vanilla unweighted fluctuation
     indic_vals .*= weights
     return indic_vals, ones(size(weights, 1))
 end
