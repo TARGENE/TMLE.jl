@@ -42,6 +42,10 @@ end
     test_fluct_decreases_risk(cache, target_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
+    tmle_result, _ = tmle!(cache, verbosity=0, weighted_fluctuation=true)
+    test_coverage(tmle_result, Ψ₀)
+    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+
 end 
 
 end

@@ -95,11 +95,7 @@ function update!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec)
     update!(cache, η_spec)
 end
 
-"""
-    tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; verbosity=1, threshold=1e-8)
-
-Main entrypoint to run the TMLE procedure.
-
+const TMLE_ARGS_DOCS = """
 # Arguments
 
 - Ψ: The parameter of interest
@@ -107,24 +103,40 @@ Main entrypoint to run the TMLE procedure.
 - dataset: A tabular dataset respecting the Table.jl interface
 - verbosity: The logging level
 - threshold: To avoid small values of Ĝ to cause the "clever covariate" to explode
+- weighted_fluctuation: Fits a weighted fluctuation
 """
-function tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; verbosity=1, threshold=1e-8)
+
+"""
+    tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; kwargs...)
+
+Build a TMLECache struct and runs TMLE.
+
+$TMLE_ARGS_DOCS
+"""
+function tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; kwargs...)
     cache = TMLECache(dataset)
     update!(cache, Ψ, η_spec)
-    return tmle!(cache; verbosity=verbosity, threshold=threshold)
+    return tmle!(cache; kwargs...)
 end
 
-function tmle!(cache::TMLECache; verbosity=1, threshold=1e-8)
+"""
+    tmle!(cache::TMLECache; verbosity=1, threshold=1e-8, weighted_fluctuation=false)
+
+Runs TMLE using the provided TMLECache.
+
+$TMLE_ARGS_DOCS
+"""
+function tmle!(cache::TMLECache; verbosity=1, threshold=1e-8, weighted_fluctuation=false)
     # Initial fit of the nuisance parameters
     verbosity >= 1 && @info "Fitting the nuisance parameters..."
     TMLE.fit_nuisance!(cache, verbosity=verbosity)
     
     # TMLE step
     verbosity >= 1 && @info "Targeting the nuisance parameters..."
-    tmle_step!(cache, verbosity=verbosity, threshold=threshold)
+    tmle_step!(cache, verbosity=verbosity, threshold=threshold, weighted_fluctuation=weighted_fluctuation)
     
     # Estimation results after TMLE
-    IC, Ψ̂, ICᵢ, Ψ̂ᵢ = TMLE.gradient_and_estimates(cache, threshold=threshold)
+    IC, Ψ̂, ICᵢ, Ψ̂ᵢ = TMLE.gradient_and_estimates(cache, threshold=threshold, weighted_fluctuation=weighted_fluctuation)
     tmle_result = ALEstimate(Ψ̂, IC)
     one_step_result = ALEstimate(Ψ̂ᵢ + mean(ICᵢ), ICᵢ)
 
@@ -135,43 +147,49 @@ end
 """
     tmle!(cache::TMLECache, Ψ::Parameter; verbosity=1, threshold=1e-8)
 
-Runs the TMLE procedure for the new parameter Ψ while potentially reusing cached nuisance parameters.
+Updates the TMLECache with Ψ and runs TMLE.
+
+$TMLE_ARGS_DOCS
 """
-function tmle!(cache::TMLECache, Ψ::Parameter; verbosity=1, threshold=1e-8)
+function tmle!(cache::TMLECache, Ψ::Parameter; kwargs...)
     update!(cache, Ψ)
-    tmle!(cache, verbosity=verbosity, threshold=threshold)
+    tmle!(cache; kwargs...)
 end
 
 """
-    tmle!(cache::TMLECache, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
+    tmle!(cache::TMLECache, η_spec::NuisanceSpec; kwargs...)
 
-Runs the TMLE procedure for the new nuisance parameters specification η_spec while potentially reusing cached nuisance parameters.
+Updates the TMLECache with η_spec and runs TMLE.
+
+$TMLE_ARGS_DOCS
 """
-function tmle!(cache::TMLECache, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
+function tmle!(cache::TMLECache, η_spec::NuisanceSpec; kwargs...)
     update!(cache, η_spec)
-    tmle!(cache, verbosity=verbosity, threshold=threshold)
+    tmle!(cache; kwargs...)
 end
 
 """
-    tmle!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
+    tmle!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec; kwargs...)
 
-Runs the TMLE procedure for the new parameter Ψ and the new nuisance parameters specification η_spec 
-while potentially reusing cached nuisance parameters.
+Updates the TMLECache with η_spec and Ψ and runs TMLE.
+
+$TMLE_ARGS_DOCS
 """
-function tmle!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec; verbosity=1, threshold=1e-8)
+function tmle!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec; kwargs...)
     update!(cache, Ψ, η_spec)
-    tmle!(cache, verbosity=verbosity, threshold=threshold)
+    tmle!(cache; kwargs...)
 end
 
 """
-    tmle!(cache::TMLECache, η_spec::NuisanceSpec, Ψ::Parameter; verbosity=1, threshold=1e-8)
+    tmle!(cache::TMLECache, η_spec::NuisanceSpec, Ψ::Parameter; kwargs...)
 
-Runs the TMLE procedure for the new parameter Ψ and the new nuisance parameters specification η_spec 
-while potentially reusing cached nuisance parameters.
+Updates the TMLECache with η_spec and Ψ and runs TMLE.
+
+$TMLE_ARGS_DOCS
 """
-function tmle!(cache::TMLECache, η_spec::NuisanceSpec, Ψ::Parameter; verbosity=1, threshold=1e-8)
+function tmle!(cache::TMLECache, η_spec::NuisanceSpec, Ψ::Parameter; kwargs...)
     update!(cache, Ψ, η_spec)
-    tmle!(cache, verbosity=verbosity, threshold=threshold)
+    tmle!(cache; kwargs...)
 end
 
 
@@ -200,7 +218,6 @@ function fit_nuisance!(cache::TMLECache; verbosity=1)
         log_no_fit(verbosity, "P(T|W)")
     end
 
-    
     if η.Q === nothing
         # Fitting the Treatment Encoder
         if η.H === nothing
@@ -229,24 +246,27 @@ function fit_nuisance!(cache::TMLECache; verbosity=1)
 end
 
 
-function tmle_step!(cache::TMLECache; verbosity=1, threshold=1e-8)
+function tmle_step!(cache::TMLECache; verbosity=1, threshold=1e-8, weighted_fluctuation=false)
     # Fit fluctuation
     offset = TMLE.compute_offset(cache.data[:Q₀])
     W = TMLE.confounders(cache.data[:no_missing], cache.Ψ)
     jointT = TMLE.joint_treatment(TMLE.treatments(cache.data[:no_missing], cache.Ψ))
-    covariate = TMLE.compute_covariate(jointT, W, cache.η.G, cache.data[:indicators_str]; threshold=threshold)
+    covariate, weights = TMLE.clever_covariate_and_weights(
+        jointT, W, cache.η.G, cache.data[:indicators_str]; 
+        threshold=threshold, weighted_fluctuation=weighted_fluctuation
+    )
     X = TMLE.fluctuation_input(covariate, offset)
     y = TMLE.target(cache.data[:no_missing], cache.Ψ)
-    mach = machine(cache.η_spec.F, X, y, cache=cache.η_spec.cache)
+    mach = machine(cache.η_spec.F, X, y, weights, cache=cache.η_spec.cache)
     MLJBase.fit!(mach, verbosity=verbosity-1)
     # Update cache
     cache.η.F = mach
     # This is useful for gradient_Y_X
-    cache.data[:covariate] = X.covariate
+    cache.data[:covariate] = X.covariate .* weights
     cache.data[:Qfluct] = MLJBase.predict(mach, X)
 end
 
-function counterfactual_aggregates(cache::TMLECache; threshold=1e-8)
+function counterfactual_aggregates(cache::TMLECache; threshold=1e-8, weighted_fluctuation=false)
     dataset = cache.data[:no_missing]
     WC = TMLE.confounders_and_covariates(dataset, cache.Ψ)
     Ttemplate = TMLE.treatments(dataset, cache.Ψ)
@@ -264,7 +284,10 @@ function counterfactual_aggregates(cache::TMLECache; threshold=1e-8)
         # Counterfactual predictions with F
         offset = compute_offset(ŷᵢ)
         jointT = categorical(repeat([joint_name(vals)], n), levels=cache.data[:jointT_levels])
-        covariate = compute_covariate(jointT, confounders(WC, cache.Ψ), cache.η.G, cache.data[:indicators_str]; threshold=threshold)
+        covariate, _ = clever_covariate_and_weights(
+            jointT, confounders(WC, cache.Ψ), cache.η.G, cache.data[:indicators_str]; 
+            threshold=threshold, weighted_fluctuation=weighted_fluctuation
+        )
         Xfluct = fluctuation_input(covariate, offset)
         ŷ = predict(cache.η.F, Xfluct)
         counterfactual_aggregate .+= sign .* expected_value(ŷ)
@@ -297,8 +320,8 @@ function gradients_Y_X(cache::TMLECache)
 end
 
 
-function gradient_and_estimates(cache::TMLECache; threshold=1e-8)
-    counterfactual_aggregate, counterfactual_aggregateᵢ = TMLE.counterfactual_aggregates(cache; threshold=threshold)
+function gradient_and_estimates(cache::TMLECache; threshold=1e-8, weighted_fluctuation=false)
+    counterfactual_aggregate, counterfactual_aggregateᵢ = TMLE.counterfactual_aggregates(cache; threshold=threshold, weighted_fluctuation=weighted_fluctuation)
     Ψ̂, Ψ̂ᵢ = mean(counterfactual_aggregate), mean(counterfactual_aggregateᵢ)
     gradient_Y_Xᵢ, gradient_Y_X_fluct = gradients_Y_X(cache)
     IC = gradient_Y_X_fluct .+ gradient_W(counterfactual_aggregate, Ψ̂)
