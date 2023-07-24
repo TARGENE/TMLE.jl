@@ -38,6 +38,7 @@ function fakecache()
         C₁=rand(n),
         T₁=rand([1, 0], n),
         T₂=rand([1, 0], n),
+        T₃=["CT", "CC", "TT", "TT", "TT", "CT", "CC", "TT", "CT", "CC"],
         y=rand(n),
         ynew=vcat([missing, missing, missing], rand(n-3))
         )
@@ -63,6 +64,13 @@ end
     @test_throws ArgumentError(string("The 'case' string representation: 'true' for treatment",
             " T₂ in Ψ does not match any level of the corresponding variable",
             " in the dataset: [\"0\", \"1\"]")) TMLE.check_treatment_values(cache, Ψ)
+
+    Ψ = CM(
+        target=:y,
+        treatment=(T₃="CT",),
+        confounders=[:W₁],
+    )
+    TMLE.check_treatment_values(cache, Ψ)
 end
 
 @testset "Test update!(cache, Ψ)" begin
