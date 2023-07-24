@@ -22,16 +22,28 @@ end
 
 Base.show(io::IO, cache::TMLECache) = println(typeof(cache))
 
+
+function check_treatment_settings(settings::NamedTuple, levels, treatment_name)
+    for (key, val) in zip(keys(settings), settings) 
+        any(string(val) .== levels) || 
+            throw(ArgumentError(string(
+                "The '", key, "' string representation: '", val, "' for treatment ", treatment_name, 
+                " in Ψ does not match any level of the corresponding variable in the dataset: ", string.(levels))))
+    end
+end
+
+function check_treatment_settings(setting, levels, treatment_name)
+    any(string(setting) .== levels) || 
+            throw(ArgumentError(string(
+                "The string representation: '", val, "' for treatment ", treatment_name, 
+                " in Ψ does not match any level of the corresponding variable in the dataset: ", string.(levels))))
+end
+
 function check_treatment_values(cache::TMLECache, Ψ::Parameter)
-    for T in treatments(Ψ)
-        Tlevels = string.(levels(Tables.getcolumn(cache.data[:source], T)))
-        Tsetting = getproperty(Ψ.treatment, T)
-        for (key, val) in zip(keys(Tsetting), Tsetting) 
-            any(string(val) .== Tlevels) || 
-                throw(ArgumentError(string(
-                    "The '", key, "' string representation: '", val, "' for treatment ", T, 
-                    " in Ψ does not match any level of the corresponding variable in the dataset: ", string.(Tlevels))))
-        end
+    for treatment_name in treatments(Ψ)
+        treatment_levels = string.(levels(Tables.getcolumn(cache.data[:source], treatment_name)))
+        treatment_settings = getproperty(Ψ.treatment, treatment_name)
+        check_treatment_settings(treatment_settings, treatment_levels, treatment_name)
     end
 end
 
