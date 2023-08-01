@@ -6,7 +6,7 @@ CurrentModule = TMLE
 
 ## The Dataset
 
-TMLE.jl should be compatible with any dataset respecting the [Tables.jl](https://tables.juliadata.org/stable/) interface, that is, a structure like a `NamedTuple` or a `DataFrame` from [DataFrames.jl](https://dataframes.juliadata.org/stable/) should work. In the remainder of this section, we will be working with the same dataset and see that we can ask very many questions (Parameters) from it.
+TMLE.jl should be compatible with any dataset respecting the [Tables.jl](https://tables.juliadata.org/stable/) interface, that is, a structure like a `NamedTuple` or a `DataFrame` from [DataFrames.jl](https://dataframes.juliadata.org/stable/) should work. In the remainder of this section, we will be working with the same dataset and see that we can ask very many questions (Estimands) from it.
 
 ```@example user-guide
 using Random
@@ -43,9 +43,9 @@ nothing # hide
 ```
 
 !!! note "Note on Treatment variables"
-    It should be noted that the treatment variables **must** be [categorical](https://categoricalarrays.juliadata.org/stable/). Since the treatment is also used as an input to the ``Q_0`` learner, a `OneHotEncoder` is used by default (see [The Nuisance Parameters](@ref) section). If a numerical representation is more appropriate (ordinal variables), use the keyword `ordered=true` when constructing a `categorical` vector, the `OneHotEncoder` will ignore those variables and their floating point representation will be used.
+    It should be noted that the treatment variables **must** be [categorical](https://categoricalarrays.juliadata.org/stable/). Since the treatment is also used as an input to the ``Q_0`` learner, a `OneHotEncoder` is used by default (see [The Nuisance Estimands](@ref) section). If a numerical representation is more appropriate (ordinal variables), use the keyword `ordered=true` when constructing a `categorical` vector, the `OneHotEncoder` will ignore those variables and their floating point representation will be used.
 
-## The Nuisance Parameters
+## The Nuisance Estimands
 
 As described in the [Mathematical setting](@ref) section, we need to provide an estimation strategy for both $Q_0$ and $G_0$. For illustration purposes, we here consider a simple strategy where both models are assumed to be generalized linear models. However this is not the recommended practice since there is little chance those functions are actually linear, and theoretical guarantees associated with TMLE may fail to hold. We recommend instead the use of Super Learning which is exemplified in [The benefits of Super Learning](@ref).
 
@@ -67,7 +67,7 @@ nothing # hide
 
 The `NuisanceSpec` struct also holds a specification for the `OneHotEncoder` necessary for the encoding of treatment variables and a generalized linear model for the fluctuation model. Unless you know what you are doing, there is little chance you need to modify those.
 
-## Parameters
+## Estimands
 
 ### The Conditional mean
 
@@ -181,7 +181,7 @@ iate_result, _ = tmle(Ψ, η_spec, dataset, verbosity=0)
 OneSampleTTest(iate_result.tmle)
 ```
 
-### Composing Parameters
+### Composing Estimands
 
 By leveraging the multivariate Central Limit Theorem and Julia's automatic differentiation facilities, we can actually compute any new parameter estimate from a set of already estimated parameters. By default, TMLE.jl will use [Zygote](https://fluxml.ai/Zygote.jl/latest/) but since we are using [AbstractDifferentiation.jl](https://github.com/JuliaDiff/AbstractDifferentiation.jl) you can change the backend to your favorite AD system.
 
@@ -214,12 +214,12 @@ and the variance:
 var(composed_ate_result), var(ate_result.tmle)
 ```
 
-### Reading Parameters from YAML files
+### Reading Estimands from YAML files
 
 It may be useful to read and write parameters to text files. We provide this functionality using the YAML format and the `parameters_from_yaml` and `parameters_to_yaml` functions. Since YAML is quite sensitive to identation, it is not recommended to write those files by hand. As an illustration, an example of such a file is given below:
 
 ```yaml
-Parameters:
+Estimands:
   - target: Y1
     treatment: (T2 = (case = 1, control = 0), T1 = (case = 1, control = 0))
     confounders:
@@ -320,5 +320,5 @@ Since we have only updated $G$'s specification, only this model is fitted again.
 
 ### General behaviour
 
-Any change to either the `Parameter` of interest or the `NuisanceSpec` structures will trigger an update of the cache. If you have a predefined
+Any change to either the `Estimand` of interest or the `NuisanceSpec` structures will trigger an update of the cache. If you have a predefined
 list of parameters to estimate, you can optimize the estimation order of those parameters by calling `optimize_ordering!` or `optimize_ordering`. This will order the parameters in order to save the number of required nuisance parameters fits.

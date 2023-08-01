@@ -1,4 +1,4 @@
-module TestParameters
+module TestEstimands
 
 using Test
 using TMLE

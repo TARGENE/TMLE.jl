@@ -44,7 +44,7 @@ function nomissing(table, columns)
     return nomissing(columns)
 end
 
-ncases(value, Ψ::Parameter) = sum(value[i] == Ψ.treatment[i].case for i in eachindex(value))
+ncases(value, Ψ::Estimand) = sum(value[i] == Ψ.treatment[i].case for i in eachindex(value))
 
 function indicator_fns(Ψ::IATE, f::Function)
     N = length(treatments(Ψ))

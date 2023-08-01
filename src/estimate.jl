@@ -11,7 +11,7 @@ struct ComposedTMLE{T<:AbstractFloat} <: AbstractTMLE
     σ̂::Matrix{T}
 end
 
-struct TMLEResult{P <: Parameter, T<:AbstractFloat}
+struct TMLEResult{P <: Estimand, T<:AbstractFloat}
     parameter::P
     tmle::ALEstimate{T}
     onestep::ALEstimate{T}

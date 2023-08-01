@@ -27,7 +27,7 @@ function fakefill!(cache)
     X = (x=rand(n),)
     y = rand(n)
     mach = machine(LinearRegressor(), X, y)
-    cache.η = TMLE.NuisanceParameters(mach, mach, mach, mach)
+    cache.η = TMLE.NuisanceEstimands(mach, mach, mach, mach)
 end
 
 function fakecache()

@@ -10,12 +10,12 @@ saving computations.
 """
 mutable struct TMLECache
     data
-    η::NuisanceParameters
-    Ψ::Parameter
+    η::NuisanceEstimands
+    Ψ::Estimand
     η_spec::NuisanceSpec
     function TMLECache(dataset)
         data = Dict{Symbol, Any}(:source => dataset)
-        η = NuisanceParameters(nothing, nothing, nothing, nothing)
+        η = NuisanceEstimands(nothing, nothing, nothing, nothing)
         new(data, η)
     end
 end
@@ -39,7 +39,7 @@ function check_treatment_settings(setting, levels, treatment_name)
                 " in Ψ does not match any level of the corresponding variable in the dataset: ", string.(levels))))
 end
 
-function check_treatment_values(cache::TMLECache, Ψ::Parameter)
+function check_treatment_values(cache::TMLECache, Ψ::Estimand)
     for treatment_name in treatments(Ψ)
         treatment_levels = string.(levels(Tables.getcolumn(cache.data[:source], treatment_name)))
         treatment_settings = getproperty(Ψ.treatment, treatment_name)
@@ -48,7 +48,7 @@ function check_treatment_values(cache::TMLECache, Ψ::Parameter)
 end
 
 
-function update!(cache::TMLECache, Ψ::Parameter)
+function update!(cache::TMLECache, Ψ::Estimand)
     check_treatment_values(cache, Ψ)
     any_variable_changed = false
     if !isdefined(cache, :Ψ)
@@ -102,7 +102,7 @@ function update!(cache::TMLECache, η_spec::NuisanceSpec)
     return cache
 end
 
-function update!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec)
+function update!(cache::TMLECache, Ψ::Estimand, η_spec::NuisanceSpec)
     update!(cache, Ψ)
     update!(cache, η_spec)
 end
@@ -119,13 +119,13 @@ const TMLE_ARGS_DOCS = """
 """
 
 """
-    tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; kwargs...)
+    tmle(Ψ::Estimand, η_spec::NuisanceSpec, dataset; kwargs...)
 
 Build a TMLECache struct and runs TMLE.
 
 $TMLE_ARGS_DOCS
 """
-function tmle(Ψ::Parameter, η_spec::NuisanceSpec, dataset; kwargs...)
+function tmle(Ψ::Estimand, η_spec::NuisanceSpec, dataset; kwargs...)
     cache = TMLECache(dataset)
     update!(cache, Ψ, η_spec)
     return tmle!(cache; kwargs...)
@@ -157,13 +157,13 @@ function tmle!(cache::TMLECache; verbosity=1, threshold=1e-8, weighted_fluctuati
 end
 
 """
-    tmle!(cache::TMLECache, Ψ::Parameter; verbosity=1, threshold=1e-8)
+    tmle!(cache::TMLECache, Ψ::Estimand; verbosity=1, threshold=1e-8)
 
 Updates the TMLECache with Ψ and runs TMLE.
 
 $TMLE_ARGS_DOCS
 """
-function tmle!(cache::TMLECache, Ψ::Parameter; kwargs...)
+function tmle!(cache::TMLECache, Ψ::Estimand; kwargs...)
     update!(cache, Ψ)
     tmle!(cache; kwargs...)
 end
@@ -181,25 +181,25 @@ function tmle!(cache::TMLECache, η_spec::NuisanceSpec; kwargs...)
 end
 
 """
-    tmle!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec; kwargs...)
+    tmle!(cache::TMLECache, Ψ::Estimand, η_spec::NuisanceSpec; kwargs...)
 
 Updates the TMLECache with η_spec and Ψ and runs TMLE.
 
 $TMLE_ARGS_DOCS
 """
-function tmle!(cache::TMLECache, Ψ::Parameter, η_spec::NuisanceSpec; kwargs...)
+function tmle!(cache::TMLECache, Ψ::Estimand, η_spec::NuisanceSpec; kwargs...)
     update!(cache, Ψ, η_spec)
     tmle!(cache; kwargs...)
 end
 
 """
-    tmle!(cache::TMLECache, η_spec::NuisanceSpec, Ψ::Parameter; kwargs...)
+    tmle!(cache::TMLECache, η_spec::NuisanceSpec, Ψ::Estimand; kwargs...)
 
 Updates the TMLECache with η_spec and Ψ and runs TMLE.
 
 $TMLE_ARGS_DOCS
 """
-function tmle!(cache::TMLECache, η_spec::NuisanceSpec, Ψ::Parameter; kwargs...)
+function tmle!(cache::TMLECache, η_spec::NuisanceSpec, Ψ::Estimand; kwargs...)
     update!(cache, Ψ, η_spec)
     tmle!(cache; kwargs...)
 end

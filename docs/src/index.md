@@ -70,7 +70,7 @@ IATE_{0 \rightarrow 1, 0 \rightarrow 1}(P) = \mathbb{E}[\mathbb{E}[Y|T_1=1, T_2=
 - \mathbb{E}[\mathbb{E}[Y|T_1=0, T_2=1, W]] + \mathbb{E}[\mathbb{E}[Y|T_1=0, T_2=0, W]] 
 ```
 
-### Any function of the previous Parameters
+### Any function of the previous Estimands
 
 As a result of Julia's automatic differentiation facilities, given a set of already estimated parameters $(\Psi_1, ..., \Psi_k)$, we can automatically compute an estimator for $f(\Psi_1, ..., \Psi_k)$.
 

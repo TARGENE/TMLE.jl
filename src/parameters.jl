@@ -13,12 +13,12 @@ const causal_graph = """
 """
 
 #####################################################################
-###                    Abstract Parameter                         ###
+###                    Abstract Estimand                         ###
 #####################################################################
 """
-A Parameter is a functional on distribution space Ψ: ℳ → ℜ. 
+A Estimand is a functional on distribution space Ψ: ℳ → ℜ. 
 """
-abstract type Parameter end
+abstract type Estimand end
 
 #####################################################################
 ###                      Conditional Mean                         ###
@@ -57,7 +57,7 @@ CM₂ = CM(
 )
 ```
 """
-@option struct CM <: Parameter
+@option struct CM <: Estimand
     target::Symbol
     treatment::NamedTuple
     confounders::Vector{Symbol}
@@ -101,7 +101,7 @@ ATE₂ = ATE(
 )
 ```
 """
-@option struct ATE <: Parameter
+@option struct ATE <: Estimand
     target::Symbol
     treatment::NamedTuple
     confounders::Vector{Symbol}
@@ -139,7 +139,7 @@ IATE₁ = IATE(
 )
 ```
 """
-@option struct IATE <: Parameter
+@option struct IATE <: Estimand
     target::Symbol
     treatment::NamedTuple
     confounders::Vector{Symbol}
@@ -148,11 +148,11 @@ end
 
 
 #####################################################################
-###                     Nuisance Parameters                       ###
+###                     Nuisance Estimands                       ###
 #####################################################################
 
 """
-# NuisanceParameters
+# NuisanceEstimands
 
 The set of estimators that need to be estimated but are not of direct interest.
 
@@ -169,7 +169,7 @@ All fields are MLJBase.Machine.
     - H: A one-hot-encoder categorical treatments
     - F: A generalized linear model to fluctuate E[Y|X]
 """
-mutable struct NuisanceParameters
+mutable struct NuisanceEstimands
     Q::Union{Nothing, MLJBase.Machine}
     G::Union{Nothing, MLJBase.Machine}
     H::Union{Nothing, MLJBase.Machine}
@@ -206,33 +206,33 @@ NuisanceSpec(Q, G; H=TreatmentTransformer(), F=F_model(target_scitype(Q)), cache
 
 selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.columntable
 
-confounders(Ψ::Parameter) = Ψ.confounders
+confounders(Ψ::Estimand) = Ψ.confounders
 confounders(dataset, Ψ) = selectcols(dataset, confounders(Ψ))
 
-covariates(Ψ::Parameter) = Ψ.covariates
+covariates(Ψ::Estimand) = Ψ.covariates
 covariates(dataset, Ψ) = selectcols(dataset, covariates(Ψ))
 
-treatments(Ψ::Parameter) = collect(keys(Ψ.treatment))
+treatments(Ψ::Estimand) = collect(keys(Ψ.treatment))
 treatments(dataset, Ψ) = selectcols(dataset, treatments(Ψ))
 
-target(Ψ::Parameter) = Ψ.target
+target(Ψ::Estimand) = Ψ.target
 target(dataset, Ψ) = Tables.getcolumn(dataset, target(Ψ))
 
-treatment_and_confounders(Ψ::Parameter) = vcat(confounders(Ψ), treatments(Ψ))
+treatment_and_confounders(Ψ::Estimand) = vcat(confounders(Ψ), treatments(Ψ))
 
-confounders_and_covariates(Ψ::Parameter) = vcat(confounders(Ψ), covariates(Ψ))
+confounders_and_covariates(Ψ::Estimand) = vcat(confounders(Ψ), covariates(Ψ))
 confounders_and_covariates(dataset, Ψ) = selectcols(dataset, confounders_and_covariates(Ψ))
 
 """
 Merges together confounders, covariates and floating point representation of treatments.
 """
-Qinputs(H, dataset, Ψ::Parameter) = merge(
+Qinputs(H, dataset, Ψ::Estimand) = merge(
     columntable(confounders_and_covariates(dataset, Ψ)), 
     MLJBase.transform(H, treatments(dataset, Ψ))
     )
 
 
-allcolumns(Ψ::Parameter) = vcat(confounders_and_covariates(Ψ), treatments(Ψ), target(Ψ))
+allcolumns(Ψ::Estimand) = vcat(confounders_and_covariates(Ψ), treatments(Ψ), target(Ψ))
 
 F_model(::Type{<:AbstractVector{<:MLJBase.Continuous}}) =
     LinearRegressor(fit_intercept=false, offsetcol = :offset)
@@ -247,7 +247,7 @@ namedtuples_from_dicts(d::Dict) =
     NamedTuple{Tuple(keys(d))}([namedtuples_from_dicts(val) for val in values(d)])
 
 
-function param_key(Ψ::Parameter)
+function param_key(Ψ::Estimand)
     return (
         join(Ψ.confounders, "_"),
         join(keys(Ψ.treatment), "_"),
@@ -257,7 +257,7 @@ function param_key(Ψ::Parameter)
 end
 
 """
-    optimize_ordering!(parameters::Vector{<:Parameter})
+    optimize_ordering!(parameters::Vector{<:Estimand})
 
 Reorders the given parameters so that most nuisance parameters fits can be
 reused. Given the assumed causal graph:
@@ -269,11 +269,11 @@ and the requirements to estimate both p(T|W) and E[Y|W, T, C].
 A natural ordering of the parameters in order to save computations is given by the
 following variables ordering: (W, T, Y, C)
 """
-optimize_ordering!(parameters::Vector{<:Parameter}) = sort!(parameters, by=param_key)
+optimize_ordering!(parameters::Vector{<:Estimand}) = sort!(parameters, by=param_key)
 
 """
-    optimize_ordering(parameters::Vector{<:Parameter})
+    optimize_ordering(parameters::Vector{<:Estimand})
 
 See [`optimize_ordering!`](@ref)
 """
-optimize_ordering(parameters::Vector{<:Parameter}) = sort(parameters, by=param_key)
+optimize_ordering(parameters::Vector{<:Estimand}) = sort(parameters, by=param_key)
