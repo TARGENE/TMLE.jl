@@ -8,29 +8,29 @@ function param_to_dict(Ψ::Estimand)
 end
 
 """
-    parameters_from_yaml(filepath)
+    estimands_from_yaml(filepath)
 
 Read estimation `Estimands` from YAML file.
 """
-function parameters_from_yaml(filepath)
+function estimands_from_yaml(filepath)
     yaml_dict = YAML.load_file(filepath; dicttype=Dict{String, Any})
     params_dicts = yaml_dict["Estimands"]
     nparams = size(params_dicts, 1)
-    parameters = Vector{Estimand}(undef, nparams)
+    estimands = Vector{Estimand}(undef, nparams)
     for index in 1:nparams
         d = params_dicts[index]
         type = pop!(d, "type")
-        parameters[index] = from_dict(eval(Meta.parse(type)), d)
+        estimands[index] = from_dict(eval(Meta.parse(type)), d)
     end
-    return parameters
+    return estimands
 end
 
 """
-    parameters_to_yaml(filepath, parameters::Vector{<:Estimand})
+    estimands_to_yaml(filepath, estimands::Vector{<:Estimand})
 
 Write estimation `Estimands` to YAML file.
 """
-function parameters_to_yaml(filepath, parameters)
-    d = Dict("Estimands" => [param_to_dict(Ψ) for Ψ in parameters])
+function estimands_to_yaml(filepath, estimands)
+    d = Dict("Estimands" => [param_to_dict(Ψ) for Ψ in estimands])
     YAML.write_file(filepath, d)
 end

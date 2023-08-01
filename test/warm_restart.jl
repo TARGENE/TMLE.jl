@@ -50,37 +50,37 @@ table_types = (Tables.columntable, DataFrame)
 
 @testset "Test Warm restart: ATE single treatment, $tt" for tt in table_types
     dataset = tt(build_dataset(;n=50_000))
-    # Define the parameter of interest
+    # Define the estimand of interest
     Ψ = ATE(
         target=:y₁,
         treatment=(T₁=(case=true, control=false),),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
-    # Define the nuisance parameters specification
+    # Define the nuisance estimands specification
     η_spec = NuisanceSpec(
         LinearRegressor(),
         LogisticClassifier(lambda=0)
     )
     # Run TMLE
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Fitting P(T|W)"),
         (:info, "→ Fitting Encoder"),
         (:info, "→ Fitting E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle(Ψ, η_spec, dataset; verbosity=1);
     # The TMLE covers the ground truth but the initial estimate does not
     Ψ₀ = -1
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Update the treatment specification
-    # Nuisance parameters should not fitted again
+    # Nuisance estimands should not fitted again
     Ψ = ATE(
         target=:y₁,
         treatment=(T₁=(case=false, control=true),),
@@ -88,16 +88,16 @@ table_types = (Tables.columntable, DataFrame)
         covariates=[:C₁]
     )
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Reusing previous P(T|W)"),
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 1
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -109,16 +109,16 @@ table_types = (Tables.columntable, DataFrame)
         confounders=[:W₁, :W₂],
     )
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Reusing previous P(T|W)"),
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1, weighted_fluctuation=true);
     Ψ₀ = -1
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -131,16 +131,16 @@ table_types = (Tables.columntable, DataFrame)
         confounders=[:W₁, :W₂],
     )
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Fitting P(T|W)"),
         (:info, "→ Fitting Encoder"),
         (:info, "→ Fitting E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 0.5
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -155,15 +155,15 @@ table_types = (Tables.columntable, DataFrame)
         confounders=[:W₁],
     )
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Fitting P(T|W)"),
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1, weighted_fluctuation=true);
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Change the target
@@ -174,16 +174,16 @@ table_types = (Tables.columntable, DataFrame)
         confounders=[:W₁],
     )
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Reusing previous P(T|W)"),
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 10
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₂)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -197,7 +197,7 @@ table_types = (Tables.columntable, DataFrame)
         covariates=[:C₁]
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₂)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -205,21 +205,21 @@ end
 
 @testset "Test Warm restart: ATE multiple treatment, $tt" for tt in table_types
     dataset = tt(build_dataset(;n=50_000))
-    # Define the parameter of interest
+    # Define the estimand of interest
     Ψ = ATE(
         target=:y₁,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
-    # Define the nuisance parameters specification
+    # Define the nuisance estimands specification
     η_spec = NuisanceSpec(
         LinearRegressor(),
         LogisticClassifier(lambda=0)
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     Ψ₀ = -0.5
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -232,16 +232,16 @@ end
         covariates=[:C₁]
     )
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Reusing previous P(T|W)"),
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = -1.5
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -261,7 +261,7 @@ end
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     Ψ₀ = 3
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -274,16 +274,16 @@ end
         covariates=[:C₁]
     )
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Reusing previous P(T|W)"),
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 2.5
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -296,16 +296,16 @@ end
         covariates=[:C₁]
     )
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Reusing previous P(T|W)"),
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 1
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₂)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -318,16 +318,16 @@ end
         covariates=[:C₁]
     )
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Fitting P(T|W)"),
         (:info, "→ Fitting Encoder"),
         (:info, "→ Fitting E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = 11
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₂)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -347,7 +347,7 @@ end
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     Ψ₀ = -1
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₃)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -359,15 +359,15 @@ end
         confounders=[:W₁, :W₂],
     )
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Reusing previous P(T|W)"),
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Fitting E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1, weighted_fluctuation=true);
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
@@ -378,16 +378,16 @@ end
         confounders=[:W₁, :W₂],
     )
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Reusing previous P(T|W)"),
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     Ψ₀ = - Ψ₀
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₃)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -396,21 +396,21 @@ end
 
 @testset "Test Warm restart: Both Ψ and η changed" begin
     dataset = build_dataset(;n=50_000)
-    # Define the parameter of interest
+    # Define the estimand of interest
     Ψ = ATE(
         target=:y₁,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
-    # Define the nuisance parameters specification
+    # Define the nuisance estimands specification
     η_spec = NuisanceSpec(
         LinearRegressor(),
         LogisticClassifier(lambda=0)
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     Ψ₀ = -0.5
-    @test tmle_result.parameter == Ψ
+    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -421,22 +421,22 @@ end
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
     )
-    # Define the nuisance parameters specification
+    # Define the nuisance estimands specification
     η_spec_new = NuisanceSpec(
         LinearRegressor(),
         LogisticClassifier(lambda=0.1)
     )
     log_sequence = (
-        (:info, "Fitting the nuisance parameters..."),
+        (:info, "Fitting the nuisance estimands..."),
         (:info, "→ Reusing previous P(T|W)"),
         (:info, "→ Reusing previous Encoder"),
         (:info, "→ Reusing previous E[Y|X]"),
-        (:info, "Targeting the nuisance parameters..."),
+        (:info, "Targeting the nuisance estimands..."),
         (:info, "Done.")
     )
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψnew, η_spec; verbosity=1);
     Ψ₀ = 0.5
-    @test tmle_result.parameter == Ψnew
+    @test tmle_result.estimand == Ψnew
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(cache; target_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)

@@ -5,8 +5,8 @@ using TMLE
 using Serialization
 
 @testset "Test configurations" begin
-    param_file = "parameters_sample.yaml"
-    parameters = [
+    param_file = "estimands_sample.yaml"
+    estimands = [
         IATE(;
             target=:Y1, 
             treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
@@ -22,14 +22,14 @@ using Serialization
         CM(;target=:Y3, treatment=(T3 = "AC", T1 = "CC"), confounders=[:W1], covariates=Symbol[])
     ]
     # Test YAML Serialization
-    parameters_to_yaml(param_file, parameters)
-    new_parameters = parameters_from_yaml(param_file)
-    @test new_parameters == parameters
+    estimands_to_yaml(param_file, estimands)
+    new_estimands = estimands_from_yaml(param_file)
+    @test new_estimands == estimands
     rm(param_file)
     # Test basic Serialization
-    serialize(param_file, parameters)
-    new_parameters = deserialize(param_file)
-    @test new_parameters == parameters
+    serialize(param_file, estimands)
+    new_estimands = deserialize(param_file)
+    @test new_estimands == estimands
     rm(param_file)
 end
 

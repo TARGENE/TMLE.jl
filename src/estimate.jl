@@ -12,7 +12,7 @@ struct ComposedTMLE{T<:AbstractFloat} <: AbstractTMLE
 end
 
 struct TMLEResult{P <: Estimand, T<:AbstractFloat}
-    parameter::P
+    estimand::P
     tmle::ALEstimate{T}
     onestep::ALEstimate{T}
     initial::T

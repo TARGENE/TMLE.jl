@@ -1,11 +1,11 @@
 """
 This structure is used as a cache for:
     - data: data changes
-    - η: The nuisance parameters estimators
-    - Ψ: The parameter of interest
-    - η_spec: The specification of the learning algorithms used to estimate the nuisance parameters
+    - η: The nuisance estimands estimators
+    - Ψ: The estimand of interest
+    - η_spec: The specification of the learning algorithms used to estimate the nuisance estimands
     
-In many cases, if some of those fields do not change, the nuisance parameters do not have to be estimated again hence
+In many cases, if some of those fields do not change, the nuisance estimands do not have to be estimated again hence
 saving computations.
 """
 mutable struct TMLECache
@@ -110,7 +110,7 @@ end
 const TMLE_ARGS_DOCS = """
 # Arguments
 
-- Ψ: The parameter of interest
+- Ψ: The estimand of interest
 - η_spec: The specification for learning `Q_0` and `G_0`
 - dataset: A tabular dataset respecting the Table.jl interface
 - verbosity: The logging level
@@ -139,12 +139,12 @@ Runs TMLE using the provided TMLECache.
 $TMLE_ARGS_DOCS
 """
 function tmle!(cache::TMLECache; verbosity=1, threshold=1e-8, weighted_fluctuation=false)
-    # Initial fit of the nuisance parameters
-    verbosity >= 1 && @info "Fitting the nuisance parameters..."
+    # Initial fit of the nuisance estimands
+    verbosity >= 1 && @info "Fitting the nuisance estimands..."
     TMLE.fit_nuisance!(cache, verbosity=verbosity)
     
     # TMLE step
-    verbosity >= 1 && @info "Targeting the nuisance parameters..."
+    verbosity >= 1 && @info "Targeting the nuisance estimands..."
     tmle_step!(cache, verbosity=verbosity, threshold=threshold, weighted_fluctuation=weighted_fluctuation)
     
     # Estimation results after TMLE
@@ -208,7 +208,7 @@ end
 """
     fit_nuisance!(cache::TMLECache; verbosity=1, mach_cache=false)
     
-Fits the nuisance parameters η on the dataset using the specifications from η_spec
+Fits the nuisance estimands η on the dataset using the specifications from η_spec
 and the variables defined by Ψ.
 """
 function fit_nuisance!(cache::TMLECache; verbosity=1)

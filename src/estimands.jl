@@ -187,7 +187,7 @@ end
 """
     NuisanceSpec(Q, G; H=encoder(), F=Q_model(target_scitype(Q)))
 
-Specification of the nuisance parameters to be learnt.
+Specification of the nuisance estimands to be learnt.
 
 # Arguments:
 
@@ -257,23 +257,23 @@ function param_key(Ψ::Estimand)
 end
 
 """
-    optimize_ordering!(parameters::Vector{<:Estimand})
+    optimize_ordering!(estimands::Vector{<:Estimand})
 
-Reorders the given parameters so that most nuisance parameters fits can be
+Reorders the given estimands so that most nuisance estimands fits can be
 reused. Given the assumed causal graph:
 
 $causal_graph
 
 and the requirements to estimate both p(T|W) and E[Y|W, T, C].
 
-A natural ordering of the parameters in order to save computations is given by the
+A natural ordering of the estimands in order to save computations is given by the
 following variables ordering: (W, T, Y, C)
 """
-optimize_ordering!(parameters::Vector{<:Estimand}) = sort!(parameters, by=param_key)
+optimize_ordering!(estimands::Vector{<:Estimand}) = sort!(estimands, by=param_key)
 
 """
-    optimize_ordering(parameters::Vector{<:Estimand})
+    optimize_ordering(estimands::Vector{<:Estimand})
 
 See [`optimize_ordering!`](@ref)
 """
-optimize_ordering(parameters::Vector{<:Estimand}) = sort(parameters, by=param_key)
+optimize_ordering(estimands::Vector{<:Estimand}) = sort(estimands, by=param_key)

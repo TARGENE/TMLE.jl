@@ -37,7 +37,7 @@ using TMLE
 end
 
 @testset "Test optimize_ordering" begin
-    parameters = [
+    estimands = [
         ATE(
             target=:Y, 
             treatment=(T₁=(case=1, control=0), T₂=(case="AC", control="CC")),
@@ -83,7 +83,7 @@ end
         ),
     ]
     # Non mutating function
-    ordered_parameters = optimize_ordering(parameters)
+    ordered_estimands = optimize_ordering(estimands)
     expected_ordering = [
         ATE(:Y, (T₁ = (case = 1, control = 0),), [:W₁], Symbol[]),
         CM(:Y, (T₁ = 0,), [:W₁], Symbol[]),
@@ -94,10 +94,10 @@ end
         ATE(:Y₂, (T₁ = (case = 1, control = 0), T₂ = (case = "AC", control = "CC")), [:W₁, :W₂], Symbol[]),
         ATE(:Y₂, (T₁ = (case = 0, control = 1), T₂ = (case = "AC", control = "CC")), [:W₁, :W₂], [:C₂])
     ]
-    @test ordered_parameters == expected_ordering
+    @test ordered_estimands == expected_ordering
     # Mutating function
-    optimize_ordering!(parameters)
-    @test parameters == ordered_parameters
+    optimize_ordering!(estimands)
+    @test estimands == ordered_estimands
 end
 
 @testset "Test structs are concrete types" begin

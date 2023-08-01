@@ -8,7 +8,7 @@ using Test
     @test include("double_robustness_iate.jl")
     @test include("3points_interactions.jl")
     @test include("warm_restart.jl")
-    @test include("parameters.jl")
+    @test include("estimands.jl")
     @test include("missing_management.jl")
     @test include("composition.jl")
     @test include("treatment_transformer.jl")

@@ -12,8 +12,8 @@ using MLJGLMInterface: LinearBinaryClassifier
 using MLJLinearModels
 using MLJModels
 
-function test_params_match(parameters, expected_params)
-    for (param, expected_param) in zip(parameters, expected_params)
+function test_params_match(estimands, expected_params)
+    for (param, expected_param) in zip(estimands, expected_params)
         @test typeof(param) == typeof(expected_param)
         @test param.target == expected_param.target
         @test param.treatment == expected_param.treatment

@@ -11,7 +11,7 @@ Super Learner will perform at least as well as its best performing submodel.
 Why is it important for Targeted Learning?
 
 The short answer is that the consistency (convergence in probability) of the targeted 
-estimator depends on the consistency of at least one of the nuisance parameters: ``Q_0`` or ``G_0`` (see [Mathematical setting](@ref) ).
+estimator depends on the consistency of at least one of the nuisance estimands: ``Q_0`` or ``G_0`` (see [Mathematical setting](@ref) ).
 By only using unrealistic models like linear models, we have little chance of satisfying the above criterion.
 Super Learning is a data driven way to leverage a diverse set of models and build the best performing 
 estimator for both ``Q_0`` or ``G_0``.
@@ -176,7 +176,7 @@ nothing # hide
 #=
 ## Targeted estimation
 
-Let us move to the targeted estimation step itself. We define the target parameter (the ATE) and the nuisance parameters specification:
+Let us move to the targeted estimation step itself. We define the target estimand (the ATE) and the nuisance estimands specification:
 =#
 Ψ = ATE(
     target = :Y,

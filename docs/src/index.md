@@ -6,7 +6,7 @@ CurrentModule = TMLE
 
 ## Overview
 
-TMLE.jl is a Julia implementation of the Targeted Minimum Loss-Based Estimation ([TMLE](https://link.springer.com/book/10.1007/978-1-4419-9782-1)) framework. If you are interested in efficient and unbiased estimation of some causal effect, you are in the right place. Since TMLE uses machine-learning methods to estimate nuisance parameters, the present package is based upon [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/). This means that any model respecting the MLJ interface can be used for the estimation of nuisance parameters.
+TMLE.jl is a Julia implementation of the Targeted Minimum Loss-Based Estimation ([TMLE](https://link.springer.com/book/10.1007/978-1-4419-9782-1)) framework. If you are interested in efficient and unbiased estimation of some causal effect, you are in the right place. Since TMLE uses machine-learning methods to estimate nuisance estimands, the present package is based upon [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/). This means that any model respecting the MLJ interface can be used for the estimation of nuisance estimands.
 
 ## Mathematical setting
 
@@ -31,7 +31,7 @@ This graph encodes a factorization of the joint probability distribution $P_0$ t
 P_0(Y, T, W, C) = P_0(Y|T, W, C) \cdot P_0(T|W) \cdot P_0(W) \cdot P_0(C)
 ```
 
-Usually, we don't have much information about $P_0$ and don't want to make unrealistic assumptions, thus we will simply state that $P_0 \in \mathcal{M}$ where $\mathcal{M}$ is the space of all probability distributions. It turns out that most target quantities of interest in causal inference can be expressed as real-valued functions of $P_0$, denoted by: $\Psi:\mathcal{M} \rightarrow \Re$. TMLE works by finding a suitable estimator $\hat{P}_n$ of $P_0$ and then simply substituting it into $\Psi$. Fortunately, it is often non necessary to come up with an estimator of the joint distribution $P_0$, instead only subparts of it are required. Those are called nuisance parameters because they are not of direct interest and for our purposes, only two nuisance parameters are necessary:
+Usually, we don't have much information about $P_0$ and don't want to make unrealistic assumptions, thus we will simply state that $P_0 \in \mathcal{M}$ where $\mathcal{M}$ is the space of all probability distributions. It turns out that most target quantities of interest in causal inference can be expressed as real-valued functions of $P_0$, denoted by: $\Psi:\mathcal{M} \rightarrow \Re$. TMLE works by finding a suitable estimator $\hat{P}_n$ of $P_0$ and then simply substituting it into $\Psi$. Fortunately, it is often non necessary to come up with an estimator of the joint distribution $P_0$, instead only subparts of it are required. Those are called nuisance estimands because they are not of direct interest and for our purposes, only two nuisance estimands are necessary:
 
 ```math
 Q_0(t, w, c) = \mathbb{E}[Y|T=t, W=w, C=c]
@@ -43,7 +43,7 @@ and
 G_0(t, w) = P(T=t|W=w)
 ```
 
-Specifying which machine-learning method to use for each of those nuisance parameter is the only ingredient you will need to run a targeted estimation for any of the following quantities. Those quantities have a causal interpretation under suitable assumptions that we do not discuss here.
+Specifying which machine-learning method to use for each of those nuisance estimand is the only ingredient you will need to run a targeted estimation for any of the following quantities. Those quantities have a causal interpretation under suitable assumptions that we do not discuss here.
 
 ### The Conditional Mean
 
@@ -72,7 +72,7 @@ IATE_{0 \rightarrow 1, 0 \rightarrow 1}(P) = \mathbb{E}[\mathbb{E}[Y|T_1=1, T_2=
 
 ### Any function of the previous Estimands
 
-As a result of Julia's automatic differentiation facilities, given a set of already estimated parameters $(\Psi_1, ..., \Psi_k)$, we can automatically compute an estimator for $f(\Psi_1, ..., \Psi_k)$.
+As a result of Julia's automatic differentiation facilities, given a set of already estimated estimands $(\Psi_1, ..., \Psi_k)$, we can automatically compute an estimator for $f(\Psi_1, ..., \Psi_k)$.
 
 ## Installation
 
@@ -87,8 +87,8 @@ Pkg> add TMLE
 To run an estimation procedure, we need 3 ingredients:
 
 - A dataset
-- A parameter of interest
-- A nuisance parameters specification
+- A estimand of interest
+- A nuisance estimands specification
 
 For instance, assume the following simple data generating process:
 
@@ -137,7 +137,7 @@ Note that in this example the ATE can be computed exactly and is given by:
 ATE_{0 \rightarrow 1}(P_0) = \mathbb{E}[1 + 3 - W] - \mathbb{E}[1] = 3 - \mathbb{E}[W] = 2.5
 ```
 
-We next need to define the strategy for learning the nuisance parameters $Q$ and $G$, here we keep things simple and simply use generalized linear models:
+We next need to define the strategy for learning the nuisance estimands $Q$ and $G$, here we keep things simple and simply use generalized linear models:
 
 ```@example quick-start
 η_spec = NuisanceSpec(

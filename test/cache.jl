@@ -100,14 +100,14 @@ end
     for colname in keys(cache.data[:no_missing])
         cache.data[:no_missing][colname] === cache.data[:source][colname]
     end
-    # Pretend the cache nuisance parameters have been estimated
+    # Pretend the cache nuisance estimands have been estimated
     fakefill!(cache)
     @test cache.η.H !== nothing
     @test cache.η.G !== nothing
     @test cache.η.Q !== nothing
     @test cache.η.F !== nothing
     # New treatment configuration and new confounders set
-    # Nuisance parameters can be reused
+    # Nuisance estimands can be reused
     Ψ = ATE(
         target=:y,
         treatment=(T₁=(case=0, control=1),),
@@ -241,7 +241,7 @@ end
         MLJModels.ConstantRegressor(),
         ConstantClassifier()
     )
-    # Nuisance parameter estimation
+    # Nuisance estimand estimation
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0);
     # The inital estimator for Q is a constant predictor, 
     # its  prediction is the same for each counterfactual

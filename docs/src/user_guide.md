@@ -60,7 +60,7 @@ nothing # hide
 ```
 
 !!! note "Practical note on $Q_0$ and $G_0$"
-    The models chosen for the nuisance parameters should be adapted to the outcome they target:
+    The models chosen for the nuisance estimands should be adapted to the outcome they target:
     - ``Q_0 = \mathbf{E}_0[Y|T=t, W=w, C=c]``, $Y$ can be either continuous or categorical, in our example it is continuous and a `LinearRegressor` is a correct choice.
     - ``G_0 = P_0(T|W)``, $T$ are always categorical variables. If T is a single treatment with only 2 levels, a logistic regression will work, if T has more than two levels a multinomial regression for instance would be suitable. If there are more than 2 treatment variables (with potentially more than 2 levels), then, the joint distribution is learnt and a multinomial regression would also work. In any case, the `LogisticClassifier` from [MLJLinearModels](https://juliaai.github.io/MLJLinearModels.jl/stable/) is a suitable choice.
     For more information on available models and their uses, we refer to the [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/) documentation
@@ -71,7 +71,7 @@ The `NuisanceSpec` struct also holds a specification for the `OneHotEncoder` nec
 
 ### The Conditional mean
 
-We are now ready to move to the definition of the parameters of interest. The most basic type of parameter is the conditional mean of the target given the treatment:
+We are now ready to move to the definition of the estimands of interest. The most basic type of estimand is the conditional mean of the target given the treatment:
 
 ```math
 CM_t(P) = \mathbb{E}[\mathbb{E}[Y|T=t, W]]
@@ -88,7 +88,7 @@ The treatment does not have to be restricted to a single variable, we can define
 nothing # hide
 ```
 
-In this case, we can compute the exact value of the parameter:
+In this case, we can compute the exact value of the estimand:
 
 ```math
 CM_{T_1=1, T_2=1} = 1 + 2\mathbb{E}[W₁] + 3\mathbb{E}[W₂] - 4\mathbb{E}[C₁] - 2\mathbb{E}[W₂] = 0.5
@@ -183,7 +183,7 @@ OneSampleTTest(iate_result.tmle)
 
 ### Composing Estimands
 
-By leveraging the multivariate Central Limit Theorem and Julia's automatic differentiation facilities, we can actually compute any new parameter estimate from a set of already estimated parameters. By default, TMLE.jl will use [Zygote](https://fluxml.ai/Zygote.jl/latest/) but since we are using [AbstractDifferentiation.jl](https://github.com/JuliaDiff/AbstractDifferentiation.jl) you can change the backend to your favorite AD system.
+By leveraging the multivariate Central Limit Theorem and Julia's automatic differentiation facilities, we can actually compute any new estimand estimate from a set of already estimated estimands. By default, TMLE.jl will use [Zygote](https://fluxml.ai/Zygote.jl/latest/) but since we are using [AbstractDifferentiation.jl](https://github.com/JuliaDiff/AbstractDifferentiation.jl) you can change the backend to your favorite AD system.
 
 For instance, by definition of the ATE, we should be able to retrieve ``ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}`` by composing ``CM_{T_1=1, T_2=1} - CM_{T_1=0, T_2=0}``. We already have almost all of the pieces, we just need an estimate for ``CM_{T_1=0, T_2=0}``, let's get it.
 
@@ -216,7 +216,7 @@ var(composed_ate_result), var(ate_result.tmle)
 
 ### Reading Estimands from YAML files
 
-It may be useful to read and write parameters to text files. We provide this functionality using the YAML format and the `parameters_from_yaml` and `parameters_to_yaml` functions. Since YAML is quite sensitive to identation, it is not recommended to write those files by hand. As an illustration, an example of such a file is given below:
+It may be useful to read and write estimands to text files. We provide this functionality using the YAML format and the `estimands_from_yaml` and `estimands_to_yaml` functions. Since YAML is quite sensitive to identation, it is not recommended to write those files by hand. As an illustration, an example of such a file is given below:
 
 ```yaml
 Estimands:
@@ -244,7 +244,7 @@ Estimands:
 
 ## Using the cache
 
-Oftentimes, we are interested in multiple parameters, or would like to investigate how our estimator is affected by changes in the nuisance parameters specification. In many cases, as long as the dataset under study is the same, it is possible to save some computational time by caching the previously learnt nuisance parameters. We describe below how TMLE.jl proposes to do that in some common scenarios. For that purpose let us add a new target variable (which is simply random noise) to our dataset:
+Oftentimes, we are interested in multiple estimands, or would like to investigate how our estimator is affected by changes in the nuisance estimands specification. In many cases, as long as the dataset under study is the same, it is possible to save some computational time by caching the previously learnt nuisance estimands. We describe below how TMLE.jl proposes to do that in some common scenarios. For that purpose let us add a new target variable (which is simply random noise) to our dataset:
 
 ```@example user-guide
 dataset.Ynew = rand(1000)
@@ -253,7 +253,7 @@ nothing # hide
 
 ### Scenario 1: Changing the treatment values
 
-Let us say we are interested in two ATE parameters: ``ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}`` and ``ATE_{T_1=1 \rightarrow 0, T_2=0 \rightarrow 1}`` (Notice how the setting for $T_1$ has changed).
+Let us say we are interested in two ATE estimands: ``ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1}`` and ``ATE_{T_1=1 \rightarrow 0, T_2=0 \rightarrow 1}`` (Notice how the setting for $T_1$ has changed).
 
 Let us start afresh an compute the first ATE:
 
@@ -268,7 +268,7 @@ ate_result₁, cache = tmle(Ψ, η_spec, dataset)
 nothing # hide
 ```
 
-Notice the logs are informing you of all the nuisance parameters that are being fitted.
+Notice the logs are informing you of all the nuisance estimands that are being fitted.
 
 Let us now investigate the second ATE by using the cache:
 
@@ -283,11 +283,11 @@ ate_result₂, cache = tmle!(cache, Ψ)
 nothing # hide
 ```
 
-You should see that the logs are actually now telling you which nuisance parameters have been reused, i.e. all of them, only the targeting step needs to be done! This is because we already had nuisance estimators that matched our target parameter.
+You should see that the logs are actually now telling you which nuisance estimands have been reused, i.e. all of them, only the targeting step needs to be done! This is because we already had nuisance estimators that matched our target estimand.
 
 ### Scenario 2: Changing the target
 
-Let us now imagine that we are interested in another target: $Ynew$, we can say so by defining a new parameter and running the TMLE procedure using the cache:
+Let us now imagine that we are interested in another target: $Ynew$, we can say so by defining a new estimand and running the TMLE procedure using the cache:
 
 ```@example user-guide
 Ψ = ATE(
@@ -300,11 +300,11 @@ ate_result₃, cache = tmle!(cache, Ψ)
 nothing # hide
 ```
 
-As you can see, only $Q$ has been updated because the existing cached $G$ already matches our target parameter and cane be reused.
+As you can see, only $Q$ has been updated because the existing cached $G$ already matches our target estimand and cane be reused.
 
-### Scenario 3: Changing the nuisance parameters specification
+### Scenario 3: Changing the nuisance estimands specification
 
-Another common situation is to try a new model for a given nuisance parameter (or both). Here we can try a new regularization parameter for our logistic regression:
+Another common situation is to try a new model for a given nuisance estimand (or both). Here we can try a new regularization estimand for our logistic regression:
 
 ```@example user-guide
 η_spec = NuisanceSpec(
@@ -321,4 +321,4 @@ Since we have only updated $G$'s specification, only this model is fitted again.
 ### General behaviour
 
 Any change to either the `Estimand` of interest or the `NuisanceSpec` structures will trigger an update of the cache. If you have a predefined
-list of parameters to estimate, you can optimize the estimation order of those parameters by calling `optimize_ordering!` or `optimize_ordering`. This will order the parameters in order to save the number of required nuisance parameters fits.
+list of estimands to estimate, you can optimize the estimation order of those estimands by calling `optimize_ordering!` or `optimize_ordering`. This will order the estimands in order to save the number of required nuisance estimands fits.

@@ -28,14 +28,14 @@ export NuisanceSpec, TMLECache, update!, CM, ATE, IATE
 export tmle, tmle!
 export var, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
-export parameters_from_yaml, parameters_to_yaml, optimize_ordering, optimize_ordering!
+export estimands_from_yaml, estimands_to_yaml, optimize_ordering, optimize_ordering!
 
 # #############################################################################
 # INCLUDES
 # #############################################################################
 
 include("treatment_transformer.jl")
-include("parameters.jl")
+include("estimands.jl")
 include("utils.jl")
 include("cache.jl")
 include("estimate.jl")
@@ -77,7 +77,7 @@ function run_precompile_workload()
                 LinearBinaryClassifier()
             )
             r, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
-            continuous_parameters = [
+            continuous_estimands = [
                 ATE(
                     target =:Y₁,
                     treatment=(T₁=(case=true, control=false),),
@@ -92,12 +92,12 @@ function run_precompile_workload()
                 # )
             ]
             cache = TMLECache(dataset)
-            for Ψ in continuous_parameters
+            for Ψ in continuous_estimands
                 tmle!(cache, Ψ, η_spec, verbosity=0)
             end
 
             # Precompiling with a binary target
-            binary_parameters = [
+            binary_estimands = [
                 ATE(
                     target =:Y₂,
                     treatment=(T₁=(case=true, control=false),),
@@ -116,7 +116,7 @@ function run_precompile_workload()
                 LinearBinaryClassifier()
             )
 
-            for Ψ in binary_parameters
+            for Ψ in binary_estimands
                 tmle!(cache, Ψ, η_spec, verbosity=0)
             end
 
