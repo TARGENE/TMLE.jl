@@ -5,7 +5,7 @@ const causal_graph = """
 
 ## Notation:
 
-- Y: target
+- Y: outcome
 - T: treatment
 - W: confounders
 - C: covariates
@@ -36,29 +36,29 @@ Mathematical definition:
 $causal_graph
 
 # Fields:
-    - target: A symbol identifying the target variable of interest
+    - outcome: A symbol identifying the outcome variable of interest
     - treatment: A NamedTuple linking each treatment variable to a value
-    - confounders: Confounding variables affecting both the target and the treatment
-    - covariates: Optional extra variables affecting the target only
+    - confounders: Confounding variables affecting both the outcome and the treatment
+    - covariates: Optional extra variables affecting the outcome only
 
 # Examples:
 ```julia
 CM₁ = CM(
-    target=:Y₁,
+    outcome=:Y₁,
     treatment=(T₁=1,),
     confounders=[:W₁, :W₂],
     covariates=[:C₁]
 )
 
 CM₂ = CM(
-    target=:Y₂,
+    outcome=:Y₂,
     treatment=(T₁=1, T₂="A"),
     confounders=[:W₁],
 )
 ```
 """
 @option struct CM <: Estimand
-    target::Symbol
+    outcome::Symbol
     treatment::NamedTuple
     confounders::Vector{Symbol}
     covariates::Vector{Symbol} = Symbol[]
@@ -80,29 +80,29 @@ Mathematical definition:
 $causal_graph
 
 # Fields:
-    - target: A symbol identifying the target variable of interest
+    - outcome: A symbol identifying the outcome variable of interest
     - treatment: A NamedTuple linking each treatment variable to case/control values
-    - confounders: Confounding variables affecting both the target and the treatment
-    - covariates: Optional extra variables affecting the target only
+    - confounders: Confounding variables affecting both the outcome and the treatment
+    - covariates: Optional extra variables affecting the outcome only
 
 # Examples:
 ```julia
 ATE₁ = ATE(
-    target=:Y₁,
+    outcome=:Y₁,
     treatment=(T₁=(case=1, control=0),),
     confounders=[:W₁, :W₂],
     covariates=[:C₁]
 )
 
 ATE₂ = ATE(
-    target=:Y₂,
+    outcome=:Y₂,
     treatment=(T₁=(case=1, control=0), T₂=(case="A", control="B")),
     confounders=[:W₁],
 )
 ```
 """
 @option struct ATE <: Estimand
-    target::Symbol
+    outcome::Symbol
     treatment::NamedTuple
     confounders::Vector{Symbol}
     covariates::Vector{Symbol} = Symbol[]
@@ -125,22 +125,22 @@ Mathematical definition for pairwise interaction:
 $causal_graph
 
 # Fields:
-    - target: A symbol identifying the target variable of interest
+    - outcome: A symbol identifying the outcome variable of interest
     - treatment: A NamedTuple linking each treatment variable to case/control values
-    - confounders: Confounding variables affecting both the target and the treatment
-    - covariates: Optional extra variables affecting the target only
+    - confounders: Confounding variables affecting both the outcome and the treatment
+    - covariates: Optional extra variables affecting the outcome only
 
 # Examples:
 ```julia
 IATE₁ = IATE(
-    target=:Y₁,
+    outcome=:Y₁,
     treatment=(T₁=(case=1, control=0), T₂=(case="A", control="B")),
     confounders=[:W₁],
 )
 ```
 """
 @option struct IATE <: Estimand
-    target::Symbol
+    outcome::Symbol
     treatment::NamedTuple
     confounders::Vector{Symbol}
     covariates::Vector{Symbol} = Symbol[]
@@ -215,8 +215,8 @@ covariates(dataset, Ψ) = selectcols(dataset, covariates(Ψ))
 treatments(Ψ::Estimand) = collect(keys(Ψ.treatment))
 treatments(dataset, Ψ) = selectcols(dataset, treatments(Ψ))
 
-target(Ψ::Estimand) = Ψ.target
-target(dataset, Ψ) = Tables.getcolumn(dataset, target(Ψ))
+outcome(Ψ::Estimand) = Ψ.outcome
+outcome(dataset, Ψ) = Tables.getcolumn(dataset, outcome(Ψ))
 
 treatment_and_confounders(Ψ::Estimand) = vcat(confounders(Ψ), treatments(Ψ))
 
@@ -232,7 +232,7 @@ Qinputs(H, dataset, Ψ::Estimand) = merge(
     )
 
 
-allcolumns(Ψ::Estimand) = vcat(confounders_and_covariates(Ψ), treatments(Ψ), target(Ψ))
+allcolumns(Ψ::Estimand) = vcat(confounders_and_covariates(Ψ), treatments(Ψ), outcome(Ψ))
 
 F_model(::Type{<:AbstractVector{<:MLJBase.Continuous}}) =
     LinearRegressor(fit_intercept=false, offsetcol = :offset)
@@ -251,7 +251,7 @@ function param_key(Ψ::Estimand)
     return (
         join(Ψ.confounders, "_"),
         join(keys(Ψ.treatment), "_"),
-        string(Ψ.target),
+        string(Ψ.outcome),
         join(Ψ.covariates, "_")
     )
 end

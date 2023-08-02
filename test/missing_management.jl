@@ -43,13 +43,13 @@ end
 @testset "Test estimation with missing values and ordered factor treatment" begin
     dataset = dataset_with_missing_and_ordered_treatment(;n=1000)
     Ψ = ATE(
-        target=:y, 
+        outcome=:y, 
         confounders=[:W], 
         treatment=(T=(case=1, control=0),))
     η_spec = NuisanceSpec(LinearRegressor(), LogisticClassifier(lambda=0))
     tmle_result, cache = tmle(Ψ, η_spec, dataset; verbosity=0)
     test_coverage(tmle_result, 1)
-    test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_decreases_risk(cache; outcome_name=:y)
 end
 
 end

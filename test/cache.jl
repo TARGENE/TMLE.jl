@@ -49,13 +49,13 @@ end
 @testset "Test check_treatment_values" begin
     cache = fakecache()
     Ψ = ATE(
-        target=:y,
+        outcome=:y,
         treatment=(T₁=(case=1, control=0),),
         confounders=[:W₁],
     )
     TMLE.check_treatment_values(cache, Ψ)
     Ψ = ATE(
-        target=:y,
+        outcome=:y,
         treatment=(
             T₁=(case=1, control=0), 
             T₂=(case=true, control=false),),
@@ -66,7 +66,7 @@ end
             " in the dataset: [\"0\", \"1\"]")) TMLE.check_treatment_values(cache, Ψ)
 
     Ψ = CM(
-        target=:y,
+        outcome=:y,
         treatment=(T₃="CT",),
         confounders=[:W₁],
     )
@@ -79,7 +79,7 @@ end
     @test !isdefined(cache, :η_spec)
 
     Ψ = ATE(
-        target=:y,
+        outcome=:y,
         treatment=(T₁=(case=1, control=0),),
         confounders=[:W₁],
         covariates=[:C₁]
@@ -109,7 +109,7 @@ end
     # New treatment configuration and new confounders set
     # Nuisance estimands can be reused
     Ψ = ATE(
-        target=:y,
+        outcome=:y,
         treatment=(T₁=(case=0, control=1),),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -124,11 +124,11 @@ end
         @test length(cache.data[:no_missing][colname]) == 8
     end
 
-    # Change the target
+    # Change the outcome
     # E[Y|X] must be refit
     fakefill!(cache)
     Ψ = ATE(
-        target=:ynew,
+        outcome=:ynew,
         treatment=(T₁=(case=0, control=1),),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -147,7 +147,7 @@ end
     # E[Y|X] must be refit
     fakefill!(cache)
     Ψ = ATE(
-        target=:ynew,
+        outcome=:ynew,
         treatment=(T₁=(case=0, control=1),),
         confounders=[:W₁, :W₂],
     )
@@ -162,7 +162,7 @@ end
     # only F needs refit
     fakefill!(cache)
     Ψ = ATE(
-        target=:ynew,
+        outcome=:ynew,
         treatment=(T₁=(case=1, control=0),),
         confounders=[:W₁, :W₂],
     )
@@ -177,7 +177,7 @@ end
     # all η must be refit
     fakefill!(cache)
     Ψ = ATE(
-        target=:ynew,
+        outcome=:ynew,
         treatment=(T₂=(case=1, control=0),),
         confounders=[:W₁, :W₂],
     )
@@ -192,7 +192,7 @@ end
 @testset "Test update!(cache, η_spec)" begin
     cache = fakecache()
     Ψ = ATE(
-        target=:y,
+        outcome=:y,
         treatment=(T₁=(case=1, control=0),),
         confounders=[:W₁],
         covariates=[:C₁]
@@ -233,7 +233,7 @@ end
     n=100
     dataset = naive_dataset(;n=n)
     Ψ = ATE(
-        target = :y,
+        outcome = :y,
         treatment = (T=(case=1, control=0),),
         confounders = [:W]
     )

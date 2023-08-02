@@ -17,7 +17,7 @@ include("helper_fns.jl")
 """
 Q and G are two logistic models
 """
-function binary_target_binary_treatment_pb(;n=100)
+function binary_outcome_binary_treatment_pb(;n=100)
     rng = StableRNG(123)
     p_w() = 0.3
     pa_given_w(w) = 1 ./ (1 .+ exp.(-0.5w .+ 1))
@@ -44,7 +44,7 @@ end
 From https://www.degruyter.com/document/doi/10.2202/1557-4679.1043/html
 The theoretical ATE is 1
 """
-function continuous_target_binary_treatment_pb(;n=100)
+function continuous_outcome_binary_treatment_pb(;n=100)
     rng = StableRNG(123)
     Unif = Uniform(0, 1)
     W = float(rand(rng, Bernoulli(0.5), n, 3))
@@ -56,7 +56,7 @@ function continuous_target_binary_treatment_pb(;n=100)
     return (T = T, W₁ = W₁, W₂ = W₂, W₃ = W₃, y = y), 4
 end
 
-function continuous_target_categorical_treatment_pb(;n=100, control="TT", case="AA")
+function continuous_outcome_categorical_treatment_pb(;n=100, control="TT", case="AA")
     rng = StableRNG(123)
     ft(T) = (T .== "AA") - (T .== "AT") + 2(T .== "TT")
     fw(W₁, W₂, W₃) = 2W₁ + 3W₂ - 4W₃
@@ -102,7 +102,7 @@ end
     cache = TMLECache(dataset)
     # Test first ATE, only T₁ treatment varies 
     Ψ = ATE(
-        target      = :y,
+        outcome      = :y,
         treatment   = (T₁=(case=1., control=0.), T₂=(case=1., control=1.)),
         confounders = [:W₁, :W₂]
     )
@@ -113,7 +113,7 @@ end
     )
     tmle_result, cache = tmle!(cache, Ψ, η_spec, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₁)
-    test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_decreases_risk(cache; outcome_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
     test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # When Q is well specified but G is misspecified
@@ -123,18 +123,18 @@ end
     )
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₁)
-    test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_decreases_risk(cache; outcome_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Test second ATE, two treatment varies 
     Ψ = ATE(
-        target      = :y,
+        outcome      = :y,
         treatment   = (T₁=(case=1., control=0.), T₂=(case=1., control=0.)),
         confounders = [:W₁, :W₂]
     )
     tmle_result, cache = tmle!(cache, Ψ, η_spec, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_decreases_risk(cache; outcome_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
     test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # When Q is well specified but G is misspecified
@@ -144,14 +144,14 @@ end
     )
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_decreases_risk(cache; outcome_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
-@testset "Test Double Robustness ATE on continuous_target_categorical_treatment_pb" begin
-    dataset, Ψ₀ = continuous_target_categorical_treatment_pb(;n=10_000, control="TT", case="AA")
+@testset "Test Double Robustness ATE on continuous_outcome_categorical_treatment_pb" begin
+    dataset, Ψ₀ = continuous_outcome_categorical_treatment_pb(;n=10_000, control="TT", case="AA")
     Ψ = ATE(
-        target      = :y,
+        outcome      = :y,
         treatment   = (T=(case="AA", control="TT"),),
         confounders = [:W₁, :W₂, :W₃]
         )
@@ -163,7 +163,7 @@ end
     cache = TMLECache(dataset)
     tmle_result, cache = tmle!(cache, Ψ, η_spec, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_decreases_risk(cache; outcome_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
     test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
@@ -177,14 +177,14 @@ end
 
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache, target_name=:y)
+    test_fluct_decreases_risk(cache, outcome_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
-@testset "Test Double Robustness ATE on binary_target_binary_treatment_pb" begin
-    dataset, Ψ₀ = binary_target_binary_treatment_pb(;n=10_000)
+@testset "Test Double Robustness ATE on binary_outcome_binary_treatment_pb" begin
+    dataset, Ψ₀ = binary_outcome_binary_treatment_pb(;n=10_000)
     Ψ = ATE(
-        target = :y,
+        outcome = :y,
         treatment = (T=(case=true, control=false),),
         confounders = [:W]
     )
@@ -195,7 +195,7 @@ end
     )
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_decreases_risk(cache; outcome_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-6)
     test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
@@ -208,15 +208,15 @@ end
     )
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_decreases_risk(cache; outcome_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-6)
 end
 
 
-@testset "Test Double Robustness ATE on continuous_target_binary_treatment_pb" begin
-    dataset, Ψ₀ = continuous_target_binary_treatment_pb(n=10_000)
+@testset "Test Double Robustness ATE on continuous_outcome_binary_treatment_pb" begin
+    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=10_000)
     Ψ = ATE(
-        target      = :y,
+        outcome      = :y,
         treatment   = (T=(case=true, control=false),),
         confounders = [:W₁, :W₂, :W₃]
     )
@@ -228,7 +228,7 @@ end
 
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_decreases_risk(cache; outcome_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
     test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
@@ -241,7 +241,7 @@ end
     )
     tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
+    test_fluct_decreases_risk(cache; outcome_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 

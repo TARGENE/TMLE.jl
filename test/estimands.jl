@@ -15,10 +15,10 @@ using TMLE
     Ψ = CM(
         treatment=(T₁=1,),
         confounders=[:W₁, :W₂],
-        target =:y
+        outcome =:y
         )
     @test TMLE.treatments(Ψ) == [:T₁]
-    @test TMLE.target(Ψ) == :y
+    @test TMLE.outcome(Ψ) == :y
     @test TMLE.treatment_and_confounders(Ψ) == [:W₁, :W₂, :T₁]
     @test TMLE.confounders_and_covariates(Ψ) == [:W₁, :W₂]
     @test TMLE.allcolumns(Ψ) == [:W₁, :W₂, :T₁, :y]
@@ -26,11 +26,11 @@ using TMLE
     Ψ = CM(
         treatment=(T₁=1,),
         confounders=[:W₁, :W₂],
-        target =:y,
+        outcome =:y,
         covariates=[:C₁]
         )
     @test TMLE.treatments(Ψ) == [:T₁]
-    @test TMLE.target(Ψ) == :y
+    @test TMLE.outcome(Ψ) == :y
     @test TMLE.treatment_and_confounders(Ψ) == [:W₁, :W₂, :T₁]
     @test TMLE.confounders_and_covariates(Ψ) == [:W₁, :W₂, :C₁]
     @test TMLE.allcolumns(Ψ) == [:W₁, :W₂, :C₁, :T₁, :y]
@@ -39,44 +39,44 @@ end
 @testset "Test optimize_ordering" begin
     estimands = [
         ATE(
-            target=:Y, 
+            outcome=:Y, 
             treatment=(T₁=(case=1, control=0), T₂=(case="AC", control="CC")),
             confounders=[:W₁, :W₂]
         ),
         ATE(
-            target=:Y, 
+            outcome=:Y, 
             treatment=(T₁=(case=1, control=0),),
             confounders=[:W₁]
         ),
         ATE(
-            target=:Y₂, 
+            outcome=:Y₂, 
             treatment=(T₁=(case=1, control=0), T₂=(case="AC", control="CC")),
             confounders=[:W₁, :W₂],
         ),
         CM(
-            target=:Y, 
+            outcome=:Y, 
             treatment=(T₁=0,),
             confounders=[:W₁],
             covariates=[:C₁]
         ),
         IATE(
-            target=:Y, 
+            outcome=:Y, 
             treatment=(T₁=(case=1, control=0), T₂=(case="AC", control="CC")),
             confounders=[:W₁, :W₂]
         ),
         CM(
-            target=:Y, 
+            outcome=:Y, 
             treatment=(T₁=0,),
             confounders=[:W₁]
         ),
         ATE(
-            target=:Y₂, 
+            outcome=:Y₂, 
             treatment=(T₁=(case=1, control=0),),
             confounders=[:W₁],
             covariates=[:C₁]
         ),
         ATE(
-            target=:Y₂, 
+            outcome=:Y₂, 
             treatment=(T₁=(case=0, control=1), T₂=(case="AC", control="CC")),
             confounders=[:W₁, :W₂],
             covariates=[:C₂]

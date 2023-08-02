@@ -8,18 +8,18 @@ using Serialization
     param_file = "estimands_sample.yaml"
     estimands = [
         IATE(;
-            target=:Y1, 
+            outcome=:Y1, 
             treatment=(T2 = (case = 1, control = 0), T1 = (case = 1, control = 0)), 
             confounders=[:W1, :W2], 
             covariates=Symbol[:C1]
         ),
         ATE(;
-            target=:Y3, 
+            outcome=:Y3, 
             treatment=(T3 = (case = 1, control = 0), T1 = (case = "AC", control = "CC")), 
             confounders=[:W1], 
             covariates=Symbol[]
         ),
-        CM(;target=:Y3, treatment=(T3 = "AC", T1 = "CC"), confounders=[:W1], covariates=Symbol[])
+        CM(;outcome=:Y3, treatment=(T3 = "AC", T1 = "CC"), confounders=[:W1], covariates=Symbol[])
     ]
     # Test YAML Serialization
     estimands_to_yaml(param_file, estimands)

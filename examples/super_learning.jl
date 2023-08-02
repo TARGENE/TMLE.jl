@@ -179,7 +179,7 @@ nothing # hide
 Let us move to the targeted estimation step itself. We define the target estimand (the ATE) and the nuisance estimands specification:
 =#
 Ψ = ATE(
-    target = :Y,
+    outcome = :Y,
     treatment = (T=(case=true, control=false),),
     confounders = [:W₁, :W₂]
 )

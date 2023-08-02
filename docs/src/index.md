@@ -47,7 +47,7 @@ Specifying which machine-learning method to use for each of those nuisance estim
 
 ### The Conditional Mean
 
-This is simply the expected value of the target $Y$ when the treatment is set to $t$.
+This is simply the expected value of the outcome $Y$ when the treatment is set to $t$.
 
 ```math
 CM_t(P) = \mathbb{E}[\mathbb{E}[Y|T=t, W]]
@@ -124,7 +124,7 @@ And say we are interested in the $ATE_{0 \rightarrow 1}(P_0)$:
 
 ```@example quick-start
 Ψ = ATE(
-    target      = :Y,
+    outcome      = :Y,
     treatment   = (T=(case=true, control = false),),
     confounders = [:W]
 )

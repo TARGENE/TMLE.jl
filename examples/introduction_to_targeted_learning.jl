@@ -202,20 +202,20 @@ function counterfactualX(dataset, features, height)
     end
 end
 
-results = DataFrame(height_high=[], height_low=[], target=[], features=[], estimate=[])
-for target in (:mean_score, :max_score)
+results = DataFrame(height_high=[], height_low=[], outcome=[], features=[], estimate=[])
+for outcome in (:mean_score, :max_score)
     for features in [[:height, :sex], [:height]]
         mach = machine(
             Q̂_spec, 
             dataset[!, features], 
-            dataset[!, target]
+            dataset[!, outcome]
         )
         fit!(mach, verbosity=0)
         for (low, high) in zip(height_buckets[1:end-1], height_buckets[2:end])
             X_high =  counterfactualX(dataset, features, high) 
             X_low = counterfactualX(dataset, features, low) 
             estimate = naive_estimate(mach, X_high, X_low)
-            push!(results, (high, low, target, join(features, :_), estimate))
+            push!(results, (high, low, outcome, join(features, :_), estimate))
         end
     end
 end

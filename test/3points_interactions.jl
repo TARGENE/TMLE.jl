@@ -28,7 +28,7 @@ end
 @testset "Test 3-points interactions" begin
     dataset, Ψ₀ = make_dataset(;n=1000)
     Ψ = IATE(
-        target      = :y,
+        outcome      = :y,
         confounders = [:W],
         treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false), T₃=(case=1, control=0))
     )
@@ -39,7 +39,7 @@ end
 
     tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache, target_name=:y)
+    test_fluct_decreases_risk(cache, outcome_name=:y)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     tmle_result, _ = tmle!(cache, verbosity=0, weighted_fluctuation=true)

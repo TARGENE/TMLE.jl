@@ -15,7 +15,7 @@ using MLJModels
 function test_params_match(estimands, expected_params)
     for (param, expected_param) in zip(estimands, expected_params)
         @test typeof(param) == typeof(expected_param)
-        @test param.target == expected_param.target
+        @test param.outcome == expected_param.outcome
         @test param.treatment == expected_param.treatment
         @test param.confounders == expected_param.confounders
         @test param.covariates == expected_param.covariates
@@ -41,7 +41,7 @@ end
 @testset "Test indicator_fns" begin
     # Conditional Mean
     Ψ = CM(
-        target=:y, 
+        outcome=:y, 
         treatment=(T₁="A", T₂=1),
         confounders=[:W]
     )
@@ -49,7 +49,7 @@ end
     @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict{String, Float64}("A_&_1" => 1)
     # ATE
     Ψ = ATE(
-        target=:y, 
+        outcome=:y, 
         treatment=(T₁=(case="A", control="B"), T₂=(control=0, case=1)),
         confounders=[:W]
     )
@@ -59,7 +59,7 @@ end
     )
     # 2-points IATE
     Ψ = IATE(
-        target=:y, 
+        outcome=:y, 
         treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0)),
         confounders=[:W]
     )
@@ -71,7 +71,7 @@ end
     )
     # 3-points IATE
     Ψ = IATE(
-        target=:y, 
+        outcome=:y, 
         treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0), T₃=(control="D", case="C")),
         confounders=[:W]
     )
@@ -167,7 +167,7 @@ end
     fit!(Gmach, verbosity=0)
 
     Ψ = ATE(
-        target =:y, 
+        outcome =:y, 
         treatment=(t₁=(case="a", control="b"),),
         confounders = [:x1, :x2, :x3]
     )
@@ -193,7 +193,7 @@ end
                     jointT)
     fit!(Gmach, verbosity=0)
     Ψ = IATE(
-        target =:y, 
+        outcome =:y, 
         treatment=(t₁=(case=1, control=0), t₂=(case=1, control=0)),
         confounders = [:x1, :x2, :x3]
     )
@@ -222,7 +222,7 @@ end
                     jointT)
     fit!(Gmach, verbosity=0)
     Ψ = IATE(
-        target =:y, 
+        outcome =:y, 
         treatment=(t₁=(case="a", control="b"), 
                    t₂=(case=1, control=2), 
                    t₃=(case=true, control=false)),

@@ -17,7 +17,7 @@ using MLJGLMInterface
         data[!, col] = float(data[!, col])
     end
     Ψ = ATE(
-        target=:haz01,
+        outcome=:haz01,
         treatment = (parity01=(case=1, control=0),),
         confounders = confounders
     )

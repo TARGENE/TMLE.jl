@@ -4,24 +4,24 @@ using MLJBase
 using CategoricalArrays
 
 """
-The risk for continuous targets is the MSE
+The risk for continuous outcomes is the MSE
 """
 risk(ŷ, y) = rmse(TMLE.expected_value(ŷ), y)
 
 """
-The risk for binary targets is the LogLoss
+The risk for binary outcomes is the LogLoss
 """
 risk(ŷ, y::CategoricalArray) = mean(log_loss(ŷ, y))
 
 """
-    test_fluct_decreases_risk(cache; target_name::Symbol=nothing)
+    test_fluct_decreases_risk(cache; outcome_name::Symbol=nothing)
 
 The fluctuation is supposed to decrease the risk as its objective function is the risk itself.
 It seems that sometimes this is not entirely true in practice, so the test actually checks that it does not
 increase risk more than tol
 """
-function test_fluct_decreases_risk(cache; target_name::Symbol=nothing, atol=1e-6)
-    y = cache.data[:no_missing][target_name]
+function test_fluct_decreases_risk(cache; outcome_name::Symbol=nothing, atol=1e-6)
+    y = cache.data[:no_missing][outcome_name]
     initial_risk = risk(cache.data[:Q₀], y)
     fluct_risk = risk(cache.data[:Qfluct], y)
     @test initial_risk >= fluct_risk || isapprox(initial_risk, fluct_risk, atol=atol)

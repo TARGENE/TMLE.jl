@@ -21,7 +21,7 @@ function make_dataset(;n=100)
 end
 
 basicCM(val) = CM(
-    target = :y,
+    outcome = :y,
     treatment = (T=val,),
     confounders = [:W]
 )
@@ -51,7 +51,7 @@ end
 
     # Via ATE
     ATE₁₀ = ATE(
-        target = :y,
+        outcome = :y,
         treatment = (T=(case=1, control=0),),
         confounders = [:W] 
     )

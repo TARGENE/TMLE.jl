@@ -71,7 +71,7 @@ The `NuisanceSpec` struct also holds a specification for the `OneHotEncoder` nec
 
 ### The Conditional mean
 
-We are now ready to move to the definition of the estimands of interest. The most basic type of estimand is the conditional mean of the target given the treatment:
+We are now ready to move to the definition of the estimands of interest. The most basic type of estimand is the conditional mean of the outcome given the treatment:
 
 ```math
 CM_t(P) = \mathbb{E}[\mathbb{E}[Y|T=t, W]]
@@ -81,7 +81,7 @@ The treatment does not have to be restricted to a single variable, we can define
 
 ```@example user-guide
 Ψ = CM(
-    target      = :Y,
+    outcome      = :Y,
     treatment   = (T₁=true, T₂=true),
     confounders = [:W₁, :W₂]
 )
@@ -142,7 +142,7 @@ Let's see what the TMLE tells us:
 
 ```@example user-guide
 Ψ = ATE(
-    target      = :Y,
+    outcome      = :Y,
     treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
     confounders = [:W₁, :W₂]
 )
@@ -171,7 +171,7 @@ and run:
 
 ```@example user-guide
 Ψ = IATE(
-    target      = :Y,
+    outcome      = :Y,
     treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
     confounders = [:W₁, :W₂]
 )
@@ -189,7 +189,7 @@ For instance, by definition of the ATE, we should be able to retrieve ``ATE_{T_1
 
 ```@example user-guide
 Ψ = CM(
-    target      = :Y,
+    outcome      = :Y,
     treatment   = (T₁=false, T₂=false),
     confounders = [:W₁, :W₂]
 )
@@ -220,7 +220,7 @@ It may be useful to read and write estimands to text files. We provide this func
 
 ```yaml
 Estimands:
-  - target: Y1
+  - outcome: Y1
     treatment: (T2 = (case = 1, control = 0), T1 = (case = 1, control = 0))
     confounders:
       - W1
@@ -228,13 +228,13 @@ Estimands:
     covariates:
       - C1
     type: IATE
-  - target: Y3
+  - outcome: Y3
     treatment: (T3 = (case = 1, control = 0), T1 = (case = "AC", control = "CC"))
     confounders:
       - W1
     covariates: []
     type: ATE
-  - target: Y3
+  - outcome: Y3
     treatment: (T3 = "AC", T1 = "CC")
     confounders:
       - W1
@@ -244,7 +244,7 @@ Estimands:
 
 ## Using the cache
 
-Oftentimes, we are interested in multiple estimands, or would like to investigate how our estimator is affected by changes in the nuisance estimands specification. In many cases, as long as the dataset under study is the same, it is possible to save some computational time by caching the previously learnt nuisance estimands. We describe below how TMLE.jl proposes to do that in some common scenarios. For that purpose let us add a new target variable (which is simply random noise) to our dataset:
+Oftentimes, we are interested in multiple estimands, or would like to investigate how our estimator is affected by changes in the nuisance estimands specification. In many cases, as long as the dataset under study is the same, it is possible to save some computational time by caching the previously learnt nuisance estimands. We describe below how TMLE.jl proposes to do that in some common scenarios. For that purpose let us add a new outcome variable (which is simply random noise) to our dataset:
 
 ```@example user-guide
 dataset.Ynew = rand(1000)
@@ -259,7 +259,7 @@ Let us start afresh an compute the first ATE:
 
 ```@example user-guide
 Ψ = ATE(
-    target      = :Y,
+    outcome      = :Y,
     treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
     confounders = [:W₁, :W₂]
 )
@@ -274,7 +274,7 @@ Let us now investigate the second ATE by using the cache:
 
 ```@example user-guide
 Ψ = ATE(
-    target      = :Y,
+    outcome      = :Y,
     treatment   = (T₁=(case=false, control=true), T₂=(case=true, control=false)),
     confounders = [:W₁, :W₂]
 )
@@ -283,15 +283,15 @@ ate_result₂, cache = tmle!(cache, Ψ)
 nothing # hide
 ```
 
-You should see that the logs are actually now telling you which nuisance estimands have been reused, i.e. all of them, only the targeting step needs to be done! This is because we already had nuisance estimators that matched our target estimand.
+You should see that the logs are actually now telling you which nuisance estimands have been reused, i.e. all of them, only the targeting step needs to be done! This is because we already had nuisance estimators that matched our outcome estimand.
 
-### Scenario 2: Changing the target
+### Scenario 2: Changing the outcome
 
-Let us now imagine that we are interested in another target: $Ynew$, we can say so by defining a new estimand and running the TMLE procedure using the cache:
+Let us now imagine that we are interested in another outcome: $Ynew$, we can say so by defining a new estimand and running the TMLE procedure using the cache:
 
 ```@example user-guide
 Ψ = ATE(
-    target      = :Ynew,
+    outcome      = :Ynew,
     treatment   = (T₁=(case=true, control=false), T₂=(case=true, control=false)),
     confounders = [:W₁, :W₂]
 )

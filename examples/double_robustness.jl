@@ -154,7 +154,7 @@ that we now have full coverage of the ground truth.
 
 function tmle_inference(data)
     Ψ = ATE(
-        target=:Y, 
+        outcome=:Y, 
         treatment=(Tcat=(case=1.0, control=0.0),), 
         confounders=[:W]
     )

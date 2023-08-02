@@ -30,7 +30,7 @@ function build_dataset(;n=100)
     # Treatment | Confounders
     T₁ = rand(rng, Uniform(), n) .< logistic.(0.5sin.(W₁) .- 1.5W₂)
     T₂ = rand(rng, Uniform(), n) .< logistic.(-3W₁ - 1.5W₂)
-    # target | Confounders, Covariates, Treatments
+    # outcome | Confounders, Covariates, Treatments
     y₁ = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .+ T₁ + T₂.*W₂ .+ rand(rng, Normal(0, 0.1), n)
     y₂ = 1 .+ 10T₂ .+ rand(rng, Normal(0, 0.1), n)
     y₃ = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .- 2T₂.*T₁.*W₂ .+ rand(rng, Normal(0, 0.1), n)
@@ -52,7 +52,7 @@ table_types = (Tables.columntable, DataFrame)
     dataset = tt(build_dataset(;n=50_000))
     # Define the estimand of interest
     Ψ = ATE(
-        target=:y₁,
+        outcome=:y₁,
         treatment=(T₁=(case=true, control=false),),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -76,13 +76,13 @@ table_types = (Tables.columntable, DataFrame)
     Ψ₀ = -1
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_fluct_decreases_risk(cache; outcome_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Update the treatment specification
     # Nuisance estimands should not fitted again
     Ψ = ATE(
-        target=:y₁,
+        outcome=:y₁,
         treatment=(T₁=(case=false, control=true),),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -99,12 +99,12 @@ table_types = (Tables.columntable, DataFrame)
     Ψ₀ = 1
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_fluct_decreases_risk(cache; outcome_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Remove the covariate variable, this will trigger the refit of Q
     Ψ = ATE(
-        target=:y₁,
+        outcome=:y₁,
         treatment=(T₁=(case=true, control=false),),
         confounders=[:W₁, :W₂],
     )
@@ -120,13 +120,13 @@ table_types = (Tables.columntable, DataFrame)
     Ψ₀ = -1
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_fluct_decreases_risk(cache; outcome_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Change the treatment
     # This will trigger the refit of all η
     Ψ = ATE(
-        target=:y₁,
+        outcome=:y₁,
         treatment=(T₂=(case=true, control=false),),
         confounders=[:W₁, :W₂],
     )
@@ -142,7 +142,7 @@ table_types = (Tables.columntable, DataFrame)
     Ψ₀ = 0.5
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_fluct_decreases_risk(cache; outcome_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Remove a confounding variable
@@ -150,7 +150,7 @@ table_types = (Tables.columntable, DataFrame)
     # Since we are not accounting for all confounders 
     # we can't have ground truth coverage on this setting
     Ψ = ATE(
-        target=:y₁,
+        outcome=:y₁,
         treatment=(T₂=(case=true, control=false),),
         confounders=[:W₁],
     )
@@ -166,10 +166,10 @@ table_types = (Tables.columntable, DataFrame)
     @test tmle_result.estimand == Ψ
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
-    # Change the target
+    # Change the outcome
     # This will trigger the refit of Q only
     Ψ = ATE(
-        target=:y₂,
+        outcome=:y₂,
         treatment=(T₂=(case=true, control=false),),
         confounders=[:W₁],
     )
@@ -185,13 +185,13 @@ table_types = (Tables.columntable, DataFrame)
     Ψ₀ = 10
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₂)
+    test_fluct_decreases_risk(cache; outcome_name=:y₂)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Adding a covariate
     # This will trigger the refit of Q only
     Ψ = ATE(
-        target=:y₂,
+        outcome=:y₂,
         treatment=(T₂=(case=true, control=false),),
         confounders=[:W₁],
         covariates=[:C₁]
@@ -199,7 +199,7 @@ table_types = (Tables.columntable, DataFrame)
     tmle_result, cache = @test_logs log_sequence... tmle!(cache, Ψ, verbosity=1);
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₂)
+    test_fluct_decreases_risk(cache; outcome_name=:y₂)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
@@ -207,7 +207,7 @@ end
     dataset = tt(build_dataset(;n=50_000))
     # Define the estimand of interest
     Ψ = ATE(
-        target=:y₁,
+        outcome=:y₁,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -221,12 +221,12 @@ end
     Ψ₀ = -0.5
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_fluct_decreases_risk(cache; outcome_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Let's switch case and control for T₂
     Ψ = ATE(
-        target=:y₁,
+        outcome=:y₁,
         treatment=(T₁=(case=true, control=false), T₂=(case=false, control=true)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -243,14 +243,14 @@ end
     Ψ₀ = -1.5
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_fluct_decreases_risk(cache; outcome_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
 @testset "Test Warm restart: CM, $tt" for tt in table_types
     dataset = tt(build_dataset(;n=50_000))
     Ψ = CM(
-        target=:y₁,
+        outcome=:y₁,
         treatment=(T₁=true, T₂=true),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -263,12 +263,12 @@ end
     Ψ₀ = 3
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_fluct_decreases_risk(cache; outcome_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Let's switch case and control for T₂
     Ψ = CM(
-        target=:y₁,
+        outcome=:y₁,
         treatment=(T₁=true, T₂=false),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -285,12 +285,12 @@ end
     Ψ₀ = 2.5
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_fluct_decreases_risk(cache; outcome_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
-    # Change the target
+    # Change the outcome
     Ψ = CM(
-        target=:y₂,
+        outcome=:y₂,
         treatment=(T₁=true, T₂=false),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -307,12 +307,12 @@ end
     Ψ₀ = 1
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₂)
+    test_fluct_decreases_risk(cache; outcome_name=:y₂)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Change the treatment
     Ψ = CM(
-        target=:y₂,
+        outcome=:y₂,
         treatment=(T₂=true,),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -329,14 +329,14 @@ end
     Ψ₀ = 11
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₂)
+    test_fluct_decreases_risk(cache; outcome_name=:y₂)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 
 @testset "Test Warm restart: pairwise IATE, $tt" for tt in table_types
     dataset = tt(build_dataset(;n=50_000))
     Ψ = IATE(
-        target=:y₃,
+        outcome=:y₃,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -349,12 +349,12 @@ end
     Ψ₀ = -1
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₃)
+    test_fluct_decreases_risk(cache; outcome_name=:y₃)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # Remove covariate from fit
     Ψ = IATE(
-        target=:y₃,
+        outcome=:y₃,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
     )
@@ -373,7 +373,7 @@ end
 
     # Changing the treatments values
     Ψ = IATE(
-        target=:y₃,
+        outcome=:y₃,
         treatment=(T₁=(case=false, control=true), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
     )
@@ -389,7 +389,7 @@ end
     Ψ₀ = - Ψ₀
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₃)
+    test_fluct_decreases_risk(cache; outcome_name=:y₃)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
 end
@@ -398,7 +398,7 @@ end
     dataset = build_dataset(;n=50_000)
     # Define the estimand of interest
     Ψ = ATE(
-        target=:y₁,
+        outcome=:y₁,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -412,11 +412,11 @@ end
     Ψ₀ = -0.5
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_fluct_decreases_risk(cache; outcome_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     Ψnew = ATE(
-        target=:y₁,
+        outcome=:y₁,
         treatment=(T₁=(case=false, control=true), T₂=(case=false, control=true)),
         confounders=[:W₁, :W₂],
         covariates=[:C₁]
@@ -438,7 +438,7 @@ end
     Ψ₀ = 0.5
     @test tmle_result.estimand == Ψnew
     test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y₁)
+    test_fluct_decreases_risk(cache; outcome_name=:y₁)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
 

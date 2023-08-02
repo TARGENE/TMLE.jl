@@ -69,7 +69,7 @@ function update!(cache::TMLECache, Ψ::Estimand)
             cache.η.Q = nothing
             any_variable_changed = true
         end
-        if cache.Ψ.target != Ψ.target
+        if cache.Ψ.outcome != Ψ.outcome
             cache.η.Q = nothing
             any_variable_changed = true
         end
@@ -242,7 +242,7 @@ function fit_nuisance!(cache::TMLECache; verbosity=1)
         end
         # Data
         X = Qinputs(η.H, cache.data[:no_missing], Ψ)
-        y = target(cache.data[:no_missing], Ψ)
+        y = outcome(cache.data[:no_missing], Ψ)
         # Fitting E[Y|X]
         log_fit(verbosity, "E[Y|X]")
         mach = machine(η_spec.Q, X, y, cache=η_spec.cache)
@@ -268,7 +268,7 @@ function tmle_step!(cache::TMLECache; verbosity=1, threshold=1e-8, weighted_fluc
         threshold=threshold, weighted_fluctuation=weighted_fluctuation
     )
     X = TMLE.fluctuation_input(covariate, offset)
-    y = TMLE.target(cache.data[:no_missing], cache.Ψ)
+    y = TMLE.outcome(cache.data[:no_missing], cache.Ψ)
     mach = machine(cache.η_spec.F, X, y, weights, cache=cache.η_spec.cache)
     MLJBase.fit!(mach, verbosity=verbosity-1)
     # Update cache
@@ -325,7 +325,7 @@ This part of the gradient is evaluated on the original dataset. All quantities h
 """
 function gradients_Y_X(cache::TMLECache)
     covariate = cache.data[:covariate]
-    y = float(target(cache.data[:no_missing], cache.Ψ))
+    y = float(outcome(cache.data[:no_missing], cache.Ψ))
     gradient_Y_Xᵢ = covariate .* (y .- expected_value(cache.data[:Q₀]))
     gradient_Y_X_fluct = covariate .* (y .- expected_value(cache.data[:Qfluct]))
     return gradient_Y_Xᵢ, gradient_Y_X_fluct

@@ -67,7 +67,7 @@ function run_precompile_workload()
             # all calls in this block will be precompiled, regardless of whether
             # they belong to your package or not (on Julia 1.8 and higher)
             Ψ = CM(
-                target =:Y₁,
+                outcome =:Y₁,
                 treatment=(T₁=true,),
                 confounders=[:W₁, :W₂],
                 covariates = [:C₁]
@@ -79,13 +79,13 @@ function run_precompile_workload()
             r, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
             continuous_estimands = [
                 ATE(
-                    target =:Y₁,
+                    outcome =:Y₁,
                     treatment=(T₁=(case=true, control=false),),
                     confounders=[:W₁, :W₂],
                     covariates = [:C₁]
                 ),
                 # IATE(
-                #     target =:Y₁,
+                #     outcome =:Y₁,
                 #     treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
                 #     confounders=[:W₁, :W₂],
                 #     covariates = [:C₁]
@@ -96,16 +96,16 @@ function run_precompile_workload()
                 tmle!(cache, Ψ, η_spec, verbosity=0)
             end
 
-            # Precompiling with a binary target
+            # Precompiling with a binary outcome
             binary_estimands = [
                 ATE(
-                    target =:Y₂,
+                    outcome =:Y₂,
                     treatment=(T₁=(case=true, control=false),),
                     confounders=[:W₁, :W₂],
                     covariates = [:C₁]
                 ),
                 # IATE(
-                #     target =:Y₂,
+                #     outcome =:Y₂,
                 #     treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
                 #     confounders=[:W₁, :W₂],
                 #     covariates = [:C₁]
