@@ -24,6 +24,7 @@ import AbstractDifferentiation as AD
 # EXPORTS
 # #############################################################################
 
+export StructuralCausalModel, SCM, StructuralEquation, SE, StaticConfoundedModel
 export NuisanceSpec, TMLECache, update!, CM, ATE, IATE
 export tmle, tmle!
 export var, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
@@ -34,6 +35,7 @@ export estimands_from_yaml, estimands_to_yaml, optimize_ordering, optimize_order
 # INCLUDES
 # #############################################################################
 
+include("scm.jl")
 include("treatment_transformer.jl")
 include("estimands.jl")
 include("utils.jl")
@@ -125,6 +127,6 @@ function run_precompile_workload()
 
 end
 
-run_precompile_workload()
+# run_precompile_workload()
 
 end
