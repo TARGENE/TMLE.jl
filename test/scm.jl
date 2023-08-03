@@ -8,7 +8,13 @@ using MLJGLMInterface
     # Incorrect Structural Equations
     @test_throws TMLE.SelfReferringEquationError(:Y) SE(:Y, [:Y])
     # Correct Structural Equations
-    @test SE(:Y, [:T], LinearBinaryClassifier()) isa SE
+    eq = SE(:Y, [:T, :W], LinearBinaryClassifier())
+    @test eq isa SE
+    @test string(eq) == "Y = f(T, W), LinearBinaryClassifier"
+
+    eq = SE(:Y, [:T, :W])
+    @test !isdefined(eq, :model)
+    @test string(eq) == "Y = f(T, W)"
 end
 
 @testset "Test SCM" begin
@@ -25,6 +31,8 @@ end
     @test scm.T === Teq
     # Already defined equation
     @test_throws TMLE.AlreadyAssignedError(:Y) push!(scm, SE(:Y, [:T]))
+    # string representation
+    @test string(scm) == "Structural Causal Model:\n-----------------------\nT = f₁(W)\nY = f₂(T, W, C)\n"
 end
 
 @testset "Test StaticConfoundedModel" begin

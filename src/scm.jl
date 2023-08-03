@@ -35,6 +35,14 @@ StructuralEquation(outcome, parents; model=nothing) = StructuralEquation(outcome
 
 const SE = StructuralEquation
 
+function string(eq::SE; subscript="")
+    eq_string = string(eq.outcome, " = f", subscript, "(", join(eq.parents, ", "), ")")
+    model_string = isdefined(eq, :model) ? string(", ", typeof(eq.model)) : ""
+    return string(eq_string, model_string)
+end
+
+Base.show(io::IO, eq::SE) = println(io, string(eq))
+
 assign_model!(eq::SE, model::Nothing) = nothing
 assign_model!(eq::SE, model::Model) = eq.model = model
 
@@ -55,6 +63,22 @@ const SCM = StructuralCausalModel
 
 StructuralCausalModel(equations::Vararg{SE}) = 
     StructuralCausalModel(Dict(outcome(eq) => eq for eq in equations))
+
+function string(scm::SCM)
+    scm_string = """
+    Structural Causal Model:
+    -----------------------
+    """
+    for (index, (_, eq)) in enumerate(scm.equations)
+        digits = split(string(index), "")
+        subscript = join(Meta.parse("'\\U0208$digit'") for digit in digits)
+        scm_string = string(scm_string, string(eq;subscript=subscript), "\n")
+    end
+    return scm_string
+end
+
+Base.show(io::IO, scm::SCM) = println(io, string(scm))
+
 
 function Base.push!(scm::SCM, eq::SE)
     key = outcome(eq)
