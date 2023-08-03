@@ -13,12 +13,18 @@ const causal_graph = """
 """
 
 #####################################################################
-###                    Abstract Estimand                         ###
+###                    Abstract Estimand                          ###
 #####################################################################
 """
 A Estimand is a functional on distribution space Ψ: ℳ → ℜ. 
 """
 abstract type Estimand end
+
+function MLJBase.fit!(Ψ::Estimand, dataset; verbosity=1, cache=true, force=false)
+    for eq in equations_to_fit(Ψ)
+        fit!(eq, dataset, verbosity=verbosity, cache=cache, force=force)
+    end
+end
 
 #####################################################################
 ###                      Conditional Mean                         ###
@@ -58,10 +64,9 @@ CM₂ = CM(
 ```
 """
 @option struct CM <: Estimand
+    scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
-    confounders::Vector{Symbol}
-    covariates::Vector{Symbol} = Symbol[]
 end
 
 #####################################################################
@@ -102,12 +107,10 @@ ATE₂ = ATE(
 ```
 """
 @option struct ATE <: Estimand
+    scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
-    confounders::Vector{Symbol}
-    covariates::Vector{Symbol} = Symbol[]
 end
-
 
 #####################################################################
 ###            Interaction Average Treatment Effect               ###
@@ -140,10 +143,9 @@ IATE₁ = IATE(
 ```
 """
 @option struct IATE <: Estimand
+    scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
-    confounders::Vector{Symbol}
-    covariates::Vector{Symbol} = Symbol[]
 end
 
 
@@ -204,15 +206,62 @@ NuisanceSpec(Q, G; H=TreatmentTransformer(), F=F_model(target_scitype(Q)), cache
 ###                         Methods                               ###
 #####################################################################
 
+CMCompositeEstimand = Union{CM, ATE, IATE}
+
+Base.show(io::IO, Ψ::T) where T <: CMCompositeEstimand = println(io, T)
+
+equations_to_fit(Ψ::CMCompositeEstimand) = (Ψ.scm[outcome(Ψ)], (Ψ.scm[t] for t in treatments(Ψ))...)
+
+variable_not_indataset(role, variable) = string(role, " variable: ", variable, " is not in the dataset.")
+
+function isidentified(Ψ::CMCompositeEstimand, dataset)
+    reasons = String[]
+    sch = Tables.schema(dataset)
+    # Check outcome variable
+    outcome(Ψ) ∈ sch.names || push!(
+        reasons,
+        variable_not_indataset("Outcome", outcome(Ψ))
+    )
+
+    # Check Treatment variable
+    for treatment in treatments(Ψ)
+        treatment ∈ sch.names || push!(
+            reasons,
+            variable_not_indataset("Treatment", treatment)
+        )
+    end
+    
+    # Check adjustment set
+    for confounder in Set(vcat(confounders(Ψ)...))
+        confounder ∈ sch.names || push!(
+            reasons,
+            variable_not_indataset("Confounding", confounder)
+        )
+    end
+
+    return length(reasons) == 0, reasons
+end
+
+outcome(Ψ::CMCompositeEstimand) = Ψ.outcome
+
 selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.columntable
 
-confounders(Ψ::Estimand) = Ψ.confounders
+function confounders(Ψ::CMCompositeEstimand)
+    confounders_ = []
+    treatments_ = Tuple(treatments(Ψ))
+    for treatment in treatments_
+        push!(
+            confounders_,
+            intersect(parents(Ψ.scm, outcome(Ψ)), parents(Ψ.scm, treatment))
+        )
+    end
+    return NamedTuple{treatments_}(confounders_)
+end
+
 confounders(dataset, Ψ) = selectcols(dataset, confounders(Ψ))
 
-covariates(Ψ::Estimand) = Ψ.covariates
-covariates(dataset, Ψ) = selectcols(dataset, covariates(Ψ))
 
-treatments(Ψ::Estimand) = collect(keys(Ψ.treatment))
+treatments(Ψ::CMCompositeEstimand) = collect(keys(Ψ.treatment))
 treatments(dataset, Ψ) = selectcols(dataset, treatments(Ψ))
 
 outcome(Ψ::Estimand) = Ψ.outcome

@@ -108,6 +108,12 @@ end
         @test eq.mach isa Machine
         @test !isdefined(eq.mach, :data)
     end
+
+    # Reset scm
+    reset!(scm)
+    for (key, eq) in equations(scm)
+        @test eq.mach isa Nothing
+    end
 end
 
 end

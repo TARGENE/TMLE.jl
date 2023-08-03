@@ -26,7 +26,7 @@ import AbstractDifferentiation as AD
 
 export SE, StructuralEquation, outcome, treatments
 export StructuralCausalModel, SCM, StaticConfoundedModel, equations
-export fit!
+export fit!, reset!
 export NuisanceSpec, TMLECache, update!, CM, ATE, IATE, isidentified
 export tmle, tmle!
 export var, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint

@@ -2,16 +2,8 @@
 ###                  Structural Equation                          ###
 #####################################################################
 
-# const AVAILABLE_SPECIFICATIONS = Set([:density, :mean])
-
 SelfReferringEquationError(outcome) = 
     ArgumentError(string("Variable ", outcome, " appears on both sides of the equation."))
-
-# UnavailableSpecificationError(key) = 
-#     ArgumentError(string("Unavailable specification: ", key, ". Available specifications are: ", join(AVAILABLE_SPECIFICATIONS, ", "), "."))
-
-# SpecificationShouldBeModelError(key) = 
-#     ArgumentError(string("Specification ", key, " should be a MLJBase.Model."))
 
 mutable struct StructuralEquation
     outcome::Symbol
@@ -30,7 +22,7 @@ const SE = StructuralEquation
 
 function MLJBase.fit!(eq::SE, dataset; verbosity=1, cache=true, force=false)
     if eq.mach === nothing || force === true
-        verbosity >= 0 && @info(string("Fitting Structural Equation corresponding to variable ", outcome(eq), "."))
+        verbosity >= 1 && @info(string("Fitting Structural Equation corresponding to variable ", outcome(eq), "."))
         X = selectcols(dataset, parents(eq))
         y = Tables.getcolumn(dataset, outcome(eq))
         mach = machine(eq.model, X, y, cache=cache)
@@ -44,6 +36,8 @@ function MLJBase.fit!(eq::SE, dataset; verbosity=1, cache=true, force=false)
         ))
     end
 end
+
+reset!(eq::SE) = eq.mach = nothing
 
 function string_repr(eq::SE; subscript="")
     eq_string = string(eq.outcome, " = f", subscript, "(", join(eq.parents, ", "), ")")
@@ -117,11 +111,16 @@ end
 parents(scm::StructuralCausalModel, key::Symbol) = parents(getproperty(scm, key))
 
 function MLJBase.fit!(scm::SCM, dataset; verbosity=1, cache=true, force=false)
-    for (_, eq) in equations(scm)
+    for eq in values(equations(scm))
         fit!(eq, dataset; verbosity=verbosity, cache=cache, force=force)
     end
 end
 
+function reset!(scm::SCM)
+    for eq in values(equations(scm))
+        reset!(eq)
+    end
+end
 #####################################################################
 ###                  StaticConfoundedModel                        ###
 #####################################################################
