@@ -3,6 +3,10 @@ module TestSCM
 using Test
 using TMLE
 using MLJGLMInterface
+using CategoricalArrays
+using Random
+using StableRNGs
+using MLJBase
 
 @testset "Test SE" begin
     # Incorrect Structural Equations
@@ -54,6 +58,56 @@ end
     scm = StaticConfoundedModel(:Y, :T, :W₁, covariates=:C₁)
     @test TMLE.parents(scm, :Y) == [:C₁, :T, :W₁]
     @test TMLE.parents(scm, :T) == [:W₁]
+end
+
+@testset "Test fit!" begin
+    rng = StableRNG(123)
+    n = 100
+    dataset = (
+        Ycat = categorical(rand(rng, [0, 1], n)),
+        Ycont = rand(rng, n),
+        T₁ = categorical(rand(rng, [0, 1], n)),
+        T₂ = categorical(rand(rng, [0, 1], n)),
+        W₁₁ = rand(rng, n),
+        W₁₂ = rand(rng, n),
+        W₂₁ = rand(rng, n),
+        W₂₂ = rand(rng, n),
+        C = rand(rng, n)
+    )
+
+    scm = SCM(
+        SE(:Ycat, [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C], TreatmentTransformer() |> LinearBinaryClassifier()),
+        SE(:Ycont, [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C],  TreatmentTransformer() |> LinearRegressor()),
+        SE(:T₁, [:W₁₁, :W₁₂], LinearBinaryClassifier()),
+        SE(:T₂, [:W₂₁, :W₂₂], LinearBinaryClassifier()),
+    )
+
+    # Fits all equations in SCM
+    fit_log_sequence = (
+        (:info, "Fitting Structural Equation corresponding to variable Ycont."),
+        (:info, "Fitting Structural Equation corresponding to variable Ycat."),
+        (:info, "Fitting Structural Equation corresponding to variable T₁."),
+        (:info, "Fitting Structural Equation corresponding to variable T₂."),
+    )
+    @test_logs fit_log_sequence... fit!(scm, dataset, verbosity = 1)
+    for (key, eq) in equations(scm)
+        @test eq.mach isa Machine
+        @test isdefined(eq.mach, :data)
+    end
+    # Refit will not do anything
+    nofit_log_sequence = (
+        (:info, "Structural Equation corresponding to variable Ycont already fitted, skipping. Set `force=true` to force refit."),
+        (:info, "Structural Equation corresponding to variable Ycat already fitted, skipping. Set `force=true` to force refit."),
+        (:info, "Structural Equation corresponding to variable T₁ already fitted, skipping. Set `force=true` to force refit."),
+        (:info, "Structural Equation corresponding to variable T₂ already fitted, skipping. Set `force=true` to force refit."),
+    )
+    @test_logs nofit_log_sequence... fit!(scm, dataset, verbosity = 1)
+    # Force refit and set cache to false
+    @test_logs fit_log_sequence... fit!(scm, dataset, verbosity = 1, force=true, cache=false)
+    for (key, eq) in equations(scm)
+        @test eq.mach isa Machine
+        @test !isdefined(eq.mach, :data)
+    end
 end
 
 end

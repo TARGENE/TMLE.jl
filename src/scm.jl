@@ -28,10 +28,27 @@ StructuralEquation(outcome, parents; model=nothing) = StructuralEquation(outcome
 
 const SE = StructuralEquation
 
+function MLJBase.fit!(eq::SE, dataset; verbosity=1, cache=true, force=false)
+    if eq.mach === nothing || force === true
+        verbosity >= 0 && @info(string("Fitting Structural Equation corresponding to variable ", outcome(eq), "."))
+        X = selectcols(dataset, parents(eq))
+        y = Tables.getcolumn(dataset, outcome(eq))
+        mach = machine(eq.model, X, y, cache=cache)
+        MLJBase.fit!(mach, verbosity=verbosity-1)
+        eq.mach = mach
+    else
+        verbosity >= 0 && @info(string(
+            "Structural Equation corresponding to variable ", 
+            outcome(eq), 
+            " already fitted, skipping. Set `force=true` to force refit."
+        ))
+    end
+end
+
 function string_repr(eq::SE; subscript="")
     eq_string = string(eq.outcome, " = f", subscript, "(", join(eq.parents, ", "), ")")
     if eq.model !== nothing
-        eq_string = string(eq_string, ", ", typeof(eq.model), ", fitted=", eq.mach !== nothing)
+        eq_string = string(eq_string, ", ", nameof(typeof(eq.model)), ", fitted=", eq.mach !== nothing)
     end
     return eq_string
 end
@@ -58,6 +75,9 @@ const SCM = StructuralCausalModel
 
 StructuralCausalModel(equations::Vararg{SE}) = 
     StructuralCausalModel(Dict(outcome(eq) => eq for eq in equations))
+
+
+equations(scm::SCM) = scm.equations
 
 function string_repr(scm::SCM)
     scm_string = """
@@ -95,6 +115,12 @@ function Base.getproperty(scm::StructuralCausalModel, key::Symbol)
 end
 
 parents(scm::StructuralCausalModel, key::Symbol) = parents(getproperty(scm, key))
+
+function MLJBase.fit!(scm::SCM, dataset; verbosity=1, cache=true, force=false)
+    for (_, eq) in equations(scm)
+        fit!(eq, dataset; verbosity=verbosity, cache=cache, force=force)
+    end
+end
 
 #####################################################################
 ###                  StaticConfoundedModel                        ###

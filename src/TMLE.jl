@@ -24,12 +24,15 @@ import AbstractDifferentiation as AD
 # EXPORTS
 # #############################################################################
 
-export StructuralCausalModel, SCM, StructuralEquation, SE, StaticConfoundedModel
-export NuisanceSpec, TMLECache, update!, CM, ATE, IATE
+export SE, StructuralEquation, outcome, treatments
+export StructuralCausalModel, SCM, StaticConfoundedModel, equations
+export fit!
+export NuisanceSpec, TMLECache, update!, CM, ATE, IATE, isidentified
 export tmle, tmle!
 export var, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
 export estimands_from_yaml, estimands_to_yaml, optimize_ordering, optimize_ordering!
+export  TreatmentTransformer
 
 # #############################################################################
 # INCLUDES
