@@ -13,21 +13,14 @@ SelfReferringEquationError(outcome) =
 # SpecificationShouldBeModelError(key) = 
 #     ArgumentError(string("Specification ", key, " should be a MLJBase.Model."))
 
-struct StructuralEquation
+mutable struct StructuralEquation
     outcome::Symbol
     parents::Vector{Symbol}
-    model::Model
+    model::Union{Model, Nothing}
+    mach::Union{Machine, Nothing}
     function StructuralEquation(outcome, parents, model)
         outcome ∉ parents || throw(SelfReferringEquationError(outcome))
-        # for (specname, model) ∈ zip(keys(specifications), specifications)
-        #     specname ∈ AVAILABLE_SPECIFICATIONS || throw(UnavailableSpecificationError(specname))
-        #     model isa Model || throw(SpecificationShouldBeModelError(specname))
-        # end
-        if model isa Nothing
-            return new(outcome, parents)
-        else
-            return new(outcome, parents, model)
-        end
+        return new(outcome, parents, model, nothing)
     end
 end
 
@@ -35,13 +28,15 @@ StructuralEquation(outcome, parents; model=nothing) = StructuralEquation(outcome
 
 const SE = StructuralEquation
 
-function string(eq::SE; subscript="")
+function string_repr(eq::SE; subscript="")
     eq_string = string(eq.outcome, " = f", subscript, "(", join(eq.parents, ", "), ")")
-    model_string = isdefined(eq, :model) ? string(", ", typeof(eq.model)) : ""
-    return string(eq_string, model_string)
+    if eq.model !== nothing
+        eq_string = string(eq_string, ", ", typeof(eq.model), ", fitted=", eq.mach !== nothing)
+    end
+    return eq_string
 end
 
-Base.show(io::IO, eq::SE) = println(io, string(eq))
+Base.show(io::IO, eq::SE) = println(io, string_repr(eq))
 
 assign_model!(eq::SE, model::Nothing) = nothing
 assign_model!(eq::SE, model::Model) = eq.model = model
@@ -64,7 +59,7 @@ const SCM = StructuralCausalModel
 StructuralCausalModel(equations::Vararg{SE}) = 
     StructuralCausalModel(Dict(outcome(eq) => eq for eq in equations))
 
-function string(scm::SCM)
+function string_repr(scm::SCM)
     scm_string = """
     Structural Causal Model:
     -----------------------
@@ -72,12 +67,12 @@ function string(scm::SCM)
     for (index, (_, eq)) in enumerate(scm.equations)
         digits = split(string(index), "")
         subscript = join(Meta.parse("'\\U0208$digit'") for digit in digits)
-        scm_string = string(scm_string, string(eq;subscript=subscript), "\n")
+        scm_string = string(scm_string, string_repr(eq;subscript=subscript), "\n")
     end
     return scm_string
 end
 
-Base.show(io::IO, scm::SCM) = println(io, string(scm))
+Base.show(io::IO, scm::SCM) = println(io, string_repr(scm))
 
 
 function Base.push!(scm::SCM, eq::SE)

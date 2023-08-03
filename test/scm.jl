@@ -10,11 +10,10 @@ using MLJGLMInterface
     # Correct Structural Equations
     eq = SE(:Y, [:T, :W], LinearBinaryClassifier())
     @test eq isa SE
-    @test string(eq) == "Y = f(T, W), LinearBinaryClassifier"
+    @test TMLE.string_repr(eq) == "Y = f(T, W), LinearBinaryClassifier, fitted=false"
 
     eq = SE(:Y, [:T, :W])
-    @test !isdefined(eq, :model)
-    @test string(eq) == "Y = f(T, W)"
+    @test TMLE.string_repr(eq) == "Y = f(T, W)"
 end
 
 @testset "Test SCM" begin
@@ -32,7 +31,7 @@ end
     # Already defined equation
     @test_throws TMLE.AlreadyAssignedError(:Y) push!(scm, SE(:Y, [:T]))
     # string representation
-    @test string(scm) == "Structural Causal Model:\n-----------------------\nT = f₁(W)\nY = f₂(T, W, C)\n"
+    @test TMLE.string_repr(scm) == "Structural Causal Model:\n-----------------------\nT = f₁(W)\nY = f₂(T, W, C)\n"
 end
 
 @testset "Test StaticConfoundedModel" begin
