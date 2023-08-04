@@ -16,18 +16,6 @@ function plateau!(v::AbstractVector, threshold)
     end
 end
 
-joint_name(it) = join(it, "_&_")
-
-joint_treatment(T) =
-    categorical(joint_name.(Tables.rows(T)))
-
-
-log_fit(verbosity, model) = 
-    verbosity >= 1 && @info string("→ Fitting ", model)
-
-log_no_fit(verbosity, model) =
-    verbosity >= 1 && @info string("→ Reusing previous ", model)
-
 function nomissing(table)
     sch = Tables.schema(table)
     for type in sch.types
@@ -98,7 +86,7 @@ compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 compute_offset(Ψ::CMCompositeEstimand) = 
     compute_offset(MLJBase.predict(outcome_equation(Ψ).mach))
 
-function balancing_weights(scm, W, T; threshold=1e-8)
+function balancing_weights(scm::SCM, W, T; threshold=1e-8)
     density = ones(nrows(T))
     for colname ∈ Tables.columnnames(T)
         mach = scm[colname].mach
