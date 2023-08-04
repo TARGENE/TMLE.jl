@@ -46,7 +46,7 @@ end
     test_fluct_decreases_risk(Ψ, fluctuation)
     test_mean_inf_curve_almost_zero(result; atol=1e-10)
 
-    result, _ = tmle(Ψ, dataset, verbosity=0, weighted_fluctuation=true)
+    result, fluctuation = tmle(Ψ, dataset, verbosity=0, weighted_fluctuation=true)
     test_coverage(result, Ψ₀)
     test_mean_inf_curve_almost_zero(result; atol=1e-10)
 

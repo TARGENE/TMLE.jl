@@ -105,10 +105,11 @@ gradient_W(counterfactual_aggregate, estimate) =
 This part of the gradient is evaluated on the original dataset. All quantities have been precomputed and cached.
 """
 function gradients_Y_X(outcome_mach::Machine, fluctuation_mach::Machine)
-    X, y = fluctuation_mach.data
+    X, y, w = fluctuation_mach.data
     y = float(y)
-    gradient_Y_Xᵢ = X.covariate .* (y .- expected_value(MLJBase.predict(outcome_mach)))
-    gradient_Y_X_fluct = X.covariate .* (y .- expected_value(MLJBase.predict(fluctuation_mach)))
+    covariate = X.covariate .* w
+    gradient_Y_Xᵢ = covariate .* (y .- expected_value(MLJBase.predict(outcome_mach)))
+    gradient_Y_X_fluct = covariate .* (y .- expected_value(MLJBase.predict(fluctuation_mach)))
     return gradient_Y_Xᵢ, gradient_Y_X_fluct
 end
 
