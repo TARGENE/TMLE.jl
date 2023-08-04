@@ -150,59 +150,6 @@ end
 
 
 #####################################################################
-###                     Nuisance Estimands                       ###
-#####################################################################
-
-"""
-# NuisanceEstimands
-
-The set of estimators that need to be estimated but are not of direct interest.
-
-# Causal graph:
-
-$causal_graph
-
-# Fields:
-
-All fields are MLJBase.Machine.
-
-    - Q: An estimator of E[Y|X]
-    - G: An estimator of P(T|W)
-    - H: A one-hot-encoder categorical treatments
-    - F: A generalized linear model to fluctuate E[Y|X]
-"""
-mutable struct NuisanceEstimands
-    Q::Union{Nothing, MLJBase.Machine}
-    G::Union{Nothing, MLJBase.Machine}
-    H::Union{Nothing, MLJBase.Machine}
-    F::Union{Nothing, MLJBase.Machine}
-end
-
-struct NuisanceSpec
-    Q::MLJBase.Model
-    G::MLJBase.Model
-    H::MLJBase.Model
-    F::MLJBase.Model
-    cache::Bool
-end
-
-"""
-    NuisanceSpec(Q, G; H=encoder(), F=Q_model(target_scitype(Q)))
-
-Specification of the nuisance estimands to be learnt.
-
-# Arguments:
-
-- Q: For the estimation of E₀[Y|T=case, X]
-- G: For the estimation of P₀(T|W)
-- H: The `TreatmentTransformer`` to deal with categorical treatments
-- F: The generalized linear model used to fluctuate the initial Q
-- cache: Whether corresponding machines will cache data or not.
-"""
-NuisanceSpec(Q, G; H=TreatmentTransformer(), F=F_model(target_scitype(Q)), cache=true) =
-    NuisanceSpec(Q, G, H, F, cache)
-
-#####################################################################
 ###                         Methods                               ###
 #####################################################################
 
@@ -210,7 +157,9 @@ CMCompositeEstimand = Union{CM, ATE, IATE}
 
 Base.show(io::IO, Ψ::T) where T <: CMCompositeEstimand = println(io, T)
 
-equations_to_fit(Ψ::CMCompositeEstimand) = (Ψ.scm[outcome(Ψ)], (Ψ.scm[t] for t in treatments(Ψ))...)
+equations_to_fit(Ψ::CMCompositeEstimand) = (outcome_equation(Ψ), (Ψ.scm[t] for t in treatments(Ψ))...)
+
+outcome_equation(Ψ::CMCompositeEstimand) = Ψ.scm[outcome(Ψ)]
 
 variable_not_indataset(role, variable) = string(role, " variable: ", variable, " is not in the dataset.")
 
@@ -242,46 +191,35 @@ function isidentified(Ψ::CMCompositeEstimand, dataset)
     return length(reasons) == 0, reasons
 end
 
-outcome(Ψ::CMCompositeEstimand) = Ψ.outcome
-
-selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.columntable
+confounders(scm, variable, outcome) = 
+    intersect(parents(scm, outcome), parents(scm, variable))
 
 function confounders(Ψ::CMCompositeEstimand)
     confounders_ = []
     treatments_ = Tuple(treatments(Ψ))
     for treatment in treatments_
+        push!(confounders_, confounders(Ψ.scm, treatment, outcome(Ψ)))
+    end
+    return NamedTuple{treatments_}(confounders_)
+end
+
+function confounders(dataset, Ψ::CMCompositeEstimand)
+    confounders_ = []
+    treatments_ = Tuple(treatments(Ψ))
+    for treatment in treatments_
         push!(
             confounders_,
-            intersect(parents(Ψ.scm, outcome(Ψ)), parents(Ψ.scm, treatment))
+            selectcols(dataset, confounders(Ψ.scm, treatment, outcome(Ψ)))
         )
     end
     return NamedTuple{treatments_}(confounders_)
 end
 
-confounders(dataset, Ψ) = selectcols(dataset, confounders(Ψ))
-
-
 treatments(Ψ::CMCompositeEstimand) = collect(keys(Ψ.treatment))
-treatments(dataset, Ψ) = selectcols(dataset, treatments(Ψ))
+treatments(dataset, Ψ::CMCompositeEstimand) = selectcols(dataset, treatments(Ψ))
 
-outcome(Ψ::Estimand) = Ψ.outcome
-outcome(dataset, Ψ) = Tables.getcolumn(dataset, outcome(Ψ))
-
-treatment_and_confounders(Ψ::Estimand) = vcat(confounders(Ψ), treatments(Ψ))
-
-confounders_and_covariates(Ψ::Estimand) = vcat(confounders(Ψ), covariates(Ψ))
-confounders_and_covariates(dataset, Ψ) = selectcols(dataset, confounders_and_covariates(Ψ))
-
-"""
-Merges together confounders, covariates and floating point representation of treatments.
-"""
-Qinputs(H, dataset, Ψ::Estimand) = merge(
-    columntable(confounders_and_covariates(dataset, Ψ)), 
-    MLJBase.transform(H, treatments(dataset, Ψ))
-    )
-
-
-allcolumns(Ψ::Estimand) = vcat(confounders_and_covariates(Ψ), treatments(Ψ), outcome(Ψ))
+outcome(Ψ::CMCompositeEstimand) = Ψ.outcome
+outcome(dataset, Ψ::CMCompositeEstimand) = Tables.getcolumn(dataset, outcome(Ψ))
 
 F_model(::Type{<:AbstractVector{<:MLJBase.Continuous}}) =
     LinearRegressor(fit_intercept=false, offsetcol = :offset)
@@ -296,7 +234,7 @@ namedtuples_from_dicts(d::Dict) =
     NamedTuple{Tuple(keys(d))}([namedtuples_from_dicts(val) for val in values(d)])
 
 
-function param_key(Ψ::Estimand)
+function param_key(Ψ::CMCompositeEstimand)
     return (
         join(Ψ.confounders, "_"),
         join(keys(Ψ.treatment), "_"),

@@ -9,25 +9,23 @@ using MLJGLMInterface
 
 @testset "Test ATE on perinatal dataset." begin
     # This is a non-regression test which was checked against the R tmle3 package
-    data = CSV.read(joinpath("data", "perinatal.csv"), DataFrame, missingstring=["", "NA"])
+    dataset = CSV.read(joinpath("data", "perinatal.csv"), DataFrame, missingstring=["", "NA"])
     confounders = [:apgar1, :apgar5, :gagebrth, :mage, :meducyrs, :sexn]
-    data.haz01 = categorical(data.haz01)
-    data.parity01 = categorical(data.parity01)
+    dataset.haz01 = categorical(dataset.haz01)
+    dataset.parity01 = categorical(dataset.parity01)
     for col in confounders
-        data[!, col] = float(data[!, col])
+        dataset[!, col] = float(dataset[!, col])
     end
-    Ψ = ATE(
-        outcome=:haz01,
-        treatment = (parity01=(case=1, control=0),),
-        confounders = confounders
+    scm = StaticConfoundedModel(
+        :haz01, :parity01, confounders,
+        outcome_model = TreatmentTransformer() |> LinearBinaryClassifier(),
+        treatment_model = LinearBinaryClassifier()
     )
-    η_spec = NuisanceSpec(
-        LinearBinaryClassifier(),
-        LinearBinaryClassifier()
-    )
-    r, cache = tmle(Ψ, η_spec, data, threshold=0.025, verbosity=0)
-    l, u = confint(OneSampleTTest(r.tmle))
-    @test TMLE.estimate(r.tmle) ≈ -0.185533 atol = 1e-6
+    Ψ = ATE(scm=scm, outcome=:haz01, treatment=(parity01=(case=1, control=0),))
+
+    result, fluctuation_mach = tmle(Ψ, dataset, threshold=0.025, verbosity=0)
+    l, u = confint(OneSampleTTest(result.tmle))
+    @test TMLE.estimate(result.tmle) ≈ -0.185533 atol = 1e-6
     @test l ≈ -0.279246 atol = 1e-6
     @test u ≈ -0.091821 atol = 1e-6
 end

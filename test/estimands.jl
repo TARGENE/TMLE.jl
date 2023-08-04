@@ -8,7 +8,7 @@ using StableRNGs
 using MLJBase
 using MLJGLMInterface
 
-@testset "Test methods" begin
+@testset "Test various methods" begin
     n = 5
     dataset = (
         Y = rand(n),
@@ -28,8 +28,10 @@ using MLJGLMInterface
     )
     
     @test TMLE.treatments(Ψ) == [:T]
+    @test TMLE.treatments(dataset, Ψ) == (T=dataset.T,)
     @test TMLE.outcome(Ψ) == :Y
     @test TMLE.confounders(Ψ) == (T=[:W₁, :W₂],)
+    @test TMLE.confounders(dataset, Ψ) == (T=(W₁=dataset.W₁, W₂=dataset.W₂),)
     identified, reasons = isidentified(Ψ, dataset)
     @test identified === true
     @test reasons == []

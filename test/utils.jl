@@ -33,7 +33,7 @@ using MLJModels
     )
     indicator_fns = TMLE.indicator_fns(Ψ)
     @test indicator_fns == Dict(("A", 1) => 1.)
-    indic_values = TMLE.indicator_values(indicator_fns, treatments(dataset, Ψ))
+    indic_values = TMLE.indicator_values(indicator_fns, TMLE.treatments(dataset, Ψ))
     @test indic_values == [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
     # ATE
     Ψ = ATE(
@@ -46,7 +46,7 @@ using MLJModels
         ("A", 1) => 1.0,
         ("B", 0) => -1.0
     )
-    indic_values = TMLE.indicator_values(indicator_fns, treatments(dataset, Ψ))
+    indic_values = TMLE.indicator_values(indicator_fns, TMLE.treatments(dataset, Ψ))
     @test indic_values == [0.0, -1.0, 1.0, 0.0, 0.0, -1.0, 1.0, 0.0]
     # 2-points IATE
     Ψ = IATE(
@@ -61,7 +61,7 @@ using MLJModels
         ("B", 1) => -1.0,
         ("B", 0) => 1.0
     )
-    indic_values = TMLE.indicator_values(indicator_fns, treatments(dataset, Ψ))
+    indic_values = TMLE.indicator_values(indicator_fns, TMLE.treatments(dataset, Ψ))
     @test indic_values == [-1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0]
     # 3-points IATE
     Ψ = IATE(
@@ -80,7 +80,7 @@ using MLJModels
         ("B", 1, "D") => 1.0,
         ("A", 0, "C") => -1.0
     )
-    indic_values = TMLE.indicator_values(indicator_fns, treatments(dataset, Ψ))
+    indic_values = TMLE.indicator_values(indicator_fns, TMLE.treatments(dataset, Ψ))
     @test indic_values == [-1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0]
 end
 
@@ -113,7 +113,6 @@ end
     @test expectation == ŷ
 end
 
-
 @testset "Test counterfactualTreatment" begin
     vals = (true, "a")
     T = (
@@ -129,7 +128,7 @@ end
     @test !isordered(cfT.T₂)
 end
 
-@testset "Test compute_offset, clever_covariate_and_weights and tmle_step" begin
+@testset "Test Targeting sequence with 1 Treatment" begin
     ### In all cases, models are "constant" models
     ## First case: 1 Treamtent variable
     scm = StaticConfoundedModel(
@@ -151,21 +150,21 @@ end
     )
     fit!(scm, dataset, verbosity=0)
     indicator_fns = TMLE.indicator_fns(Ψ)
-    T = treatments(dataset, Ψ)
+    T = TMLE.treatments(dataset, Ψ)
     @test T == (T=dataset.T,)
-    W = confounders(dataset, Ψ)
+    W = TMLE.confounders(dataset, Ψ)
     @test W == (T=(W₁=dataset.W₁, W₂=dataset.W₂, W₃=dataset.W₃),)
     
     @test TMLE.compute_offset(Ψ) == repeat([mean(dataset.Y)], 7)
-
+    weighted_fluctuation = true
     bw = TMLE.balancing_weights(scm, W, T)
-    cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns, weighted_fluctuation=true)
+    cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns, weighted_fluctuation=weighted_fluctuation)
 
     @test cov == [1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0]
     @test w == bw == [1.75, 3.5, 7.0, 1.75, 1.75, 3.5, 1.75]
     
-    weighted_mach = TMLE.tmle_step(Ψ, weighted_fluctuation=true)
-    @test fitted_params(weighted_mach) == (
+    mach = TMLE.tmle_step(Ψ, weighted_fluctuation=weighted_fluctuation)
+    @test fitted_params(mach) == (
         features = [:covariate],
         coef = [0.12500000000000003],
         intercept = 0.0
@@ -180,8 +179,9 @@ end
         coef = [0.047619047619047616],
         intercept = 0.0
     )
+end
 
-    ## Second case: 2 Treatment variables
+@testset "Test Targeting sequence with 2 Treatments" begin
     scm = StaticConfoundedModel(
        [:Y], [:T₁, :T₂], [:W₁, :W₂, :W₃], 
        treatment_model = ConstantClassifier(),
@@ -222,7 +222,9 @@ end
         coef = [-0.0945122832139119],
         intercept = 0.0
     )
+end
 
+@testset "Test Targeting sequence with 3 Treatments" begin
     ## Third case: 3 Treatment variables
     scm = StaticConfoundedModel(
        [:Y], [:T₁, :T₂, :T₃], [:W], 
@@ -268,28 +270,6 @@ end
         coef = [-0.02665556018325698],
         intercept = 0.0
     )
-end
-
-@testset "Test compute_offset" begin
-    n = 10
-    X = rand(n, 3)
-
-    # When Y is binary
-    y = categorical([1, 1, 1, 1, 0, 0, 0, 0, 0, 0])
-    mach = machine(ConstantClassifier(), MLJBase.table(X), y)
-    fit!(mach, verbosity=0)
-    ŷ = MLJBase.predict(mach)
-    # Should be equal to logit(Ê[Y|X])= logit(4/10) = -0.4054651081081643
-    @test TMLE.compute_offset(ŷ) == repeat([-0.4054651081081643], n)
-
-    # When Y is continuous
-    y = [1., 2., 3, 4, 5, 6, 7, 8, 9, 10]
-    mach = machine(MLJModels.DeterministicConstantRegressor(), MLJBase.table(X), y)
-    fit!(mach, verbosity=0)
-    ŷ = predict(mach)
-    # Should be equal to Ê[Y|X] = 5.5
-    @test TMLE.compute_offset(ŷ) == repeat([5.5], n)
-    
 end
 
 @testset "Test fluctuation_input" begin

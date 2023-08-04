@@ -2,6 +2,8 @@
 ## General Utilities
 ###############################################################################
 
+selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.columntable
+
 function logit!(v)
     for i in eachindex(v)
         v[i] = logit(v[i])
@@ -94,7 +96,7 @@ compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = exp
 compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 
 compute_offset(Ψ::CMCompositeEstimand) = 
-    compute_offset(MLJBase.predict(Ψ.scm[outcome(Ψ)].mach))
+    compute_offset(MLJBase.predict(outcome_equation(Ψ).mach))
 
 function balancing_weights(scm, W, T; threshold=1e-8)
     density = ones(nrows(T))
