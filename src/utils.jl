@@ -46,32 +46,33 @@ end
 
 ncases(value, Ψ::Estimand) = sum(value[i] == Ψ.treatment[i].case for i in eachindex(value))
 
-function indicator_fns(Ψ::IATE, f::Function)
+"""
+"""
+function indicator_fns(Ψ::IATE)
     N = length(treatments(Ψ))
     key_vals = Pair[]
     for cf in Iterators.product((values(Ψ.treatment[T]) for T in treatments(Ψ))...)
-        push!(key_vals, f(cf) => float((-1)^(N - ncases(cf, Ψ))))
+        push!(key_vals, cf => float((-1)^(N - ncases(cf, Ψ))))
     end
     return Dict(key_vals...)
 end
 
-indicator_fns(Ψ::CM, f::Function) = Dict(f(values(Ψ.treatment)) => 1.)
+indicator_fns(Ψ::CM) = Dict(values(Ψ.treatment) => 1.)
 
-function indicator_fns(Ψ::ATE, f::Function)
+function indicator_fns(Ψ::ATE)
     case = []
     control = []
     for treatment in Ψ.treatment
         push!(case, treatment.case)
         push!(control, treatment.control)
     end
-    return Dict(f(Tuple(case)) => 1., f(Tuple(control)) => -1.)
+    return Dict(Tuple(case) => 1., Tuple(control) => -1.)
 end
 
-function indicator_values(indicators, jointT)
-    indic = zeros(Float64, nrows(jointT))
-    for i in eachindex(jointT)
-        val = jointT[i]
-        indic[i] = get(indicators, val, 0.)
+function indicator_values(indicators, T)
+    indic = zeros(Float64, nrows(T))
+    for (index, row) in enumerate(Tables.namedtupleiterator(T))
+        indic[index] = get(indicators, values(row), 0.)
     end
     return indic
 end
@@ -92,23 +93,38 @@ end
 compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
 compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 
-function balancing_weights(G::Machine, W, jointT; threshold=1e-8)
-    ŷ = MLJBase.predict(G, W)
-    d = pdf.(ŷ, jointT)
-    plateau!(d, threshold)
-    return 1. ./ d
+function balancing_weights(scm, W, T; threshold=1e-8)
+    density = ones(nrows(T))
+    for colname ∈ Tables.columnnames(T)
+        mach = scm[colname].mach
+        ŷ = MLJBase.predict(mach, W[colname])
+        density .*= pdf.(ŷ, Tables.getcolumn(T, colname))
+    end
+    plateau!(density, threshold)
+    return 1. ./ density
 end
 
 """
     clever_covariate_and_weights(jointT, W, G, indicator_fns; threshold=1e-8, weighted_fluctuation=false)
 
 Computes the clever covariate and weights that are used to fluctuate the initial Q.
-See [here](https://lendle.github.io/TargetedLearning.jl/user-guide/ctmle/#fluctuating-barq_n).
+
+if `weighted_fluctuation = false`:
+
+- ``clever_covariate(t, w) = \\frac{SpecialIndicator(t)}{p(t|w)}`` 
+- ``weight(t, w) = 1``
+
+if `weighted_fluctuation = true`:
+
+- ``clever_covariate(t, w) = SpecialIndicator(t)`` 
+- ``weight(t, w) = \\frac{1}{p(t|w)}``
+
+where SpecialIndicator(t) is defined in `indicator_fns`.
 """
-function clever_covariate_and_weights(jointT, W, G, indicator_fns; threshold=1e-8, weighted_fluctuation=false)
+function clever_covariate_and_weights(scm::SCM, T, W, indicator_fns; threshold=1e-8, weighted_fluctuation=false)
     # Compute the indicator values
-    indic_vals = TMLE.indicator_values(indicator_fns, jointT)
-    weights = balancing_weights(G, W, jointT, threshold=threshold)
+    indic_vals = TMLE.indicator_values(indicator_fns, T)
+    weights = balancing_weights(scm, W, T, threshold=threshold)
     if weighted_fluctuation
         return indic_vals, weights
     end

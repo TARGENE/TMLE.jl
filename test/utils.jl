@@ -12,79 +12,76 @@ using MLJGLMInterface: LinearBinaryClassifier
 using MLJLinearModels
 using MLJModels
 
-function test_params_match(estimands, expected_params)
-    for (param, expected_param) in zip(estimands, expected_params)
-        @test typeof(param) == typeof(expected_param)
-        @test param.outcome == expected_param.outcome
-        @test param.treatment == expected_param.treatment
-        @test param.confounders == expected_param.confounders
-        @test param.covariates == expected_param.covariates
-    end
-end
-
-@testset "Test joint_treatment" begin
-    T = (
-        T₁ = categorical([0, 1, 2, 1]), 
-        T₂ = categorical(["a", "b", "a", "b"])
+@testset "Test indicator_fns & indicator_values" begin
+    scm = StaticConfoundedModel(
+        [:Y],
+        [:T₁, :T₂, :T₃],
+        [:W]
     )
-    jointT = TMLE.joint_treatment(T)
-    @test jointT == categorical(["0_&_a", "1_&_b", "2_&_a", "1_&_b"])
-
-    T = (
-        T₁ = categorical([0, 1, 2, 1]), 
+    dataset = (
+        W  = [1, 2, 3, 4, 5, 6, 7, 8],
+        T₁ = ["A", "B", "A", "B", "A", "B", "A", "B"],
+        T₂ = [0, 0, 1, 1, 0, 0, 1, 1],
+        T₃ = ["C", "C", "C", "C", "D", "D", "D", "D"],
+        Y =  [1, 1, 1, 1, 1, 1, 1, 1]
     )
-    jointT = TMLE.joint_treatment(T)
-    @test jointT == categorical(["0", "1", "2", "1"])
-end
-
-
-@testset "Test indicator_fns" begin
     # Conditional Mean
     Ψ = CM(
-        outcome=:y, 
+        scm=scm,
+        outcome=:Y, 
         treatment=(T₁="A", T₂=1),
-        confounders=[:W]
     )
-
-    @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict{String, Float64}("A_&_1" => 1)
+    indicator_fns = TMLE.indicator_fns(Ψ)
+    @test indicator_fns == Dict(("A", 1) => 1.)
+    indic_values = TMLE.indicator_values(indicator_fns, treatments(dataset, Ψ))
+    @test indic_values == [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
     # ATE
     Ψ = ATE(
+        scm=scm,
         outcome=:y, 
         treatment=(T₁=(case="A", control="B"), T₂=(control=0, case=1)),
-        confounders=[:W]
     )
-    @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict{String, Float64}(
-        "A_&_1" => 1,
-        "B_&_0" => -1
+    indicator_fns = TMLE.indicator_fns(Ψ)
+    @test indicator_fns == Dict(
+        ("A", 1) => 1.0,
+        ("B", 0) => -1.0
     )
+    indic_values = TMLE.indicator_values(indicator_fns, treatments(dataset, Ψ))
+    @test indic_values == [0.0, -1.0, 1.0, 0.0, 0.0, -1.0, 1.0, 0.0]
     # 2-points IATE
     Ψ = IATE(
+        scm=scm,
         outcome=:y, 
         treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0)),
-        confounders=[:W]
     )
-    @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict{String, Float64}(
-        "A_&_1" => 1,
-        "A_&_0" => -1,
-        "B_&_1" => -1,
-        "B_&_0" => 1
+    indicator_fns = TMLE.indicator_fns(Ψ)
+    @test indicator_fns == Dict(
+        ("A", 1) => 1.0,
+        ("A", 0) => -1.0,
+        ("B", 1) => -1.0,
+        ("B", 0) => 1.0
     )
+    indic_values = TMLE.indicator_values(indicator_fns, treatments(dataset, Ψ))
+    @test indic_values == [-1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0]
     # 3-points IATE
     Ψ = IATE(
+        scm=scm,
         outcome=:y, 
         treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0), T₃=(control="D", case="C")),
-        confounders=[:W]
     )
-    @test TMLE.indicator_fns(Ψ, TMLE.joint_name) == Dict{String, Float64}(
-        "A_&_1_&_D" => -1,
-        "A_&_1_&_C" => 1,
-        "B_&_0_&_D" => -1,
-        "B_&_0_&_C" => 1,
-        "B_&_1_&_C" => -1,
-        "A_&_0_&_D" => 1,
-        "B_&_1_&_D" => 1,
-        "A_&_0_&_C" => -1
+    indicator_fns = TMLE.indicator_fns(Ψ)
+    @test indicator_fns == Dict(
+        ("A", 1, "D") => -1.0,
+        ("A", 1, "C") => 1.0,
+        ("B", 0, "D") => -1.0,
+        ("B", 0, "C") => 1.0,
+        ("B", 1, "C") => -1.0,
+        ("A", 0, "D") => 1.0,
+        ("B", 1, "D") => 1.0,
+        ("A", 0, "C") => -1.0
     )
+    indic_values = TMLE.indicator_values(indicator_fns, treatments(dataset, Ψ))
+    @test indic_values == [-1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0]
 end
 
 @testset "Test expected_value" begin
@@ -116,27 +113,6 @@ end
     @test expectation == ŷ
 end
 
-@testset "Test indicator_values" begin
-    indicators = Dict(
-        "b_&_c_&_true"  => -1,
-        "a_&_c_&_true"  => 1,
-        "b_&_d_&_false" => -1,
-        "b_&_c_&_false" => 1,
-        "a_&_d_&_true"  => -1,
-        "a_&_c_&_false" => -1,
-        "a_&_d_&_false" => 1,
-        "b_&_d_&_true"  => 1 
-    )
-    jointT = categorical([
-        "b_&_c_&_true", "a_&_c_&_true", "b_&_d_&_false",
-        "b_&_c_&_false", "a_&_d_&_true", "a_&_c_&_false",
-        "a_&_d_&_false", "b_&_d_&_true", "q_&_d_&_false"
-    ])
-    # The las combination does not appear in the indicators
-    @test TMLE.indicator_values(indicators, jointT) ==
-        [-1, 1, -1, 1, -1, -1, 1, 1, 0]
-end
-
 
 @testset "Test counterfactualTreatment" begin
     vals = (true, "a")
@@ -151,93 +127,109 @@ end
     )
     @test isordered(cfT.t₁)
     @test !isordered(cfT.t₂)
-
 end
 
 @testset "Test clever_covariate_and_weights" begin
     # First case: 1 categorical variable
     # Using a trivial classifier
     # that outputs the proportions of of the classes
-    jointT = categorical(["a", "b", "c", "a", "a", "b", "a"])
-    W = MLJBase.table(rand(7, 3))
-
-    Gmach = machine(ConstantClassifier(), 
-                    W,
-                    jointT)
-    fit!(Gmach, verbosity=0)
-
-    Ψ = ATE(
-        outcome =:y, 
-        treatment=(t₁=(case="a", control="b"),),
-        confounders = [:x1, :x2, :x3]
+    scm = StaticConfoundedModel(
+       :Y, :T, [:W₁, :W₂, :W₃], treatment_model = ConstantClassifier()
     )
-    indicator_fns = TMLE.indicator_fns(Ψ, TMLE.joint_name)
+    Ψ = ATE(
+        scm=scm,
+        outcome =:Y, 
+        treatment=(T=(case="a", control="b"),),
+    )
+    dataset = (
+        T = categorical(["a", "b", "c", "a", "a", "b", "a"]),
+        Y = rand(7),
+        W₁ = rand(7),
+        W₂ = rand(7),
+        W₃ = rand(7)
+    )
+    fit!(scm, dataset, verbosity=0)
+    indicator_fns = TMLE.indicator_fns(Ψ)
+    T = treatments(dataset, Ψ)
+    @test T == (T=dataset.T,)
+    W = confounders(dataset, Ψ)
+    @test W == (T=(W₁=dataset.W₁, W₂=dataset.W₂, W₃=dataset.W₃),)
 
-    bw = TMLE.balancing_weights(Gmach, W, jointT)
-    cov, w = TMLE.clever_covariate_and_weights(jointT, W, Gmach, indicator_fns, weighted_fluctuation=true)
+    bw = TMLE.balancing_weights(scm, W, T)
+    cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns, weighted_fluctuation=true)
 
     @test cov == [1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0]
     @test w == bw == [1.75, 3.5, 7.0, 1.75, 1.75, 3.5, 1.75]
 
-    cov, w = TMLE.clever_covariate_and_weights(jointT, W, Gmach, indicator_fns)
+    cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns)
     @test cov == [1.75, -3.5, 0.0, 1.75, 1.75, -3.5, 1.75]
 
     # Second case: 2 binary variables
     # Using a trivial classifier
     # that outputs the proportions of of the classes
-    jointT = categorical(["1_&_1", "0_&_1", "0_&_1", "1_&_1", "1_&_1", "1_&_0", "0_&_0"])
-    W = MLJBase.table(rand(7, 3))
-
-    Gmach = machine(ConstantClassifier(), 
-                    W, 
-                    jointT)
-    fit!(Gmach, verbosity=0)
-    Ψ = IATE(
-        outcome =:y, 
-        treatment=(t₁=(case=1, control=0), t₂=(case=1, control=0)),
-        confounders = [:x1, :x2, :x3]
+    scm = StaticConfoundedModel(
+       [:Y], [:T₁, :T₂], [:W₁, :W₂, :W₃], treatment_model = ConstantClassifier()
     )
-    indicator_fns = TMLE.indicator_fns(Ψ, TMLE.joint_name)
-
-    cov, w = TMLE.clever_covariate_and_weights(jointT, W, Gmach, indicator_fns)
-    @test cov == [2.3333333333333335,
-                 -3.5,
-                 -3.5,
-                 2.3333333333333335,
-                 2.3333333333333335,
-                 -7.0,
-                 7.0]
+    Ψ = IATE(
+        scm=scm,
+        outcome =:Y, 
+        treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+    )
+    dataset = (
+        T₁ = categorical([1, 0, 0, 1, 1, 1, 0]),
+        T₂ = categorical([1, 1, 1, 1, 1, 0, 0]),
+        Y = rand(7),
+        W₁ = rand(7),
+        W₂ = rand(7),
+        W₃ = rand(7)
+    )
+    fit!(scm, dataset, verbosity=0)
+    indicator_fns = TMLE.indicator_fns(Ψ)
+    T = TMLE.treatments(dataset, Ψ)
+    @test T == (T₁ = dataset.T₁, T₂ = dataset.T₂)
+    W = TMLE.confounders(dataset, Ψ)
+    @test W == (
+        T₁ = (W₁ = dataset.W₁, W₂ = dataset.W₂, W₃ = dataset.W₃), 
+        T₂ = (W₁ = dataset.W₁, W₂ = dataset.W₂, W₃ = dataset.W₃)
+    )
+    cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns)
+    @test cov ≈ [2.45, -3.266, -3.266, 2.45, 2.45, -6.125, 8.166] atol=1e-2
 
     # Third case: 3 mixed categorical variables
     # Using a trivial classifier
     # that outputs the proportions of of the classes
-    jointT = categorical(
-        ["a_&_3_&_true", "a_&_2_&_false", "b_&_1_&_true", 
-        "b_&_1_&_false", "c_&_2_&_false", "b_&_2_&_false", 
-        "b_&_2_&_false"])
-    W = MLJBase.table(rand(7, 3))
-
-    Gmach = machine(ConstantClassifier(), 
-                    W, 
-                    jointT)
-    fit!(Gmach, verbosity=0)
-    Ψ = IATE(
-        outcome =:y, 
-        treatment=(t₁=(case="a", control="b"), 
-                   t₂=(case=1, control=2), 
-                   t₃=(case=true, control=false)),
-        confounders = [:x1, :x2, :x3]
+    scm = StaticConfoundedModel(
+       [:Y], [:T₁, :T₂, :T₃], [:W], treatment_model = ConstantClassifier()
     )
-    indicator_fns = TMLE.indicator_fns(Ψ, TMLE.joint_name)
+    Ψ = IATE(
+        scm=scm,
+        outcome =:Y, 
+        treatment=(T₁=(case="a", control="b"), 
+                   T₂=(case=1, control=2), 
+                   T₃=(case=true, control=false)),
+    )
+    dataset = (
+        T₁ = categorical(["a", "a", "b", "b", "c", "b", "b"]),
+        T₂ = categorical([3, 2, 1, 1, 2, 2, 2], ordered=true),
+        T₃ = categorical([true, false, true, false, false, false, false], ordered=true),
+        Y = rand(7),
+        W = rand(7),
+    )
 
-    cov, w = TMLE.clever_covariate_and_weights(jointT, W, Gmach, indicator_fns)
-    @test cov == [0,
-                  7.0,
-                 -7,
-                  7,
-                  0,
-                 -3.5,
-                 -3.5]
+    fit!(scm, dataset, verbosity=0)
+    indicator_fns = TMLE.indicator_fns(Ψ)
+    T = TMLE.treatments(dataset, Ψ)
+    @test T == (T₁ = dataset.T₁, T₂ = dataset.T₂, T₃ = dataset.T₃)
+    W = TMLE.confounders(dataset, Ψ)
+    @test W == (
+        T₁ = (W = dataset.W,), 
+        T₂ = (W = dataset.W,),
+        T₃ = (W = dataset.W,)
+    )
+    indicator_fns = TMLE.indicator_fns(Ψ)
+
+    cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns)
+    @test cov ≈ [0, 8.575, -21.4375, 8.575, 0, -4.2875, -4.2875] atol=1e-3
 end
 
 @testset "Test compute_offset" begin
