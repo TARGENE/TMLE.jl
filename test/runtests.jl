@@ -12,6 +12,5 @@ using Test
     @test include("missing_management.jl")
     @test include("composition.jl")
     @test include("treatment_transformer.jl")
-    @test include("fit_nuisance.jl")
     @test include("configuration.jl")
 end

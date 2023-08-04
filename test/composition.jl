@@ -8,23 +8,19 @@ using MLJLinearModels
 using TMLE
 using CategoricalArrays
 
-function make_dataset(;n=100)
+function make_dataset_and_scm(;n=100)
     rng = StableRNG(123)
     W = rand(rng, Uniform(), n)
     T = rand(rng, [0, 1], n)
-    y = 3W .+ T .+ T.*W + rand(rng, Normal(0, 0.05), n)
-    return (
-        y = y,
+    Y = 3W .+ T .+ T.*W + rand(rng, Normal(0, 0.05), n)
+    dataset =  (
+        Y = Y,
         W = W,
         T = categorical(T)
     )
+    scm = StaticConfoundedModel(:Y, :T, :W)
+    return dataset, scm
 end
-
-basicCM(val) = CM(
-    outcome = :y,
-    treatment = (T=val,),
-    confounders = [:W]
-)
 
 @testset "Test cov" begin
     n = 10
@@ -37,37 +33,50 @@ basicCM(val) = CM(
 end
 
 @testset "Test composition CM(1) - CM(0) = ATE(1,0)" begin
-    dataset = make_dataset(;n=1000)
-    η_spec = NuisanceSpec(
-        LinearRegressor(),
-        LogisticClassifier(lambda=0)
-    )
+    dataset, scm = make_dataset_and_scm(;n=1000)
     # Conditional Mean T = 1
-    CM_result₁, cache = tmle(basicCM(1), η_spec, dataset, verbosity=0)
+    CM₁ = CM(
+        scm = scm,
+        outcome = :Y,
+        treatment = (T=1,)
+    )
+    CM_result₁, _ = tmle(CM₁, dataset, verbosity=0)
     # Conditional Mean T = 0
-    CM_result₀, cache = tmle!(cache, basicCM(0), verbosity=0)
+    CM₀ = CM(
+        scm = scm,
+        outcome = :Y,
+        treatment = (T=0,)
+    )
+    CM_result₀, _ = tmle(CM₀, dataset, verbosity=0)
     # Via Composition
     CM_result_composed = compose(-, CM_result₁.tmle, CM_result₀.tmle)
 
     # Via ATE
     ATE₁₀ = ATE(
-        outcome = :y,
+        scm=scm,
+        outcome = :Y,
         treatment = (T=(case=1, control=0),),
-        confounders = [:W] 
     )
-    ATE_result₁₀, cache = tmle!(cache, ATE₁₀, verbosity=0)
+    ATE_result₁₀, _ = tmle(ATE₁₀, dataset, verbosity=0)
     @test TMLE.estimate(ATE_result₁₀.tmle) ≈ TMLE.estimate(CM_result_composed) atol = 1e-7
     @test var(ATE_result₁₀.tmle) ≈ var(CM_result_composed) atol = 1e-7
 end
 
 @testset "Test compose multidimensional function" begin
-    dataset = make_dataset(;n=1000)
-    η_spec = NuisanceSpec(
-        LinearRegressor(),
-        LogisticClassifier(lambda=0)
+    dataset, scm = make_dataset_and_scm(;n=1000)
+    CM₁ = CM(
+        scm = scm,
+        outcome = :Y,
+        treatment = (T=1,)
     )
-    CM_result₁, cache = tmle(basicCM(1), η_spec, dataset, verbosity=0)
-    CM_result₀, cache = tmle!(cache, basicCM(0), verbosity=0)
+    CM_result₁, _ = tmle(CM₁, dataset, verbosity=0)
+
+    CM₀ = CM(
+        scm = scm,
+        outcome = :Y,
+        treatment = (T=0,)
+    )
+    CM_result₀, _ = tmle(CM₀, dataset, verbosity=0)
     f(x, y) = [x^2 - y, x/y, 2x + 3y]
     CM_result_composed = compose(f, CM_result₁.tmle, CM_result₀.tmle)
 
