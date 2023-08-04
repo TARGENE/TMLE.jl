@@ -21,7 +21,8 @@ StructuralEquation(outcome, parents; model=nothing) = StructuralEquation(outcome
 const SE = StructuralEquation
 
 function MLJBase.fit!(eq::SE, dataset; verbosity=1, cache=true, force=false)
-    if eq.mach === nothing || force === true
+    # Fit if never fitted or if new model
+    if eq.mach === nothing || eq.model != eq.mach.model
         verbosity >= 1 && @info(string("Fitting Structural Equation corresponding to variable ", outcome(eq), "."))
         data = nomissing(dataset, vcat(parents(eq), outcome(eq)))
         X = selectcols(data, parents(eq))
@@ -29,12 +30,9 @@ function MLJBase.fit!(eq::SE, dataset; verbosity=1, cache=true, force=false)
         mach = machine(eq.model, X, y, cache=cache)
         MLJBase.fit!(mach, verbosity=verbosity-1)
         eq.mach = mach
+    # Otherwise only fit if force is true
     else
-        verbosity >= 0 && @info(string(
-            "Structural Equation corresponding to variable ", 
-            outcome(eq), 
-            " already fitted, skipping. Set `force=true` to force refit."
-        ))
+        MLJBase.fit!(eq.mach, verbosity=verbosity-1, force=force)
     end
 end
 

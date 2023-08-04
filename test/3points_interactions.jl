@@ -40,7 +40,6 @@ end
         treatment = (T₁=(case=true, control=false), T₂=(case=true, control=false), T₃=(case=1, control=0))
     )
 
-
     result, fluctuation = tmle(Ψ, dataset, verbosity=0)
     test_coverage(result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation)

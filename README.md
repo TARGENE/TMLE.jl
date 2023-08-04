@@ -7,5 +7,12 @@
 
 Targeted Minimum Loss-Based Estimation (TMLE) is a framework for efficient estimation of pathwise differentiable estimands. The goal of this package is to provide an implementation on top of the [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/) framework.
 
-
 **New to TMLE.jl?** The API design is still work in progress but you can already [get started now](https://targene.github.io/TMLE.jl/stable/)
+
+## TODO
+
+- Check parameter definition
+- Fix tests
+- Simplify code
+- More API
+- Documentation update
