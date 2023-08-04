@@ -41,7 +41,7 @@ end
 @testset "Test StaticConfoundedModel" begin
     # With covariates
     scm = StaticConfoundedModel(:Y, :T, [:W₁, :W₂], covariates=[:C₁])
-    @test TMLE.parents(scm, :Y) == [:C₁, :T, :W₁, :W₂]
+    @test TMLE.parents(scm, :Y) == [:T, :W₁, :W₂, :C₁]
     @test TMLE.parents(scm, :T) == [:W₁, :W₂]
     @test scm.Y.model isa LinearRegressor
     @test scm.T.model isa LinearBinaryClassifier
@@ -56,8 +56,26 @@ end
 
     # With 1 covariate
     scm = StaticConfoundedModel(:Y, :T, :W₁, covariates=:C₁)
-    @test TMLE.parents(scm, :Y) == [:C₁, :T, :W₁]
+    @test TMLE.parents(scm, :Y) == [:T, :W₁, :C₁]
     @test TMLE.parents(scm, :T) == [:W₁]
+
+    # With multiple outcomes and treatments
+    scm = StaticConfoundedModel(
+        [:Y₁, :Y₂, :Y₃],
+        [:T₁, :T₂],
+        [:W₁, :W₂, :W₃],
+        covariates=[:C]
+        )
+    
+    Yparents = [:T₁, :T₂, :W₁, :W₂, :W₃, :C]
+    @test parents(scm.Y₁) == Yparents
+    @test parents(scm.Y₂) == Yparents
+    @test parents(scm.Y₃) == Yparents
+
+    Tparents = [:W₁, :W₂, :W₃]
+    @test parents(scm.T₁) == Tparents
+    @test parents(scm.T₂) == Tparents
+
 end
 
 @testset "Test fit!" begin

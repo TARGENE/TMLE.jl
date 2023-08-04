@@ -23,8 +23,9 @@ const SE = StructuralEquation
 function MLJBase.fit!(eq::SE, dataset; verbosity=1, cache=true, force=false)
     if eq.mach === nothing || force === true
         verbosity >= 1 && @info(string("Fitting Structural Equation corresponding to variable ", outcome(eq), "."))
-        X = selectcols(dataset, parents(eq))
-        y = Tables.getcolumn(dataset, outcome(eq))
+        data = nomissing(dataset, vcat(parents(eq), outcome(eq)))
+        X = selectcols(data, parents(eq))
+        y = Tables.getcolumn(data, outcome(eq))
         mach = machine(eq.model, X, y, cache=cache)
         MLJBase.fit!(mach, verbosity=verbosity-1)
         eq.mach = mach
@@ -125,8 +126,8 @@ end
 ###                  StaticConfoundedModel                        ###
 #####################################################################
 
-vcat_covariates(covariates::Nothing, treatment, confounders) = vcat(treatment, confounders)
-vcat_covariates(covariates, treatment, confounders) = vcat(covariates, treatment, confounders)
+vcat_covariates(treatment, confounders, covariates::Nothing) = vcat(treatment, confounders)
+vcat_covariates(treatment, confounders, covariates) = vcat(treatment, confounders, covariates)
 
 function StaticConfoundedModel(
     outcome::Symbol, treatment::Symbol, confounders::Union{Symbol, AbstractVector{Symbol}}; 
@@ -134,15 +135,28 @@ function StaticConfoundedModel(
     outcome_spec = LinearRegressor(),
     treatment_spec = LinearBinaryClassifier()
     )
-    Yeq = StructuralEquation(
+    Yeq = SE(
         outcome, 
-        vcat_covariates(covariates, treatment, confounders), 
+        vcat_covariates(treatment, confounders, covariates), 
         outcome_spec
     )
-    Teq = StructuralEquation(
+    Teq = SE(
         treatment, 
         vcat(confounders), 
         treatment_spec
     )
     return StructuralCausalModel(Yeq, Teq)
+end
+
+function StaticConfoundedModel(
+    outcomes::Vector{Symbol}, 
+    treatments::Vector{Symbol}, 
+    confounders::Union{Symbol, AbstractVector{Symbol}}; 
+    covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
+    outcome_spec = LinearRegressor(),
+    treatment_spec = LinearBinaryClassifier()
+    )
+    Yequations = (SE(outcome, vcat_covariates(treatments, confounders, covariates), outcome_spec) for outcome in outcomes)
+    Tequations = (SE(treatment, vcat(confounders), treatment_spec) for treatment in treatments)
+    return SCM(Yequations..., Tequations...)
 end
