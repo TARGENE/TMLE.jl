@@ -63,11 +63,15 @@ CM₂ = CM(
 )
 ```
 """
-@option struct CM <: Estimand
+@option struct ConditionalMean <: Estimand
     scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
 end
+
+const CM = ConditionalMean
+
+name(::Type{CM}) = "CM"
 
 #####################################################################
 ###                  Average Treatment Effect                     ###
@@ -106,11 +110,15 @@ ATE₂ = ATE(
 )
 ```
 """
-@option struct ATE <: Estimand
+@option struct AverageTreatmentEffect <: Estimand
     scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
 end
+
+const ATE = AverageTreatmentEffect
+
+name(::Type{ATE}) = "ATE"
 
 #####################################################################
 ###            Interaction Average Treatment Effect               ###
@@ -142,12 +150,15 @@ IATE₁ = IATE(
 )
 ```
 """
-@option struct IATE <: Estimand
+@option struct InteractionAverageTreatmentEffect <: Estimand
     scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
 end
 
+const IATE = InteractionAverageTreatmentEffect
+
+name(::Type{IATE}) = "IATE"
 
 #####################################################################
 ###                         Methods                               ###
@@ -155,7 +166,15 @@ end
 
 CMCompositeEstimand = Union{CM, ATE, IATE}
 
-Base.show(io::IO, Ψ::T) where T <: CMCompositeEstimand = println(io, T)
+function Base.show(io::IO, Ψ::T) where T <: CMCompositeEstimand 
+    param_string = string(
+        name(T),
+        "\n-----",
+        "\nOutcome: ", Ψ.outcome,
+        "\nTreatment: ", Ψ.treatment
+    )
+    println(io, param_string)
+end
 
 equations_to_fit(Ψ::CMCompositeEstimand) = (outcome_equation(Ψ), (Ψ.scm[t] for t in treatments(Ψ))...)
 
@@ -236,10 +255,9 @@ namedtuples_from_dicts(d::Dict) =
 
 function param_key(Ψ::CMCompositeEstimand)
     return (
-        join(Ψ.confounders, "_"),
-        join(keys(Ψ.treatment), "_"),
-        string(Ψ.outcome),
-        join(Ψ.covariates, "_")
+        join(values(confounders(Ψ))..., "_"),
+        join(treatments(Ψ), "_"),
+        string(outcome(Ψ)),
     )
 end
 
