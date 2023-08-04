@@ -43,12 +43,12 @@ end
     scm = StaticConfoundedModel(:Y, :T, [:W₁, :W₂], covariates=[:C₁])
     @test TMLE.parents(scm, :Y) == [:T, :W₁, :W₂, :C₁]
     @test TMLE.parents(scm, :T) == [:W₁, :W₂]
-    @test scm.Y.model isa LinearRegressor
+    @test scm.Y.model isa ProbabilisticPipeline
     @test scm.T.model isa LinearBinaryClassifier
     @test scm.T.model.fit_intercept === true
 
     # Without covariates
-    scm = StaticConfoundedModel(:Y, :T, :W₁, outcome_spec=LinearBinaryClassifier(), treatment_spec=LinearBinaryClassifier(fit_intercept=false))
+    scm = StaticConfoundedModel(:Y, :T, :W₁, outcome_model=LinearBinaryClassifier(), treatment_model=LinearBinaryClassifier(fit_intercept=false))
     @test TMLE.parents(scm, :Y) == [:T, :W₁]
     @test TMLE.parents(scm, :T) == [:W₁]
     @test scm.Y.model isa LinearBinaryClassifier

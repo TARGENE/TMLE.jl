@@ -132,18 +132,18 @@ vcat_covariates(treatment, confounders, covariates) = vcat(treatment, confounder
 function StaticConfoundedModel(
     outcome::Symbol, treatment::Symbol, confounders::Union{Symbol, AbstractVector{Symbol}}; 
     covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
-    outcome_spec = LinearRegressor(),
-    treatment_spec = LinearBinaryClassifier()
+    outcome_model = TreatmentTransformer() |> LinearRegressor(),
+    treatment_model = LinearBinaryClassifier()
     )
     Yeq = SE(
         outcome, 
         vcat_covariates(treatment, confounders, covariates), 
-        outcome_spec
+        outcome_model
     )
     Teq = SE(
         treatment, 
         vcat(confounders), 
-        treatment_spec
+        treatment_model
     )
     return StructuralCausalModel(Yeq, Teq)
 end
@@ -153,10 +153,10 @@ function StaticConfoundedModel(
     treatments::Vector{Symbol}, 
     confounders::Union{Symbol, AbstractVector{Symbol}}; 
     covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
-    outcome_spec = LinearRegressor(),
-    treatment_spec = LinearBinaryClassifier()
+    outcome_model = TreatmentTransformer() |> LinearRegressor(),
+    treatment_model = LinearBinaryClassifier()
     )
-    Yequations = (SE(outcome, vcat_covariates(treatments, confounders, covariates), outcome_spec) for outcome in outcomes)
-    Tequations = (SE(treatment, vcat(confounders), treatment_spec) for treatment in treatments)
+    Yequations = (SE(outcome, vcat_covariates(treatments, confounders, covariates), outcome_model) for outcome in outcomes)
+    Tequations = (SE(treatment, vcat(confounders), treatment_model) for treatment in treatments)
     return SCM(Yequations..., Tequations...)
 end
