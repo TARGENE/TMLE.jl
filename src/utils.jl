@@ -93,6 +93,9 @@ end
 compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
 compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 
+compute_offset(Ψ::CMCompositeEstimand) = 
+    compute_offset(MLJBase.predict(Ψ.scm[outcome(Ψ)].mach))
+
 function balancing_weights(scm, W, T; threshold=1e-8)
     density = ones(nrows(T))
     for colname ∈ Tables.columnnames(T)

@@ -117,24 +117,25 @@ end
 @testset "Test counterfactualTreatment" begin
     vals = (true, "a")
     T = (
-        t₁ = categorical([true, false, false], ordered=true),
-        t₂ = categorical(["a", "a", "c"])
+        T₁ = categorical([true, false, false], ordered=true),
+        T₂ = categorical(["a", "a", "c"])
     )
     cfT = TMLE.counterfactualTreatment(vals, T)
     @test cfT == (
-        t₁ = categorical([true, true, true]),
-        t₂ = categorical(["a", "a", "a"])
+        T₁ = categorical([true, true, true]),
+        T₂ = categorical(["a", "a", "a"])
     )
-    @test isordered(cfT.t₁)
-    @test !isordered(cfT.t₂)
+    @test isordered(cfT.T₁)
+    @test !isordered(cfT.T₂)
 end
 
-@testset "Test clever_covariate_and_weights" begin
-    # First case: 1 categorical variable
-    # Using a trivial classifier
-    # that outputs the proportions of of the classes
+@testset "Test compute_offset, clever_covariate_and_weights and tmle_step" begin
+    ### In all cases, models are "constant" models
+    ## First case: 1 Treamtent variable
     scm = StaticConfoundedModel(
-       :Y, :T, [:W₁, :W₂, :W₃], treatment_model = ConstantClassifier()
+       :Y, :T, [:W₁, :W₂, :W₃], 
+       treatment_model = ConstantClassifier(),
+       outcome_model = ConstantRegressor()
     )
     Ψ = ATE(
         scm=scm,
@@ -143,7 +144,7 @@ end
     )
     dataset = (
         T = categorical(["a", "b", "c", "a", "a", "b", "a"]),
-        Y = rand(7),
+        Y = [1., 2., 3, 4, 5, 6, 7],
         W₁ = rand(7),
         W₂ = rand(7),
         W₃ = rand(7)
@@ -154,21 +155,37 @@ end
     @test T == (T=dataset.T,)
     W = confounders(dataset, Ψ)
     @test W == (T=(W₁=dataset.W₁, W₂=dataset.W₂, W₃=dataset.W₃),)
+    
+    @test TMLE.compute_offset(Ψ) == repeat([mean(dataset.Y)], 7)
 
     bw = TMLE.balancing_weights(scm, W, T)
     cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns, weighted_fluctuation=true)
 
     @test cov == [1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0]
     @test w == bw == [1.75, 3.5, 7.0, 1.75, 1.75, 3.5, 1.75]
+    
+    weighted_mach = TMLE.tmle_step(Ψ, weighted_fluctuation=true)
+    @test fitted_params(weighted_mach) == (
+        features = [:covariate],
+        coef = [0.12500000000000003],
+        intercept = 0.0
+    )
 
     cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns)
     @test cov == [1.75, -3.5, 0.0, 1.75, 1.75, -3.5, 1.75]
 
-    # Second case: 2 binary variables
-    # Using a trivial classifier
-    # that outputs the proportions of of the classes
+    unweighted_mach = TMLE.tmle_step(Ψ, weighted_fluctuation=false)
+    @test fitted_params(unweighted_mach) == (
+        features = [:covariate],
+        coef = [0.047619047619047616],
+        intercept = 0.0
+    )
+
+    ## Second case: 2 Treatment variables
     scm = StaticConfoundedModel(
-       [:Y], [:T₁, :T₂], [:W₁, :W₂, :W₃], treatment_model = ConstantClassifier()
+       [:Y], [:T₁, :T₂], [:W₁, :W₂, :W₃], 
+       treatment_model = ConstantClassifier(),
+       outcome_model = ConstantClassifier()
     )
     Ψ = IATE(
         scm=scm,
@@ -178,7 +195,7 @@ end
     dataset = (
         T₁ = categorical([1, 0, 0, 1, 1, 1, 0]),
         T₂ = categorical([1, 1, 1, 1, 1, 0, 0]),
-        Y = rand(7),
+        Y = categorical([1, 1, 1, 1, 0, 0, 0]),
         W₁ = rand(7),
         W₂ = rand(7),
         W₃ = rand(7)
@@ -192,14 +209,25 @@ end
         T₁ = (W₁ = dataset.W₁, W₂ = dataset.W₂, W₃ = dataset.W₃), 
         T₂ = (W₁ = dataset.W₁, W₂ = dataset.W₂, W₃ = dataset.W₃)
     )
+    # Because the outcome is binary, the offset is the logit
+    @test TMLE.compute_offset(Ψ) == repeat([0.28768207245178085], 7)
+    
     cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns)
     @test cov ≈ [2.45, -3.266, -3.266, 2.45, 2.45, -6.125, 8.166] atol=1e-2
+    @test w == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
-    # Third case: 3 mixed categorical variables
-    # Using a trivial classifier
-    # that outputs the proportions of of the classes
+    mach = TMLE.tmle_step(Ψ)
+    @test fitted_params(mach) == (
+        features = [:covariate],
+        coef = [-0.0945122832139119],
+        intercept = 0.0
+    )
+
+    ## Third case: 3 Treatment variables
     scm = StaticConfoundedModel(
-       [:Y], [:T₁, :T₂, :T₃], [:W], treatment_model = ConstantClassifier()
+       [:Y], [:T₁, :T₂, :T₃], [:W], 
+       treatment_model = ConstantClassifier(),
+       outcome_model = DeterministicConstantRegressor()
     )
     Ψ = IATE(
         scm=scm,
@@ -212,8 +240,8 @@ end
         T₁ = categorical(["a", "a", "b", "b", "c", "b", "b"]),
         T₂ = categorical([3, 2, 1, 1, 2, 2, 2], ordered=true),
         T₃ = categorical([true, false, true, false, false, false, false], ordered=true),
-        Y = rand(7),
-        W = rand(7),
+        Y  = [1., 2., 3, 4, 5, 6, 7],
+        W  = rand(7),
     )
 
     fit!(scm, dataset, verbosity=0)
@@ -228,8 +256,18 @@ end
     )
     indicator_fns = TMLE.indicator_fns(Ψ)
 
+    @test TMLE.compute_offset(Ψ) == repeat([4.0], 7)
+
     cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns)
     @test cov ≈ [0, 8.575, -21.4375, 8.575, 0, -4.2875, -4.2875] atol=1e-3
+    @test w == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+    mach = TMLE.tmle_step(Ψ)
+    @test fitted_params(mach) == (
+        features = [:covariate],
+        coef = [-0.02665556018325698],
+        intercept = 0.0
+    )
 end
 
 @testset "Test compute_offset" begin
