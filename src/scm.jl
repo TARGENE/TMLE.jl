@@ -1,10 +1,6 @@
 #####################################################################
 ###                  Structural Equation                          ###
 #####################################################################
-
-SelfReferringEquationError(outcome) = 
-    ArgumentError(string("Variable ", outcome, " appears on both sides of the equation."))
-
 mutable struct StructuralEquation
     outcome::Symbol
     parents::Vector{Symbol}
@@ -20,7 +16,14 @@ StructuralEquation(outcome, parents; model=nothing) = StructuralEquation(outcome
 
 const SE = StructuralEquation
 
+SelfReferringEquationError(outcome) = 
+    ArgumentError(string("Variable ", outcome, " appears on both sides of the equation."))
+
+NoModelError(eq::SE) = ArgumentError(string("It seems the following structural equation needs to be fitted.\n",
+    " Please provide a suitable model for it :\n\t⋆ ", eq))
+    
 function MLJBase.fit!(eq::SE, dataset; verbosity=1, cache=true, force=false)
+    eq.model !== nothing || throw(NoModelError(eq))
     # Fit if never fitted or if new model
     if eq.mach === nothing || eq.model != eq.mach.model
         verbosity >= 1 && @info(string("Fitting Structural Equation corresponding to variable ", outcome(eq), "."))
