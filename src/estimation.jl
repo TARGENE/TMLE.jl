@@ -1,48 +1,4 @@
 
-NotIdentifiedError(reasons) = ArgumentError(string(
-    "The estimand is not identified for the following reasons: \n", join(reasons, "\n")))
-
-"""
-    check_treatment_settings(settings::NamedTuple, levels, treatment_name)
-
-Checks the case/control values defining the treatment contrast are present in the dataset levels. 
-
-Note: This method is for estimands like the ATE or IATE that have case/control treatment settings represented as 
-`NamedTuple`.
-"""
-function check_treatment_settings(settings::NamedTuple, levels, treatment_name)
-    for (key, val) in zip(keys(settings), settings) 
-        any(val .== levels) || 
-            throw(ArgumentError(string(
-                "The treatment variable ", treatment_name, "'s, '", key, "' value: '", val,
-                " in Ψ does not match any level of the corresponding variable in the dataset: ", string.(levels))))
-    end
-end
-
-"""
-    check_treatment_settings(setting, levels, treatment_name)
-
-Checks the value defining the treatment setting is present in the dataset levels. 
-
-Note: This is for estimands like the CM that do not have case/control treatment settings 
-and are represented as simple values.
-"""
-function check_treatment_settings(setting, levels, treatment_name)
-    any(setting .== levels) || 
-            throw(ArgumentError(string(
-                "The string representation: '", val, "' for treatment ", treatment_name, 
-                " in Ψ does not match any level of the corresponding variable in the dataset: ", string.(levels))))
-end
-
-function check_estimand(Ψ::Estimand, dataset)
-    identified, reasons = isidentified(Ψ, dataset)
-    identified || throw(NotIdentifiedError(reasons))
-    for treatment_name in treatments(Ψ)
-        treatment_levels = levels(Tables.getcolumn(dataset, treatment_name))
-        treatment_settings = getproperty(Ψ.treatment, treatment_name)
-        check_treatment_settings(treatment_settings, treatment_levels, treatment_name)
-    end
-end
 
 function tmle(Ψ::Estimand, dataset; verbosity=1, cache=true, force=false, threshold=1e-8, weighted_fluctuation=false)
     # Check the estimand against the dataset

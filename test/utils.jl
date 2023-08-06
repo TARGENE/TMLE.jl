@@ -12,6 +12,45 @@ using MLJGLMInterface: LinearBinaryClassifier
 using MLJLinearModels
 using MLJModels
 
+@testset "Test estimand validation" begin
+    dataset = (
+        W₁ = [1., 2., 3.],
+        T = categorical([1, 2, 3]), 
+        Y = [1., 2., 3.]
+        )
+    scm = SCM(
+        SE(:T, [:W₁, :W₂]),
+        SE(:Y, [:T, :W₁, :W₂])
+    )
+    # Not identified estimand
+    Ψ = ATE(
+        scm=scm,
+        outcome=:Y,
+        treatment=(T=(case=1, control=0),),
+    )
+    reasons = ["Confounding variable: W₂ is not in the dataset."]
+    @test_throws TMLE.NotIdentifiedError(reasons) TMLE.check_estimand(Ψ, dataset)
+    
+    # Treatment values absent from dataset
+    scm = SCM(
+        SE(:T, [:W₁, :W₂]),
+        SE(:Y, [:T, :W₁])
+    )
+    Ψ = ATE(
+        scm=scm,
+        outcome=:Y,
+        treatment=(T=(case=1, control=0),)
+    )
+    @test_throws TMLE.AbsentLevelError("T", "control", 0, [1, 2, 3]) TMLE.check_estimand(Ψ, dataset)
+
+    Ψ = CM(
+        scm=scm,
+        outcome=:Y,
+        treatment=(T=0,),
+    )
+    @test_throws TMLE.AbsentLevelError("T", 0, [1, 2, 3]) TMLE.check_estimand(Ψ, dataset)
+end
+
 @testset "Test indicator_fns & indicator_values" begin
     scm = StaticConfoundedModel(
         [:Y],
@@ -138,7 +177,7 @@ end
     )
     Ψ = ATE(
         scm=scm,
-        outcome =:Y, 
+        outcome=:Y, 
         treatment=(T=(case="a", control="b"),),
     )
     dataset = (

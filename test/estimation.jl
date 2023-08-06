@@ -20,7 +20,7 @@ Results derived by hand for this dataset:
 - ATE(y₁, (T₁, T₂), W₁, W₂, C₁) = E[-4C₁ + 1 + W₂] = -0.5
 - ATE(y₂, T₂, W₁, W₂, C₁) = 10
 """
-function build_dataset(;n=100)
+function build_dataset_and_scm(;n=100)
     rng = StableRNG(123)
     # Confounders
     W₁ = rand(rng, Uniform(), n)
@@ -31,20 +31,29 @@ function build_dataset(;n=100)
     T₁ = rand(rng, Uniform(), n) .< logistic.(0.5sin.(W₁) .- 1.5W₂)
     T₂ = rand(rng, Uniform(), n) .< logistic.(-3W₁ - 1.5W₂)
     # outcome | Confounders, Covariates, Treatments
-    y₁ = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .+ T₁ + T₂.*W₂ .+ rand(rng, Normal(0, 0.1), n)
-    y₂ = 1 .+ 10T₂ .+ rand(rng, Normal(0, 0.1), n)
-    y₃ = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .- 2T₂.*T₁.*W₂ .+ rand(rng, Normal(0, 0.1), n)
-    return (
+    Y₁ = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .+ T₁ + T₂.*W₂ .+ rand(rng, Normal(0, 0.1), n)
+    Y₂ = 1 .+ 10T₂ .+ rand(rng, Normal(0, 0.1), n)
+    Y₃ = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .- 2T₂.*T₁.*W₂ .+ rand(rng, Normal(0, 0.1), n)
+    dataset = (
         T₁ = categorical(T₁),
         T₂ = categorical(T₂),
         W₁ = W₁, 
         W₂ = W₂,
         C₁ = C₁,
-        y₁ = y₁,
-        y₂ = y₂,
-        y₃ = y₃
+        Y₁ = Y₁,
+        Y₂ = Y₂,
+        Y₃ = Y₃
         )
+    scm = SCM(
+        SE(:T₁, [:W₁, :W₂]),
+        SE(:T₂, [:W₁, :W₂]),
+        SE(:Y₁, [:T₁, :T₂, :W₁, :W₂, :C₁]),
+        SE(:Y₂, [:T₂]),
+        SE(:Y₃, [:T₁, :T₂, :W₁, :W₂, :C₁]),
+    )
+    return dataset, scm
 end
+
 
 table_types = (Tables.columntable, DataFrame)
 

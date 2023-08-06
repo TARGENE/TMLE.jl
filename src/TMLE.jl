@@ -42,7 +42,7 @@ include("scm.jl")
 include("treatment_transformer.jl")
 include("estimands.jl")
 include("utils.jl")
-include("cache.jl")
+include("estimation.jl")
 include("estimate.jl")
 include("configuration.jl")
 

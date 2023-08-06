@@ -68,6 +68,60 @@ function indicator_values(indicators, T)
 end
 
 ###############################################################################
+## Estimand Validation
+###############################################################################
+
+NotIdentifiedError(reasons) = ArgumentError(string(
+    "The estimand is not identified for the following reasons: \n\t- ", join(reasons, "\n\t- ")))
+
+AbsentLevelError(treatment_name, key, val, levels) = ArgumentError(string(
+    "The treatment variable ", treatment_name, "'s, '", key, "' level: '", val,
+    "' in Ψ does not match any level in the dataset: ", levels))
+
+AbsentLevelError(treatment_name, val, levels) = ArgumentError(string(
+    "The treatment variable ", treatment_name, "'s, level: '", val,
+    "' in Ψ does not match any level in the dataset: ", levels))
+
+"""
+    check_treatment_settings(settings::NamedTuple, levels, treatment_name)
+
+Checks the case/control values defining the treatment contrast are present in the dataset levels. 
+
+Note: This method is for estimands like the ATE or IATE that have case/control treatment settings represented as 
+`NamedTuple`.
+"""
+function check_treatment_settings(settings::NamedTuple, levels, treatment_name)
+    for (key, val) in zip(keys(settings), settings) 
+        any(val .== levels) || 
+            throw(AbsentLevelError(treatment_name, key, val, levels))
+    end
+end
+
+"""
+    check_treatment_settings(setting, levels, treatment_name)
+
+Checks the value defining the treatment setting is present in the dataset levels. 
+
+Note: This is for estimands like the CM that do not have case/control treatment settings 
+and are represented as simple values.
+"""
+function check_treatment_settings(setting, levels, treatment_name)
+    any(setting .== levels) || 
+            throw(
+                AbsentLevelError(treatment_name, setting, levels))
+end
+
+function check_estimand(Ψ::Estimand, dataset)
+    identified, reasons = isidentified(Ψ, dataset)
+    identified || throw(NotIdentifiedError(reasons))
+    for treatment_name in treatments(Ψ)
+        treatment_levels = levels(Tables.getcolumn(dataset, treatment_name))
+        treatment_settings = getproperty(Ψ.treatment, treatment_name)
+        check_treatment_settings(treatment_settings, treatment_levels, treatment_name)
+    end
+end
+
+###############################################################################
 ## Offset & Covariate
 ###############################################################################
 
