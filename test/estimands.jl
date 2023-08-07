@@ -21,6 +21,23 @@ using MLJGLMInterface
         :Y, :T, [:W₁, :W₂], 
         covariates=:C₁
     )
+    # Parameter validation
+    @test_throws TMLE.VariableNotAChildInSCMError("UndefinedOutcome") CM(
+        scm,
+        treatment=(T=1,),
+        outcome=:UndefinedOutcome
+    )
+    @test_throws TMLE.VariableNotAChildInSCMError("UndefinedTreatment") CM(
+        scm,
+        treatment=(UndefinedTreatment=1,),
+        outcome=:Y
+    )
+    @test_throws TMLE.TreatmentMustBeInOutcomeParentsError("Y") CM(
+        scm,
+        treatment=(Y=1,),
+        outcome=:T
+    )
+
     Ψ = CM(
         scm=scm,
         treatment=(T=1,),

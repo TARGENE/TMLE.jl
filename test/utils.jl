@@ -77,7 +77,7 @@ end
     # ATE
     Ψ = ATE(
         scm=scm,
-        outcome=:y, 
+        outcome=:Y, 
         treatment=(T₁=(case="A", control="B"), T₂=(control=0, case=1)),
     )
     indicator_fns = TMLE.indicator_fns(Ψ)
@@ -90,7 +90,7 @@ end
     # 2-points IATE
     Ψ = IATE(
         scm=scm,
-        outcome=:y, 
+        outcome=:Y, 
         treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0)),
     )
     indicator_fns = TMLE.indicator_fns(Ψ)
@@ -105,7 +105,7 @@ end
     # 3-points IATE
     Ψ = IATE(
         scm=scm,
-        outcome=:y, 
+        outcome=:Y, 
         treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0), T₃=(control="D", case="C")),
     )
     indicator_fns = TMLE.indicator_fns(Ψ)

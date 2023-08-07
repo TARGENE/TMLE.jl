@@ -67,6 +67,10 @@ struct ConditionalMean <: Estimand
     scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
+    function ConditionalMean(scm, outcome, treatment)
+        check_parameter_against_scm(scm, outcome, treatment)
+        return new(scm, outcome, treatment)
+    end
 end
 
 const CM = ConditionalMean
@@ -117,6 +121,10 @@ struct AverageTreatmentEffect <: Estimand
     scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
+    function AverageTreatmentEffect(scm, outcome, treatment)
+        check_parameter_against_scm(scm, outcome, treatment)
+        return new(scm, outcome, treatment)
+    end
 end
 
 const ATE = AverageTreatmentEffect
@@ -160,6 +168,10 @@ struct InteractionAverageTreatmentEffect <: Estimand
     scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
+    function InteractionAverageTreatmentEffect(scm, outcome, treatment)
+        check_parameter_against_scm(scm, outcome, treatment)
+        return new(scm, outcome, treatment)
+    end
 end
 
 const IATE = InteractionAverageTreatmentEffect
@@ -174,6 +186,18 @@ name(::Type{IATE}) = "IATE"
 #####################################################################
 
 CMCompositeEstimand = Union{CM, ATE, IATE}
+
+VariableNotAChildInSCMError(variable) = ArgumentError(string("Variable ", variable, " is not associated with a Structural Equation in the SCM."))
+TreatmentMustBeInOutcomeParentsError(variable) = ArgumentError(string("Treatment variable ", variable, " must be a direct parent of the outcome."))
+
+function check_parameter_against_scm(scm::SCM, outcome, treatment)
+    eqs = equations(scm)
+    haskey(eqs, outcome) || throw(VariableNotAChildInSCMError(outcome))
+    for treatment_variable in keys(treatment)
+        haskey(eqs, treatment_variable) || throw(VariableNotAChildInSCMError(treatment_variable))
+        treatment_variable ∈ parents(eqs[outcome]) || throw(TreatmentMustBeInOutcomeParentsError(treatment_variable))
+    end
+end
 
 function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: CMCompositeEstimand 
     param_string = string(
