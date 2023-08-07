@@ -26,11 +26,11 @@ import AbstractDifferentiation as AD
 export SE, StructuralEquation
 export StructuralCausalModel, SCM, StaticConfoundedModel 
 export CM, ATE, IATE
-export parents, fit!, reset!, isidentified, equations
-export tmle, tmle!
+export parents, fit!, reset!, isidentified, equations, \
+    optimize_ordering, optimize_ordering!
+export tmle
 export var, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
-export estimands_from_yaml, estimands_to_yaml, optimize_ordering, optimize_ordering!
 export TreatmentTransformer
 
 # #############################################################################
