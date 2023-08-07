@@ -125,5 +125,22 @@ end
     end
 end
 
+@testset "Test is_upstream && upstream_variables" begin
+    scm = SCM(
+        SE(:T₁, [:W₁]),
+        SE(:T₂, [:W₂]),
+        SE(:Y, [:T₁, :T₂]),
+    )
+    parents(scm, :Y)
+    @test TMLE.is_upstream(:T₁, :Y, scm) === true
+    @test TMLE.is_upstream(:W₁, :Y, scm) === true
+    @test TMLE.is_upstream(:Y, :T₁, scm) === false
+
+    @test TMLE.upstream_variables(:Y, scm) == [:T₁, :T₂, :W₁, :W₂]
+    @test TMLE.upstream_variables(:T₁, scm) == [:W₁]
+    @test TMLE.upstream_variables(:W₁, scm) == Symbol[]
+
+end
+
 end
 true

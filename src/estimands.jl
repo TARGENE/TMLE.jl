@@ -188,14 +188,14 @@ name(::Type{IATE}) = "IATE"
 CMCompositeEstimand = Union{CM, ATE, IATE}
 
 VariableNotAChildInSCMError(variable) = ArgumentError(string("Variable ", variable, " is not associated with a Structural Equation in the SCM."))
-TreatmentMustBeInOutcomeParentsError(variable) = ArgumentError(string("Treatment variable ", variable, " must be a direct parent of the outcome."))
+TreatmentMustBeInOutcomeParentsError(variable) = ArgumentError(string("Treatment variable ", variable, " must be a parent of the outcome."))
 
 function check_parameter_against_scm(scm::SCM, outcome, treatment)
     eqs = equations(scm)
     haskey(eqs, outcome) || throw(VariableNotAChildInSCMError(outcome))
     for treatment_variable in keys(treatment)
         haskey(eqs, treatment_variable) || throw(VariableNotAChildInSCMError(treatment_variable))
-        treatment_variable ∈ parents(eqs[outcome]) || throw(TreatmentMustBeInOutcomeParentsError(treatment_variable))
+        is_upstream(treatment_variable, outcome, scm) || throw(TreatmentMustBeInOutcomeParentsError(treatment_variable))
     end
 end
 
@@ -280,11 +280,6 @@ F_model(::Type{<:AbstractVector{<:Finite}}) =
     LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
 
 F_model(t::Type{Any}) = throw(ArgumentError("Cannot proceed with Q model with target_scitype $t"))
-
-namedtuples_from_dicts(d) = d
-namedtuples_from_dicts(d::Dict) = 
-    NamedTuple{Tuple(keys(d))}([namedtuples_from_dicts(val) for val in values(d)])
-
 
 function param_key(Ψ::CMCompositeEstimand)
     return (

@@ -115,7 +115,8 @@ function Base.getproperty(scm::StructuralCausalModel, key::Symbol)
     return scm.equations[key]
 end
 
-parents(scm::StructuralCausalModel, key::Symbol) = parents(getproperty(scm, key))
+parents(scm::StructuralCausalModel, key::Symbol) = 
+    haskey(equations(scm), key) ? parents(scm[key]) : Symbol[]
 
 function MLJBase.fit!(scm::SCM, dataset; verbosity=1, cache=true, force=false)
     for eq in values(equations(scm))
@@ -126,6 +127,33 @@ end
 function reset!(scm::SCM)
     for eq in values(equations(scm))
         reset!(eq)
+    end
+end
+
+"""
+    is_upstream(var₁, var₂, scm::SCM)
+
+Checks whether var₁ is upstream of var₂ in the SCM.
+"""
+function is_upstream(var₁, var₂, scm::SCM)
+    upstream = parents(scm, var₂)
+    while true
+        if var₁ ∈ upstream
+            return true
+        else
+            upstream = vcat((parents(scm, v) for v in upstream)...)
+        end
+        isempty(upstream) && return false
+    end
+end
+
+function upstream_variables(var, scm::SCM)
+    upstream = parents(scm, var)
+    current_upstream = upstream
+    while true
+        current_upstream = vcat((parents(scm, v) for v in current_upstream)...)
+        union!(upstream, current_upstream)
+        isempty(current_upstream) && return upstream
     end
 end
 #####################################################################
