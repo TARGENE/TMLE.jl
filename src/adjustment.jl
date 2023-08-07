@@ -5,6 +5,15 @@ struct BackdoorAdjustment <: AdjustmentMethod
     outcome_extra::Vector{Symbol}
 end
 
+"""
+    BackdoorAdjustment(;outcome_extra=[])
+
+The adjustment set for each treatment variable is simply the set of direct parents in the 
+associated structural model.
+
+`outcome_extra` are optional additional variables that can be used to fit the outcome model 
+in order to improve inference.
+"""
 BackdoorAdjustment(;outcome_extra=[]) = BackdoorAdjustment(outcome_extra)
 
 """

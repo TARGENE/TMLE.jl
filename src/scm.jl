@@ -1,6 +1,20 @@
 #####################################################################
 ###                  Structural Equation                          ###
 #####################################################################
+"""
+# Structural Equation / SE
+
+## Constructors
+
+- SE(outcome, parents; model=nothing)
+- SE(;outcome, parents, model=nothing)
+
+## Examples
+
+eq = SE(:Y, [:T, :W])
+eq = SE(:Y, [:T, :W], model = LinearRegressor())
+
+"""
 mutable struct StructuralEquation
     outcome::Symbol
     parents::Vector{Symbol}
@@ -95,6 +109,22 @@ parents(se::SE) = se.parents
 
 AlreadyAssignedError(key) = ArgumentError(string("Variable ", key, " is already assigned in the SCM."))
 
+"""
+# Structural Causal Model / SCM
+
+## Constructors
+
+SCM(;equations=Dict{Symbol, SE}())
+SCM(equations::Vararg{SE})
+
+## Examples
+
+scm = SCM(
+    SE(:Y, [:T, :W, :C]),
+    SE(:T, [:W])
+)
+
+"""
 struct StructuralCausalModel
     equations::Dict{Symbol, StructuralEquation}
 end
@@ -191,6 +221,20 @@ end
 vcat_covariates(treatment, confounders, covariates::Nothing) = vcat(treatment, confounders)
 vcat_covariates(treatment, confounders, covariates) = vcat(treatment, confounders, covariates)
 
+"""
+    StaticConfoundedModel(
+        outcome::Symbol, treatment::Symbol, confounders::Union{Symbol, AbstractVector{Symbol}}; 
+        covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
+        outcome_model = TreatmentTransformer() |> LinearRegressor(),
+        treatment_model = LinearBinaryClassifier()
+    )
+
+Defines a classic Structural Causal Model with one outcome, one treatment, 
+a set of confounding variables and optional covariates influencing the outcome only.
+
+The `outcome_model` and `treatment_model` define the relationship between 
+the outcome (resp. treatment) and their ancestors.
+"""
 function StaticConfoundedModel(
     outcome::Symbol, treatment::Symbol, confounders::Union{Symbol, AbstractVector{Symbol}}; 
     covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
@@ -210,6 +254,25 @@ function StaticConfoundedModel(
     return StructuralCausalModel(Yeq, Teq)
 end
 
+"""
+    StaticConfoundedModel(
+        outcomes::Vector{Symbol}, 
+        treatments::Vector{Symbol}, 
+        confounders::Union{Symbol, AbstractVector{Symbol}}; 
+        covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
+        outcome_model = TreatmentTransformer() |> LinearRegressor(),
+        treatment_model = LinearBinaryClassifier()
+    )
+
+Defines a classic Structural Causal Model with multiple outcomes, multiple treatments, 
+a set of confounding variables and optional covariates influencing the outcomes only.
+
+All treatments are assumed to be direct parents of all outcomes. The confounding variables 
+are shared for all treatments.
+
+The `outcome_model` and `treatment_model` define the relationships between 
+the outcomes (resp. treatments) and their ancestors.
+"""
 function StaticConfoundedModel(
     outcomes::Vector{Symbol}, 
     treatments::Vector{Symbol}, 
