@@ -12,9 +12,10 @@ mutable struct StructuralEquation
     end
 end
 
-StructuralEquation(outcome, parents; model=nothing) = StructuralEquation(outcome, parents, model)
-
 const SE = StructuralEquation
+
+SE(outcome, parents; model=nothing) = SE(outcome, parents, model)
+SE(;outcome, parents, model=nothing) = SE(outcome, parents, model)
 
 SelfReferringEquationError(outcome) = 
     ArgumentError(string("Variable ", outcome, " appears on both sides of the equation."))
@@ -72,8 +73,7 @@ end
 
 const SCM = StructuralCausalModel
 
-SCM() = SCM(Dict{Symbol, SE}())
-
+SCM(;equations=Dict{Symbol, SE}()) = SCM(equations)
 SCM(equations::Vararg{SE}) = 
     SCM(Dict(outcome(eq) => eq for eq in equations))
 
