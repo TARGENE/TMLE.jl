@@ -1,11 +1,30 @@
+function MLJBase.fit!(Ψ::CMCompositeEstimand, dataset; adjustment_method=BackdoorAdjustment(), verbosity=1, force=false) 
+    models_input_variables = get_models_input_variables(adjustment_method, Ψ)
+    for (variable, input_variables) in zip(keys(models_input_variables), models_input_variables)
+        fit!(Ψ.scm[variable], dataset; 
+            input_variables=input_variables, 
+            verbosity=verbosity, 
+            force=force
+        )
+    end
+end
 
-
-function tmle(Ψ::Estimand, dataset; verbosity=1, cache=true, force=false, threshold=1e-8, weighted_fluctuation=false)
+function tmle(Ψ::CMCompositeEstimand, dataset; 
+    adjustment_method=BackdoorAdjustment(), 
+    verbosity=1, 
+    force=false, 
+    threshold=1e-8, 
+    weighted_fluctuation=false
+    )
     # Check the estimand against the dataset
-    check_estimand(Ψ, dataset)
+    check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's equations
     verbosity >= 1 && @info "Fitting the required equations..."
-    fit!(Ψ, dataset; verbosity=verbosity, cache=cache, force=force)
+    fit!(Ψ, dataset;
+        adjustment_method=adjustment_method, 
+        verbosity=verbosity, 
+        force=force
+    )
     # TMLE step
     verbosity >= 1 && @info "Performing TMLE..."
     fluctuation_mach = tmle_step(Ψ, verbosity=verbosity, threshold=threshold, weighted_fluctuation=weighted_fluctuation)
@@ -25,11 +44,12 @@ function tmle_step(Ψ::CMCompositeEstimand; verbosity=1, threshold=1e-8, weighte
     # Compute offset
     offset = TMLE.compute_offset(MLJBase.predict(outcome_mach))
     # Compute clever covariate and weights for weighted fluctuation mode
-    W = confounders(X, Ψ)
     T = treatments(X, Ψ)
+    W = confounders(X, Ψ)
     covariate, weights = TMLE.clever_covariate_and_weights(
-        Ψ.scm, T, W, indicator_fns(Ψ); 
-        threshold=threshold, weighted_fluctuation=weighted_fluctuation
+        Ψ.scm, W, T, indicator_fns(Ψ); 
+        threshold=threshold, 
+        weighted_fluctuation=weighted_fluctuation
     )
     # Fit fluctuation
     Xfluct = TMLE.fluctuation_input(covariate, offset)
@@ -50,14 +70,15 @@ function counterfactual_aggregates(Ψ::CMCompositeEstimand, fluctuation_mach; th
     for (vals, sign) in indicators
         # Counterfactual dataset for a given treatment setting
         T_ct = TMLE.counterfactualTreatment(vals, Ttemplate)
-        X_ct = selectcols(merge(X, T_ct), parents(outcome_eq))
+        X_ct = selectcols(merge(X, T_ct), keys(X))
+        W = confounders(X_ct, Ψ)
         # Counterfactual predictions with the initial Q
-        ŷᵢ = MLJBase.predict(outcome_eq.mach,  X_ct)
+        ŷᵢ = MLJBase.predict(outcome_eq.mach, X_ct)
         counterfactual_aggregateᵢ .+= sign .* expected_value(ŷᵢ)
         # Counterfactual predictions with F
         offset = compute_offset(ŷᵢ)
         covariate, _ = clever_covariate_and_weights(
-            Ψ.scm, T_ct, confounders(X, Ψ), indicators; 
+            Ψ.scm, W, T_ct, indicators; 
             threshold=threshold, weighted_fluctuation=weighted_fluctuation
         )
         Xfluct_ct = fluctuation_input(covariate, offset)

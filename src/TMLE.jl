@@ -26,12 +26,12 @@ import AbstractDifferentiation as AD
 export SE, StructuralEquation
 export StructuralCausalModel, SCM, StaticConfoundedModel 
 export CM, ATE, IATE
-export parents, fit!, reset!, isidentified, equations, \
-    optimize_ordering, optimize_ordering!
+export parents, fit!, reset!, isidentified, equations, optimize_ordering, optimize_ordering!
 export tmle
 export var, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
 export TreatmentTransformer
+export BackdoorAdjustment
 
 # #############################################################################
 # INCLUDES
@@ -40,9 +40,11 @@ export TreatmentTransformer
 include("scm.jl")
 include("treatment_transformer.jl")
 include("estimands.jl")
+include("adjustment.jl")
 include("utils.jl")
 include("estimation.jl")
 include("estimate.jl")
+
 
 # #############################################################################
 # PRECOMPILATION WORKLOAD

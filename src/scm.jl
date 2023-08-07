@@ -25,19 +25,47 @@ NoModelError(eq::SE) = ArgumentError(string("It seems the following structural e
 
 fit_message(eq::SE) = string("Fitting Structural Equation corresponding to variable ", outcome(eq), ".")
 
-function MLJBase.fit!(eq::SE, dataset; verbosity=1, cache=true, force=false)
+
+equation_inputs(eq::SE, input_variables::Nothing) = parents(eq)
+equation_inputs(eq::SE, input_variables) = input_variables
+
+"""
+    MLJBase.fit!(eq::SE, dataset; input_variables=nothing, verbosity=1, cache=true, force=false)
+
+Fits the outcome's Structural Equation using the dataset with inputs variables given by either:
+
+- The variables corresponding to parents(eq) if `input_variables`= nothing
+- The alternative variables provided by `input_variables`.
+
+Extra keyword arguments are:
+
+- cache: Controls whether the associated MLJ.Machine will cache data.
+- force: Controls whether to force the associated MLJ.Machine to refit even if neither the model or data has changed.
+- verbosity: Controls the verbosity level
+"""
+function MLJBase.fit!(eq::SE, dataset; input_variables=nothing, verbosity=1, cache=true, force=false)
     eq.model !== nothing || throw(NoModelError(eq))
-    # Fit if never fitted or if new model
-    if eq.mach === nothing || eq.model != eq.mach.model
+    # Fit when: never fitted OR model has changed OR inputs have changed
+    dofit = eq.mach === nothing || eq.model != eq.mach.model
+    if !dofit
+        if isdefined(eq.mach, :data)
+            dofit = Tables.columnnames(eq.mach.data[1]) !== Tuple(equation_inputs(eq, input_variables))
+        else
+            dofit = true
+        end
+    end
+
+    if dofit
         verbosity >= 1 && @info(fit_message(eq))
-        data = nomissing(dataset, vcat(parents(eq), outcome(eq)))
-        X = selectcols(data, parents(eq))
+        input_colnames = equation_inputs(eq, input_variables)
+        data = nomissing(dataset, vcat(input_colnames, outcome(eq)))
+        X = selectcols(data, input_colnames)
         y = Tables.getcolumn(data, outcome(eq))
         mach = machine(eq.model, X, y, cache=cache)
         MLJBase.fit!(mach, verbosity=verbosity-1)
         eq.mach = mach
-    # Otherwise only fit if force is true
-    else
+    # Also refit if force is true
+    else 
         verbosity >= 1 && force === true && @info(fit_message(eq))
         MLJBase.fit!(eq.mach, verbosity=verbosity-1, force=force)
     end

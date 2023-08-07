@@ -69,8 +69,8 @@ table_types = (Tables.columntable, DataFrame)
     # Run TMLE
     log_sequence = (
         (:info, "Fitting the required equations..."),
-        (:info, "Fitting Structural Equation corresponding to variable Y₁."),
         (:info, "Fitting Structural Equation corresponding to variable T₁."),
+        (:info, "Fitting Structural Equation corresponding to variable Y₁."),
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
@@ -102,7 +102,7 @@ table_types = (Tables.columntable, DataFrame)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
     # New marginal treatment estimation: T₂
-    # This will trigger fit of the corresponding equation
+    # This will trigger fit of the corresponding equations
     Ψ = ATE(
         scm=scm,
         outcome=:Y₁,
@@ -111,6 +111,7 @@ table_types = (Tables.columntable, DataFrame)
     log_sequence = (
         (:info, "Fitting the required equations..."),
         (:info, "Fitting Structural Equation corresponding to variable T₂."),
+        (:info, "Fitting Structural Equation corresponding to variable Y₁."),
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
@@ -141,7 +142,6 @@ table_types = (Tables.columntable, DataFrame)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
-    # At this point all equations have been fitted
     # New estimand with 2 treatment variables
     Ψ = ATE(
         scm=scm,
@@ -150,6 +150,7 @@ table_types = (Tables.columntable, DataFrame)
     )
     log_sequence = (
         (:info, "Fitting the required equations..."),
+        (:info, "Fitting Structural Equation corresponding to variable Y₁."),
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
@@ -165,6 +166,11 @@ table_types = (Tables.columntable, DataFrame)
         scm=scm,
         outcome=:Y₁,
         treatment=(T₁=(case=true, control=false), T₂=(case=false, control=true)),
+    )
+    log_sequence = (
+        (:info, "Fitting the required equations..."),
+        (:info, "Performing TMLE..."),
+        (:info, "Done.")
     )
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset, verbosity=1);
     Ψ₀ = -1.5
@@ -185,9 +191,9 @@ end
     )
     log_sequence = (
         (:info, "Fitting the required equations..."),
-        (:info, "Fitting Structural Equation corresponding to variable Y₁."),
         (:info, "Fitting Structural Equation corresponding to variable T₁."),
         (:info, "Fitting Structural Equation corresponding to variable T₂."),
+        (:info, "Fitting Structural Equation corresponding to variable Y₁."),
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
@@ -260,9 +266,9 @@ end
     )
     log_sequence = (
         (:info, "Fitting the required equations..."),
-        (:info, "Fitting Structural Equation corresponding to variable Y₃."),
         (:info, "Fitting Structural Equation corresponding to variable T₁."),
         (:info, "Fitting Structural Equation corresponding to variable T₂."),
+        (:info, "Fitting Structural Equation corresponding to variable Y₃."),
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
@@ -279,8 +285,8 @@ end
 
     log_sequence = (
         (:info, "Fitting the required equations..."),
-        (:info, "Fitting Structural Equation corresponding to variable Y₃."),
         (:info, "Fitting Structural Equation corresponding to variable T₂."),
+        (:info, "Fitting Structural Equation corresponding to variable Y₃."),
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )

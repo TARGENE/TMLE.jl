@@ -47,13 +47,7 @@ using MLJGLMInterface
     @test TMLE.treatments(Ψ) == [:T]
     @test TMLE.treatments(dataset, Ψ) == (T=dataset.T,)
     @test TMLE.outcome(Ψ) == :Y
-    @test TMLE.confounders(Ψ) == (T=[:W₁, :W₂],)
-    @test TMLE.confounders(dataset, Ψ) == (T=(W₁=dataset.W₁, W₂=dataset.W₂),)
-    identified, reasons = isidentified(Ψ, dataset)
-    @test identified === true
-    @test reasons == []
-    ηs = TMLE.equations_to_fit(Ψ)
-    @test ηs === (scm.Y, scm.T)
+    
     # ATE
     scm = SCM(
         SE(:Z, [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁]),
@@ -67,20 +61,7 @@ using MLJGLMInterface
     )
     @test TMLE.treatments(Ψ) == [:T₁, :T₂]
     @test TMLE.outcome(Ψ) == :Z
-    @test TMLE.confounders(Ψ) == (T₁=[:W₁₁, :W₁₂], T₂=[:W₂₁])
-    identified, reasons = isidentified(Ψ, dataset)
-    @test identified === false
-    expected_reasons = [
-        "Outcome variable: Z is not in the dataset.",
-        "Treatment variable: T₁ is not in the dataset.",
-        "Treatment variable: T₂ is not in the dataset.",
-        "Confounding variable: W₁₂ is not in the dataset.",
-        "Confounding variable: W₂₁ is not in the dataset.",
-        "Confounding variable: W₁₁ is not in the dataset."
-    ]
-    @test reasons == expected_reasons
-    ηs = TMLE.equations_to_fit(Ψ)
-    @test ηs === (scm.Z, scm.T₁, scm.T₂)
+
     # IATE
     Ψ = IATE(
         scm=scm,
@@ -89,12 +70,6 @@ using MLJGLMInterface
     )
     @test TMLE.treatments(Ψ) == [:T₁, :T₂]
     @test TMLE.outcome(Ψ) == :Z
-    @test TMLE.confounders(Ψ) == (T₁=[:W₁₁, :W₁₂], T₂=[:W₂₁])
-    identified, reasons = isidentified(Ψ, dataset)
-    @test identified === false
-    @test reasons == expected_reasons
-    ηs = TMLE.equations_to_fit(Ψ)
-    @test ηs === (scm.Z, scm.T₁, scm.T₂)
 end
 
 @testset "Test fit!" begin
@@ -125,9 +100,11 @@ end
         treatment=(T₁=1,),
         outcome=:Ycat
     )
-    fit!(Ψ, dataset, verbosity=0)
+    fit!(Ψ, dataset; adjustment_method=BackdoorAdjustment([:C]), verbosity=0)
     @test scm.Ycat.mach isa Machine
+    @test keys(scm.Ycat.mach.data[1]) == (:T₁, :W₁₁, :W₁₂, :C)
     @test scm.T₁.mach isa Machine
+    @test keys(scm.T₁.mach.data[1]) == (:W₁₁, :W₁₂)
     @test scm.Ycont.mach isa Nothing
     @test scm.T₂.mach isa Nothing
 
@@ -139,9 +116,11 @@ end
     )
     log_sequence = (
         (:info, "Fitting Structural Equation corresponding to variable T₂."),
+        (:info, "Fitting Structural Equation corresponding to variable Ycat.")
     )
     @test_logs log_sequence... fit!(Ψ, dataset, verbosity=1)
     @test scm.Ycat.mach isa Machine
+    keys(scm.Ycat.mach.data[1])
     @test scm.T₁.mach isa Machine
     @test scm.T₂.mach isa Machine
     @test scm.Ycont.mach isa Nothing
@@ -225,8 +204,8 @@ end
         ),
     ]
     # Test param_key
-    @test TMLE.param_key(estimands[1]) == ("W₁_W₂", "T₁_T₂", "Y₁")
-    @test TMLE.param_key(estimands[end]) == ("W₁_W₂_W₃", "T₂", "Y₂")
+    @test TMLE.param_key(estimands[1]) == ("T₁_T₂", "Y₁")
+    @test TMLE.param_key(estimands[end]) == ("T₂", "Y₂")
     # Non mutating function
     estimands = shuffle(rng, estimands)
     ordered_estimands = optimize_ordering(estimands)
@@ -248,6 +227,7 @@ end
     optimize_ordering!(estimands)
     @test estimands == ordered_estimands
 end
+
 
 @testset "Test structs are concrete types" begin
     @test isconcretetype(ATE)

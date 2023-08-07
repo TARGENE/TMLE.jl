@@ -111,9 +111,12 @@ function check_treatment_settings(setting, levels, treatment_name)
                 AbsentLevelError(treatment_name, setting, levels))
 end
 
-function check_estimand(Ψ::Estimand, dataset)
-    identified, reasons = isidentified(Ψ, dataset)
-    identified || throw(NotIdentifiedError(reasons))
+"""
+    check_treatment_levels(Ψ::CMCompositeEstimand, dataset)
+
+Makes sure the defined treatment levels are present in the dataset.
+"""
+function check_treatment_levels(Ψ::CMCompositeEstimand, dataset)
     for treatment_name in treatments(Ψ)
         treatment_levels = levels(Tables.getcolumn(dataset, treatment_name))
         treatment_settings = getproperty(Ψ.treatment, treatment_name)
@@ -168,7 +171,7 @@ if `weighted_fluctuation = true`:
 
 where SpecialIndicator(t) is defined in `indicator_fns`.
 """
-function clever_covariate_and_weights(scm::SCM, T, W, indicator_fns; threshold=1e-8, weighted_fluctuation=false)
+function clever_covariate_and_weights(scm::SCM, W, T, indicator_fns; threshold=1e-8, weighted_fluctuation=false)
     # Compute the indicator values
     indic_vals = TMLE.indicator_values(indicator_fns, T)
     weights = balancing_weights(scm, W, T, threshold=threshold)

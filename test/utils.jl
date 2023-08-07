@@ -18,22 +18,9 @@ using MLJModels
         T = categorical([1, 2, 3]), 
         Y = [1., 2., 3.]
         )
-    scm = SCM(
-        SE(:T, [:W₁, :W₂]),
-        SE(:Y, [:T, :W₁, :W₂])
-    )
-    # Not identified estimand
-    Ψ = ATE(
-        scm=scm,
-        outcome=:Y,
-        treatment=(T=(case=1, control=0),),
-    )
-    reasons = ["Confounding variable: W₂ is not in the dataset."]
-    @test_throws TMLE.NotIdentifiedError(reasons) TMLE.check_estimand(Ψ, dataset)
-    
     # Treatment values absent from dataset
     scm = SCM(
-        SE(:T, [:W₁, :W₂]),
+        SE(:T, [:W₁]),
         SE(:Y, [:T, :W₁])
     )
     Ψ = ATE(
@@ -41,14 +28,14 @@ using MLJModels
         outcome=:Y,
         treatment=(T=(case=1, control=0),)
     )
-    @test_throws TMLE.AbsentLevelError("T", "control", 0, [1, 2, 3]) TMLE.check_estimand(Ψ, dataset)
+    @test_throws TMLE.AbsentLevelError("T", "control", 0, [1, 2, 3]) TMLE.check_treatment_levels(Ψ, dataset)
 
     Ψ = CM(
         scm=scm,
         outcome=:Y,
         treatment=(T=0,),
     )
-    @test_throws TMLE.AbsentLevelError("T", 0, [1, 2, 3]) TMLE.check_estimand(Ψ, dataset)
+    @test_throws TMLE.AbsentLevelError("T", 0, [1, 2, 3]) TMLE.check_treatment_levels(Ψ, dataset)
 end
 
 @testset "Test indicator_fns & indicator_values" begin
@@ -187,17 +174,17 @@ end
         W₂ = rand(7),
         W₃ = rand(7)
     )
-    fit!(scm, dataset, verbosity=0)
+    fit!(Ψ, dataset, verbosity=0)
     indicator_fns = TMLE.indicator_fns(Ψ)
     T = TMLE.treatments(dataset, Ψ)
     @test T == (T=dataset.T,)
     W = TMLE.confounders(dataset, Ψ)
-    @test W == (T=(W₁=dataset.W₁, W₂=dataset.W₂, W₃=dataset.W₃),)
-    
+    @test W == (T = (W₁=dataset.W₁, W₂=dataset.W₂, W₃=dataset.W₃),)
+
     @test TMLE.compute_offset(Ψ) == repeat([mean(dataset.Y)], 7)
     weighted_fluctuation = true
     bw = TMLE.balancing_weights(scm, W, T)
-    cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns, weighted_fluctuation=weighted_fluctuation)
+    cov, w = TMLE.clever_covariate_and_weights(scm, W, T, indicator_fns, weighted_fluctuation=weighted_fluctuation)
 
     @test cov == [1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0]
     @test w == bw == [1.75, 3.5, 7.0, 1.75, 1.75, 3.5, 1.75]
@@ -209,7 +196,7 @@ end
         intercept = 0.0
     )
 
-    cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns)
+    cov, w = TMLE.clever_covariate_and_weights(scm, W, T, indicator_fns)
     @test cov == [1.75, -3.5, 0.0, 1.75, 1.75, -3.5, 1.75]
 
     unweighted_mach = TMLE.tmle_step(Ψ, weighted_fluctuation=false)
@@ -239,7 +226,7 @@ end
         W₂ = rand(7),
         W₃ = rand(7)
     )
-    fit!(scm, dataset, verbosity=0)
+    fit!(Ψ, dataset, verbosity=0)
     indicator_fns = TMLE.indicator_fns(Ψ)
     T = TMLE.treatments(dataset, Ψ)
     @test T == (T₁ = dataset.T₁, T₂ = dataset.T₂)
@@ -251,7 +238,7 @@ end
     # Because the outcome is binary, the offset is the logit
     @test TMLE.compute_offset(Ψ) == repeat([0.28768207245178085], 7)
     
-    cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns)
+    cov, w = TMLE.clever_covariate_and_weights(scm, W, T, indicator_fns)
     @test cov ≈ [2.45, -3.266, -3.266, 2.45, 2.45, -6.125, 8.166] atol=1e-2
     @test w == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
@@ -285,7 +272,7 @@ end
         W  = rand(7),
     )
 
-    fit!(scm, dataset, verbosity=0)
+    fit!(Ψ, dataset, verbosity=0)
     indicator_fns = TMLE.indicator_fns(Ψ)
     T = TMLE.treatments(dataset, Ψ)
     @test T == (T₁ = dataset.T₁, T₂ = dataset.T₂, T₃ = dataset.T₃)
@@ -299,7 +286,7 @@ end
 
     @test TMLE.compute_offset(Ψ) == repeat([4.0], 7)
 
-    cov, w = TMLE.clever_covariate_and_weights(scm, T, W, indicator_fns)
+    cov, w = TMLE.clever_covariate_and_weights(scm, W, T, indicator_fns)
     @test cov ≈ [0, 8.575, -21.4375, 8.575, 0, -4.2875, -4.2875] atol=1e-3
     @test w == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
