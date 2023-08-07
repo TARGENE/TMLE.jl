@@ -235,7 +235,7 @@ end
         outcome      = :Y,
         treatment   = (T₁=(case=1., control=0.), T₂=(case=1., control=0.)),
     )
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=1)
+    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)

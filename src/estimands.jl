@@ -63,13 +63,16 @@ CM₂ = CM(
 )
 ```
 """
-@option struct ConditionalMean <: Estimand
+struct ConditionalMean <: Estimand
     scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
 end
 
 const CM = ConditionalMean
+
+CM(;scm, outcome, treatment) = CM(scm, outcome, treatment)
+CM(scm; outcome, treatment) = CM(scm, outcome, treatment)
 
 name(::Type{CM}) = "CM"
 
@@ -110,13 +113,16 @@ ATE₂ = ATE(
 )
 ```
 """
-@option struct AverageTreatmentEffect <: Estimand
+struct AverageTreatmentEffect <: Estimand
     scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
 end
 
 const ATE = AverageTreatmentEffect
+
+ATE(;scm, outcome, treatment) = ATE(scm, outcome, treatment)
+ATE(scm; outcome, treatment) = ATE(scm, outcome, treatment)
 
 name(::Type{ATE}) = "ATE"
 
@@ -150,13 +156,16 @@ IATE₁ = IATE(
 )
 ```
 """
-@option struct InteractionAverageTreatmentEffect <: Estimand
+struct InteractionAverageTreatmentEffect <: Estimand
     scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
 end
 
 const IATE = InteractionAverageTreatmentEffect
+
+IATE(;scm, outcome, treatment) = IATE(scm, outcome, treatment)
+IATE(scm; outcome, treatment) = IATE(scm, outcome, treatment)
 
 name(::Type{IATE}) = "IATE"
 
@@ -166,7 +175,7 @@ name(::Type{IATE}) = "IATE"
 
 CMCompositeEstimand = Union{CM, ATE, IATE}
 
-function Base.show(io::IO, Ψ::T) where T <: CMCompositeEstimand 
+function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: CMCompositeEstimand 
     param_string = string(
         name(T),
         "\n-----",

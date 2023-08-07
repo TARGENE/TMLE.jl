@@ -21,12 +21,14 @@ SelfReferringEquationError(outcome) =
 
 NoModelError(eq::SE) = ArgumentError(string("It seems the following structural equation needs to be fitted.\n",
     " Please provide a suitable model for it :\n\t⋆ ", eq))
-    
+
+fit_message(eq::SE) = string("Fitting Structural Equation corresponding to variable ", outcome(eq), ".")
+
 function MLJBase.fit!(eq::SE, dataset; verbosity=1, cache=true, force=false)
     eq.model !== nothing || throw(NoModelError(eq))
     # Fit if never fitted or if new model
     if eq.mach === nothing || eq.model != eq.mach.model
-        verbosity >= 1 && @info(string("Fitting Structural Equation corresponding to variable ", outcome(eq), "."))
+        verbosity >= 1 && @info(fit_message(eq))
         data = nomissing(dataset, vcat(parents(eq), outcome(eq)))
         X = selectcols(data, parents(eq))
         y = Tables.getcolumn(data, outcome(eq))
@@ -35,6 +37,7 @@ function MLJBase.fit!(eq::SE, dataset; verbosity=1, cache=true, force=false)
         eq.mach = mach
     # Otherwise only fit if force is true
     else
+        verbosity >= 1 && force === true && @info(fit_message(eq))
         MLJBase.fit!(eq.mach, verbosity=verbosity-1, force=force)
     end
 end
@@ -49,7 +52,7 @@ function string_repr(eq::SE; subscript="")
     return eq_string
 end
 
-Base.show(io::IO, eq::SE) = println(io, string_repr(eq))
+Base.show(io::IO, ::MIME"text/plain", eq::SE) = println(io, string_repr(eq))
 
 assign_model!(eq::SE, model::Nothing) = nothing
 assign_model!(eq::SE, model::Model) = eq.model = model
@@ -69,8 +72,10 @@ end
 
 const SCM = StructuralCausalModel
 
-StructuralCausalModel(equations::Vararg{SE}) = 
-    StructuralCausalModel(Dict(outcome(eq) => eq for eq in equations))
+SCM() = SCM(Dict{Symbol, SE}())
+
+SCM(equations::Vararg{SE}) = 
+    SCM(Dict(outcome(eq) => eq for eq in equations))
 
 
 equations(scm::SCM) = scm.equations
@@ -88,7 +93,7 @@ function string_repr(scm::SCM)
     return scm_string
 end
 
-Base.show(io::IO, scm::SCM) = println(io, string_repr(scm))
+Base.show(io::IO, ::MIME"text/plain", scm::SCM) = println(io, string_repr(scm))
 
 
 function Base.push!(scm::SCM, eq::SE)

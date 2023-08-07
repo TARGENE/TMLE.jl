@@ -14,7 +14,6 @@ using Distributions
 using Zygote
 using LogExpFunctions
 using YAML
-using Configurations
 using PrecompileTools
 using PrettyTables
 using Random
@@ -44,7 +43,6 @@ include("estimands.jl")
 include("utils.jl")
 include("estimation.jl")
 include("estimate.jl")
-include("configuration.jl")
 
 # #############################################################################
 # PRECOMPILATION WORKLOAD

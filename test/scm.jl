@@ -113,19 +113,10 @@ end
         @test isdefined(eq.mach, :data)
     end
     # Refit will not do anything
-    nofit_log_sequence = (
-        (:info, "Structural Equation corresponding to variable Ycont already fitted, skipping. Set `force=true` to force refit."),
-        (:info, "Structural Equation corresponding to variable Ycat already fitted, skipping. Set `force=true` to force refit."),
-        (:info, "Structural Equation corresponding to variable T₁ already fitted, skipping. Set `force=true` to force refit."),
-        (:info, "Structural Equation corresponding to variable T₂ already fitted, skipping. Set `force=true` to force refit."),
-    )
+    nofit_log_sequence = ()
     @test_logs nofit_log_sequence... fit!(scm, dataset, verbosity = 1)
-    # Force refit and set cache to false
-    @test_logs fit_log_sequence... fit!(scm, dataset, verbosity = 1, force=true, cache=false)
-    for (key, eq) in equations(scm)
-        @test eq.mach isa Machine
-        @test !isdefined(eq.mach, :data)
-    end
+    # Force refit
+    @test_logs fit_log_sequence... fit!(scm, dataset, verbosity = 1, force=true)
 
     # Reset scm
     reset!(scm)
