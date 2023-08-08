@@ -25,8 +25,8 @@ end
 @testset "Test cov" begin
     n = 10
     X = rand(n, 2)
-    ER₁ = TMLE.ALEstimate(1., X[:, 1])
-    ER₂ = TMLE.ALEstimate(0., X[:, 2])
+    ER₁ = TMLE.TMLEstimate(1., X[:, 1])
+    ER₂ = TMLE.TMLEstimate(0., X[:, 2])
     Σ = cov(ER₁, ER₂)
     @test size(Σ) == (2, 2)
     @test Σ == cov(X) 

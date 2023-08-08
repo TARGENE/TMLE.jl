@@ -51,8 +51,8 @@ function tmle(Ψ::CMCompositeEstimand, dataset;
     fluctuation_mach = tmle_step(Ψ, verbosity=verbosity, threshold=threshold, weighted_fluctuation=weighted_fluctuation)
     # Estimation results after TMLE
     IC, Ψ̂, ICᵢ, Ψ̂ᵢ = gradient_and_estimates(Ψ, fluctuation_mach, threshold=threshold, weighted_fluctuation=weighted_fluctuation)
-    tmle_result = ALEstimate(Ψ̂, IC)
-    one_step_result = ALEstimate(Ψ̂ᵢ + mean(ICᵢ), ICᵢ)
+    tmle_result = TMLEstimate(Ψ̂, IC)
+    one_step_result = OSEstimate(Ψ̂ᵢ + mean(ICᵢ), ICᵢ)
 
     verbosity >= 1 && @info "Done."
     TMLEResult(Ψ, tmle_result, one_step_result, Ψ̂ᵢ), fluctuation_mach 
