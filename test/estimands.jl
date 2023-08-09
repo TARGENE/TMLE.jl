@@ -72,6 +72,18 @@ using MLJGLMInterface
     @test TMLE.outcome(Ψ) == :Z
 end
 
+@testset "Test constructors" begin
+    Ψ = CM(:Y, (T=1,), [:W])
+    @test parents(Ψ.scm.Y) == [:T, :W]
+
+    Ψ = ATE(:Y, (T₁=(case=1, control=0), T₂=(case=1, control=0)), :W)
+    @test parents(Ψ.scm.Y) == [:T₁, :T₂, :W]
+
+    Ψ = IATE(:Y, (T₁=(case=1, control=0), T₂=(case=1, control=0)), :W)
+    @test parents(Ψ.scm.Y) == [:T₁, :T₂, :W]
+end
+
+
 @testset "Test fit!" begin
     rng = StableRNG(123)
     n = 100

@@ -124,7 +124,7 @@ end
     scm.Y.model = TreatmentTransformer() |> MLJModels.DeterministicConstantRegressor()
     scm.T.model = LogisticClassifier(lambda=0)
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -136,7 +136,7 @@ end
     scm.Y.model = TreatmentTransformer() |> LinearRegressor()
     scm.T.model = ConstantClassifier()
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -153,7 +153,7 @@ end
     scm.Y.model = TreatmentTransformer() |> ConstantClassifier()
     scm.T.model = LogisticClassifier(lambda=0)
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-6)
@@ -165,7 +165,7 @@ end
     scm.Y.model = TreatmentTransformer() |> LogisticClassifier(lambda=0)
     scm.T.model = ConstantClassifier()
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-6)
@@ -183,7 +183,7 @@ end
     scm.Y.model = TreatmentTransformer() |> MLJModels.DeterministicConstantRegressor()
     scm.T.model = LogisticClassifier(lambda=0)
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -195,7 +195,7 @@ end
     scm.Y.model = TreatmentTransformer() |> LinearRegressor()
     scm.T.model = ConstantClassifier()
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -214,7 +214,7 @@ end
     scm.T₁.model = LogisticClassifier(lambda=0)
     scm.T₂.model = LogisticClassifier(lambda=0)
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₁)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -224,7 +224,7 @@ end
     scm.T₁.model = ConstantClassifier()
     scm.T₂.model = ConstantClassifier()
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₁)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -235,7 +235,7 @@ end
         outcome      = :Y,
         treatment   = (T₁=(case=1., control=0.), T₂=(case=1., control=0.)),
     )
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -246,7 +246,7 @@ end
     scm.T₁.model = LogisticClassifier(lambda=0)
     scm.T₂.model = LogisticClassifier(lambda=0)
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)

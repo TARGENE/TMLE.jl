@@ -27,8 +27,8 @@ function Base.show(io::IO, r::TMLEResult)
     tmletest = OneSampleTTest(r.tmle)
     onesteptest = OneSampleTTest(r.onestep)
     data = [
-        :TMLE estimate(r.tmle) confint(tmletest) pvalue(tmletest);
-        :OSE estimate(r.onestep) confint(onesteptest) pvalue(onesteptest);
+        :TMLE estimate(tmle(r)) confint(tmletest) pvalue(tmletest);
+        :OSE estimate(ose(r)) confint(onesteptest) pvalue(onesteptest);
         :Naive r.initial nothing nothing
         ]
     pretty_table(io, data;header=["Estimator", "Estimate", "95% Confidence Interval", "P-value"])
@@ -38,18 +38,18 @@ tmle(result::TMLEResult) = result.tmle
 ose(result::TMLEResult) = result.onestep
 
 """
-    estimate(r::AsymptoticallyLinearEstimate)
+    Distributions.estimate(r::AsymptoticallyLinearEstimate)
 
 Retrieves the final estimate: after the TMLE step.
 """
-estimate(r::AsymptoticallyLinearEstimate) = r.Ψ̂
+Distributions.estimate(r::AsymptoticallyLinearEstimate) = r.Ψ̂
 
 """
-    estimate(r::ComposedTMLEstimate)
+    Distributions.estimate(r::ComposedTMLEstimate)
 
 Retrieves the final estimate: after the TMLE step.
 """
-estimate(r::ComposedTMLEstimate) = length(r.Ψ̂) == 1 ? r.Ψ̂[1] : r.Ψ̂
+Distributions.estimate(r::ComposedTMLEstimate) = length(r.Ψ̂) == 1 ? r.Ψ̂[1] : r.Ψ̂
 
 """
     var(r::AsymptoticallyLinearEstimate)

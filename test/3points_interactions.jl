@@ -40,12 +40,12 @@ end
         treatment = (T₁=(case=true, control=false), T₂=(case=true, control=false), T₃=(case=1, control=0))
     )
 
-    result, fluctuation = tmle(Ψ, dataset, verbosity=0)
+    result, fluctuation = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation)
     test_mean_inf_curve_almost_zero(result; atol=1e-10)
 
-    result, fluctuation = tmle(Ψ, dataset, verbosity=0, weighted_fluctuation=true)
+    result, fluctuation = tmle!(Ψ, dataset, verbosity=0, weighted_fluctuation=true)
     test_coverage(result, Ψ₀)
     test_mean_inf_curve_almost_zero(result; atol=1e-10)
 

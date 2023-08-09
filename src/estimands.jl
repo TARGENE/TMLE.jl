@@ -142,7 +142,7 @@ for typename in CMCompositeTypenames
             covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
             outcome_model = with_encoder(LinearRegressor()),
             treatment_model = LinearBinaryClassifier())
-            scm = StaticConfoundedModel(outcome, collect(keys(treatment)), confounders;
+            scm = StaticConfoundedModel([outcome], collect(keys(treatment)), confounders;
                 covariates=covariates,
                 outcome_model=outcome_model,
                 treatment_model=treatment_model

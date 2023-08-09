@@ -81,7 +81,7 @@ nothing # hide
 Running the `tmle` will produce two asymptotically linear estimators: the TMLE and the One Step Estimator. For each we can look at the associated estimate, confidence interval and p-value:
 
 ```@example quick-start
-result, _ = tmle(Ψ, dataset)
+result, _ = tmle!(Ψ, dataset)
 result
 ```
 

@@ -194,7 +194,7 @@ nothing # hide
 #=
 Finally run the TMLE procedure and check the result
 =#
-tmle_result, cache = tmle(Ψ, η_spec, dataset)
+tmle_result, cache = tmle!Ψ, η_spec, dataset)
 
 test_result = OneSampleTTest(tmle_result.tmle, ψ₀)
 
@@ -207,7 +207,7 @@ Now, what if we had used linear models only instead of the Super Learner? This i
     LogisticClassifier(lambda=0)
 )
 
-tmle_result_linear, cache = tmle(Ψ, η_spec_linear, dataset)
+tmle_result_linear, cache = tmle!Ψ, η_spec_linear, dataset)
 
 test_result_linear = OneSampleTTest(tmle_result_linear.tmle, ψ₀)
 

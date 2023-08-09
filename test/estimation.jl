@@ -74,7 +74,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
-    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset; verbosity=1);
+    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset; verbosity=1);
     # The TMLE covers the ground truth but the initial estimate does not
     Ψ₀ = -1
     @test tmle_result.estimand == Ψ
@@ -94,7 +94,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
-    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset, verbosity=1);
+    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = 1
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
@@ -115,7 +115,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
-    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset, verbosity=1);
+    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = 0.5
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
@@ -135,7 +135,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
-    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset, verbosity=1);
+    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = 10
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
@@ -154,7 +154,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
-    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset, verbosity=1);
+    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = -0.5
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
@@ -172,7 +172,7 @@ table_types = (Tables.columntable, DataFrame)
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
-    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset, verbosity=1);
+    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = -1.5
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
@@ -197,7 +197,7 @@ end
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
-    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset, verbosity=1);
+    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = 3
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
@@ -215,7 +215,7 @@ end
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
-    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset, verbosity=1);
+    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = 2.5
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
@@ -234,7 +234,7 @@ end
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
-    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset, verbosity=1);
+    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = 1.5
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
@@ -249,7 +249,7 @@ end
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
-    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset, verbosity=1);
+    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
@@ -272,7 +272,7 @@ end
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
-    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset, verbosity=1);
+    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = -1
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
@@ -290,7 +290,7 @@ end
         (:info, "Performing TMLE..."),
         (:info, "Done.")
     )
-    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle(Ψ, dataset, verbosity=1);
+    tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)

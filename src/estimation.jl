@@ -10,7 +10,7 @@ function MLJBase.fit!(Ψ::CMCompositeEstimand, dataset; adjustment_method=Backdo
 end
 
 """
-    tmle(Ψ::CMCompositeEstimand, dataset; 
+    tmle!(Ψ::CMCompositeEstimand, dataset; 
         adjustment_method=BackdoorAdjustment(), 
         verbosity=1, 
         force=false, 
@@ -30,7 +30,7 @@ Performs Targeted Minimum Loss Based Estimation of the target estimand.
 - threshold: The balancing score will be bounded to respect this threshold.
 - weighted_fluctuation: To use a weighted fluctuation instead of the vanilla TMLE, can improve stability.
 """
-function tmle(Ψ::CMCompositeEstimand, dataset; 
+function tmle!(Ψ::CMCompositeEstimand, dataset; 
     adjustment_method=BackdoorAdjustment(), 
     verbosity=1, 
     force=false, 

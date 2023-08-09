@@ -187,7 +187,7 @@ end
     scm.T₁.model = LogisticClassifier(lambda=0)
     scm.T₂.model = LogisticClassifier(lambda=0)
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0);
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0);
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-9)
@@ -200,7 +200,7 @@ end
     scm.T₁.model = ConstantClassifier()
     scm.T₂.model = ConstantClassifier()
     
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0);
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0);
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-9)
@@ -221,7 +221,7 @@ end
     scm.T₁.model = LogisticClassifier(lambda=0)
     scm.T₂.model = LogisticClassifier(lambda=0)
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -234,7 +234,7 @@ end
     scm.T₁.model = ConstantClassifier()
     scm.T₂.model = ConstantClassifier()
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -253,7 +253,7 @@ end
     scm.T₁.model = LogisticClassifier(lambda=0)
     scm.T₂.model = LogisticClassifier(lambda=0)
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0);
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0);
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
@@ -265,7 +265,7 @@ end
     scm.T₁.model = ConstantClassifier()
     scm.T₂.model = ConstantClassifier()
 
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset, verbosity=0);
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0);
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_fluct_mean_inf_curve_lower_than_initial(tmle_result)

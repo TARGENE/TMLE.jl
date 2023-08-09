@@ -129,7 +129,7 @@ iate = IATE(
 Then each parameter can be estimated by calling the `tmle` function. For example:
 
 ```@example user-guide
-result, _ = tmle(cm, dataset)
+result, _ = tmle!(cm, dataset)
 result
 ```
 
@@ -142,7 +142,7 @@ The `result` contains 3 main elements:
 The adjustment set is determined by the provided `adjustment_method` keyword. At the moment, only `BackdoorAdjustment` is available. However one can specify that extra covariates could be used to fit the outcome model.
 
 ```@example user-guide
-result, _ = tmle(iate, dataset;adjustment_method=BackdoorAdjustment([:C]))
+result, _ = tmle!(iate, dataset;adjustment_method=BackdoorAdjustment([:C]))
 result
 ```
 

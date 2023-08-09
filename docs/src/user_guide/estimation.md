@@ -52,7 +52,7 @@ Once a `SCM` and an estimand have been defined, we can proceed with Targeted Est
 
 ```@example estimation
 Ψ₁ = ATE(scm, outcome=:Y, treatment=(T₁=(case=true, control=false),))
-result₁, fluctuation_mach = tmle(Ψ₁, dataset;
+result₁, fluctuation_mach = tmle!(Ψ₁, dataset;
     adjustment_method=BackdoorAdjustment([:C]), 
     verbosity=1, 
     force=false, 
@@ -85,7 +85,7 @@ We could now get an interest in the Average Treatment Effect of `T₂`:
 
 ```@example estimation
 Ψ₂ = ATE(scm, outcome=:Y, treatment=(T₂=(case=true, control=false),))
-result₂, fluctuation_mach = tmle(Ψ₂, dataset;
+result₂, fluctuation_mach = tmle!(Ψ₂, dataset;
     adjustment_method=BackdoorAdjustment([:C]), 
     verbosity=1, 
     force=false, 
@@ -102,7 +102,7 @@ Let's now see how the models can be reused with a new estimand, say the Total Av
 
 ```@example estimation
 Ψ₃ = ATE(scm, outcome=:Y, treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)))
-result₃, fluctuation_mach = tmle(Ψ₃, dataset;
+result₃, fluctuation_mach = tmle!(Ψ₃, dataset;
     adjustment_method=BackdoorAdjustment([:C]), 
     verbosity=1, 
     force=false, 
@@ -115,7 +115,7 @@ This time only the statistical model for `Y` is fitted again while reusing the m
 
 ```@example estimation
 Ψ₄ = IATE(scm, outcome=:Y, treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)))
-result₄, fluctuation_mach = tmle(Ψ₄, dataset;
+result₄, fluctuation_mach = tmle!(Ψ₄, dataset;
     adjustment_method=BackdoorAdjustment([:C]), 
     verbosity=1, 
     force=false, 
@@ -146,18 +146,18 @@ IATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} = ATE_{T_1=0 \rightarrow 1, T_2=
 
 ```@example estimation
 first_ate = ATE(scm, outcome=:Y, treatment=(T₁=(case=true, control=false), T₂=(case=false, control=false)))
-first_ate_result, _ = tmle(first_ate, dataset)
+first_ate_result, _ = tmle!(first_ate, dataset)
 
 second_ate = ATE(scm, outcome=:Y, treatment=(T₁=(case=false, control=false), T₂=(case=true, control=false)))
-second_ate_result, _ = tmle(second_ate, dataset)
+second_ate_result, _ = tmle!(second_ate, dataset)
 
 composed_iate_result = compose(
     (x, y, z) -> x - y - z, 
     tmle(result₃), tmle(first_ate_result), tmle(second_ate_result)
 )
 isapprox(
-    TMLE.estimate(tmle(result₄)),
-    TMLE.estimate(composed_iate_result),
+    estimate(tmle(result₄)),
+    estimate(composed_iate_result),
     atol=0.1
 )
 ```

@@ -159,7 +159,7 @@ function tmle_inference(data)
         confounders=[:W]
     )
     η_spec = NuisanceSpec(LinearRegressor(), LinearBinaryClassifier())
-    result, _ = tmle(Ψ, η_spec, data; verbosity=0)
+    result, _ = tmle!(Ψ, η_spec, data; verbosity=0)
     tmleresult = result.tmle
     lb, ub = confint(OneSampleTTest(tmleresult))
     return (TMLE.estimate(tmleresult), lb, ub)

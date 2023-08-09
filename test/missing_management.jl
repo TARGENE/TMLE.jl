@@ -47,7 +47,7 @@ end
         scm = scm,
         outcome=:Y, 
         treatment=(T=(case=1, control=0),))
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset; verbosity=0)
+    tmle_result, fluctuation_mach = tmle!(Ψ, dataset; verbosity=0)
     test_coverage(tmle_result, 1)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
 end
