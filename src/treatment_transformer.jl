@@ -1,15 +1,18 @@
 
-"""
-Treatments in TMLE are represented by `CategoricalArrays`. If a treatment column
-has type `OrderedFactor`, then its integer representation is used, make sure that 
-the levels correspond to your expectations. All other columns are one-hot encoded.
-"""
+
 mutable struct TreatmentTransformer <: MLJBase.Unsupervised
     encoder::OneHotEncoder
 end
 
 encoder() = OneHotEncoder(drop_last=true, ordered_factor=false)
 
+"""
+    TreatmentTransformer(;encoder=encoder())
+
+Treatments in TMLE are represented by `CategoricalArrays`. If a treatment column
+has type `OrderedFactor`, then its integer representation is used, make sure that 
+the levels correspond to your expectations. All other columns are one-hot encoded.
+"""
 TreatmentTransformer(;encoder=encoder()) = TreatmentTransformer(encoder)
 
 MLJBase.fit(model::TreatmentTransformer, verbosity::Int, X) =
@@ -38,4 +41,4 @@ function MLJBase.transform(model::TreatmentTransformer, fitresult, Xnew)
     return merge(Xt, ordered_factors)
 end
 
-with_encoder(model; encoder=TreatmentTransformer()) = TreatmentTransformer() |> model
+with_encoder(model; encoder=TreatmentTransformer()) = TreatmentTransformer(;encoder=encoder) |> model

@@ -26,7 +26,10 @@ import AbstractDifferentiation as AD
 export SE, StructuralEquation
 export StructuralCausalModel, SCM, StaticConfoundedModel
 export setmodel!, equations, reset!, parents
-export CM, ATE, IATE, AVAILABLE_ESTIMANDS
+export ConditionalMean, CM
+export AverageTreatmentEffect, ATE
+export InteractionAverageTreatmentEffect, IATE
+export AVAILABLE_ESTIMANDS
 export fit!, optimize_ordering, optimize_ordering!
 export tmle
 export var, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
@@ -40,12 +43,13 @@ export DAG, graphplot
 # #############################################################################
 
 include("scm.jl")
-include("treatment_transformer.jl")
 include("estimands.jl")
 include("adjustment.jl")
 include("utils.jl")
 include("estimation.jl")
 include("estimate.jl")
+include("treatment_transformer.jl")
+
 
 # #############################################################################
 # PRECOMPILATION WORKLOAD

@@ -44,11 +44,6 @@ end
 
 const CM = ConditionalMean
 
-CM(;scm::SCM, outcome, treatment) = CM(scm, outcome, treatment)
-CM(scm::SCM; outcome, treatment) = CM(scm, outcome, treatment)
-
-name(::Type{CM}) = "CM"
-
 #####################################################################
 ###                  Average Treatment Effect                     ###
 #####################################################################
@@ -85,11 +80,6 @@ struct AverageTreatmentEffect <: Estimand
 end
 
 const ATE = AverageTreatmentEffect
-
-ATE(;scm::SCM, outcome, treatment) = ATE(scm, outcome, treatment)
-ATE(scm::SCM; outcome, treatment) = ATE(scm, outcome, treatment)
-
-name(::Type{ATE}) = "ATE"
 
 #####################################################################
 ###            Interaction Average Treatment Effect               ###
@@ -131,18 +121,38 @@ end
 
 const IATE = InteractionAverageTreatmentEffect
 
-IATE(;scm, outcome, treatment) = IATE(scm, outcome, treatment)
-IATE(scm; outcome, treatment) = IATE(scm, outcome, treatment)
-
-name(::Type{IATE}) = "IATE"
-
 #####################################################################
 ###                         Methods                               ###
 #####################################################################
 
 AVAILABLE_ESTIMANDS = (CM, ATE, IATE)
+CMCompositeTypenames = [:CM, :ATE, :IATE]
+CMCompositeEstimand = Union{(eval(x) for x in CMCompositeTypenames)...}
 
-CMCompositeEstimand = Union{CM, ATE, IATE}
+# Define constructors/name for CMCompositeEstimand types
+for typename in CMCompositeTypenames
+    ex = quote
+        name(::Type{$(typename)}) = string($(typename))
+
+        $(typename)(;scm::SCM, outcome::Symbol, treatment::NamedTuple) = $(typename)(scm, outcome, treatment)
+        $(typename)(scm::SCM; outcome::Symbol, treatment::NamedTuple) = $(typename)(scm, outcome, treatment)
+        
+        function $(typename)(
+            outcome::Symbol, treatment::NamedTuple, confounders::Union{Symbol, AbstractVector{Symbol}}; 
+            covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
+            outcome_model = with_encoder(LinearRegressor()),
+            treatment_model = LinearBinaryClassifier())
+            scm = StaticConfoundedModel(outcome, collect(keys(treatment)), confounders;
+                covariates=covariates,
+                outcome_model=outcome_model,
+                treatment_model=treatment_model
+                )
+            return $(typename)(scm; outcome=outcome, treatment=treatment)
+        end
+    end
+
+    eval(ex)
+end
 
 VariableNotAChildInSCMError(variable) = ArgumentError(string("Variable ", variable, " is not associated with a Structural Equation in the SCM."))
 TreatmentMustBeInOutcomeParentsError(variable) = ArgumentError(string("Treatment variable ", variable, " must be a parent of the outcome."))
