@@ -97,8 +97,8 @@ end
 
 Base.show(io::IO, ::MIME"text/plain", eq::SE) = println(io, string_repr(eq))
 
-assign_model!(eq::SE, model::Nothing) = nothing
-assign_model!(eq::SE, model::Model) = eq.model = model
+setmodel!(eq::SE, model::Nothing) = nothing
+setmodel!(eq::SE, model::Model) = eq.model = model
 
 outcome(se::SE) = se.outcome
 parents(se::SE) = se.parents

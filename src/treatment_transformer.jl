@@ -38,3 +38,4 @@ function MLJBase.transform(model::TreatmentTransformer, fitresult, Xnew)
     return merge(Xt, ordered_factors)
 end
 
+with_encoder(model; encoder=TreatmentTransformer()) = TreatmentTransformer() |> model

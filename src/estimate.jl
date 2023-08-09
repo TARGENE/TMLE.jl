@@ -34,7 +34,8 @@ function Base.show(io::IO, r::TMLEResult)
     pretty_table(io, data;header=["Estimator", "Estimate", "95% Confidence Interval", "P-value"])
 end
 
-
+tmle(result::TMLEResult) = result.tmle
+ose(result::TMLEResult) = result.onestep
 
 """
     estimate(r::AsymptoticallyLinearEstimate)

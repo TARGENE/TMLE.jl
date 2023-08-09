@@ -24,14 +24,16 @@ import AbstractDifferentiation as AD
 # #############################################################################
 
 export SE, StructuralEquation
-export StructuralCausalModel, SCM, StaticConfoundedModel 
+export StructuralCausalModel, SCM, StaticConfoundedModel
+export setmodel!, equations, reset!, parents
 export CM, ATE, IATE, AVAILABLE_ESTIMANDS
-export parents, fit!, reset!, equations, optimize_ordering, optimize_ordering!
+export fit!, optimize_ordering, optimize_ordering!
 export tmle
 export var, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
-export TreatmentTransformer
+export TreatmentTransformer, with_encoder
 export BackdoorAdjustment
+export DAG, graphplot
 
 # #############################################################################
 # INCLUDES
@@ -44,7 +46,6 @@ include("adjustment.jl")
 include("utils.jl")
 include("estimation.jl")
 include("estimate.jl")
-
 
 # #############################################################################
 # PRECOMPILATION WORKLOAD
@@ -66,7 +67,7 @@ function run_precompile_workload()
         Y₁  = μY .+ rand(n)
         Y₂  = categorical(rand(n) .< logistic.(μY))
 
-        dataset = (C₁=C₁, W₁=W₁, W₂=W₂, T₁=T₁, T₂=T₂, Y₁=Y₁, Y₂)
+        dataset = (C₁=C₁, W₁=W₁, W₂=W₂, T₁=T₁, T₂=T₂, Y₁=Y₁, Y₂=Y₂)
 
         @compile_workload begin
             # all calls in this block will be precompiled, regardless of whether
