@@ -1,3 +1,7 @@
+```@meta
+CurrentModule = TMLE
+```
+
 # Structural Causal Models
 
 In TMLE.jl, everything starts from the definition of a Structural Causal Model (`SCM`). A `SCM` in a series of Structural Equations (`SE`) that describe the causal relationships between the random variables under study. The purpose of this package is not to infer the `SCM`, instead we assume it is provided by the user. There are multiple ways one can define a `SCM` that we now describe.

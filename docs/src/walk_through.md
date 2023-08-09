@@ -1,3 +1,7 @@
+```@meta
+CurrentModule = TMLE
+```
+
 # Walk Through
 
 The goal of this section is to provide a comprehensive (but non-exhaustive) illustration of the estimation process provided in TMLE.jl. For an in-depth explanation, please refer to the User Guide.

@@ -1,3 +1,7 @@
+```@meta
+CurrentModule = TMLE
+```
+
 # Estimands
 
 Most causal questions can be translated into a causal estimand. Usually either an interventional or counterfactual quantity. What would have been the outcome if I had set this variable to this value? When identified, this causal estimand translates to a statistical estimand which can be estimated from data. For us, an estimand will be a functional, that is a function that takes as input a probability distribution, and outputs a real number or vector of real numbers.
@@ -104,3 +108,13 @@ For a Structural Causal Model `scm`, an outcome `Y` and two treatments differenc
 ```julia
 Ψ = IATE(scm, outcome=:Y, treatment=(T₁=(case=t₁₂, control=t₁₁), T₂=(case=t₂₂, control=t₂₁)))
 ```
+
+## Any function of the previous Estimands
+
+As a result of Julia's automatic differentiation facilities, given a set of already estimated estimands ``(\Psi_1, ..., \Psi_k)``, we can automatically compute an estimator for $f(\Psi_1, ..., \Psi_k)$. This is done via the `compose` function:
+
+```julia
+compose(f, args...)
+```
+
+where args are asymptotically linear estimates (see [Composing Estimands](@ref)).

@@ -27,7 +27,7 @@ makedocs(;
         "Home" => "index.md",
         "Walk Through" => "walk_through.md",
         "User Guide" => [joinpath("user_guide", f) for f in 
-            ("mathematical_setting.md", "scm.md", "estimands.md", "estimation.md", "adjustment.md")],
+            ("scm.md", "estimands.md", "estimation.md", "adjustment.md", "misc.md")],
         "Examples" => [
             #joinpath("examples", "introduction_to_targeted_learning.md"), 
             # joinpath("examples", "super_learning.md"),
