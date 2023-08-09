@@ -10,6 +10,7 @@ To account for the fact that treatment variables are categorical variables we pr
 Such transformer can be created with:
 
 ```@example
+using TMLE # hide
 TreatmentTransformer(;encoder=encoder())
 ```
 

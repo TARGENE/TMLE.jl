@@ -20,9 +20,9 @@ Pkg> add TMLE
 
 To run an estimation procedure, we need 3 ingredients:
 
-1. A Structural Causal Model that describes the relationship between the variables.
-2. An estimand of interest
-3. A dataset
+1. A dataset
+2. A Structural Causal Model that describes the relationship between the variables.
+3. An estimand of interest
 
 For illustration, assume we know the actual data generating process is as follows:
 
@@ -34,34 +34,10 @@ Y  &\sim \mathcal{Normal}(1 + 3 \cdot T - T \cdot W, 0.01)
 \end{aligned}
 ```
 
-Let's define the associated Structural Causal Model:
-
-```@example quick-start
-using TMLE
-
-scm = StaticConfoundedModel(:Y, :T, :W)
-```
-
-Now, say we are interested in the Average Treatment Effect of the treatment ``T`` on the outcome ``Y``: $ATE_{T:0 \rightarrow 1}(Y)$:
-
-```@example quick-start
-Ψ = ATE(
-    scm,
-    outcome      = :Y,
-    treatment   = (T=(case=true, control = false),),
-)
-nothing # hide
-```
-
-Note that in this example the ATE can be computed exactly and is given by:
-
-```math
-ATE_{0 \rightarrow 1}(P_0) = \mathbb{E}[1 + 3 - W] - \mathbb{E}[1] = 3 - \mathbb{E}[W] = 2.5
-```
-
 Because we know the data generating process, we can simulate some data accordingly:
 
 ```@example quick-start
+using TMLE
 using Distributions
 using StableRNGs
 using Random
@@ -76,6 +52,41 @@ T = rand(rng, Uniform(), n) .< logistic.(1 .- 2W)
 Y = 1 .+ 3T .- T.*W .+ rand(rng, Normal(0, 0.01), n)
 dataset = (Y=Y, T=categorical(T), W=W)
 nothing # hide
+```
+
+### Two lines TMLE
+
+Estimating the Average Treatment Effect can of ``T`` on ``Y`` can be as simple as:
+
+```@example quick-start
+Ψ = ATE(:Y, (T=(case=true, control = false),), :W)
+result, _ = tmle!(Ψ, dataset)
+result
+```
+
+### Two steps approach
+
+Let's first define the Structural Causal Model:
+
+```@example quick-start
+scm = StaticConfoundedModel(:Y, :T, :W)
+```
+
+and second, define the Average Treatment Effect of the treatment ``T`` on the outcome ``Y``: $ATE_{T:0 \rightarrow 1}(Y)$:
+
+```@example quick-start
+Ψ = ATE(
+    scm,
+    outcome      = :Y,
+    treatment   = (T=(case=true, control = false),),
+)
+nothing # hide
+```
+
+Note that in this example the ATE can be computed exactly and is given by:
+
+```math
+ATE_{0 \rightarrow 1}(P_0) = \mathbb{E}[1 + 3 - W] - \mathbb{E}[1] = 3 - \mathbb{E}[W] = 2.5
 ```
 
 Running the `tmle` will produce two asymptotically linear estimators: the TMLE and the One Step Estimator. For each we can look at the associated estimate, confidence interval and p-value:

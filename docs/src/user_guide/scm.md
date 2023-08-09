@@ -11,6 +11,7 @@ In TMLE.jl, everything starts from the definition of a Structural Causal Model (
 All models are wrong? Well maybe not the following:
 
 ```@example scm-incremental
+using TMLE # hide
 scm = SCM()
 ```
 
@@ -48,6 +49,7 @@ push!(scm, SE(:T₂, [:W₂₁, :W₂₂, :W]))
 Instead of constructing the `SCM` incrementally, one can provide all the specified equations at once:
 
 ```@example scm-one-step
+using TMLE # hide
 scm = SCM(
     SE(:Y, [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :W, :C], with_encoder(LinearRegressor())),
     SE(:T₁, [:W₁₁, :W₁₂, :W], model=LogisticClassifier()),
@@ -62,6 +64,7 @@ Noting that we have used the `with_encoder` function to reflect the fact that we
 There are many cases where we are interested in estimating the causal effect of a single treatment variable on a single outcome. Because it is typically only necessary to adjust for backdoor variables in order to identify this causal effect, we provide the `StaticConfoundedModel` interface to build such `SCM`:
 
 ```@example static-scm-1
+using TMLE # hide
 scm = StaticConfoundedModel(
     :Y, :T, [:W₁, :W₂];
     covariates=[:C],
@@ -75,6 +78,7 @@ The optional `covariates` are variables that influence the outcome but are not c
 This model can be extended to a plate-model with multiple treatments and multiple outcomes. In this case the set of confounders is assumed to confound all treatments which are in turn assumed to impact all outcomes. This can be defined as:
 
 ```@example static-scm-2
+using TMLE # hide
 scm = StaticConfoundedModel(
     [:Y₁, :Y₂], [:T₁, :T₂], [:W₁, :W₂];
     covariates=[:C],

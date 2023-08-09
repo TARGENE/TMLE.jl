@@ -14,7 +14,8 @@ TMLE.jl is compatible with any dataset respecting the [Tables.jl](https://tables
 
 The dataset is generated as follows:
 
-```@example user-guide
+```@example walk-through
+using TMLE
 using Random
 using Distributions
 using DataFrames
@@ -62,7 +63,7 @@ Even though the role of a variable (treatment, outcome, confounder, ...) is rela
 
 The modeling stage starts from the definition of a Structural Causal Model (`SCM`). This is simply a list of Structural Equations (`SE`) describing the relationships between the random variables associated with our problem. See [Structural Causal Models](@ref) for an in-depth explanation. For our purposes, we will simply define it as follows:
 
-```@example user-guide
+```@example walk-through
 scm = SCM(
     SE(:Y, [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C], with_encoder(LinearRegressor())),
     SE(:T₁, [:W₁₁, :W₁₂], LogisticClassifier()),
@@ -83,7 +84,7 @@ scm = SCM(
 
 From the previous causal model we can ask multiple causal questions which are each represented by a distinct estimand. The set of available estimands types can be listed as follow:
 
-```@example user-guide
+```@example walk-through
 AVAILABLE_ESTIMANDS
 ```
 
@@ -91,7 +92,7 @@ At the moment there are 3 main estimand types we can estimate in TMLE.jl, we pro
 
 - The Interventional Conditional Mean (see: TODO):
 
-```@example user-guide
+```@example walk-through
 cm = CM(
     scm,
     outcome=:Y,
@@ -101,7 +102,7 @@ cm = CM(
 
 - The Average Treatment Effect (see: TODO):
 
-```@example user-guide
+```@example walk-through
 ate = ATE(
     scm,
     outcome=:Y,
@@ -116,7 +117,7 @@ marginal_ate_t1 = ATE(
 
 - The Interaction Average Treatment Effect (see: TODO):
 
-```@example user-guide
+```@example walk-through
 iate = IATE(
     scm,
     outcome=:Y,
@@ -128,7 +129,7 @@ iate = IATE(
 
 Then each parameter can be estimated by calling the `tmle` function. For example:
 
-```@example user-guide
+```@example walk-through
 result, _ = tmle!(cm, dataset)
 result
 ```
@@ -141,7 +142,7 @@ The `result` contains 3 main elements:
 
 The adjustment set is determined by the provided `adjustment_method` keyword. At the moment, only `BackdoorAdjustment` is available. However one can specify that extra covariates could be used to fit the outcome model.
 
-```@example user-guide
+```@example walk-through
 result, _ = tmle!(iate, dataset;adjustment_method=BackdoorAdjustment([:C]))
 result
 ```
@@ -150,6 +151,6 @@ result
 
 Because the TMLE and OSE are asymptotically linear estimators, they asymptotically follow a Normal distribution. This means one can perform standard T tests of null hypothesis. TMLE.jl extends the method provided by the [HypothesisTests.jl](https://juliastats.org/HypothesisTests.jl/stable/) package that can be used as follows.
 
-```@example user-guide
+```@example walk-through
 OneSampleTTest(tmle(result))
 ```
