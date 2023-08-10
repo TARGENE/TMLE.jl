@@ -44,7 +44,7 @@ end
 @testset "Test estimation with missing values and ordered factor treatment" begin
     dataset, scm = dataset_with_missing_and_ordered_treatment(;n=1000)
     Ψ = ATE(
-        scm = scm,
+        scm,
         outcome=:Y, 
         treatment=(T=(case=1, control=0),))
     tmle_result, fluctuation_mach = tmle!(Ψ, dataset; verbosity=0)

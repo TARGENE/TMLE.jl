@@ -36,14 +36,14 @@ end
     dataset, scm = make_dataset_and_scm(;n=1000)
     # Conditional Mean T = 1
     CM₁ = CM(
-        scm = scm,
+        scm,
         outcome = :Y,
         treatment = (T=1,)
     )
     CM_result₁, _ = tmle!(CM₁, dataset, verbosity=0)
     # Conditional Mean T = 0
     CM₀ = CM(
-        scm = scm,
+        scm,
         outcome = :Y,
         treatment = (T=0,)
     )
@@ -53,7 +53,7 @@ end
 
     # Via ATE
     ATE₁₀ = ATE(
-        scm=scm,
+        scm,
         outcome = :Y,
         treatment = (T=(case=1, control=0),),
     )
@@ -65,14 +65,14 @@ end
 @testset "Test compose multidimensional function" begin
     dataset, scm = make_dataset_and_scm(;n=1000)
     CM₁ = CM(
-        scm = scm,
+        scm,
         outcome = :Y,
         treatment = (T=1,)
     )
     CM_result₁, _ = tmle!(CM₁, dataset, verbosity=0)
 
     CM₀ = CM(
-        scm = scm,
+        scm,
         outcome = :Y,
         treatment = (T=0,)
     )

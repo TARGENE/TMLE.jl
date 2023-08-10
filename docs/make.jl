@@ -5,12 +5,14 @@ using Literate
 DocMeta.setdocmeta!(TMLE, :DocTestSetup, :(using TMLE); recursive=true)
 
 ## Generate Literate markdown pages
-# @info "Building Literate pages..."
-# examples_dir = joinpath(@__DIR__, "../examples")
-# build_examples_dir =  joinpath(@__DIR__, "src", "examples/")
-# for file in readdir(examples_dir)
-#     Literate.markdown(joinpath(examples_dir, file), build_examples_dir;documenter=true)
-# end
+@info "Building Literate pages..."
+examples_dir = joinpath(@__DIR__, "../examples")
+build_examples_dir =  joinpath(@__DIR__, "src", "examples/")
+for file in readdir(examples_dir)
+    if endswith(file, "jl")
+        Literate.markdown(joinpath(examples_dir, file), build_examples_dir;documenter=true)
+    end
+end
 
 @info "Running makedocs..."
 makedocs(;

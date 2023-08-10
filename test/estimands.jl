@@ -39,7 +39,7 @@ using MLJGLMInterface
     )
 
     Ψ = CM(
-        scm=scm,
+        scm,
         treatment=(T=1,),
         outcome =:Y
     )
@@ -55,7 +55,7 @@ using MLJGLMInterface
         SE(:T₂, [:W₂₁]),
     )
     Ψ = ATE(
-        scm=scm,
+        scm,
         treatment=(T₁=(case=1, control=0), T₂=(case="AC", control="CC")),
         outcome =:Z,
     )
@@ -64,7 +64,7 @@ using MLJGLMInterface
 
     # IATE
     Ψ = IATE(
-        scm=scm,
+        scm,
         treatment=(T₁=(case=1, control=0), T₂=(case="AC", control="CC")),
         outcome =:Z,
     )
@@ -73,13 +73,13 @@ using MLJGLMInterface
 end
 
 @testset "Test constructors" begin
-    Ψ = CM(:Y, (T=1,), [:W])
+    Ψ = CM(outcome=:Y, treatment=(T=1,), confounders=[:W])
     @test parents(Ψ.scm.Y) == [:T, :W]
 
-    Ψ = ATE(:Y, (T₁=(case=1, control=0), T₂=(case=1, control=0)), :W)
+    Ψ = ATE(outcome=:Y, treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)), confounders=:W)
     @test parents(Ψ.scm.Y) == [:T₁, :T₂, :W]
 
-    Ψ = IATE(:Y, (T₁=(case=1, control=0), T₂=(case=1, control=0)), :W)
+    Ψ = IATE(outcome=:Y, treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)), confounders=:W)
     @test parents(Ψ.scm.Y) == [:T₁, :T₂, :W]
 end
 
@@ -108,7 +108,7 @@ end
 
     # Fits CM required equations
     Ψ = CM(
-        scm=scm,
+        scm,
         treatment=(T₁=1,),
         outcome=:Ycat
     )
@@ -122,7 +122,7 @@ end
 
     # Fits ATE required equations that haven't been fitted yet.
     Ψ = ATE(
-        scm=scm,
+        scm,
         treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
         outcome =:Ycat,
     )
@@ -139,7 +139,7 @@ end
     
     # Fits IATE required equations that haven't been fitted yet.
     Ψ = IATE(
-        scm=scm,
+        scm,
         treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
         outcome =:Ycont,
     )
@@ -170,47 +170,47 @@ end
     )
     estimands = [
         ATE(
-            scm=scm,
+            scm,
             outcome=:Y₁, 
             treatment=(T₁=(case=1, control=0), T₂=(case="AC", control="CC")),
         ),
         IATE(
-            scm=scm,
+            scm,
             outcome=:Y₁, 
             treatment=(T₁=(case=1, control=0), T₂=(case="AA", control="CC")),
         ),
         ATE(
-            scm=scm,
+            scm,
             outcome=:Y₁, 
             treatment=(T₁=(case=1, control=0),),
         ),
         ATE(
-            scm=scm,
+            scm,
             outcome=:Y₂, 
             treatment=(T₂=(case="AC", control="CC"),),
         ),
         CM(
-            scm=scm,
+            scm,
             outcome=:Y₂, 
             treatment=(T₂="AC",),
         ),
         IATE(
-            scm=scm,
+            scm,
             outcome=:Y₁, 
             treatment=(T₁=(case=0, control=1), T₂=(case="AC", control="CC"),),
         ),
         CM(
-            scm=scm,
+            scm,
             outcome=:Y₂, 
             treatment=(T₂="CC",),
         ),
         ATE(
-            scm=scm,
+            scm,
             outcome=:Y₂, 
             treatment=(T₂=(case="AA", control="CC"),),
         ),
         ATE(
-            scm=scm,
+            scm,
             outcome=:Y₂, 
             treatment=(T₂=(case="AA", control="AC"),),
         ),
@@ -223,16 +223,16 @@ end
     ordered_estimands = optimize_ordering(estimands)
     expected_ordering = [
         # Y₁
-        ATE(scm=scm, outcome=:Y₁, treatment=(T₁ = (case = 1, control = 0),)),
-        ATE(scm=scm, outcome=:Y₁, treatment=(T₁ = (case = 1, control = 0),T₂ = (case = "AC", control = "CC"))),
-        IATE(scm=scm, outcome=:Y₁, treatment=(T₁ = (case = 0, control = 1), T₂ = (case = "AC", control = "CC"),)),
-        IATE(scm=scm, outcome=:Y₁, treatment=(T₁ = (case = 1, control = 0),T₂ = (case = "AA", control = "CC"))),
+        ATE(scm, outcome=:Y₁, treatment=(T₁ = (case = 1, control = 0),)),
+        ATE(scm, outcome=:Y₁, treatment=(T₁ = (case = 1, control = 0),T₂ = (case = "AC", control = "CC"))),
+        IATE(scm, outcome=:Y₁, treatment=(T₁ = (case = 0, control = 1), T₂ = (case = "AC", control = "CC"),)),
+        IATE(scm, outcome=:Y₁, treatment=(T₁ = (case = 1, control = 0),T₂ = (case = "AA", control = "CC"))),
         # Y₂
-        ATE(scm=scm, outcome=:Y₂, treatment=(T₂ = (case = "AA", control = "AC"),)),
-        CM(scm=scm, outcome=:Y₂, treatment=(T₂ = "CC",)),
-        ATE(scm=scm, outcome=:Y₂, treatment=(T₂ = (case = "AA", control = "CC"),)),
-        CM(scm=scm, outcome=:Y₂, treatment=(T₂ = "AC",)),
-        ATE(scm=scm, outcome=:Y₂, treatment=(T₂ = (case = "AC", control = "CC"),)),
+        ATE(scm, outcome=:Y₂, treatment=(T₂ = (case = "AA", control = "AC"),)),
+        CM(scm, outcome=:Y₂, treatment=(T₂ = "CC",)),
+        ATE(scm, outcome=:Y₂, treatment=(T₂ = (case = "AA", control = "CC"),)),
+        CM(scm, outcome=:Y₂, treatment=(T₂ = "AC",)),
+        ATE(scm, outcome=:Y₂, treatment=(T₂ = (case = "AC", control = "CC"),)),
     ]
     @test ordered_estimands == expected_ordering
     # Mutating function

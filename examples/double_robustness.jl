@@ -154,13 +154,12 @@ that we now have full coverage of the ground truth.
 
 function tmle_inference(data)
     Ψ = ATE(
-        outcome=:Y, 
-        treatment=(Tcat=(case=1.0, control=0.0),), 
-        confounders=[:W]
+        :Y, 
+        (Tcat=(case=1.0, control=0.0),), 
+        [:W]
     )
-    η_spec = NuisanceSpec(LinearRegressor(), LinearBinaryClassifier())
-    result, _ = tmle!(Ψ, η_spec, data; verbosity=0)
-    tmleresult = result.tmle
+    result, _ = tmle!(Ψ, data; verbosity=0)
+    tmleresult = tmle(result)
     lb, ub = confint(OneSampleTTest(tmleresult))
     return (TMLE.estimate(tmleresult), lb, ub)
 end

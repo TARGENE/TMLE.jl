@@ -134,11 +134,12 @@ for typename in CMCompositeTypenames
     ex = quote
         name(::Type{$(typename)}) = string($(typename))
 
-        $(typename)(;scm::SCM, outcome::Symbol, treatment::NamedTuple) = $(typename)(scm, outcome, treatment)
         $(typename)(scm::SCM; outcome::Symbol, treatment::NamedTuple) = $(typename)(scm, outcome, treatment)
         
-        function $(typename)(
-            outcome::Symbol, treatment::NamedTuple, confounders::Union{Symbol, AbstractVector{Symbol}}; 
+        function $(typename)(;
+            outcome::Symbol, 
+            treatment::NamedTuple, 
+            confounders::Union{Symbol, AbstractVector{Symbol}}, 
             covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
             outcome_model = with_encoder(LinearRegressor()),
             treatment_model = LinearBinaryClassifier())

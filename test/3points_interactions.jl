@@ -35,7 +35,7 @@ end
 @testset "Test 3-points interactions" begin
     dataset, scm, Ψ₀ = dataset_scm_and_truth(;n=1000)
     Ψ = IATE(
-        scm       = scm,
+        scm,
         outcome   = :Y,
         treatment = (T₁=(case=true, control=false), T₂=(case=true, control=false), T₃=(case=1, control=0))
     )

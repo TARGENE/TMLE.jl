@@ -21,7 +21,7 @@ using MLJGLMInterface
         outcome_model = TreatmentTransformer() |> LinearBinaryClassifier(),
         treatment_model = LinearBinaryClassifier()
     )
-    Ψ = ATE(scm=scm, outcome=:haz01, treatment=(parity01=(case=1, control=0),))
+    Ψ = ATE(scm, outcome=:haz01, treatment=(parity01=(case=1, control=0),))
 
     result, fluctuation_mach = tmle!(Ψ, dataset, threshold=0.025, verbosity=0)
     l, u = confint(OneSampleTTest(result.tmle))

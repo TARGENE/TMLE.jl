@@ -62,7 +62,7 @@ table_types = (Tables.columntable, DataFrame)
     dataset = tt(dataset)
     # Define the estimand of interest
     Ψ = ATE(
-        scm=scm,
+        scm,
         outcome=:Y₁,
         treatment=(T₁=(case=true, control=false),),
     )
@@ -85,7 +85,7 @@ table_types = (Tables.columntable, DataFrame)
     # Update the treatment specification
     # Nuisance estimands should not fitted again
     Ψ = ATE(
-        scm=scm,
+        scm,
         outcome=:Y₁,
         treatment=(T₁=(case=false, control=true),),
     )
@@ -104,7 +104,7 @@ table_types = (Tables.columntable, DataFrame)
     # New marginal treatment estimation: T₂
     # This will trigger fit of the corresponding equations
     Ψ = ATE(
-        scm=scm,
+        scm,
         outcome=:Y₁,
         treatment=(T₂=(case=true, control=false),),
     )
@@ -125,7 +125,7 @@ table_types = (Tables.columntable, DataFrame)
     # Change the outcome: Y₂
     # This will trigger the fit for the corresponding equation
     Ψ = ATE(
-        scm=scm,
+        scm,
         outcome=:Y₂,
         treatment=(T₂=(case=true, control=false),),
     )
@@ -144,7 +144,7 @@ table_types = (Tables.columntable, DataFrame)
 
     # New estimand with 2 treatment variables
     Ψ = ATE(
-        scm=scm,
+        scm,
         outcome=:Y₁,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
     )
@@ -163,7 +163,7 @@ table_types = (Tables.columntable, DataFrame)
 
     # Switching the T₂ setting
     Ψ = ATE(
-        scm=scm,
+        scm,
         outcome=:Y₁,
         treatment=(T₁=(case=true, control=false), T₂=(case=false, control=true)),
     )
@@ -185,7 +185,7 @@ end
     dataset = tt(dataset)
     
     Ψ = CM(
-        scm=scm,
+        scm,
         outcome=:Y₁,
         treatment=(T₁=true, T₂=true),
     )
@@ -206,7 +206,7 @@ end
 
     # Let's switch case and control for T₂
     Ψ = CM(
-        scm=scm,
+        scm,
         outcome=:Y₁,
         treatment=(T₁=true, T₂=false),
     )
@@ -224,7 +224,7 @@ end
 
     # Change the outcome
     Ψ = CM(
-        scm=scm,
+        scm,
         outcome=:Y₂,
         treatment=(T₂=false, ),
     )
@@ -260,7 +260,7 @@ end
     dataset, scm = build_dataset_and_scm(;n=50_000)
     dataset = tt(dataset)
     Ψ = IATE(
-        scm=scm,
+        scm,
         outcome=:Y₃,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
     )

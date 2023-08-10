@@ -116,7 +116,7 @@ end
 @testset "Test Double Robustness ATE on continuous_outcome_categorical_treatment_pb" begin
     dataset, scm, Ψ₀ = continuous_outcome_categorical_treatment_pb(;n=10_000, control="TT", case="AA")
     Ψ = ATE(
-        scm       = scm,
+        scm,
         outcome   = :Y,
         treatment = (T=(case="AA", control="TT"),),
         )
@@ -145,7 +145,7 @@ end
 @testset "Test Double Robustness ATE on binary_outcome_binary_treatment_pb" begin
     dataset, scm, Ψ₀ = binary_outcome_binary_treatment_pb(;n=10_000)
     Ψ = ATE(
-        scm = scm,
+        scm,
         outcome = :Y,
         treatment = (T=(case=true, control=false),),
     )
@@ -175,7 +175,7 @@ end
 @testset "Test Double Robustness ATE on continuous_outcome_binary_treatment_pb" begin
     dataset, scm, Ψ₀ = continuous_outcome_binary_treatment_pb(n=10_000)
     Ψ = ATE(
-        scm=scm,
+        scm,
         outcome      = :Y,
         treatment   = (T=(case=true, control=false),),
     )
@@ -205,7 +205,7 @@ end
     dataset, scm, (ATE₁₁₋₀₁, ATE₁₁₋₀₀) = dataset_2_treatments_pb(;rng = StableRNG(123), n=50_000)
     # Test first ATE, only T₁ treatment varies 
     Ψ = ATE(
-        scm=scm,
+        scm,
         outcome      = :Y,
         treatment   = (T₁=(case=1., control=0.), T₂=(case=1., control=1.)),
     )
@@ -231,7 +231,7 @@ end
 
     # Test second ATE, two treatment varies 
     Ψ = ATE(
-        scm = scm,
+        scm,
         outcome      = :Y,
         treatment   = (T₁=(case=1., control=0.), T₂=(case=1., control=0.)),
     )

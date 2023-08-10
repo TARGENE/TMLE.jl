@@ -178,7 +178,7 @@ end
 @testset "Test Double Robustness IATE on binary_outcome_binary_treatment_pb" begin
     dataset, scm, Ψ₀ = binary_outcome_binary_treatment_pb(n=10_000)
     Ψ = IATE(
-        scm = scm,
+        scm,
         outcome=:Y,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
     )
@@ -212,7 +212,7 @@ end
 @testset "Test Double Robustness IATE on continuous_outcome_binary_treatment_pb" begin
     dataset, scm,Ψ₀ = continuous_outcome_binary_treatment_pb(n=10_000)
     Ψ = IATE(
-        scm=scm,
+        scm,
         outcome=:Y,
         treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
     )
@@ -244,7 +244,7 @@ end
 @testset "Test Double Robustness IATE on binary_outcome_categorical_treatment_pb" begin
     dataset, scm, Ψ₀ = binary_outcome_categorical_treatment_pb(n=30_000)
     Ψ = IATE(
-        scm=scm,
+        scm,
         outcome=:Y,
         treatment=(T₁=(case="CC", control="CG"), T₂=(case="AT", control="AA")),
     )

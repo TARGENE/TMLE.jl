@@ -24,14 +24,14 @@ using MLJModels
         SE(:Y, [:T, :W₁])
     )
     Ψ = ATE(
-        scm=scm,
+        scm,
         outcome=:Y,
         treatment=(T=(case=1, control=0),)
     )
     @test_throws TMLE.AbsentLevelError("T", "control", 0, [1, 2, 3]) TMLE.check_treatment_levels(Ψ, dataset)
 
     Ψ = CM(
-        scm=scm,
+        scm,
         outcome=:Y,
         treatment=(T=0,),
     )
@@ -53,7 +53,7 @@ end
     )
     # Conditional Mean
     Ψ = CM(
-        scm=scm,
+        scm,
         outcome=:Y, 
         treatment=(T₁="A", T₂=1),
     )
@@ -63,7 +63,7 @@ end
     @test indic_values == [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
     # ATE
     Ψ = ATE(
-        scm=scm,
+        scm,
         outcome=:Y, 
         treatment=(T₁=(case="A", control="B"), T₂=(control=0, case=1)),
     )
@@ -76,7 +76,7 @@ end
     @test indic_values == [0.0, -1.0, 1.0, 0.0, 0.0, -1.0, 1.0, 0.0]
     # 2-points IATE
     Ψ = IATE(
-        scm=scm,
+        scm,
         outcome=:Y, 
         treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0)),
     )
@@ -91,7 +91,7 @@ end
     @test indic_values == [-1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0]
     # 3-points IATE
     Ψ = IATE(
-        scm=scm,
+        scm,
         outcome=:Y, 
         treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0), T₃=(control="D", case="C")),
     )
@@ -163,7 +163,7 @@ end
        outcome_model = ConstantRegressor()
     )
     Ψ = ATE(
-        scm=scm,
+        scm,
         outcome=:Y, 
         treatment=(T=(case="a", control="b"),),
     )
@@ -214,7 +214,7 @@ end
        outcome_model = ConstantClassifier()
     )
     Ψ = IATE(
-        scm=scm,
+        scm,
         outcome =:Y, 
         treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
     )
@@ -258,7 +258,7 @@ end
        outcome_model = DeterministicConstantRegressor()
     )
     Ψ = IATE(
-        scm=scm,
+        scm,
         outcome =:Y, 
         treatment=(T₁=(case="a", control="b"), 
                    T₂=(case=1, control=2), 
