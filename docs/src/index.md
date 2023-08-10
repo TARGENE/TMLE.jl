@@ -59,7 +59,7 @@ nothing # hide
 Estimating the Average Treatment Effect can of ``T`` on ``Y`` can be as simple as:
 
 ```@example quick-start
-Ψ = ATE(:Y, (T=(case=true, control = false),), :W)
+Ψ = ATE(outcome=:Y, treatment=(T=(case=true, control = false),), confounders=:W)
 result, _ = tmle!(Ψ, dataset)
 result
 ```
@@ -80,7 +80,6 @@ and second, define the Average Treatment Effect of the treatment ``T`` on the ou
     outcome      = :Y,
     treatment   = (T=(case=true, control = false),),
 )
-nothing # hide
 ```
 
 Note that in this example the ATE can be computed exactly and is given by:

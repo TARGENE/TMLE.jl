@@ -14,6 +14,7 @@ using StableRNGs
 using CategoricalArrays
 using TMLE
 using LogExpFunctions
+using MLJLinearModels
 
 function make_dataset(;n=1000)
     rng = StableRNG(123)
@@ -59,6 +60,7 @@ result₁, fluctuation_mach = tmle!(Ψ₁, dataset;
     threshold=1e-8, 
     weighted_fluctuation=false
 )
+nothing # hide
 ```
 
 We see that both models corresponding to variables `Y` and `T₁` were fitted in the process but that the model for `T₂` was not because it was not necessary to estimate this estimand.
@@ -92,6 +94,7 @@ result₂, fluctuation_mach = tmle!(Ψ₂, dataset;
     threshold=1e-8, 
     weighted_fluctuation=false
 )
+nothing # hide
 ```
 
 The model for `T₂` was fitted in the process but so was the model for `Y` 🤔. This is because the `BackdoorAdjustment` method determined that the set of inputs for `Y` were different in both cases.
@@ -109,6 +112,7 @@ result₃, fluctuation_mach = tmle!(Ψ₃, dataset;
     threshold=1e-8, 
     weighted_fluctuation=false
 )
+nothing # hide
 ```
 
 This time only the statistical model for `Y` is fitted again while reusing the models for `T₁` and `T₂`. Finally, let's see what happens if we estimate the `IATE` between `T₁` and `T₂`.
@@ -122,6 +126,7 @@ result₄, fluctuation_mach = tmle!(Ψ₄, dataset;
     threshold=1e-8, 
     weighted_fluctuation=false
 )
+nothing # hide
 ```
 
 All statistical models have been reused 😊!

@@ -23,6 +23,7 @@ using StableRNGs
 using CategoricalArrays
 using TMLE
 using LogExpFunctions
+using MLJLinearModels
 
 function make_dataset(;n=1000)
     rng = StableRNG(123)
@@ -90,7 +91,7 @@ AVAILABLE_ESTIMANDS
 
 At the moment there are 3 main estimand types we can estimate in TMLE.jl, we provide below a few examples.
 
-- The Interventional Conditional Mean (see: TODO):
+- The Interventional Conditional Mean:
 
 ```@example walk-through
 cm = CM(
@@ -100,10 +101,10 @@ cm = CM(
     )
 ```
 
-- The Average Treatment Effect (see: TODO):
+- The Average Treatment Effect:
 
 ```@example walk-through
-ate = ATE(
+total_ate = ATE(
     scm,
     outcome=:Y,
     treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)) 
@@ -115,7 +116,7 @@ marginal_ate_t1 = ATE(
 )
 ```
 
-- The Interaction Average Treatment Effect (see: TODO):
+- The Interaction Average Treatment Effect:
 
 ```@example walk-through
 iate = IATE(
@@ -127,7 +128,7 @@ iate = IATE(
 
 ## Targeted Estimation
 
-Then each parameter can be estimated by calling the `tmle` function. For example:
+Then each parameter can be estimated by calling the `tmle!` function. For example:
 
 ```@example walk-through
 result, _ = tmle!(cm, dataset)
@@ -136,9 +137,23 @@ result
 
 The `result` contains 3 main elements:
 
-- The `TMLEEstimate` than can be accessed via: `tmle(result)`.
-- The `OSEstimate` than can be accessed via: `ose(result)`.
+- The `TMLEEstimate` than can be accessed via:
+
+```@example walk-through
+tmle(result)
+```
+
+- The `OSEstimate` than can be accessed via:
+
+```@example walk-through
+ose(result)
+```
+
 - The naive initial estimate.
+
+```@example walk-through
+naive(result)
+```
 
 The adjustment set is determined by the provided `adjustment_method` keyword. At the moment, only `BackdoorAdjustment` is available. However one can specify that extra covariates could be used to fit the outcome model.
 

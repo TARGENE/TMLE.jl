@@ -23,7 +23,13 @@ struct TMLEResult{P <: Estimand, T<:AbstractFloat}
     initial::T
 end
 
-function Base.show(io::IO, r::TMLEResult)
+function Base.show(io::IO, ::MIME"text/plain", est::AsymptoticallyLinearEstimate)
+    testresult = OneSampleTTest(est)
+    data = [estimate(est) confint(testresult) pvalue(testresult);]
+    pretty_table(io, data;header=["Estimate", "95% Confidence Interval", "P-value"])
+end
+
+function Base.show(io::IO, ::MIME"text/plain", r::TMLEResult)
     tmletest = OneSampleTTest(r.tmle)
     onesteptest = OneSampleTTest(r.onestep)
     data = [
@@ -36,6 +42,7 @@ end
 
 tmle(result::TMLEResult) = result.tmle
 ose(result::TMLEResult) = result.onestep
+initial(result::TMLEResult) = result.initial
 
 """
     Distributions.estimate(r::AsymptoticallyLinearEstimate)

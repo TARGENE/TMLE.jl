@@ -9,8 +9,6 @@ In a `SCM`, each variable is determined by a set of parents and a statistical mo
 
 At the moment we provide a single adjustment method, namely the Backdoor adjustment method. The adjustment set consists of all the treatment variable's parents. Additional covariates used to fit the outcome model can be provided via `outcome_extra`.
 
-```@example
-using TMLE # hide
+```julia
 BackdoorAdjustment(;outcome_extra=[:C])
-nothing
 ```

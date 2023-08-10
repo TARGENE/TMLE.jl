@@ -31,7 +31,7 @@ export AverageTreatmentEffect, ATE
 export InteractionAverageTreatmentEffect, IATE
 export AVAILABLE_ESTIMANDS
 export fit!, optimize_ordering, optimize_ordering!
-export tmle!, tmle, ose
+export tmle!, tmle, ose, naive
 export var, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
 export TreatmentTransformer, with_encoder
