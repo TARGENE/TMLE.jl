@@ -179,37 +179,32 @@ nothing # hide
 Let us move to the targeted estimation step itself. We define the target estimand (the ATE) and the nuisance estimands specification:
 =#
 Ψ = ATE(
-    outcome = :Y,
-    treatment = (T=(case=true, control=false),),
-    confounders = [:W₁, :W₂]
+    outcome=:Y,
+    treatment=(T=(case=true, control=false),),
+    confounders=[:W₁, :W₂],
+    outcome_model=Q_super_learner,
+    treatment_model=G_super_learner
 )
 
-η_spec = NuisanceSpec(
-    Q_super_learner,
-    G_super_learner
-)
 
 nothing # hide
 
 #=
 Finally run the TMLE procedure and check the result
 =#
-tmle_result, cache = tmle!Ψ, η_spec, dataset)
+tmle_result, _ = tmle!(Ψ, dataset)
 
-test_result = OneSampleTTest(tmle_result.tmle, ψ₀)
+test_result = OneSampleTTest(tmle(tmle_result), ψ₀)
 
 #=
 Now, what if we had used linear models only instead of the Super Learner? This is easy to check
 =#
+setmodel!(Ψ.scm.Y, LinearRegressor())
+setmodel!(Ψ.scm.T, LogisticClassifier())
 
-η_spec_linear = NuisanceSpec(
-    LinearRegressor(),
-    LogisticClassifier(lambda=0)
-)
+tmle_result_linear, cache = tmle!(Ψ, dataset)
 
-tmle_result_linear, cache = tmle!Ψ, η_spec_linear, dataset)
-
-test_result_linear = OneSampleTTest(tmle_result_linear.tmle, ψ₀)
+test_result_linear = OneSampleTTest(tmle(tmle_result_linear), ψ₀)
 
 #
 using Test # hide
