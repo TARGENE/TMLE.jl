@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Introduction to Targeted Learning · TMLE.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link rel="canonical" href="https://TARGENE.github.io/TMLE.jl/examples/introduction_to_targeted_learning/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/logo.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="TMLE.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">TMLE.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../walk_through/">Walk Through</a></li><li><span class="tocitem">User Guide</span><ul><li><a class="tocitem" href="../../user_guide/scm/">Structural Causal Models</a></li><li><a class="tocitem" href="../../user_guide/estimands/">Estimands</a></li><li><a class="tocitem" href="../../user_guide/estimation/">Estimation</a></li><li><a class="tocitem" href="../../user_guide/adjustment/">Adjustment Methods</a></li><li><a class="tocitem" href="../../user_guide/misc/">Miscellaneous</a></li></ul></li><li><span class="tocitem">Examples</span></li><li><a class="tocitem" href="../../resources/">Resources</a></li><li><a class="tocitem" href="../../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Introduction to Targeted Learning</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Introduction to Targeted Learning</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/TARGENE/TMLE.jl/blob/main/examples/introduction_to_targeted_learning.jl#" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Introduction-to-Targeted-Learning"><a class="docs-heading-anchor" href="#Introduction-to-Targeted-Learning">Introduction to Targeted Learning</a><a id="Introduction-to-Targeted-Learning-1"></a><a class="docs-heading-anchor-permalink" href="#Introduction-to-Targeted-Learning" title="Permalink"></a></h1><h2 id="Taller-is-better?"><a class="docs-heading-anchor" href="#Taller-is-better?">Taller is better?</a><a id="Taller-is-better?-1"></a><a class="docs-heading-anchor-permalink" href="#Taller-is-better?" title="Permalink"></a></h2><p>One is often interested in the effect of a given variable (treatment) on an outcome. For instance, one could be interested in the effect of an individual&#39;s characteristics on their climbing ability. In this tutorial we investigate this question using the famous <a href="https://www.kaggle.com/datasets/dcohen21/8anu-climbing-logbook">8anu-climbing-logbook</a> dataset. More precisely, we will investigate the effect of height on the average and maximum climbing grades reached by individuals.</p><pre><code class="language- hljs">using SQLite
+using DataFrames
+using CategoricalArrays
+using CairoMakie
+using Statistics
+
+function bucketize(v; buckets=[160., 170., 180., 190., 200.])
+    bucketized = Vector{Int}()
+    max_val = maximum(v)
+    buckets = copy(buckets)
+    if max_val != buckets[end]
+        append!(buckets, max_val)
+    end
+    for index in eachindex(v)
+        x = v[index]
+        for bucket_limit in buckets
+            if x &lt;= bucket_limit
+                push!(bucketized, bucket_limit)
+                break
+            end
+        end
+    end
+    return categorical(bucketized)
+end
+
+function load_dataset(;db_path = &quot;/Users/olivierlabayle/Documents/database.sqlite&quot;, height_buckets = [160., 170., 180., 190., 200.])
+    db = SQLite.DB(db_path)
+    dataset = DBInterface.execute(
+        db,
+        &quot;&quot;&quot;SELECT CAST(height AS float) AS height,
+                  CAST(sex AS float) AS sex,
+                  CAST(max_score AS FLOAT) AS max_score,
+                  mean_score FROM
+            (SELECT user_id, MAX(score) as max_score, AVG(score) as mean_score FROM ascent
+                INNER JOIN grade
+                ON ascent.grade_id = grade.id
+                GROUP BY user_id) as score_table
+                INNER JOIN user
+                ON score_table.user_id = user.id
+                WHERE user.height &gt; 150 AND user.height &lt; 220;&quot;&quot;&quot;
+        ) |&gt; DataFrame
+
+    dataset.categorical_height = bucketize(dataset.height; buckets=height_buckets)
+
+    for height in height_buckets
+        dataset[!, &quot;counterfactual_height_$height&quot;] .= height
+    end
+
+    return dataset
+end
+
+function plot_climbing_data(dataset)
+    overall = combine(groupby(dataset, :height), :mean_score =&gt; mean, :max_score =&gt; mean)
+    bysex = combine(groupby(dataset, [:sex, :height]), :mean_score =&gt; mean, :max_score =&gt; mean)
+    females = filter(x -&gt; x.sex == 1, bysex)
+    males = filter(x -&gt; x.sex == 0, bysex)
+    fig = Figure()
+    axis₁ = Axis(fig[1, 1], xlabel=&quot;Height&quot;, ylabel=&quot;Mean mean Score&quot;)
+    scatter!(axis₁, overall.height, overall.mean_score_mean, label=&quot;Overall&quot;)
+    scatter!(axis₁, females.height, females.mean_score_mean, label=&quot;Females&quot;)
+    scatter!(axis₁, males.height, males.mean_score_mean, label=&quot;Males&quot;)
+    axislegend()
+    axis₂ = Axis(fig[1, 2], xlabel=&quot;Height&quot;, ylabel=&quot;Mean max Score&quot;)
+    scatter!(axis₂, overall.height, overall.max_score_mean, label=&quot;Overall&quot;)
+    scatter!(axis₂, females.height, females.max_score_mean, label=&quot;Females&quot;)
+    scatter!(axis₂, males.height, males.max_score_mean, label=&quot;Males&quot;)
+    axislegend()
+    fig
+end
+
+height_buckets = [160., 170., 180., 190., 200., 220.]
+dataset = load_dataset(height_buckets=height_buckets)
+plot_climbing_data(dataset)</code></pre><h2 id="The-causal-model"><a class="docs-heading-anchor" href="#The-causal-model">The causal model</a><a id="The-causal-model-1"></a><a class="docs-heading-anchor-permalink" href="#The-causal-model" title="Permalink"></a></h2><p>In order to draw causal conclusions we must first come up with a causal model of the problem. If you are new to causal inference, you can have a look at Judea Pearl&#39;s <a href="http://bayes.cs.ucla.edu/PRIMER/">primer</a>, if you are not interested in causal inference but only on the targeted approach you can jump to the next section. Causal models are typically represented by directed acyclic graphs like the following one:</p><div style="text-align:center">
+<img src="assets/climbing_graph.png" alt="Causal Model of Climing Performance" style="width:400px;"/>
+</div><p>One of the major result in causal inference, the so-called backdoor-criterion, tells us that a causal effect of a treatment on an outcome can be obtained by &quot;adjusting&quot; for all back-door paths into the treatment and outcome variables. In our example it seems natural to assume that an individual&#39;s sex can be influencing both their height and climbing performance and is thus one such variable. There could be many other such variables, and we should adjust for all of them otherwise our effect size won&#39;t be carrying a causal interpretation. When we say &quot;adjust&quot; for variables, we formally mean integrate over those variables:</p><p class="math-container">\[p^{do(height=h)}(score=s) = \int_g p(score=s | height=h, gender=g)\]</p><p>For the sake of this tutorial we will assume that gender is the only confounding variable and can now move to the statistical estimation procedure.</p><h2 id="The-conceptual-shift:-from-statistical-models-to-estimands"><a class="docs-heading-anchor" href="#The-conceptual-shift:-from-statistical-models-to-estimands">The conceptual shift: from statistical models to estimands</a><a id="The-conceptual-shift:-from-statistical-models-to-estimands-1"></a><a class="docs-heading-anchor-permalink" href="#The-conceptual-shift:-from-statistical-models-to-estimands" title="Permalink"></a></h2><p>Traditional estimation methods start from a conveniently chosen parametric statistical model, proceed with maximum likelihood estimation and finally <strong>interpret</strong> one of the model&#39;s estimand as the seeked effect size. For instance, a linear model is often assumed and in our scenario could be formalized as :</p><p class="math-container">\[Y =  \alpha + \beta \cdot X + \epsilon , \epsilon \sim \mathcal{N}(0, \sigma^2)\]</p><p>where <span>$\alpha$</span>, <span>$\beta$</span> and <span>$\sigma^2$</span> are estimands to be estimated. In this case, <span>$\beta$</span> would be understood as the effect of X on Y. The problem with this approach is that if the model is wrong there is no guarantee that <span>$\beta$</span> will actually correspond to any effect size at all. We refer to such approaches as model-based because the model is the starting point of the analysis. Targeted Learning on the other hand, can be considered estimand-based because the starting point of the analysis is the question of interest. But how do you formulate a question without a model? The reality is that it requires some mathematical abstraction, which can be intimidating at first and keep you astray. Please do not, in fact you don&#39;t need to understand the mathematical details to use this package, and if you are trying to estimate some standard effect size, there is a high chance the estimand you are looking for is the Average Treatment Effect (ATE). Conceptually, you can think of the observed data as being generated by some complicated process which we will denote by <span>$P_0$</span>. The <span>$0$</span> subscript reminds us that this the ground truth, some unknown process that we can only witness through the observed data. A estimand, or question of interest is simply a summary of this highly complicated <span>$P_0$</span>. In our climbing example, we could ask the following question: &quot;What average improvement in climbing grades would someone see after a year if they started climbing 3 times a week as compared to climbing only once a week&quot;. As you can see, the question is quite precise and the answer is expected to be a single number, for instance it could be 0, 1, 2, 3 grades... Formally this is represented by the ATE as follows:</p><p class="math-container">\[ATE_{0, C=3 \rightarrow C=4} =  \mathbf{E}_0[\mathbf{E}_0[Y|C=4, W]] - \mathbf{E}_0[\mathbf{E}_0[Y|C=3, W]]\]</p><p>where the <span>$\mathbf{E}_0$</span> symbol is the expecation (average) operator, the inner one is taken over <span>$Y$</span> and the outer one over <span>$W$</span>. In essence, we are only looking at the average difference in outcomes for two different groups <span>$C=4$</span> and <span>$C=3$</span>, and the presence of the extra <span>$W$</span> is due to our causal understanding of climbing progression. However you can notice that no particular model is assumed to define the ATE, it is simply depending on <span>$P_0$</span> via the average <span>$\mathbf{E}_0$</span>. Now that we have defined our target quantity, we can proceed to estimation.</p><h2 id="The-naive-estimator"><a class="docs-heading-anchor" href="#The-naive-estimator">The naive estimator</a><a id="The-naive-estimator-1"></a><a class="docs-heading-anchor-permalink" href="#The-naive-estimator" title="Permalink"></a></h2><p>The most common estimation strategy, and that which is used by Targeted Learning is the so-called plugin-estimation. The idea is simple, because we have defined our quantity of interest (the ATE) as a function of <span>$P_0$</span>, we only need to come up with an estimate <span>$\hat{P}_n$</span> for <span>$P_0$</span> and then compute the ATE on this estimated <span>$\hat{P}_n$</span>. In fact, in most cases, we don&#39;t even need to come up with a complete estimate for <span>$P_0$</span> but only the relevant parts of it. By looking at the ATE&#39;s formula, we can see that each term consists of two nested expectations, there are thus two such relevant parts that we need to estimate.</p><p>The first one is the conditional mean of the outcome given the climbing frequency and the confounders:</p><p class="math-container">\[\mathcal{Q}_0(c, w) = \mathbf{E}_0[Y|C=c, W=w]\]</p><p>The second one is the mean of <span>$\mathcal{Q}_0(c, w)$</span> over <span>$w$</span>:</p><p class="math-container">\[\mu_{0, W}(c) = \mathbf{E}_0[\mathcal{Q}_0(c, W)]\]</p><p>Using <a href="https://alan-turing-institute.github.io/MLJ.jl/dev/">MLJ</a>, we can define an estimator for <span>$\mathcal{Q}_0$</span> as follows:</p><pre><code class="language-julia hljs">using MLJ
+using MLJLinearModels
+using EvoTrees
+using MLJModels
+using NearestNeighborModels
+
+Q̂_spec = Stack(
+    metalearner = LinearRegressor(),
+    lr = LinearRegressor(),
+    evo = EvoTreeRegressor(),
+    knn = KNNRegressor(),
+    constant = DeterministicConstantRegressor()
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">DeterministicStack(
+  metalearner = LinearRegressor(
+        fit_intercept = true, 
+        solver = nothing), 
+  resampling = CV(
+        nfolds = 6, 
+        shuffle = false, 
+        rng = Random._GLOBAL_RNG()), 
+  measures = nothing, 
+  cache = true, 
+  acceleration = ComputationalResources.CPU1{Nothing}(nothing), 
+  lr = LinearRegressor(
+        fit_intercept = true, 
+        solver = nothing), 
+  evo = EvoTreeRegressor(
+        nrounds = 10, 
+        lambda = 0.0f0, 
+        gamma = 0.0f0, 
+        eta = 0.1f0, 
+        max_depth = 5, 
+        min_weight = 1.0f0, 
+        rowsample = 1.0f0, 
+        colsample = 1.0f0, 
+        nbins = 32, 
+        alpha = 0.5f0, 
+        monotone_constraints = Dict{Int64, Int64}(), 
+        rng = Random.TaskLocalRNG(), 
+        device = &quot;cpu&quot;), 
+  knn = KNNRegressor(
+        K = 5, 
+        algorithm = :kdtree, 
+        metric = Distances.Euclidean(0.0), 
+        leafsize = 10, 
+        reorder = true, 
+        weights = NearestNeighborModels.Uniform()), 
+  constant = DeterministicConstantRegressor())</code></pre><p>and compute the naive estimate by using the empirical distribution for <span>$\mu_{0, W}$</span>, which is computing the empirical mean. We can do this for both the <code>mean_score</code> and <code>max_score</code> outcomes and with or without confounding adjustment to see the difference.</p><pre><code class="language- hljs">naive_estimate(mach, X_high, X_low) =
+    mean(predict(mach, X_high) .- predict(mach, X_low))
+
+function counterfactualX(dataset, features, height)
+    if :sex in features
+        return dataset[!, [&quot;counterfactual_height_$height&quot;, &quot;sex&quot;]]
+    else
+        return dataset[!, [&quot;counterfactual_height_$height&quot;]]
+    end
+end
+
+results = DataFrame(height_high=[], height_low=[], outcome=[], features=[], estimate=[])
+for outcome in (:mean_score, :max_score)
+    for features in [[:height, :sex], [:height]]
+        mach = machine(
+            Q̂_spec,
+            dataset[!, features],
+            dataset[!, outcome]
+        )
+        fit!(mach, verbosity=0)
+        for (low, high) in zip(height_buckets[1:end-1], height_buckets[2:end])
+            X_high =  counterfactualX(dataset, features, high)
+            X_low = counterfactualX(dataset, features, low)
+            estimate = naive_estimate(mach, X_high, X_low)
+            push!(results, (high, low, outcome, join(features, :_), estimate))
+        end
+    end
+end
+results</code></pre><p>Now the estimate is only...</p><p>The problem with the naive approach is that the use of the data is targeted towards the estimation of <span>$\mathcal{Q}_0$</span>. However, we are not interested in <span>$\mathcal{Q}_0$</span> but in the ATE, this is where the targeted step comes in, it will shift our initial estimator of <span>$\mathcal{Q}_0$</span> to reduce the bias of our ATE estimator.</p><h2 id="Targeting-the-naive-estimator"><a class="docs-heading-anchor" href="#Targeting-the-naive-estimator">Targeting the naive estimator</a><a id="Targeting-the-naive-estimator-1"></a><a class="docs-heading-anchor-permalink" href="#Targeting-the-naive-estimator" title="Permalink"></a></h2><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Thursday 10 August 2023 23:54">Thursday 10 August 2023</span>. Using Julia version 1.9.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
