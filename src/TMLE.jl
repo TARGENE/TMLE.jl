@@ -31,8 +31,8 @@ export AverageTreatmentEffect, ATE
 export InteractionAverageTreatmentEffect, IATE
 export AVAILABLE_ESTIMANDS
 export fit!, optimize_ordering, optimize_ordering!
-export tmle!, tmle, ose, naive
-export var, estimate, initial_estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
+export tmle!, tmle, ose, initial
+export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
 export TreatmentTransformer, with_encoder
 export BackdoorAdjustment
@@ -74,62 +74,57 @@ function run_precompile_workload()
         dataset = (C₁=C₁, W₁=W₁, W₂=W₂, T₁=T₁, T₂=T₂, Y₁=Y₁, Y₂=Y₂)
 
         @compile_workload begin
-            # all calls in this block will be precompiled, regardless of whether
-            # they belong to your package or not (on Julia 1.8 and higher)
-            Ψ = CM(
+            # SCM constructors
+            ## Incremental
+            scm = SCM()
+            push!(scm, SE(:Y₁, [:T₁, :W₁, :W₂], model=LinearRegressor()))
+            push!(scm, SE(:T₁, [:W₁, :W₂]))
+            setmodel!(scm.T₁, LinearBinaryClassifier())
+            ## Implicit through estimand
+            for estimand_type in [CM, ATE, IATE]
+                estimand_type(outcome=:Y₁, treatment=(T₁=true,), confounders=[:W₁, :W₂])
+            end
+            ## Complete
+            scm = SCM(
+                SE(:Y₁, [:T₁, :W₁, :W₂], model=with_encoder(LinearRegressor())),
+                SE(:T₁, [:W₁, :W₂],model=LinearBinaryClassifier()),
+                SE(:Y₂, [:T₁, :T₂, :W₁, :W₂, :C₁], model=with_encoder(LinearBinaryClassifier())),
+                SE(:T₂, [:W₁, :W₂],model=LinearBinaryClassifier()),
+            )
+
+            # Estimate some parameters
+            Ψ₁ = CM(
+                scm,
                 outcome =:Y₁,
                 treatment=(T₁=true,),
-                confounders=[:W₁, :W₂],
-                covariates = [:C₁]
             )
-            η_spec = NuisanceSpec(
-                LinearRegressor(),
-                LinearBinaryClassifier()
+            result₁, fluctuation = tmle!(Ψ₁, dataset)
+
+            Ψ₂ = ATE(
+                scm,
+                outcome=:Y₂,
+                treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false))
             )
-            r, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
-            continuous_estimands = [
-                ATE(
-                    outcome =:Y₁,
-                    treatment=(T₁=(case=true, control=false),),
-                    confounders=[:W₁, :W₂],
-                    covariates = [:C₁]
-                ),
-                # IATE(
-                #     outcome =:Y₁,
-                #     treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
-                #     confounders=[:W₁, :W₂],
-                #     covariates = [:C₁]
-                # )
-            ]
-            cache = TMLECache(dataset)
-            for Ψ in continuous_estimands
-                tmle!(cache, Ψ, η_spec, verbosity=0)
-            end
+            result₂, fluctuation = tmle!(Ψ₂, dataset)
 
-            # Precompiling with a binary outcome
-            binary_estimands = [
-                ATE(
-                    outcome =:Y₂,
-                    treatment=(T₁=(case=true, control=false),),
-                    confounders=[:W₁, :W₂],
-                    covariates = [:C₁]
-                ),
-                # IATE(
-                #     outcome =:Y₂,
-                #     treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
-                #     confounders=[:W₁, :W₂],
-                #     covariates = [:C₁]
-                # )
-            ]
-            η_spec = NuisanceSpec(
-                LinearBinaryClassifier(),
-                LinearBinaryClassifier()
+            Ψ₃ = IATE(
+                scm,
+                outcome=:Y₂,
+                treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false))
             )
+            result₃, fluctuation = tmle!(Ψ₃, dataset)
 
-            for Ψ in binary_estimands
-                tmle!(cache, Ψ, η_spec, verbosity=0)
-            end
+            # Composition
+            composed_result = compose((x,y) -> x - y, tmle(result₂), tmle(result₁))
 
+            # Results manipulation
+            initial(result)
+            OneSampleTTest(tmle(result₃))
+            OneSampleZTest(tmle(result₃))
+            OneSampleTTest(ose(result₃))
+            OneSampleZTest(ose(result₃))
+            OneSampleZTest(composed_result)
+            
         end
     end
 

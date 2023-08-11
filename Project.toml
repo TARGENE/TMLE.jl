@@ -1,15 +1,7 @@
 name = "TMLE"
 uuid = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
 authors = ["Olivier Labayle"]
-version = "0.11.4"
-
-[weakdeps]
-CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
-GraphMakie = "1ecd5474-83a3-4783-bb4f-06765db800d2"
-Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
-
-[extensions]
-GraphsTMLEExt = ["Graphs", "CairoMakie", "GraphMakie"]
+version = "0.12.0"
 
 [deps]
 AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
@@ -36,7 +28,7 @@ AbstractDifferentiation = "0.4, 0.5"
 CategoricalArrays = "0.10"
 Distributions = "0.25"
 GLM = "1.8.2"
-HypothesisTests = "0.10"
+HypothesisTests = "0.10, 0.11"
 LogExpFunctions = "0.3"
 MLJBase = "0.19, 0.20, 0.21"
 MLJGLMInterface = "0.3.4"
@@ -48,7 +40,4 @@ TableOperations = "1.2"
 Tables = "1.6"
 YAML = "0.4"
 Zygote = "0.6"
-Graphs = "1.8.0"
-GraphMakie = "0.5.5"
-CairoMakie = "0.10"
 julia = "1.6, 1.7, 1"

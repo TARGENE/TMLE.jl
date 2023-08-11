@@ -25,7 +25,6 @@ using LogExpFunctions
 using MLJGLMInterface
 using DataFrames
 using CairoMakie
-using CategoricalArrays
 
 
 μY(T, W) = exp.(1 .- 10T .+ 1W)

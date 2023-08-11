@@ -92,8 +92,18 @@ HypothesisTests.OneSampleTTest(r::AsymptoticallyLinearEstimate, Ψ₀=0) = OneSa
 Performs a T test on the ComposedTMLEstimate.
 """
 function HypothesisTests.OneSampleTTest(r::ComposedTMLEstimate, Ψ₀=0) 
-    @assert length(r.Ψ̂) > 1 "OneSampleTTest is only implemeted for real-valued statistics."
+    @assert length(r.Ψ̂) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
     return OneSampleTTest(estimate(r), sqrt(var(r)), 1, Ψ₀)
+end
+
+"""
+    OneSampleZTest(r::ComposedTMLEstimate, Ψ₀=0)
+
+Performs a T test on the ComposedTMLEstimate.
+"""
+function HypothesisTests.OneSampleZTest(r::ComposedTMLEstimate, Ψ₀=0) 
+    @assert length(r.Ψ̂) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
+    return OneSampleZTest(estimate(r), sqrt(var(r)), 1, Ψ₀)
 end
 
 
