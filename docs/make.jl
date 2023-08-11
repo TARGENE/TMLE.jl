@@ -31,9 +31,9 @@ makedocs(;
         "User Guide" => [joinpath("user_guide", f) for f in 
             ("scm.md", "estimands.md", "estimation.md", "adjustment.md", "misc.md")],
         "Examples" => [
-            #joinpath("examples", "introduction_to_targeted_learning.md"), 
-            # joinpath("examples", "super_learning.md"),
-            # joinpath("examples", "double_robustness.md")
+            # joinpath("examples", "introduction_to_targeted_learning.md"), 
+            joinpath("examples", "super_learning.md"),
+            joinpath("examples", "double_robustness.md")
             ],
         "Resources" => "resources.md",
         "API Reference" => "api.md"
