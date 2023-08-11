@@ -19,18 +19,21 @@ abstract type Estimand end
 
 ## Constructors
 
-- CM(;scm::SCM, outcome, treatment)
-- CM(scm::SCM; outcome, treatment)
-
-where:
-
-- scm: is a `StructuralCausalModel` (see [`SCM`](@ref))
-- outcome: is a `Symbol`
-- treatment: is a `NamedTuple`
-
+- CM(scm::SCM; outcome::Symbol, treatment::NamedTuple)
+- CM(
+    outcome::Symbol, 
+    treatment::NamedTuple, 
+    confounders::Union{Symbol, AbstractVector{Symbol}}, 
+    covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
+    outcome_model = with_encoder(LinearRegressor()),
+    treatment_model = LinearBinaryClassifier()
+)
 ## Example
 
+```julia
 Ψ = CM(scm, outcome=:Y, treatment=(T=1,))
+
+```
 """
 struct ConditionalMean <: Estimand
     scm::StructuralCausalModel
@@ -56,18 +59,21 @@ const CM = ConditionalMean
 
 ## Constructors
 
-- ATE(;scm::SCM, outcome, treatment)
-- ATE(scm::SCM; outcome, treatment)
-
-where:
-
-- scm: is a `StructuralCausalModel` (see [`SCM`](@ref))
-- outcome: is a `Symbol`
-- treatment: is a `NamedTuple`
+- ATE(scm::SCM; outcome::Symbol, treatment::NamedTuple)
+- ATE(
+    outcome::Symbol, 
+    treatment::NamedTuple, 
+    confounders::Union{Symbol, AbstractVector{Symbol}}, 
+    covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
+    outcome_model = with_encoder(LinearRegressor()),
+    treatment_model = LinearBinaryClassifier()
+)
 
 ## Example
 
+```julia
 Ψ = ATE(scm, outcome=:Y, treatment=(T=(case=1,control=0),)
+```
 """
 struct AverageTreatmentEffect <: Estimand
     scm::StructuralCausalModel
@@ -90,24 +96,27 @@ const ATE = AverageTreatmentEffect
 
 ## Definition
 
-For two treatments with settings (1, 0):
+For two treatments with case/control settings (1, 0):
 
 ``IATE = E[Y|do(T₁=1, T₂=1)] - E[Y|do(T₁=1, T₂=0)] - E[Y|do(T₁=0, T₂=1)] + E[Y|do(T₁=0, T₂=0)]``
 
 ## Constructors
 
-- IATE(;scm::SCM, outcome, treatment)
-- IATE(scm::SCM; outcome, treatment)
-
-where:
-
-- scm: is a `StructuralCausalModel` (see [`SCM`](@ref))
-- outcome: is a `Symbol`
-- treatment: is a `NamedTuple`
+- IATE(scm::SCM; outcome::Symbol, treatment::NamedTuple)
+- IATE(
+    outcome::Symbol, 
+    treatment::NamedTuple, 
+    confounders::Union{Symbol, AbstractVector{Symbol}}, 
+    covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
+    outcome_model = with_encoder(LinearRegressor()),
+    treatment_model = LinearBinaryClassifier()
+)
 
 ## Example
 
+```julia
 Ψ = IATE(scm, outcome=:Y, treatment=(T₁=(case=1,control=0), T₂=(case=1,control=0))
+```
 """
 struct InteractionAverageTreatmentEffect <: Estimand
     scm::StructuralCausalModel

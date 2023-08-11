@@ -26,7 +26,6 @@ categorical values.
 using CSV
 using DataFrames
 using TMLE
-using CairoMakie
 using MLJ
 
 dataset = CSV.read(
@@ -35,8 +34,8 @@ dataset = CSV.read(
     select=[:haz01, :parity01, :apgar1, :apgar5, :gagebrth, :mage, :meducyrs, :sexn],
     types=Float64
 )
-dataset.haz01 = categorical(dataset.haz01)
-dataset.parity01 = categorical(dataset.parity01)
+dataset.haz01 = categorical(Int.(dataset.haz01))
+dataset.parity01 = categorical(Int.(dataset.parity01))
 nothing # hide
 
 #=
@@ -134,9 +133,5 @@ tmle_result, _ = tmle!(Ψ, dataset)
 
 tmle_result
 
-#
-using Test # hide
-pvalue(test_result) > 0.05 #hide
-nothing # hide
 
 

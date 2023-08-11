@@ -32,7 +32,7 @@ using CairoMakie
 function generate_data(;n = 1000, rng = StableRNG(123))
     W  = rand(rng, Normal(), n)
     μT = logistic.(0.3 .- 0.5W)
-    T  = float(rand(rng, Uniform(), n) .< μT)
+    T  = float(rand(rng, n) .< μT)
     ϵ = rand(rng, Normal(), n)
     Y  = μY(T, W) .+ ϵ
     Y₁ = μY(ones(n), W) .+ ϵ
