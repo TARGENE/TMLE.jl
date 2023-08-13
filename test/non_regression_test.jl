@@ -24,10 +24,21 @@ using MLJGLMInterface
     Ψ = ATE(scm, outcome=:haz01, treatment=(parity01=(case=1, control=0),))
 
     result, fluctuation_mach = tmle!(Ψ, dataset, threshold=0.025, verbosity=0)
-    l, u = confint(OneSampleTTest(tmle(result)))
-    @test estimate(result.tmle) ≈ -0.185533 atol = 1e-6
+    # TMLE
+    tmle_result = tmle(result)
+    @test estimate(tmle_result) ≈ -0.185533 atol = 1e-6
+    l, u = confint(OneSampleTTest(tmle_result))
     @test l ≈ -0.279246 atol = 1e-6
     @test u ≈ -0.091821 atol = 1e-6
+    @test OneSampleZTest(tmle_result) isa OneSampleZTest
+    # OSE
+    ose_result = ose(result)
+    @test estimate(ose_result) isa Float64
+    @test OneSampleTTest(ose_result) isa OneSampleTTest
+    @test OneSampleZTest(ose_result) isa OneSampleZTest
+    # Naive
+    @test initial(result) isa Float64
+
 end
 
 end

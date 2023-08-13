@@ -11,17 +11,31 @@ struct OSEstimate{T<:AbstractFloat} <: AsymptoticallyLinearEstimate
     IC::Vector{T}
 end
 
-struct ComposedTMLEstimate{T<:AbstractFloat} <: AsymptoticallyLinearEstimate
+struct ComposedEstimate{T<:AbstractFloat} <: AsymptoticallyLinearEstimate
     Ψ̂::Array{T}
     σ̂::Matrix{T}
+    n::Int
 end
 
-struct TMLEResult{P <: Estimand, T<:AbstractFloat}
+struct TMLEResult{P <: Estimand, T<: AbstractFloat}
     estimand::P
     tmle::TMLEstimate{T}
     onestep::OSEstimate{T}
     initial::T
 end
+
+function Base.show(io::IO, ::MIME"text/plain", est::ComposedEstimate)
+    if length(est.σ̂) !== 1
+        println(io, string("Estimate: ", estimate(est), "\nVariance: \n", var(est)))
+    else
+        testresult = OneSampleTTest(est)
+        data = [estimate(est) confint(testresult) pvalue(testresult);]
+        headers = ["Estimate", "95% Confidence Interval", "P-value"]
+        pretty_table(io, data;header=headers)
+    end
+end
+
+    
 
 function Base.show(io::IO, ::MIME"text/plain", est::AsymptoticallyLinearEstimate)
     testresult = OneSampleTTest(est)
@@ -52,11 +66,11 @@ Retrieves the final estimate: after the TMLE step.
 Distributions.estimate(r::AsymptoticallyLinearEstimate) = r.Ψ̂
 
 """
-    Distributions.estimate(r::ComposedTMLEstimate)
+    Distributions.estimate(r::ComposedEstimate)
 
 Retrieves the final estimate: after the TMLE step.
 """
-Distributions.estimate(r::ComposedTMLEstimate) = length(r.Ψ̂) == 1 ? r.Ψ̂[1] : r.Ψ̂
+Distributions.estimate(r::ComposedEstimate) = length(r.Ψ̂) == 1 ? r.Ψ̂[1] : r.Ψ̂
 
 """
     var(r::AsymptoticallyLinearEstimate)
@@ -66,11 +80,12 @@ Computes the estimated variance associated with the estimate.
 Statistics.var(r::AsymptoticallyLinearEstimate) = var(r.IC)/size(r.IC, 1)
 
 """
-    var(r::ComposedTMLEstimate)
+    var(r::ComposedEstimate)
 
 Computes the estimated variance associated with the estimate.
 """
-Statistics.var(r::ComposedTMLEstimate) = length(r.σ̂) == 1 ? r.σ̂[1] : r.σ̂
+Statistics.var(r::ComposedEstimate) = length(r.σ̂) == 1 ? r.σ̂[1] / r.n : r.σ̂ ./ r.n
+
 
 """
     OneSampleZTest(r::AsymptoticallyLinearEstimate, Ψ₀=0)
@@ -87,25 +102,24 @@ Performs a T test on the AsymptoticallyLinearEstimate.
 HypothesisTests.OneSampleTTest(r::AsymptoticallyLinearEstimate, Ψ₀=0) = OneSampleTTest(estimate(r), std(r.IC), size(r.IC, 1), Ψ₀)
 
 """
-    OneSampleTTest(r::ComposedTMLEstimate, Ψ₀=0)
+    OneSampleTTest(r::ComposedEstimate, Ψ₀=0)
 
-Performs a T test on the ComposedTMLEstimate.
+Performs a T test on the ComposedEstimate.
 """
-function HypothesisTests.OneSampleTTest(r::ComposedTMLEstimate, Ψ₀=0) 
+function HypothesisTests.OneSampleTTest(r::ComposedEstimate, Ψ₀=0) 
     @assert length(r.Ψ̂) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
-    return OneSampleTTest(estimate(r), sqrt(var(r)), 1, Ψ₀)
+    return OneSampleTTest(estimate(r), sqrt(r.σ̂[1]), r.n, Ψ₀)
 end
 
 """
-    OneSampleZTest(r::ComposedTMLEstimate, Ψ₀=0)
+    OneSampleZTest(r::ComposedEstimate, Ψ₀=0)
 
-Performs a T test on the ComposedTMLEstimate.
+Performs a T test on the ComposedEstimate.
 """
-function HypothesisTests.OneSampleZTest(r::ComposedTMLEstimate, Ψ₀=0) 
+function HypothesisTests.OneSampleZTest(r::ComposedEstimate, Ψ₀=0) 
     @assert length(r.Ψ̂) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
-    return OneSampleZTest(estimate(r), sqrt(var(r)), 1, Ψ₀)
+    return OneSampleZTest(estimate(r), sqrt(r.σ̂[1]), r.n, Ψ₀)
 end
-
 
 """
     compose(f, estimation_results::Vararg{AsymptoticallyLinearEstimate, N}) where N
@@ -158,8 +172,8 @@ function compose(f, estimators::Vararg{AsymptoticallyLinearEstimate, N}; backend
     f₀, Js = AD.value_and_jacobian(backend, f, estimates...)
     J = hcat(Js...)
     n = size(first(estimators).IC, 1)
-    σ₀ = (J*Σ*J')/n
-    return ComposedTMLEstimate(collect(f₀), σ₀)
+    σ₀ = J*Σ*J'
+    return ComposedEstimate(collect(f₀), σ₀, n)
 end
 
 function Statistics.cov(estimators::Vararg{AsymptoticallyLinearEstimate, N}) where N

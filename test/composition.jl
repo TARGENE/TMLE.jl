@@ -48,8 +48,10 @@ end
         treatment = (T=0,)
     )
     CM_result₀, _ = tmle!(CM₀, dataset, verbosity=0)
-    # Via Composition
-    CM_result_composed = compose(-, CM_result₁.tmle, CM_result₀.tmle)
+    # Composition of TMLE
+
+    CM_result_composed_tmle = compose(-, tmle(CM_result₁), tmle(CM_result₀));
+    CM_result_composed_ose = compose(-, ose(CM_result₁), ose(CM_result₀));
 
     # Via ATE
     ATE₁₀ = ATE(
@@ -58,8 +60,31 @@ end
         treatment = (T=(case=1, control=0),),
     )
     ATE_result₁₀, _ = tmle!(ATE₁₀, dataset, verbosity=0)
-    @test estimate(ATE_result₁₀.tmle) ≈ estimate(CM_result_composed) atol = 1e-7
-    @test var(ATE_result₁₀.tmle) ≈ var(CM_result_composed) atol = 1e-7
+    # Check composed TMLE
+    @test estimate(tmle(ATE_result₁₀)) ≈ estimate(CM_result_composed_tmle) atol = 1e-7
+    # T Test
+    composed_confint = collect(confint(OneSampleTTest(CM_result_composed_tmle)))
+    tmle_confint = collect(confint(OneSampleTTest(tmle(ATE_result₁₀))))
+    @test tmle_confint ≈ composed_confint atol=1e-4
+    # Z Test
+    composed_confint = collect(confint(OneSampleZTest(CM_result_composed_tmle)))
+    tmle_confint = collect(confint(OneSampleZTest(tmle(ATE_result₁₀))))
+    @test tmle_confint ≈ composed_confint atol=1e-4
+    # Variance
+    @test var(tmle(ATE_result₁₀)) ≈ var(CM_result_composed_tmle) atol = 1e-3
+
+    # Check composed OSE
+    @test estimate(ose(ATE_result₁₀)) ≈ estimate(CM_result_composed_ose) atol = 1e-7
+    # T Test
+    composed_confint = collect(confint(OneSampleTTest(CM_result_composed_ose)))
+    ose_confint = collect(confint(OneSampleTTest(ose(ATE_result₁₀))))
+    @test ose_confint ≈ composed_confint atol=1e-4
+    # Z Test
+    composed_confint = collect(confint(OneSampleZTest(CM_result_composed_tmle)))
+    ose_confint = collect(confint(OneSampleZTest(ose(ATE_result₁₀))))
+    @test ose_confint ≈ composed_confint atol=1e-4
+    # Variance
+    @test var(ose(ATE_result₁₀)) ≈ var(CM_result_composed_ose) atol = 1e-3
 end
 
 @testset "Test compose multidimensional function" begin
