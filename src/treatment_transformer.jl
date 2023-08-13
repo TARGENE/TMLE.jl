@@ -41,4 +41,4 @@ function MLJBase.transform(model::TreatmentTransformer, fitresult, Xnew)
     return merge(Xt, ordered_factors)
 end
 
-with_encoder(model; encoder=encoder()) = TreatmentTransformer(;encoder=encoder) |> model
+with_encoder(model; encoder=encoder()) = Pipeline(TreatmentTransformer(;encoder=encoder),  model)
