@@ -27,7 +27,7 @@ function logit!(v)
     end
 end
 
-function plateau!(v::AbstractVector, ps_lowerbound)
+function truncate!(v::AbstractVector, ps_lowerbound)
     for i in eachindex(v)
         v[i] = max(v[i], ps_lowerbound)
     end
@@ -167,7 +167,7 @@ function balancing_weights(scm::SCM, W, T; ps_lowerbound=1e-8)
         ŷ = MLJBase.predict(mach, W[colname])
         density .*= pdf.(ŷ, Tables.getcolumn(T, colname))
     end
-    plateau!(density, ps_lowerbound)
+    truncate!(density, ps_lowerbound)
     return 1. ./ density
 end
 
