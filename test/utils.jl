@@ -175,6 +175,13 @@ end
         W₃ = rand(7)
     )
     fit!(Ψ, dataset, verbosity=0)
+
+    @test TMLE.ps_lower_bound(Ψ, nothing) == 0.1
+    @test TMLE.data_adaptive_ps_lower_bound(Ψ) == 0.1
+    @test TMLE.data_adaptive_ps_lower_bound(1000) == 0.02984228238321508
+    @test TMLE.ps_lower_bound(Ψ, 1e-8) == 1.0e-8
+    @test TMLE.ps_lower_bound(Ψ, 1) == 0.1
+
     indicator_fns = TMLE.indicator_fns(Ψ)
     T = TMLE.treatments(dataset, Ψ)
     @test T == (T=dataset.T,)

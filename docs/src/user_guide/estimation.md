@@ -58,7 +58,7 @@ result₁, fluctuation_mach = tmle!(Ψ₁, dataset;
     adjustment_method=BackdoorAdjustment([:C]), 
     verbosity=1, 
     force=false, 
-    threshold=1e-8, 
+    ps_lowerbound=1e-8, 
     weighted_fluctuation=false
 )
 nothing # hide
@@ -92,7 +92,7 @@ result₂, fluctuation_mach = tmle!(Ψ₂, dataset;
     adjustment_method=BackdoorAdjustment([:C]), 
     verbosity=1, 
     force=false, 
-    threshold=1e-8, 
+    ps_lowerbound=1e-8, 
     weighted_fluctuation=false
 )
 nothing # hide
@@ -110,7 +110,7 @@ result₃, fluctuation_mach = tmle!(Ψ₃, dataset;
     adjustment_method=BackdoorAdjustment([:C]), 
     verbosity=1, 
     force=false, 
-    threshold=1e-8, 
+    ps_lowerbound=1e-8, 
     weighted_fluctuation=false
 )
 nothing # hide
@@ -124,7 +124,7 @@ result₄, fluctuation_mach = tmle!(Ψ₄, dataset;
     adjustment_method=BackdoorAdjustment([:C]), 
     verbosity=1, 
     force=false, 
-    threshold=1e-8, 
+    ps_lowerbound=1e-8, 
     weighted_fluctuation=false
 )
 nothing # hide

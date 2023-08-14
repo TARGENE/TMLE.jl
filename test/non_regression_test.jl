@@ -23,7 +23,7 @@ using MLJGLMInterface
     )
     Ψ = ATE(scm, outcome=:haz01, treatment=(parity01=(case=1, control=0),))
 
-    result, fluctuation_mach = tmle!(Ψ, dataset, threshold=0.025, verbosity=0)
+    result, fluctuation_mach = tmle!(Ψ, dataset, ps_lowerbound=0.025, verbosity=0)
     # TMLE
     tmle_result = tmle(result)
     @test estimate(tmle_result) ≈ -0.185533 atol = 1e-6

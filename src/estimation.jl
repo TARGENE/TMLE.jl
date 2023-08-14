@@ -14,7 +14,7 @@ end
         adjustment_method=BackdoorAdjustment(), 
         verbosity=1, 
         force=false, 
-        threshold=1e-8, 
+        ps_lowerbound=1e-8, 
         weighted_fluctuation=false
         )
 
@@ -27,14 +27,14 @@ Performs Targeted Minimum Loss Based Estimation of the target estimand.
 - adjustment_method: A confounding adjustment method.
 - verbosity: Level of logging.
 - force: To force refit of machines in the SCM .
-- threshold: The balancing score will be bounded to respect this threshold.
+- ps_lowerbound: The propensity score will be truncated to respect this lower bound.
 - weighted_fluctuation: To use a weighted fluctuation instead of the vanilla TMLE, can improve stability.
 """
 function tmle!(Ψ::CMCompositeEstimand, dataset; 
     adjustment_method=BackdoorAdjustment(), 
     verbosity=1, 
     force=false, 
-    threshold=1e-8, 
+    ps_lowerbound=1e-8, 
     weighted_fluctuation=false
     )
     # Check the estimand against the dataset
@@ -47,10 +47,18 @@ function tmle!(Ψ::CMCompositeEstimand, dataset;
         force=force
     )
     # TMLE step
+    ps_lowerbound = ps_lower_bound(Ψ, ps_lowerbound)
     verbosity >= 1 && @info "Performing TMLE..."
-    fluctuation_mach = tmle_step(Ψ, verbosity=verbosity, threshold=threshold, weighted_fluctuation=weighted_fluctuation)
+    fluctuation_mach = tmle_step(Ψ; 
+        verbosity=verbosity, 
+        ps_lowerbound=ps_lowerbound, 
+        weighted_fluctuation=weighted_fluctuation
+    )
     # Estimation results after TMLE
-    IC, Ψ̂, ICᵢ, Ψ̂ᵢ = gradient_and_estimates(Ψ, fluctuation_mach, threshold=threshold, weighted_fluctuation=weighted_fluctuation)
+    IC, Ψ̂, ICᵢ, Ψ̂ᵢ = gradient_and_estimates(Ψ, fluctuation_mach, 
+        ps_lowerbound=ps_lowerbound, 
+        weighted_fluctuation=weighted_fluctuation
+    )
     tmle_result = TMLEstimate(Ψ̂, IC)
     one_step_result = OSEstimate(Ψ̂ᵢ + mean(ICᵢ), ICᵢ)
 
@@ -58,7 +66,7 @@ function tmle!(Ψ::CMCompositeEstimand, dataset;
     TMLEResult(Ψ, tmle_result, one_step_result, Ψ̂ᵢ), fluctuation_mach 
 end
 
-function tmle_step(Ψ::CMCompositeEstimand; verbosity=1, threshold=1e-8, weighted_fluctuation=false)
+function tmle_step(Ψ::CMCompositeEstimand; verbosity=1, ps_lowerbound=1e-8, weighted_fluctuation=false)
     outcome_equation = Ψ.scm[outcome(Ψ)]
     X, y = outcome_equation.mach.data
     outcome_mach = outcome_equation.mach
@@ -69,7 +77,7 @@ function tmle_step(Ψ::CMCompositeEstimand; verbosity=1, threshold=1e-8, weighte
     W = confounders(X, Ψ)
     covariate, weights = TMLE.clever_covariate_and_weights(
         Ψ.scm, W, T, indicator_fns(Ψ); 
-        threshold=threshold, 
+        ps_lowerbound=ps_lowerbound, 
         weighted_fluctuation=weighted_fluctuation
     )
     # Fit fluctuation
@@ -79,7 +87,7 @@ function tmle_step(Ψ::CMCompositeEstimand; verbosity=1, threshold=1e-8, weighte
     return mach
 end
 
-function counterfactual_aggregates(Ψ::CMCompositeEstimand, fluctuation_mach; threshold=1e-8, weighted_fluctuation=false)
+function counterfactual_aggregates(Ψ::CMCompositeEstimand, fluctuation_mach; ps_lowerbound=1e-8, weighted_fluctuation=false)
     outcome_eq = outcome_equation(Ψ)
     X = outcome_eq.mach.data[1]
     Ttemplate = treatments(X, Ψ)
@@ -100,7 +108,8 @@ function counterfactual_aggregates(Ψ::CMCompositeEstimand, fluctuation_mach; th
         offset = compute_offset(ŷᵢ)
         covariate, _ = clever_covariate_and_weights(
             Ψ.scm, W, T_ct, indicators; 
-            threshold=threshold, weighted_fluctuation=weighted_fluctuation
+            ps_lowerbound=ps_lowerbound, 
+            weighted_fluctuation=weighted_fluctuation
         )
         Xfluct_ct = fluctuation_input(covariate, offset)
         ŷ = predict(fluctuation_mach, Xfluct_ct)
@@ -135,11 +144,11 @@ function gradients_Y_X(outcome_mach::Machine, fluctuation_mach::Machine)
 end
 
 
-function gradient_and_estimates(Ψ::CMCompositeEstimand, fluctuation_mach::Machine; threshold=1e-8, weighted_fluctuation=false)
+function gradient_and_estimates(Ψ::CMCompositeEstimand, fluctuation_mach::Machine; ps_lowerbound=1e-8, weighted_fluctuation=false)
     counterfactual_aggregate, counterfactual_aggregateᵢ = TMLE.counterfactual_aggregates(
         Ψ, 
         fluctuation_mach; 
-        threshold=threshold, 
+        ps_lowerbound=ps_lowerbound, 
         weighted_fluctuation=weighted_fluctuation
     )
     Ψ̂, Ψ̂ᵢ = mean(counterfactual_aggregate), mean(counterfactual_aggregateᵢ)

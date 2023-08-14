@@ -36,7 +36,6 @@ export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
 export TreatmentTransformer, with_encoder
 export BackdoorAdjustment
-export DAG, graphplot
 
 # #############################################################################
 # INCLUDES

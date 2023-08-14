@@ -4,15 +4,32 @@
 
 selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.columntable
 
+data_adaptive_ps_lower_bound(n::Int; max_lb=0.1) = 
+    min(5 / (√(n)*log(n/5)), max_lb)
+"""
+    data_adaptive_ps_lower_bound(Ψ::CMCompositeEstimand)
+
+This startegy is from [this paper](https://academic.oup.com/aje/article/191/9/1640/6580570?login=false) 
+but the study does not show strictly better behaviour of the strategy so not a default for now.
+"""
+function data_adaptive_ps_lower_bound(Ψ::CMCompositeEstimand;max_lb=0.1)
+    n = nrows(outcome_equation(Ψ).mach.data[2])
+    return data_adaptive_ps_lower_bound(n; max_lb=max_lb) 
+end
+
+ps_lower_bound(Ψ::CMCompositeEstimand, lower_bound::Nothing; max_lb=0.1) = data_adaptive_ps_lower_bound(Ψ; max_lb=max_lb)
+ps_lower_bound(Ψ::CMCompositeEstimand, lower_bound; max_lb=0.1) = min(max_lb, lower_bound)
+
+
 function logit!(v)
     for i in eachindex(v)
         v[i] = logit(v[i])
     end
 end
 
-function plateau!(v::AbstractVector, threshold)
+function plateau!(v::AbstractVector, ps_lowerbound)
     for i in eachindex(v)
-        v[i] = max(v[i], threshold)
+        v[i] = max(v[i], ps_lowerbound)
     end
 end
 
@@ -143,19 +160,19 @@ compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 compute_offset(Ψ::CMCompositeEstimand) = 
     compute_offset(MLJBase.predict(outcome_equation(Ψ).mach))
 
-function balancing_weights(scm::SCM, W, T; threshold=1e-8)
+function balancing_weights(scm::SCM, W, T; ps_lowerbound=1e-8)
     density = ones(nrows(T))
     for colname ∈ Tables.columnnames(T)
         mach = scm[colname].mach
         ŷ = MLJBase.predict(mach, W[colname])
         density .*= pdf.(ŷ, Tables.getcolumn(T, colname))
     end
-    plateau!(density, threshold)
+    plateau!(density, ps_lowerbound)
     return 1. ./ density
 end
 
 """
-    clever_covariate_and_weights(jointT, W, G, indicator_fns; threshold=1e-8, weighted_fluctuation=false)
+    clever_covariate_and_weights(jointT, W, G, indicator_fns; ps_lowerbound=1e-8, weighted_fluctuation=false)
 
 Computes the clever covariate and weights that are used to fluctuate the initial Q.
 
@@ -171,10 +188,10 @@ if `weighted_fluctuation = true`:
 
 where SpecialIndicator(t) is defined in `indicator_fns`.
 """
-function clever_covariate_and_weights(scm::SCM, W, T, indicator_fns; threshold=1e-8, weighted_fluctuation=false)
+function clever_covariate_and_weights(scm::SCM, W, T, indicator_fns; ps_lowerbound=1e-8, weighted_fluctuation=false)
     # Compute the indicator values
     indic_vals = TMLE.indicator_values(indicator_fns, T)
-    weights = balancing_weights(scm, W, T, threshold=threshold)
+    weights = balancing_weights(scm, W, T, ps_lowerbound=ps_lowerbound)
     if weighted_fluctuation
         return indic_vals, weights
     end
