@@ -81,13 +81,20 @@ function run_precompile_workload()
             setmodel!(scm.T₁, LinearBinaryClassifier())
             ## Implicit through estimand
             for estimand_type in [CM, ATE, IATE]
-                estimand_type(outcome=:Y₁, treatment=(T₁=true,), confounders=[:W₁, :W₂])
+                estimand_type(
+                    outcome=:Y₁, 
+                    treatment=(T₁=true,), 
+                    confounders=[:W₁, :W₂],
+                    outcome_model=LinearRegressor()
+                )
             end
             ## Complete
+            # Not using the `with_encoder` for now because it crashes precompilation
+            # and fit can still happen somehow.
             scm = SCM(
-                SE(:Y₁, [:T₁, :W₁, :W₂], model=with_encoder(LinearRegressor())),
+                SE(:Y₁, [:T₁, :W₁, :W₂], model=LinearRegressor()),
                 SE(:T₁, [:W₁, :W₂],model=LinearBinaryClassifier()),
-                SE(:Y₂, [:T₁, :T₂, :W₁, :W₂, :C₁], model=with_encoder(LinearBinaryClassifier())),
+                SE(:Y₂, [:T₁, :T₂, :W₁, :W₂, :C₁], model=LinearBinaryClassifier()),
                 SE(:T₂, [:W₁, :W₂],model=LinearBinaryClassifier()),
             )
 
@@ -97,31 +104,32 @@ function run_precompile_workload()
                 outcome =:Y₁,
                 treatment=(T₁=true,),
             )
-            result₁, fluctuation = tmle!(Ψ₁, dataset)
+            result₁, fluctuation = tmle!(Ψ₁, dataset, verbosity=0)
 
             Ψ₂ = ATE(
                 scm,
                 outcome=:Y₂,
                 treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false))
             )
-            result₂, fluctuation = tmle!(Ψ₂, dataset)
+            result₂, fluctuation = tmle!(Ψ₂, dataset, verbosity=0)
 
             Ψ₃ = IATE(
                 scm,
                 outcome=:Y₂,
                 treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false))
             )
-            result₃, fluctuation = tmle!(Ψ₃, dataset)
+            result₃, fluctuation = tmle!(Ψ₃, dataset, verbosity=0)
 
             # Composition
             composed_result = compose((x,y) -> x - y, tmle(result₂), tmle(result₁))
 
             # Results manipulation
-            initial(result)
+            initial(result₃)
             OneSampleTTest(tmle(result₃))
             OneSampleZTest(tmle(result₃))
             OneSampleTTest(ose(result₃))
             OneSampleZTest(ose(result₃))
+            OneSampleTTest(composed_result)
             OneSampleZTest(composed_result)
             
         end
@@ -129,6 +137,6 @@ function run_precompile_workload()
 
 end
 
-# run_precompile_workload()
+run_precompile_workload()
 
 end
