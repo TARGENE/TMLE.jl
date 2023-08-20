@@ -41,7 +41,7 @@ fluctuation_input(covariate::AbstractVector{T1}, offset::AbstractVector{T2}) whe
     (covariate=covariate, offset=convert(Vector{T1}, offset))
 
 
-training_expected_value(Q::Machine{<:FluctuationModel}) = Q.cache.training_expected_value
+training_expected_value(Q::Machine{<:FluctuationModel, }) = Q.cache.training_expected_value
 
 function clever_covariate_offset_and_weights(Ψ, Q, X; 
     ps_lowerbound=1e-8, 
