@@ -1,14 +1,3 @@
-function MLJBase.fit!(Ψ::CMCompositeEstimand, dataset; adjustment_method=BackdoorAdjustment(), verbosity=1, force=false) 
-    models_input_variables = get_models_input_variables(adjustment_method, Ψ)
-    for (variable, input_variables) in zip(keys(models_input_variables), models_input_variables)
-        fit!(Ψ.scm[variable], dataset; 
-            input_variables=input_variables, 
-            verbosity=verbosity, 
-            force=force
-        )
-    end
-end
-
 """
     tmle!(Ψ::CMCompositeEstimand, dataset; 
         adjustment_method=BackdoorAdjustment(), 
@@ -59,10 +48,9 @@ function tmle!(Ψ::CMCompositeEstimand, dataset;
     )
     fit!(Q, verbosity=verbosity-1)
     # Estimation results after TMLE
-    Ψ̂⁰ = mean(counterfactual_aggregate(Ψ, Q⁰))
     IC, Ψ̂ = gradient_and_estimate(Ψ, Q; ps_lowerbound=ps_lowerbound)
     verbosity >= 1 && @info "Done."
-    return TMLEstimate(Ψ̂⁰, Ψ̂, IC), Q
+    return TMLEstimate(Ψ̂, IC), Q
 end
 
 function ose!(Ψ::CMCompositeEstimand, dataset; 
@@ -86,6 +74,7 @@ function ose!(Ψ::CMCompositeEstimand, dataset;
     # Gradient and estimate
     IC, Ψ̂ = gradient_and_estimate(Ψ, Q; ps_lowerbound=ps_lowerbound)
     verbosity >= 1 && @info "Done."
-    return OSEstimate(Ψ̂, Ψ̂ + mean(IC), IC), Q
+    return OSEstimate(Ψ̂ + mean(IC), IC), Q
 end
 
+naive_plugin_estimate(Ψ::CMCompositeEstimand) = mean(counterfactual_aggregate(Ψ, get_outcome_model(Ψ)))

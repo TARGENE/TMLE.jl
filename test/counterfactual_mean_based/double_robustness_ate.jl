@@ -130,7 +130,7 @@ end
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
     @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test initial(tmle_result) == 0
+    @test naive_plugin_estimate(Ψ) == 0
     
     # When Q is well specified but G is misspecified
     scm.Y.model = TreatmentTransformer() |> LinearRegressor()
@@ -159,7 +159,7 @@ end
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-6)
     @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test initial(tmle_result) == 0
+    @test naive_plugin_estimate(Ψ) == 0
 
     # When Q is well specified but G is misspecified
     scm.Y.model = TreatmentTransformer() |> LogisticClassifier(lambda=0)
@@ -189,7 +189,7 @@ end
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
     @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test initial(tmle_result) == 0
+    @test naive_plugin_estimate(Ψ) == 0
 
     # When Q is well specified but G is misspecified
     scm.Y.model = TreatmentTransformer() |> LinearRegressor()

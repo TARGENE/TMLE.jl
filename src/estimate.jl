@@ -2,13 +2,11 @@
 abstract type EICEstimate end
 
 struct TMLEstimate{T<:AbstractFloat} <: EICEstimate
-    Ψ̂⁰::T
     Ψ̂::T
     IC::Vector{T}
 end
 
 struct OSEstimate{T<:AbstractFloat} <: EICEstimate
-    Ψ̂⁰::T
     Ψ̂::T
     IC::Vector{T}
 end
@@ -35,8 +33,6 @@ function Base.show(io::IO, ::MIME"text/plain", est::EICEstimate)
     data = [estimate(est) confint(testresult) pvalue(testresult);]
     pretty_table(io, data;header=["Estimate", "95% Confidence Interval", "P-value"])
 end
-
-initial(est::EICEstimate) = est.Ψ̂⁰
 
 """
     Distributions.estimate(r::EICEstimate)

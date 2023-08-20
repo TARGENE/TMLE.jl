@@ -31,7 +31,7 @@ export AverageTreatmentEffect, ATE
 export InteractionAverageTreatmentEffect, IATE
 export AVAILABLE_ESTIMANDS
 export fit!, optimize_ordering, optimize_ordering!
-export tmle!, ose!, initial
+export tmle!, ose!, naive_plugin_estimate
 export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
 export TreatmentTransformer, with_encoder
@@ -52,10 +52,7 @@ include("counterfactual_mean_based/estimands.jl")
 include("counterfactual_mean_based/offset_and_covariate.jl")
 include("counterfactual_mean_based/fluctuation.jl")
 include("counterfactual_mean_based/gradient.jl")
-include("counterfactual_mean_based/estimation.jl")
-
-
-
+include("counterfactual_mean_based/estimators.jl")
 
 # #############################################################################
 # PRECOMPILATION WORKLOAD
@@ -131,7 +128,7 @@ function run_precompile_workload()
             composed_result = compose((x,y) -> x - y, tmle(result₂), tmle(result₁))
 
             # Results manipulation
-            initial(result₃)
+            naive_plugin_estimate(result₃)
             OneSampleTTest(tmle(result₃))
             OneSampleZTest(tmle(result₃))
             OneSampleTTest(ose(result₃))

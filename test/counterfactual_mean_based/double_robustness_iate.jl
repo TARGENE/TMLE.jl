@@ -193,7 +193,7 @@ end
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-9)
     @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test initial(tmle_result) == 0
+    @test naive_plugin_estimate(Ψ) == 0
 
     # When Q is well specified  but G is misspecified
     scm.Y.model = TreatmentTransformer() |> LogisticClassifier(lambda=0)
@@ -206,7 +206,7 @@ end
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-9)
     @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test initial(tmle_result) ≈ -0.0 atol=1e-1
+    @test naive_plugin_estimate(Ψ) ≈ -0.0 atol=1e-1
 end
 
 @testset "Test Double Robustness IATE on continuous_outcome_binary_treatment_pb" begin
@@ -227,7 +227,7 @@ end
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
     @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test initial(tmle_result) == 0
+    @test naive_plugin_estimate(Ψ) == 0
 
     # When Q is well specified  but G is misspecified
     scm.Y.model = TreatmentTransformer() |> cont_interacter
@@ -258,7 +258,7 @@ end
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test initial(tmle_result) == 0 
+    @test naive_plugin_estimate(Ψ) == 0 
 
     # When Q is well specified but G is misspecified
     scm.Y.model = TreatmentTransformer() |> cat_interacter
@@ -270,7 +270,7 @@ end
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test initial(tmle_result) ≈ -0.02 atol=1e-2
+    @test naive_plugin_estimate(Ψ) ≈ -0.02 atol=1e-2
 end
 
 

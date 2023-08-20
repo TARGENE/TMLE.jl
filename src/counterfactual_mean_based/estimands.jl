@@ -192,6 +192,17 @@ function check_parameter_against_scm(scm::SCM, outcome, treatment)
     end
 end
 
+function MLJBase.fit!(Ψ::CMCompositeEstimand, dataset; adjustment_method=BackdoorAdjustment(), verbosity=1, force=false) 
+    models_input_variables = get_models_input_variables(adjustment_method, Ψ)
+    for (variable, input_variables) in zip(keys(models_input_variables), models_input_variables)
+        fit!(Ψ.scm[variable], dataset; 
+            input_variables=input_variables, 
+            verbosity=verbosity, 
+            force=force
+        )
+    end
+end
+
 function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: CMCompositeEstimand 
     param_string = string(
         name(T),
