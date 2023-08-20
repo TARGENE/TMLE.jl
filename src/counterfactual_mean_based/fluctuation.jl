@@ -40,6 +40,9 @@ The GLM models require inputs of the same type
 fluctuation_input(covariate::AbstractVector{T1}, offset::AbstractVector{T2}) where {T1, T2} = 
     (covariate=covariate, offset=convert(Vector{T1}, offset))
 
+
+training_expected_value(Q::Machine{<:FluctuationModel}) = Q.cache.training_expected_value
+
 function clever_covariate_offset_and_weights(Ψ, Q, X; 
     ps_lowerbound=1e-8, 
     weighted_fluctuation=false
@@ -69,13 +72,14 @@ function MLJBase.fit(model::FluctuationModel, verbosity, X, y)
         y, 
         weights, 
         )
-    MLJBase.fit!(mach, verbosity=verbosity)
+    fit!(mach, verbosity=verbosity)
 
     fitresult = (
         one_dimensional_path   = mach,
         )
     cache = (
         weighted_covariate = clever_covariate_and_offset.covariate .* weights,
+        training_expected_value = expected_value(predict(mach))
         )
     return fitresult, cache, nothing
 end

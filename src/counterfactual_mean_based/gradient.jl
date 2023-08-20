@@ -43,7 +43,7 @@ function ∇YX(Ψ::CMCompositeEstimand, Q::Machine; ps_lowerbound=1e-8)
     X, y = get_outcome_datas(Ψ)
     H = weighted_covariate(Q, Ψ, X; ps_lowerbound=ps_lowerbound)
     y = float(y)
-    gradient_Y_X_fluct = H .* (y .- expected_value(MLJBase.predict(Q, X)))
+    gradient_Y_X_fluct = H .* (y .- training_expected_value(Q))
     return gradient_Y_X_fluct
 end
 
