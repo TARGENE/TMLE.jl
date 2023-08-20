@@ -18,8 +18,7 @@ function test_fluctuation_fit(Ψ, ps_lowerbound, weighted_fluctuation)
         ps_lowerbound=ps_lowerbound, 
         weighted_fluctuation=weighted_fluctuation
     )
-    @test Q.fitresult.data[1] == Xfluct
-    @test Q.fitresult.data[3] == weights
+    @test Q.cache.weighted_covariate == Xfluct.covariate .* weights
 end
 
 

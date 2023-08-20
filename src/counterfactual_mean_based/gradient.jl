@@ -32,7 +32,6 @@ end
 """
 ∇W(ctf_agg, Ψ̂) = ctf_agg .- Ψ̂
 
-
 """
     gradient_Y_X(cache)
 
@@ -42,9 +41,9 @@ This part of the gradient is evaluated on the original dataset. All quantities h
 """
 function ∇YX(Ψ::CMCompositeEstimand, Q::Machine; ps_lowerbound=1e-8)
     X, y = get_outcome_datas(Ψ)
-    H, weights = clever_covariate_and_weights(Ψ, X; ps_lowerbound=ps_lowerbound)
+    H = weighted_covariate(Q, Ψ, X; ps_lowerbound=ps_lowerbound)
     y = float(y)
-    gradient_Y_X_fluct = H .* weights .* (y .- expected_value(MLJBase.predict(Q)))
+    gradient_Y_X_fluct = H .* (y .- expected_value(MLJBase.predict(Q, X)))
     return gradient_Y_X_fluct
 end
 

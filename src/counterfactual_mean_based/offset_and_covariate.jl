@@ -75,3 +75,21 @@ function clever_covariate_and_weights(Ψ::CMCompositeEstimand, X; ps_lowerbound=
     indic_vals .*= weights
     return indic_vals, ones(size(weights, 1))
 end
+
+"""
+    weighted_covariate(Q::Machine{<:Fluctuation}, Ψ, X; ps_lowerbound=1e-8)
+
+If Q is a fluctuation and caches data, the covariate has already been computed and can be retrieved.
+"""
+weighted_covariate(Q::Machine{<:FluctuationModel, true}, Ψ, X; ps_lowerbound=1e-8) = Q.cache.weighted_covariate
+
+
+"""
+    weighted_covariate(Q::Machine, Ψ, X; ps_lowerbound=1e-8)
+
+Computes the weighted covariate for the gradient.
+"""
+function weighted_covariate(Q::Machine, Ψ, X; ps_lowerbound=1e-8)
+    H, weights = clever_covariate_and_weights(Ψ, X; ps_lowerbound=ps_lowerbound)
+    return H .* weights
+end

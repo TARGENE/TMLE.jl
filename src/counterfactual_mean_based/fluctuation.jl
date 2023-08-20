@@ -44,7 +44,7 @@ function clever_covariate_offset_and_weights(Ψ, Q, X;
     ps_lowerbound=1e-8, 
     weighted_fluctuation=false
     )
-    offset = TMLE.compute_offset(MLJBase.predict(Q, X))
+    offset = compute_offset(MLJBase.predict(Q, X))
     covariate, weights = TMLE.clever_covariate_and_weights(
         Ψ, X; 
         ps_lowerbound=ps_lowerbound, 
@@ -70,10 +70,17 @@ function MLJBase.fit(model::FluctuationModel, verbosity, X, y)
         weights, 
         )
     MLJBase.fit!(mach, verbosity=verbosity)
-    return mach, nothing, nothing
+
+    fitresult = (
+        one_dimensional_path   = mach,
+        )
+    cache = (
+        weighted_covariate = clever_covariate_and_offset.covariate .* weights,
+        )
+    return fitresult, cache, nothing
 end
 
-function MLJBase.predict(model::FluctuationModel, one_dimensional_path, X) 
+function MLJBase.predict(model::FluctuationModel, fitresult, X) 
     Ψ = model.Ψ
     Q = get_outcome_model(Ψ)
     clever_covariate_and_offset, weights = 
@@ -82,5 +89,5 @@ function MLJBase.predict(model::FluctuationModel, one_dimensional_path, X)
             ps_lowerbound=model.ps_lowerbound, 
             weighted_fluctuation=model.weighted
     )
-    return MLJBase.predict(one_dimensional_path, clever_covariate_and_offset)
+    return MLJBase.predict(fitresult.one_dimensional_path, clever_covariate_and_offset)
 end

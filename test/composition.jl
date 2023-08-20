@@ -83,7 +83,7 @@ end
     ose_confint = collect(confint(OneSampleTTest(ATE_ose_result₁₀)))
     @test ose_confint ≈ composed_confint atol=1e-4
     # Z Test
-    composed_confint = collect(confint(OneSampleZTest(CM_result_composed_tmle)))
+    composed_confint = collect(confint(OneSampleZTest(CM_result_composed_ose)))
     ose_confint = collect(confint(OneSampleZTest(ATE_ose_result₁₀)))
     @test ose_confint ≈ composed_confint atol=1e-4
     # Variance

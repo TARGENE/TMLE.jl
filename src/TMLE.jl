@@ -49,8 +49,8 @@ include("treatment_transformer.jl")
 include("adjustment.jl")
 
 include("counterfactual_mean_based/estimands.jl")
-include("counterfactual_mean_based/offset_and_covariate.jl")
 include("counterfactual_mean_based/fluctuation.jl")
+include("counterfactual_mean_based/offset_and_covariate.jl")
 include("counterfactual_mean_based/gradient.jl")
 include("counterfactual_mean_based/estimators.jl")
 
