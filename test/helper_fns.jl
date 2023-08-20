@@ -21,7 +21,7 @@ It seems that sometimes this is not entirely true in practice, so the test actua
 increase risk more than tol
 """
 function test_fluct_decreases_risk(Ψ::TMLE.CMCompositeEstimand, fluctuation_mach; atol=1e-6)
-    outcome_mach = TMLE.outcome_equation(Ψ).mach
+    outcome_mach = TMLE.getQ(Ψ)
     y = outcome_mach.data[2]
     initial_risk = risk(MLJBase.predict(outcome_mach), y)
     fluct_risk = risk(MLJBase.predict(fluctuation_mach), y)
@@ -30,26 +30,26 @@ end
 
 
 """
-    test_coverage(tmle_result::TMLE.TMLEResult, Ψ₀)
+    test_coverage(tmle_result::TMLE.EICEstimate, Ψ₀)
 
 Both the TMLE and OneStep estimators are suppose to be asymptotically efficient and cover the truth 
 at the given confidence level: here 0.05
 """
-function test_coverage(result::TMLE.TMLEResult, Ψ₀)
+function test_coverage(result::TMLE.EICEstimate, Ψ₀)
     # TMLE
-    lb, ub = confint(OneSampleTTest(result.tmle))
+    lb, ub = confint(OneSampleTTest(result))
     @test lb ≤ Ψ₀ ≤ ub
     # OneStep
-    lb, ub = confint(OneSampleTTest(result.onestep))
+    lb, ub = confint(OneSampleTTest(result))
     @test lb ≤ Ψ₀ ≤ ub
 end
 
 """
-    test_mean_inf_curve_almost_zero(tmle_result::TMLE.TMLEResult; atol=1e-10)
+    test_mean_inf_curve_almost_zero(tmle_result::TMLE.EICEstimate; atol=1e-10)
 
 The TMLE is supposed to solve the EIC score equation.
 """
-test_mean_inf_curve_almost_zero(tmle_result::TMLE.TMLEResult; atol=1e-10) = @test mean(tmle_result.tmle.IC) ≈ 0.0 atol=atol
+test_mean_inf_curve_almost_zero(tmle_result::TMLE.EICEstimate; atol=1e-10) = @test mean(tmle_result.IC) ≈ 0.0 atol=atol
 
 """
     test_fluct_mean_inf_curve_lower_than_initial(tmle_result::TMLE.TMLEResult)
@@ -57,4 +57,4 @@ test_mean_inf_curve_almost_zero(tmle_result::TMLE.TMLEResult; atol=1e-10) = @tes
 This cqnnot be guaranteed in general since a well specified maximum 
 likelihood estimator also solves the score equation.
 """
-test_fluct_mean_inf_curve_lower_than_initial(tmle_result::TMLE.TMLEResult) = @test abs(mean(tmle_result.tmle.IC)) < abs(mean(tmle_result.onestep.IC))
+test_fluct_mean_inf_curve_lower_than_initial(tmle_result::TMLE.EICEstimate) = @test abs(mean(tmle_result.IC)) < abs(mean(tmle_result.IC))

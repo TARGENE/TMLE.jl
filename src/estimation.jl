@@ -46,115 +46,46 @@ function tmle!(Ψ::CMCompositeEstimand, dataset;
         verbosity=verbosity, 
         force=force
     )
-    # TMLE step
+    # Get propensity score truncation threshold
     ps_lowerbound = ps_lower_bound(Ψ, ps_lowerbound)
+    # Fit Fluctuation
     verbosity >= 1 && @info "Performing TMLE..."
-    fluctuation_mach = tmle_step(Ψ; 
-        verbosity=verbosity, 
-        ps_lowerbound=ps_lowerbound, 
-        weighted_fluctuation=weighted_fluctuation
+    Q⁰ = getQ(Ψ)
+    X, y = Q⁰.data
+    Q = machine(
+        Fluctuation(Ψ, 0.1, ps_lowerbound, weighted_fluctuation), 
+        X, 
+        y
     )
+    fit!(Q, verbosity=verbosity-1)
     # Estimation results after TMLE
-    IC, Ψ̂, ICᵢ, Ψ̂ᵢ = gradient_and_estimates(Ψ, fluctuation_mach, 
-        ps_lowerbound=ps_lowerbound, 
-        weighted_fluctuation=weighted_fluctuation
-    )
-    tmle_result = TMLEstimate(Ψ̂, IC)
-    one_step_result = OSEstimate(Ψ̂ᵢ + mean(ICᵢ), ICᵢ)
-
+    Ψ̂⁰ = mean(counterfactual_aggregate(Ψ, Q⁰))
+    IC, Ψ̂ = gradient_and_estimate(Ψ, Q; ps_lowerbound=ps_lowerbound)
     verbosity >= 1 && @info "Done."
-    TMLEResult(Ψ, tmle_result, one_step_result, Ψ̂ᵢ), fluctuation_mach 
+    return TMLEstimate(Ψ̂⁰, Ψ̂, IC), Q
 end
 
-function tmle_step(Ψ::CMCompositeEstimand; verbosity=1, ps_lowerbound=1e-8, weighted_fluctuation=false)
-    outcome_equation = Ψ.scm[outcome(Ψ)]
-    X, y = outcome_equation.mach.data
-    outcome_mach = outcome_equation.mach
-    # Compute offset
-    offset = TMLE.compute_offset(MLJBase.predict(outcome_mach))
-    # Compute clever covariate and weights for weighted fluctuation mode
-    T = treatments(X, Ψ)
-    W = confounders(X, Ψ)
-    covariate, weights = TMLE.clever_covariate_and_weights(
-        Ψ.scm, W, T, indicator_fns(Ψ); 
-        ps_lowerbound=ps_lowerbound, 
-        weighted_fluctuation=weighted_fluctuation
+function ose!(Ψ::CMCompositeEstimand, dataset; 
+    adjustment_method=BackdoorAdjustment(), 
+    verbosity=1, 
+    force=false, 
+    ps_lowerbound=1e-8)
+    # Check the estimand against the dataset
+    check_treatment_levels(Ψ, dataset)
+    # Initial fit of the SCM's equations
+    verbosity >= 1 && @info "Fitting the required equations..."
+    fit!(Ψ, dataset;
+        adjustment_method=adjustment_method, 
+        verbosity=verbosity, 
+        force=force
     )
-    # Fit fluctuation
-    Xfluct = TMLE.fluctuation_input(covariate, offset)
-    mach = machine(F_model(scitype(y)), Xfluct, y, weights, cache=true)
-    MLJBase.fit!(mach, verbosity=verbosity-1)
-    return mach
-end
-
-function counterfactual_aggregates(Ψ::CMCompositeEstimand, fluctuation_mach; ps_lowerbound=1e-8, weighted_fluctuation=false)
-    outcome_eq = outcome_equation(Ψ)
-    X = outcome_eq.mach.data[1]
-    Ttemplate = treatments(X, Ψ)
-    n = nrows(Ttemplate)
-    counterfactual_aggregateᵢ = zeros(n)
-    counterfactual_aggregate = zeros(n)
-    # Loop over Treatment settings
-    indicators = indicator_fns(Ψ)
-    for (vals, sign) in indicators
-        # Counterfactual dataset for a given treatment setting
-        T_ct = TMLE.counterfactualTreatment(vals, Ttemplate)
-        X_ct = selectcols(merge(X, T_ct), keys(X))
-        W = confounders(X_ct, Ψ)
-        # Counterfactual predictions with the initial Q
-        ŷᵢ = MLJBase.predict(outcome_eq.mach, X_ct)
-        counterfactual_aggregateᵢ .+= sign .* expected_value(ŷᵢ)
-        # Counterfactual predictions with F
-        offset = compute_offset(ŷᵢ)
-        covariate, _ = clever_covariate_and_weights(
-            Ψ.scm, W, T_ct, indicators; 
-            ps_lowerbound=ps_lowerbound, 
-            weighted_fluctuation=weighted_fluctuation
-        )
-        Xfluct_ct = fluctuation_input(covariate, offset)
-        ŷ = predict(fluctuation_mach, Xfluct_ct)
-        counterfactual_aggregate .+= sign .* expected_value(ŷ)
-    end
-    return counterfactual_aggregate, counterfactual_aggregateᵢ
-end
-
-"""
-    gradient_W(counterfactual_aggregate, estimate)
-
-∇_W = counterfactual_aggregate - Ψ
-"""
-gradient_W(counterfactual_aggregate, estimate) =
-    counterfactual_aggregate .- estimate
-
-
-"""
-    gradient_Y_X(cache)
-
-∇_YX(w, t, c) = covariate(w, t)  ̇ (y - E[Y|w, t, c])
-
-This part of the gradient is evaluated on the original dataset. All quantities have been precomputed and cached.
-"""
-function gradients_Y_X(outcome_mach::Machine, fluctuation_mach::Machine)
-    X, y, w = fluctuation_mach.data
-    y = float(y)
-    covariate = X.covariate .* w
-    gradient_Y_Xᵢ = covariate .* (y .- expected_value(MLJBase.predict(outcome_mach)))
-    gradient_Y_X_fluct = covariate .* (y .- expected_value(MLJBase.predict(fluctuation_mach)))
-    return gradient_Y_Xᵢ, gradient_Y_X_fluct
-end
-
-
-function gradient_and_estimates(Ψ::CMCompositeEstimand, fluctuation_mach::Machine; ps_lowerbound=1e-8, weighted_fluctuation=false)
-    counterfactual_aggregate, counterfactual_aggregateᵢ = TMLE.counterfactual_aggregates(
-        Ψ, 
-        fluctuation_mach; 
-        ps_lowerbound=ps_lowerbound, 
-        weighted_fluctuation=weighted_fluctuation
-    )
-    Ψ̂, Ψ̂ᵢ = mean(counterfactual_aggregate), mean(counterfactual_aggregateᵢ)
-    gradient_Y_Xᵢ, gradient_Y_X_fluct = gradients_Y_X(outcome_equation(Ψ).mach, fluctuation_mach)
-    IC = gradient_Y_X_fluct .+ gradient_W(counterfactual_aggregate, Ψ̂)
-    ICᵢ = gradient_Y_Xᵢ .+ gradient_W(counterfactual_aggregateᵢ, Ψ̂ᵢ)
-    return IC, Ψ̂, ICᵢ, Ψ̂ᵢ
+    # Get propensity score truncation threshold
+    ps_lowerbound = ps_lower_bound(Ψ, ps_lowerbound)
+    # Retrieve initial fit
+    Q = getQ(Ψ)
+    # Gradient and estimate
+    IC, Ψ̂ = gradient_and_estimate(Ψ, Q; ps_lowerbound=ps_lowerbound)
+    verbosity >= 1 && @info "Done."
+    return OSEstimate(Ψ̂, Ψ̂ + mean(IC), IC), Q
 end
 

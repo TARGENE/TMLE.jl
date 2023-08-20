@@ -247,9 +247,6 @@ end
     @test isconcretetype(CM)
     @test isconcretetype(TMLE.TMLEstimate{Float64})
     @test isconcretetype(TMLE.OSEstimate{Float64})
-    @test isconcretetype(TMLE.TMLEResult{ATE, Float64})
-    @test isconcretetype(TMLE.TMLEResult{IATE, Float64})
-    @test isconcretetype(TMLE.TMLEResult{CM, Float64})
 end
 
 end

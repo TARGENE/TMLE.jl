@@ -188,6 +188,8 @@ end
 
 outcome_equation(Ψ::CMCompositeEstimand) = Ψ.scm[outcome(Ψ)]
 
+getQ(Ψ::CMCompositeEstimand) = outcome_equation(Ψ).mach
+
 treatments(Ψ::CMCompositeEstimand) = collect(keys(Ψ.treatment))
 treatments(dataset, Ψ::CMCompositeEstimand) = selectcols(dataset, treatments(Ψ))
 
@@ -195,14 +197,6 @@ outcome(Ψ::CMCompositeEstimand) = Ψ.outcome
 outcome(dataset, Ψ::CMCompositeEstimand) = Tables.getcolumn(dataset, outcome(Ψ))
 
 confounders(dataset, Ψ) = (;(T => selectcols(dataset, keys(Ψ.scm[T].mach.data[1])) for T in treatments(Ψ))...)
-
-F_model(::Type{<:AbstractVector{<:MLJBase.Continuous}}) =
-    LinearRegressor(fit_intercept=false, offsetcol = :offset)
-
-F_model(::Type{<:AbstractVector{<:Finite}}) =
-    LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
-
-F_model(t::Type{Any}) = throw(ArgumentError("Cannot proceed with Q model with target_scitype $t"))
 
 function param_key(Ψ::CMCompositeEstimand)
     return (

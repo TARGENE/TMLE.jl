@@ -6,6 +6,7 @@ selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.colum
 
 data_adaptive_ps_lower_bound(n::Int; max_lb=0.1) = 
     min(5 / (√(n)*log(n/5)), max_lb)
+
 """
     data_adaptive_ps_lower_bound(Ψ::CMCompositeEstimand)
 
@@ -13,7 +14,7 @@ This startegy is from [this paper](https://academic.oup.com/aje/article/191/9/16
 but the study does not show strictly better behaviour of the strategy so not a default for now.
 """
 function data_adaptive_ps_lower_bound(Ψ::CMCompositeEstimand;max_lb=0.1)
-    n = nrows(outcome_equation(Ψ).mach.data[2])
+    n = nrows(getQ(Ψ).data[2])
     return data_adaptive_ps_lower_bound(n; max_lb=max_lb) 
 end
 
@@ -53,8 +54,6 @@ end
 
 ncases(value, Ψ::Estimand) = sum(value[i] == Ψ.treatment[i].case for i in eachindex(value))
 
-"""
-"""
 function indicator_fns(Ψ::IATE)
     N = length(treatments(Ψ))
     key_vals = Pair[]
@@ -83,10 +82,6 @@ function indicator_values(indicators, T)
     end
     return indic
 end
-
-###############################################################################
-## Estimand Validation
-###############################################################################
 
 NotIdentifiedError(reasons) = ArgumentError(string(
     "The estimand is not identified for the following reasons: \n\t- ", join(reasons, "\n\t- ")))
@@ -141,13 +136,17 @@ function check_treatment_levels(Ψ::CMCompositeEstimand, dataset)
     end
 end
 
-###############################################################################
-## Offset & Covariate
-###############################################################################
-
 expected_value(ŷ::UnivariateFiniteVector{Multiclass{2}}) = pdf.(ŷ, levels(first(ŷ))[2])
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
+
+function counterfactualTreatment(vals, T)
+    Tnames = Tables.columnnames(T)
+    n = nrows(T)
+    NamedTuple{Tnames}(
+            [categorical(repeat([vals[i]], n), levels=levels(Tables.getcolumn(T, name)), ordered=isordered(Tables.getcolumn(T, name)))
+                            for (i, name) in enumerate(Tnames)])
+end
 
 function compute_offset(ŷ::UnivariateFiniteVector{Multiclass{2}})
     μy = expected_value(ŷ)
@@ -158,12 +157,12 @@ compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = exp
 compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 
 compute_offset(Ψ::CMCompositeEstimand) = 
-    compute_offset(MLJBase.predict(outcome_equation(Ψ).mach))
+    compute_offset(MLJBase.predict(getQ(Ψ)))
 
-function balancing_weights(scm::SCM, W, T; ps_lowerbound=1e-8)
+function balancing_weights(Ψ::CMCompositeEstimand, W, T; ps_lowerbound=1e-8)
     density = ones(nrows(T))
     for colname ∈ Tables.columnnames(T)
-        mach = scm[colname].mach
+        mach = Ψ.scm[colname].mach
         ŷ = MLJBase.predict(mach, W[colname])
         density .*= pdf.(ŷ, Tables.getcolumn(T, colname))
     end
@@ -188,10 +187,12 @@ if `weighted_fluctuation = true`:
 
 where SpecialIndicator(t) is defined in `indicator_fns`.
 """
-function clever_covariate_and_weights(scm::SCM, W, T, indicator_fns; ps_lowerbound=1e-8, weighted_fluctuation=false)
+function clever_covariate_and_weights(Ψ::CMCompositeEstimand, X; ps_lowerbound=1e-8, weighted_fluctuation=false)
     # Compute the indicator values
-    indic_vals = TMLE.indicator_values(indicator_fns, T)
-    weights = balancing_weights(scm, W, T, ps_lowerbound=ps_lowerbound)
+    T = treatments(X, Ψ)
+    W = confounders(X, Ψ)
+    indic_vals = indicator_values(indicator_fns(Ψ), T)
+    weights = balancing_weights(Ψ, W, T, ps_lowerbound=ps_lowerbound)
     if weighted_fluctuation
         return indic_vals, weights
     end
@@ -199,28 +200,3 @@ function clever_covariate_and_weights(scm::SCM, W, T, indicator_fns; ps_lowerbou
     indic_vals .*= weights
     return indic_vals, ones(size(weights, 1))
 end
-
-###############################################################################
-## Fluctuation
-###############################################################################
-
-fluctuation_input(covariate::AbstractVector{T}, offset::AbstractVector{T}) where T = (covariate=covariate, offset=offset)
-
-"""
-
-The GLM models require inputs of the same type
-"""
-fluctuation_input(covariate::AbstractVector{T1}, offset::AbstractVector{T2}) where {T1, T2} = 
-    (covariate=covariate, offset=convert(Vector{T1}, offset))
-
-
-function counterfactualTreatment(vals, T)
-    Tnames = Tables.columnnames(T)
-    n = nrows(T)
-    NamedTuple{Tnames}(
-            [categorical(repeat([vals[i]], n), levels=levels(Tables.getcolumn(T, name)), ordered=isordered(Tables.getcolumn(T, name)))
-                            for (i, name) in enumerate(Tnames)])
-end
-
-
-

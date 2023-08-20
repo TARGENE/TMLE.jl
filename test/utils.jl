@@ -1,14 +1,10 @@
 module TestUtils
 
 using Test
-using Tables
-using TableOperations
 using TMLE
 using MLJBase
 using StableRNGs
-using Distributions
 using CategoricalArrays
-using MLJGLMInterface: LinearBinaryClassifier
 using MLJLinearModels
 using MLJModels
 
@@ -154,18 +150,37 @@ end
     @test !isordered(cfT.T₂)
 end
 
-@testset "Test Targeting sequence with 1 Treatment" begin
-    ### In all cases, models are "constant" models
-    ## First case: 1 Treamtent variable
-    scm = StaticConfoundedModel(
-       :Y, :T, [:W₁, :W₂, :W₃], 
-       treatment_model = ConstantClassifier(),
-       outcome_model = ConstantRegressor()
+@testset "Test ps_lower_bound" begin
+    dataset = (
+        T = categorical([1, 0, 1, 1, 0, 1, 1]),
+        Y = [1., 2., 3, 4, 5, 6, 7],
+        W = rand(7),
     )
     Ψ = ATE(
-        scm,
+        outcome=:Y, 
+        treatment=(T=(case=1, control=0),),
+        confounders=:W,
+    )
+    max_lb = 0.1
+    fit!(Ψ, dataset, verbosity=0)
+    # Nothing results in data adaptive lower bound no lower than max_lb
+    @test TMLE.ps_lower_bound(Ψ, nothing) == max_lb
+    @test TMLE.data_adaptive_ps_lower_bound(Ψ) == max_lb
+    @test TMLE.data_adaptive_ps_lower_bound(1000) == 0.02984228238321508
+    # Otherwise use the provided threhsold provided it's lower than max_lb
+    @test TMLE.ps_lower_bound(Ψ, 1e-8) == 1.0e-8
+    @test TMLE.ps_lower_bound(Ψ, 1) == 0.1
+end
+
+@testset "Test compute_offset, clever_covariate_and_weights: 1 treatment" begin
+    ### In all cases, models are "constant" models
+    ## First case: 1 Treamtent variable
+    Ψ = ATE(
         outcome=:Y, 
         treatment=(T=(case="a", control="b"),),
+        confounders=[:W₁, :W₂, :W₃],
+        treatment_model = ConstantClassifier(),
+        outcome_model = ConstantRegressor()
     )
     dataset = (
         T = categorical(["a", "b", "c", "a", "a", "b", "a"]),
@@ -176,46 +191,35 @@ end
     )
     fit!(Ψ, dataset, verbosity=0)
 
-    @test TMLE.ps_lower_bound(Ψ, nothing) == 0.1
-    @test TMLE.data_adaptive_ps_lower_bound(Ψ) == 0.1
-    @test TMLE.data_adaptive_ps_lower_bound(1000) == 0.02984228238321508
-    @test TMLE.ps_lower_bound(Ψ, 1e-8) == 1.0e-8
-    @test TMLE.ps_lower_bound(Ψ, 1) == 0.1
-
-    indicator_fns = TMLE.indicator_fns(Ψ)
-    T = TMLE.treatments(dataset, Ψ)
-    @test T == (T=dataset.T,)
-    W = TMLE.confounders(dataset, Ψ)
-    @test W == (T = (W₁=dataset.W₁, W₂=dataset.W₂, W₃=dataset.W₃),)
-
-    @test TMLE.compute_offset(Ψ) == repeat([mean(dataset.Y)], 7)
+    offset = TMLE.compute_offset(Ψ)
+    @test offset == repeat([mean(dataset.Y)], 7)
     weighted_fluctuation = true
-    bw = TMLE.balancing_weights(scm, W, T)
-    cov, w = TMLE.clever_covariate_and_weights(scm, W, T, indicator_fns, weighted_fluctuation=weighted_fluctuation)
+    ps_lowerbound = 1e-8
+    X, y = TMLE.getQ(Ψ).data
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, X;
+        ps_lowerbound=ps_lowerbound,
+        weighted_fluctuation=weighted_fluctuation
+    )
 
     @test cov == [1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0]
-    @test w == bw == [1.75, 3.5, 7.0, 1.75, 1.75, 3.5, 1.75]
-    
-    mach = TMLE.tmle_step(Ψ, weighted_fluctuation=weighted_fluctuation)
-    @test fitted_params(mach).coef[1] isa Float64
+    @test w == [1.75, 3.5, 7.0, 1.75, 1.75, 3.5, 1.75]
 
-    cov, w = TMLE.clever_covariate_and_weights(scm, W, T, indicator_fns)
+    weighted_fluctuation = false
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, X;
+        ps_lowerbound=ps_lowerbound,
+        weighted_fluctuation=weighted_fluctuation
+    )
     @test cov == [1.75, -3.5, 0.0, 1.75, 1.75, -3.5, 1.75]
-
-    unweighted_mach = TMLE.tmle_step(Ψ, weighted_fluctuation=false)
-    @test fitted_params(mach).coef[1] isa Float64
+    @test w == ones(7)
 end
 
-@testset "Test Targeting sequence with 2 Treatments" begin
-    scm = StaticConfoundedModel(
-       [:Y], [:T₁, :T₂], [:W₁, :W₂, :W₃], 
-       treatment_model = ConstantClassifier(),
-       outcome_model = ConstantClassifier()
-    )
+@testset "Test compute_offset, clever_covariate_and_weights: 2 treatments" begin
     Ψ = IATE(
-        scm,
-        outcome =:Y, 
+        outcome = :Y,
         treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
+        confounders=[:W₁, :W₂, :W₃],
+        treatment_model = ConstantClassifier(),
+        outcome_model = ConstantClassifier()
     )
     dataset = (
         T₁ = categorical([1, 0, 0, 1, 1, 1, 0]),
@@ -225,39 +229,33 @@ end
         W₂ = rand(7),
         W₃ = rand(7)
     )
+    ps_lowerbound = 1e-8
+    weighted_fluctuation = false
+
     fit!(Ψ, dataset, verbosity=0)
-    indicator_fns = TMLE.indicator_fns(Ψ)
-    T = TMLE.treatments(dataset, Ψ)
-    @test T == (T₁ = dataset.T₁, T₂ = dataset.T₂)
-    W = TMLE.confounders(dataset, Ψ)
-    @test W == (
-        T₁ = (W₁ = dataset.W₁, W₂ = dataset.W₂, W₃ = dataset.W₃), 
-        T₂ = (W₁ = dataset.W₁, W₂ = dataset.W₂, W₃ = dataset.W₃)
-    )
+
     # Because the outcome is binary, the offset is the logit
-    @test TMLE.compute_offset(Ψ) == repeat([0.28768207245178085], 7)
-    
-    cov, w = TMLE.clever_covariate_and_weights(scm, W, T, indicator_fns)
+    offset = TMLE.compute_offset(Ψ)
+    @test offset == repeat([0.28768207245178085], 7)
+    X, y = TMLE.getQ(Ψ).data
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, X;
+        ps_lowerbound=ps_lowerbound,
+        weighted_fluctuation=weighted_fluctuation
+    )
     @test cov ≈ [2.45, -3.266, -3.266, 2.45, 2.45, -6.125, 8.166] atol=1e-2
     @test w == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-
-    mach = TMLE.tmle_step(Ψ)
-    @test fitted_params(mach).coef[1] isa Float64
 end
 
-@testset "Test Targeting sequence with 3 Treatments" begin
+@testset "Test compute_offset, clever_covariate_and_weights: 3 treatments" begin
     ## Third case: 3 Treatment variables
-    scm = StaticConfoundedModel(
-       [:Y], [:T₁, :T₂, :T₃], [:W], 
-       treatment_model = ConstantClassifier(),
-       outcome_model = DeterministicConstantRegressor()
-    )
     Ψ = IATE(
-        scm,
         outcome =:Y, 
         treatment=(T₁=(case="a", control="b"), 
                    T₂=(case=1, control=2), 
                    T₃=(case=true, control=false)),
+        confounders=[:W],
+        treatment_model = ConstantClassifier(),
+        outcome_model = DeterministicConstantRegressor()
     )
     dataset = (
         T₁ = categorical(["a", "a", "b", "b", "c", "b", "b"]),
@@ -266,42 +264,20 @@ end
         Y  = [1., 2., 3, 4, 5, 6, 7],
         W  = rand(7),
     )
+    ps_lowerbound = 1e-8 
+    weighted_fluctuation = false
 
     fit!(Ψ, dataset, verbosity=0)
-    indicator_fns = TMLE.indicator_fns(Ψ)
-    T = TMLE.treatments(dataset, Ψ)
-    @test T == (T₁ = dataset.T₁, T₂ = dataset.T₂, T₃ = dataset.T₃)
-    W = TMLE.confounders(dataset, Ψ)
-    @test W == (
-        T₁ = (W = dataset.W,), 
-        T₂ = (W = dataset.W,),
-        T₃ = (W = dataset.W,)
+
+    offset = TMLE.compute_offset(Ψ)
+    @test offset == repeat([4.0], 7)
+    X, y = TMLE.getQ(Ψ).data
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, X;
+        ps_lowerbound=ps_lowerbound, 
+        weighted_fluctuation=weighted_fluctuation
     )
-    indicator_fns = TMLE.indicator_fns(Ψ)
-
-    @test TMLE.compute_offset(Ψ) == repeat([4.0], 7)
-
-    cov, w = TMLE.clever_covariate_and_weights(scm, W, T, indicator_fns)
     @test cov ≈ [0, 8.575, -21.4375, 8.575, 0, -4.2875, -4.2875] atol=1e-3
     @test w == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-
-    mach = TMLE.tmle_step(Ψ)
-    @test fitted_params(mach).coef[1] isa Float64
-end
-
-@testset "Test fluctuation_input" begin
-    X = TMLE.fluctuation_input([1., 2.], [1., 2])
-    @test X.covariate isa Vector{Float64}
-    @test X.offset isa Vector{Float64}
-
-    X = TMLE.fluctuation_input([1., 2.], [1.f0, 2.f0])
-    @test X.covariate isa Vector{Float64}
-    @test X.offset isa Vector{Float64}
-
-    X = TMLE.fluctuation_input([1.f0, 2.f0], [1., 2.])
-    @test X.covariate isa Vector{Float32}
-    @test X.offset isa Vector{Float32}
-
 end
 
 end;

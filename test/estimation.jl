@@ -1,4 +1,4 @@
-module TestWarmRestart
+module TestEstimation
 
 using Test
 using Tables
@@ -77,7 +77,6 @@ table_types = (Tables.columntable, DataFrame)
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset; verbosity=1);
     # The TMLE covers the ground truth but the initial estimate does not
     Ψ₀ = -1
-    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -96,7 +95,6 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = 1
-    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -117,7 +115,6 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = 0.5
-    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -137,7 +134,6 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = 10
-    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -156,7 +152,6 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = -0.5
-    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -174,7 +169,6 @@ table_types = (Tables.columntable, DataFrame)
     )
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = -1.5
-    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -199,7 +193,6 @@ end
     )
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = 3
-    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -217,7 +210,6 @@ end
     )
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = 2.5
-    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -236,7 +228,6 @@ end
     )
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = 1.5
-    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -250,7 +241,6 @@ end
         (:info, "Done.")
     )
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
-    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -274,7 +264,6 @@ end
     )
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
     Ψ₀ = -1
-    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
@@ -291,7 +280,6 @@ end
         (:info, "Done.")
     )
     tmle_result, fluctuation_mach = @test_logs log_sequence... tmle!(Ψ, dataset, verbosity=1);
-    @test tmle_result.estimand == Ψ
     test_coverage(tmle_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)

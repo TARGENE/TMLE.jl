@@ -31,7 +31,7 @@ export AverageTreatmentEffect, ATE
 export InteractionAverageTreatmentEffect, IATE
 export AVAILABLE_ESTIMANDS
 export fit!, optimize_ordering, optimize_ordering!
-export tmle!, tmle, ose, initial
+export tmle!, ose!, initial
 export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
 export TreatmentTransformer, with_encoder
@@ -43,7 +43,9 @@ export BackdoorAdjustment
 
 include("scm.jl")
 include("estimands.jl")
+include("fluctuation.jl")
 include("adjustment.jl")
+include("gradient.jl")
 include("utils.jl")
 include("estimation.jl")
 include("estimate.jl")
@@ -137,6 +139,6 @@ function run_precompile_workload()
 
 end
 
-run_precompile_workload()
+# run_precompile_workload()
 
 end
