@@ -74,46 +74,15 @@ Treatment: (T₁ = (case = 1, control = 0),)
 Outcome: Y
 Treatment: (T₁ = (case = 1, control = 0), T₂ = (case = 1, control = 0))
 </code></pre><h2 id="Targeted-Estimation"><a class="docs-heading-anchor" href="#Targeted-Estimation">Targeted Estimation</a><a id="Targeted-Estimation-1"></a><a class="docs-heading-anchor-permalink" href="#Targeted-Estimation" title="Permalink"></a></h2><p>Then each parameter can be estimated by calling the <code>tmle!</code> function. For example:</p><pre><code class="language-julia hljs">result, _ = tmle!(cm, dataset)
-result</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌───────────┬──────────┬─────────────────────────┬─────────────┐
-│ Estimator │ Estimate │ 95% Confidence Interval │     P-value │
-├───────────┼──────────┼─────────────────────────┼─────────────┤
-│      TMLE │  1.81806 │      (1.64368, 1.99245) │ 5.67125e-78 │
-│       OSE │  1.81793 │      (1.64353, 1.99234) │ 5.99786e-78 │
-│     Naive │  1.83249 │                 nothing │     nothing │
-└───────────┴──────────┴─────────────────────────┴─────────────┘
-</code></pre><p>The <code>result</code> contains 3 main elements:</p><ul><li>The <code>TMLEEstimate</code> than can be accessed via:</li></ul><pre><code class="language-julia hljs">tmle(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌──────────┬─────────────────────────┬─────────────┐
+result</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌──────────┬─────────────────────────┬─────────────┐
 │ Estimate │ 95% Confidence Interval │     P-value │
 ├──────────┼─────────────────────────┼─────────────┤
 │  1.81806 │      (1.64368, 1.99245) │ 5.67125e-78 │
 └──────────┴─────────────────────────┴─────────────┘
-</code></pre><ul><li>The <code>OSEstimate</code> than can be accessed via:</li></ul><pre><code class="language-julia hljs">ose(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌──────────┬─────────────────────────┬─────────────┐
-│ Estimate │ 95% Confidence Interval │     P-value │
-├──────────┼─────────────────────────┼─────────────┤
-│  1.81793 │      (1.64353, 1.99234) │ 5.99786e-78 │
-└──────────┴─────────────────────────┴─────────────┘
-</code></pre><ul><li>The naive initial estimate.</li></ul><pre><code class="language- hljs">naive(result)</code></pre><p>The adjustment set is determined by the provided <code>adjustment_method</code> keyword. At the moment, only <code>BackdoorAdjustment</code> is available. However one can specify that extra covariates could be used to fit the outcome model.</p><pre><code class="language-julia hljs">result, _ = tmle!(iate, dataset;adjustment_method=BackdoorAdjustment([:C]))
-result</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌───────────┬─────────────┬─────────────────────────┬─────────────┐
-│ Estimator │    Estimate │ 95% Confidence Interval │     P-value │
-├───────────┼─────────────┼─────────────────────────┼─────────────┤
-│      TMLE │   -0.517802 │     (-1.28175, 0.24614) │    0.183795 │
-│       OSE │    -0.72492 │   (-1.09281, -0.357028) │ 0.000117437 │
-│     Naive │ 6.12843e-17 │                 nothing │     nothing │
-└───────────┴─────────────┴─────────────────────────┴─────────────┘
-</code></pre><h2 id="Hypothesis-Testing"><a class="docs-heading-anchor" href="#Hypothesis-Testing">Hypothesis Testing</a><a id="Hypothesis-Testing-1"></a><a class="docs-heading-anchor-permalink" href="#Hypothesis-Testing" title="Permalink"></a></h2><p>Because the TMLE and OSE are asymptotically linear estimators, they asymptotically follow a Normal distribution. This means one can perform standard T tests of null hypothesis. TMLE.jl extends the method provided by the <a href="https://juliastats.org/HypothesisTests.jl/stable/">HypothesisTests.jl</a> package that can be used as follows.</p><pre><code class="language-julia hljs">OneSampleTTest(tmle(result))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">One sample t-test
------------------
-Population details:
-    parameter of interest:   Mean
-    value under h_0:         0
-    point estimate:          -0.517802
-    95% confidence interval: (-1.282, 0.2461)
-
-Test summary:
-    outcome with 95% confidence: fail to reject h_0
-    two-sided p-value:           0.1838
-
-Details:
-    number of observations:   1000
-    t-statistic:              -1.3300805151611914
-    degrees of freedom:       999
-    empirical standard error: 0.3893016023864806
-</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../user_guide/scm/">Structural Causal Models »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Wednesday 16 August 2023 16:05">Wednesday 16 August 2023</span>. Using Julia version 1.9.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre><p>The <code>result</code> contains 3 main elements:</p><ul><li>The <code>TMLEEstimate</code> than can be accessed via:</li></ul><pre><code class="language- hljs">tmle(result)</code></pre><ul><li>The <code>OSEstimate</code> than can be accessed via:</li></ul><pre><code class="language- hljs">ose(result)</code></pre><ul><li>The naive initial estimate.</li></ul><pre><code class="language- hljs">naive(result)</code></pre><p>The adjustment set is determined by the provided <code>adjustment_method</code> keyword. At the moment, only <code>BackdoorAdjustment</code> is available. However one can specify that extra covariates could be used to fit the outcome model.</p><pre><code class="language-julia hljs">result, _ = tmle!(iate, dataset;adjustment_method=BackdoorAdjustment([:C]))
+result</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌───────────┬─────────────────────────┬──────────┐
+│  Estimate │ 95% Confidence Interval │  P-value │
+├───────────┼─────────────────────────┼──────────┤
+│ -0.517802 │     (-1.28175, 0.24614) │ 0.183795 │
+└───────────┴─────────────────────────┴──────────┘
+</code></pre><h2 id="Hypothesis-Testing"><a class="docs-heading-anchor" href="#Hypothesis-Testing">Hypothesis Testing</a><a id="Hypothesis-Testing-1"></a><a class="docs-heading-anchor-permalink" href="#Hypothesis-Testing" title="Permalink"></a></h2><p>Because the TMLE and OSE are asymptotically linear estimators, they asymptotically follow a Normal distribution. This means one can perform standard T tests of null hypothesis. TMLE.jl extends the method provided by the <a href="https://juliastats.org/HypothesisTests.jl/stable/">HypothesisTests.jl</a> package that can be used as follows.</p><pre><code class="language- hljs">OneSampleTTest(tmle(result))</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../user_guide/scm/">Structural Causal Models »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Sunday 20 August 2023 14:06">Sunday 20 August 2023</span>. Using Julia version 1.9.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
