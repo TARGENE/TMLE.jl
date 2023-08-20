@@ -78,3 +78,20 @@ function ose!(Ψ::CMCompositeEstimand, dataset;
 end
 
 naive_plugin_estimate(Ψ::CMCompositeEstimand) = mean(counterfactual_aggregate(Ψ, get_outcome_model(Ψ)))
+
+function naive_plugin_estimate!(Ψ::CMCompositeEstimand, dataset;
+    adjustment_method=BackdoorAdjustment(), 
+    verbosity=1, 
+    force=false)
+    # Check the estimand against the dataset
+    check_treatment_levels(Ψ, dataset)
+    # Initial fit of the SCM's equations
+    verbosity >= 1 && @info "Fitting the required equations..."
+    fit!(Ψ, dataset;
+        adjustment_method=adjustment_method, 
+        verbosity=verbosity, 
+        force=force
+    )
+    return naive_plugin_estimate(Ψ)
+end
+
