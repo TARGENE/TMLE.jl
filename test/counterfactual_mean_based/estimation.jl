@@ -10,7 +10,7 @@ using MLJLinearModels
 using CategoricalArrays
 using LogExpFunctions
 
-include("helper_fns.jl")
+include(joinpath(dirname(@__DIR__), "helper_fns.jl"))
 
 """
 Results derived by hand for this dataset:

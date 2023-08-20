@@ -10,7 +10,7 @@ using CategoricalArrays
 using Test
 using LogExpFunctions
 
-include("helper_fns.jl")
+include(joinpath(dirname(@__DIR__), "helper_fns.jl"))
 
 function dataset_scm_and_truth(;n=1000)
     rng = StableRNG(123)

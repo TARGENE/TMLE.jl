@@ -31,7 +31,7 @@ outcome_input_variables(treatments, confounding_variables, extra_covariates) = u
     extra_covariates
 ))
 
-function get_models_input_variables(adjustment_method::BackdoorAdjustment, Ψ::CMCompositeEstimand)
+function get_models_input_variables(adjustment_method::BackdoorAdjustment, Ψ::Estimand)
     models_inputs = []
     for treatment in treatments(Ψ)
         push!(models_inputs, parents(Ψ.scm, treatment))

@@ -41,15 +41,20 @@ export BackdoorAdjustment
 # INCLUDES
 # #############################################################################
 
+include("utils.jl")
 include("scm.jl")
 include("estimands.jl")
-include("fluctuation.jl")
-include("adjustment.jl")
-include("gradient.jl")
-include("utils.jl")
-include("estimation.jl")
 include("estimate.jl")
 include("treatment_transformer.jl")
+include("adjustment.jl")
+
+include("counterfactual_mean_based/estimands.jl")
+include("counterfactual_mean_based/offset_and_covariate.jl")
+include("counterfactual_mean_based/fluctuation.jl")
+include("counterfactual_mean_based/gradient.jl")
+include("counterfactual_mean_based/estimation.jl")
+
+
 
 
 # #############################################################################

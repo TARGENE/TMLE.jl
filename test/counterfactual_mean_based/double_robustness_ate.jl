@@ -12,7 +12,7 @@ using StatsBase
 using HypothesisTests
 using LogExpFunctions
 
-include("helper_fns.jl")
+include(joinpath(dirname(@__DIR__), "helper_fns.jl"))
 
 """
 Q and G are two logistic models

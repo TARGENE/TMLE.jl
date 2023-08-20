@@ -12,7 +12,7 @@ using MLJModels
 using MLJLinearModels
 using LogExpFunctions
 
-include("helper_fns.jl")
+include(joinpath(dirname(@__DIR__), "helper_fns.jl"))
 
 cont_interacter = InteractionTransformer(order=2) |> LinearRegressor
 cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1.)

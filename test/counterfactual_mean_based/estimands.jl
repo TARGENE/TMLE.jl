@@ -215,9 +215,9 @@ end
             treatment=(T₂=(case="AA", control="AC"),),
         ),
     ]
-    # Test param_key
-    @test TMLE.param_key(estimands[1]) == ("T₁_T₂", "Y₁")
-    @test TMLE.param_key(estimands[end]) == ("T₂", "Y₂")
+    # Test estimand_key
+    @test TMLE.estimand_key(estimands[1]) == ("T₁_T₂", "Y₁")
+    @test TMLE.estimand_key(estimands[end]) == ("T₂", "Y₂")
     # Non mutating function
     estimands = shuffle(rng, estimands)
     ordered_estimands = optimize_ordering(estimands)
@@ -240,6 +240,77 @@ end
     @test estimands == ordered_estimands
 end
 
+@testset "Test indicator_fns & indicator_values" begin
+    scm = StaticConfoundedModel(
+        [:Y],
+        [:T₁, :T₂, :T₃],
+        [:W]
+    )
+    dataset = (
+        W  = [1, 2, 3, 4, 5, 6, 7, 8],
+        T₁ = ["A", "B", "A", "B", "A", "B", "A", "B"],
+        T₂ = [0, 0, 1, 1, 0, 0, 1, 1],
+        T₃ = ["C", "C", "C", "C", "D", "D", "D", "D"],
+        Y =  [1, 1, 1, 1, 1, 1, 1, 1]
+    )
+    # Conditional Mean
+    Ψ = CM(
+        scm,
+        outcome=:Y, 
+        treatment=(T₁="A", T₂=1),
+    )
+    indicator_fns = TMLE.indicator_fns(Ψ)
+    @test indicator_fns == Dict(("A", 1) => 1.)
+    indic_values = TMLE.indicator_values(indicator_fns, TMLE.treatments(dataset, Ψ))
+    @test indic_values == [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+    # ATE
+    Ψ = ATE(
+        scm,
+        outcome=:Y, 
+        treatment=(T₁=(case="A", control="B"), T₂=(control=0, case=1)),
+    )
+    indicator_fns = TMLE.indicator_fns(Ψ)
+    @test indicator_fns == Dict(
+        ("A", 1) => 1.0,
+        ("B", 0) => -1.0
+    )
+    indic_values = TMLE.indicator_values(indicator_fns, TMLE.treatments(dataset, Ψ))
+    @test indic_values == [0.0, -1.0, 1.0, 0.0, 0.0, -1.0, 1.0, 0.0]
+    # 2-points IATE
+    Ψ = IATE(
+        scm,
+        outcome=:Y, 
+        treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0)),
+    )
+    indicator_fns = TMLE.indicator_fns(Ψ)
+    @test indicator_fns == Dict(
+        ("A", 1) => 1.0,
+        ("A", 0) => -1.0,
+        ("B", 1) => -1.0,
+        ("B", 0) => 1.0
+    )
+    indic_values = TMLE.indicator_values(indicator_fns, TMLE.treatments(dataset, Ψ))
+    @test indic_values == [-1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0]
+    # 3-points IATE
+    Ψ = IATE(
+        scm,
+        outcome=:Y, 
+        treatment=(T₁=(case="A", control="B"), T₂=(case=1, control=0), T₃=(control="D", case="C")),
+    )
+    indicator_fns = TMLE.indicator_fns(Ψ)
+    @test indicator_fns == Dict(
+        ("A", 1, "D") => -1.0,
+        ("A", 1, "C") => 1.0,
+        ("B", 0, "D") => -1.0,
+        ("B", 0, "C") => 1.0,
+        ("B", 1, "C") => -1.0,
+        ("A", 0, "D") => 1.0,
+        ("B", 1, "D") => 1.0,
+        ("A", 0, "C") => -1.0
+    )
+    indic_values = TMLE.indicator_values(indicator_fns, TMLE.treatments(dataset, Ψ))
+    @test indic_values == [-1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0]
+end
 
 @testset "Test structs are concrete types" begin
     @test isconcretetype(ATE)
