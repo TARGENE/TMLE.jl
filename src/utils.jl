@@ -14,7 +14,7 @@ This startegy is from [this paper](https://academic.oup.com/aje/article/191/9/16
 but the study does not show strictly better behaviour of the strategy so not a default for now.
 """
 function data_adaptive_ps_lower_bound(Ψ::CMCompositeEstimand;max_lb=0.1)
-    n = nrows(getQ(Ψ).data[2])
+    n = nrows(get_outcome_datas(Ψ)[2])
     return data_adaptive_ps_lower_bound(n; max_lb=max_lb) 
 end
 
@@ -157,7 +157,7 @@ compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = exp
 compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 
 compute_offset(Ψ::CMCompositeEstimand) = 
-    compute_offset(MLJBase.predict(getQ(Ψ)))
+    compute_offset(MLJBase.predict(get_outcome_model(Ψ)))
 
 function balancing_weights(Ψ::CMCompositeEstimand, W, T; ps_lowerbound=1e-8)
     density = ones(nrows(T))

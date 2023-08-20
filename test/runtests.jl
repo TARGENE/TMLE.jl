@@ -1,5 +1,5 @@
 using Test
-
+Ψ
 @time begin
     @test include("scm.jl")
     @test include("non_regression_test.jl")

@@ -188,7 +188,9 @@ end
 
 outcome_equation(Ψ::CMCompositeEstimand) = Ψ.scm[outcome(Ψ)]
 
-getQ(Ψ::CMCompositeEstimand) = outcome_equation(Ψ).mach
+get_outcome_model(Ψ::CMCompositeEstimand) = outcome_equation(Ψ).mach
+
+get_outcome_datas(Ψ::CMCompositeEstimand) = get_outcome_model(Ψ).data
 
 treatments(Ψ::CMCompositeEstimand) = collect(keys(Ψ.treatment))
 treatments(dataset, Ψ::CMCompositeEstimand) = selectcols(dataset, treatments(Ψ))

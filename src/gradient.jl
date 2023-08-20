@@ -9,7 +9,7 @@ For the ATE with binary treatment, confounded by W it is equal to:
 
 """
 function counterfactual_aggregate(Ψ::CMCompositeEstimand, Q::Machine)
-    X = getQ(Ψ).data[1]
+    X = get_outcome_datas(Ψ)[1]
     Ttemplate = treatments(X, Ψ)
     n = nrows(Ttemplate)
     ctf_agg = zeros(n)
@@ -41,7 +41,7 @@ end
 This part of the gradient is evaluated on the original dataset. All quantities have been precomputed and cached.
 """
 function ∇YX(Ψ::CMCompositeEstimand, Q::Machine; ps_lowerbound=1e-8)
-    X, y = getQ(Ψ).data
+    X, y = get_outcome_datas(Ψ)
     H, weights = clever_covariate_and_weights(Ψ, X; ps_lowerbound=ps_lowerbound)
     y = float(y)
     gradient_Y_X_fluct = H .* weights .* (y .- expected_value(MLJBase.predict(Q)))

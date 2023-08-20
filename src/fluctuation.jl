@@ -16,7 +16,7 @@ end
 FluctuationModel = Union{ContinuousFluctuation, BinaryFluctuation}
 
 function Fluctuation(Ψ, tol, ps_lowerbound, weighted)
-    outcome_scitype = scitype(getQ(Ψ).data[2])
+    outcome_scitype = scitype(get_outcome_datas(Ψ)[2])
     if outcome_scitype <: AbstractVector{<:MLJBase.Continuous}
         return ContinuousFluctuation(Ψ, tol, ps_lowerbound, weighted)
     elseif outcome_scitype <: AbstractVector{<:Finite}
@@ -56,7 +56,7 @@ end
 
 function MLJBase.fit(model::FluctuationModel, verbosity, X, y)
     Ψ = model.Ψ
-    Q = getQ(Ψ)
+    Q = get_outcome_model(Ψ)
     clever_covariate_and_offset, weights = 
         clever_covariate_offset_and_weights(
             Ψ, Q, X; 
@@ -75,7 +75,7 @@ end
 
 function MLJBase.predict(model::FluctuationModel, one_dimensional_path, X) 
     Ψ = model.Ψ
-    Q = getQ(Ψ)
+    Q = get_outcome_model(Ψ)
     clever_covariate_and_offset, weights = 
         clever_covariate_offset_and_weights(
             Ψ, Q, X; 

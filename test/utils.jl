@@ -195,7 +195,7 @@ end
     @test offset == repeat([mean(dataset.Y)], 7)
     weighted_fluctuation = true
     ps_lowerbound = 1e-8
-    X, y = TMLE.getQ(Ψ).data
+    X, y = TMLE.get_outcome_datas(Ψ)
     cov, w = TMLE.clever_covariate_and_weights(Ψ, X;
         ps_lowerbound=ps_lowerbound,
         weighted_fluctuation=weighted_fluctuation
@@ -237,7 +237,7 @@ end
     # Because the outcome is binary, the offset is the logit
     offset = TMLE.compute_offset(Ψ)
     @test offset == repeat([0.28768207245178085], 7)
-    X, y = TMLE.getQ(Ψ).data
+    X, y = TMLE.get_outcome_datas(Ψ)
     cov, w = TMLE.clever_covariate_and_weights(Ψ, X;
         ps_lowerbound=ps_lowerbound,
         weighted_fluctuation=weighted_fluctuation
@@ -271,7 +271,7 @@ end
 
     offset = TMLE.compute_offset(Ψ)
     @test offset == repeat([4.0], 7)
-    X, y = TMLE.getQ(Ψ).data
+    X, y = TMLE.get_outcome_datas(Ψ)
     cov, w = TMLE.clever_covariate_and_weights(Ψ, X;
         ps_lowerbound=ps_lowerbound, 
         weighted_fluctuation=weighted_fluctuation

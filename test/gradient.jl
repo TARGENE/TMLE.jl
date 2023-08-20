@@ -37,7 +37,7 @@ end
     fit!(Ψ, dataset, verbosity=0)
     
     # Retrieve outcome model
-    Q = TMLE.getQ(Ψ)
+    Q = TMLE.get_outcome_model(Ψ)
     linear_model = fitted_params(Q).deterministic_pipeline.linear_regressor
     intercept = linear_model.intercept
     coefs = Dict(linear_model.coefs)

@@ -21,7 +21,7 @@ It seems that sometimes this is not entirely true in practice, so the test actua
 increase risk more than tol
 """
 function test_fluct_decreases_risk(Ψ::TMLE.CMCompositeEstimand, fluctuation_mach; atol=1e-6)
-    outcome_mach = TMLE.getQ(Ψ)
+    outcome_mach = TMLE.get_outcome_model(Ψ)
     y = outcome_mach.data[2]
     initial_risk = risk(MLJBase.predict(outcome_mach), y)
     fluct_risk = risk(MLJBase.predict(fluctuation_mach), y)

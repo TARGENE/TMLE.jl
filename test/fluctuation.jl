@@ -6,7 +6,7 @@ using MLJModels
 using MLJBase
 
 function test_fluctuation_fit(Ψ, ps_lowerbound, weighted_fluctuation)
-    Q⁰ = TMLE.getQ(Ψ)
+    Q⁰ = TMLE.get_outcome_model(Ψ)
     X, y = Q⁰.data
     Q = machine(
         TMLE.Fluctuation(Ψ, 0.1, ps_lowerbound, weighted_fluctuation), 

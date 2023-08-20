@@ -50,7 +50,7 @@ function tmle!(Ψ::CMCompositeEstimand, dataset;
     ps_lowerbound = ps_lower_bound(Ψ, ps_lowerbound)
     # Fit Fluctuation
     verbosity >= 1 && @info "Performing TMLE..."
-    Q⁰ = getQ(Ψ)
+    Q⁰ = get_outcome_model(Ψ)
     X, y = Q⁰.data
     Q = machine(
         Fluctuation(Ψ, 0.1, ps_lowerbound, weighted_fluctuation), 
@@ -82,7 +82,7 @@ function ose!(Ψ::CMCompositeEstimand, dataset;
     # Get propensity score truncation threshold
     ps_lowerbound = ps_lower_bound(Ψ, ps_lowerbound)
     # Retrieve initial fit
-    Q = getQ(Ψ)
+    Q = get_outcome_model(Ψ)
     # Gradient and estimate
     IC, Ψ̂ = gradient_and_estimate(Ψ, Q; ps_lowerbound=ps_lowerbound)
     verbosity >= 1 && @info "Done."
