@@ -108,31 +108,47 @@ function run_precompile_workload()
                 outcome =:Y₁,
                 treatment=(T₁=true,),
             )
-            result₁, fluctuation = tmle!(Ψ₁, dataset, verbosity=0)
+            tmle_result₁, fluctuation = tmle!(Ψ₁, dataset, verbosity=0)
+            OneSampleTTest(tmle_result₁)
+            OneSampleZTest(tmle_result₁)
 
+            ose_result₁, fluctuation = ose!(Ψ₁, dataset, verbosity=0)
+            OneSampleTTest(ose_result₁)
+            OneSampleZTest(ose_result₁)
+
+            naive_plugin_estimate(Ψ₁)
+            # ATE
             Ψ₂ = ATE(
                 scm,
                 outcome=:Y₂,
                 treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false))
             )
-            result₂, fluctuation = tmle!(Ψ₂, dataset, verbosity=0)
+            tmle_result₂, fluctuation = tmle!(Ψ₂, dataset, verbosity=0)
+            OneSampleTTest(tmle_result₂)
+            OneSampleZTest(tmle_result₂)
 
+            ose_result₂, fluctuation = ose!(Ψ₂, dataset, verbosity=0)
+            OneSampleTTest(ose_result₂)
+            OneSampleZTest(ose_result₂)
+
+            naive_plugin_estimate(Ψ₂)
+            # IATE
             Ψ₃ = IATE(
                 scm,
                 outcome=:Y₂,
                 treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false))
             )
-            result₃, fluctuation = tmle!(Ψ₃, dataset, verbosity=0)
+            tmle_result₃, fluctuation = tmle!(Ψ₃, dataset, verbosity=0)
+            OneSampleTTest(tmle_result₃)
+            OneSampleZTest(tmle_result₃)
 
+            ose_result₃, fluctuation = ose!(Ψ₃, dataset, verbosity=0)
+            OneSampleTTest(ose_result₃)
+            OneSampleZTest(ose_result₃)
+
+            naive_plugin_estimate(Ψ₃)
             # Composition
-            composed_result = compose((x,y) -> x - y, tmle(result₂), tmle(result₁))
-
-            # Results manipulation
-            naive_plugin_estimate(result₃)
-            OneSampleTTest(tmle(result₃))
-            OneSampleZTest(tmle(result₃))
-            OneSampleTTest(ose(result₃))
-            OneSampleZTest(ose(result₃))
+            composed_result = compose((x,y) -> x - y, tmle_result₂, tmle_result₁)
             OneSampleTTest(composed_result)
             OneSampleZTest(composed_result)
             
@@ -141,6 +157,6 @@ function run_precompile_workload()
 
 end
 
-# run_precompile_workload()
+run_precompile_workload()
 
 end
