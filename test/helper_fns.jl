@@ -40,7 +40,7 @@ function test_coverage(result::TMLE.EICEstimate, Ψ₀)
     lb, ub = confint(OneSampleTTest(result))
     @test lb ≤ Ψ₀ ≤ ub
     # OneStep
-    lb, ub = confint(OneSampleTTest(result))
+    lb, ub = confint(OneSampleZTest(result))
     @test lb ≤ Ψ₀ ≤ ub
 end
 
@@ -57,4 +57,4 @@ test_mean_inf_curve_almost_zero(tmle_result::TMLE.EICEstimate; atol=1e-10) = @te
 This cqnnot be guaranteed in general since a well specified maximum 
 likelihood estimator also solves the score equation.
 """
-test_fluct_mean_inf_curve_lower_than_initial(tmle_result::TMLE.EICEstimate) = @test abs(mean(tmle_result.IC)) < abs(mean(tmle_result.IC))
+test_fluct_mean_inf_curve_lower_than_initial(tmle_result::TMLE.TMLEstimate, ose_result::TMLE.OSEstimate) = @test abs(mean(tmle_result.IC)) < abs(mean(ose_result.IC))

@@ -125,10 +125,12 @@ end
     scm.T.model = LogisticClassifier(lambda=0)
 
     tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
+    ose_result, Q⁰ = ose!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
+    test_coverage(ose_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
-    @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
     # The initial estimate is far away
     @test naive_plugin_estimate(Ψ) == 0
     
@@ -137,7 +139,9 @@ end
     scm.T.model = ConstantClassifier()
 
     tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
+    ose_result, fluctuation_mach = ose!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
+    test_coverage(ose_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
@@ -154,10 +158,12 @@ end
     scm.T.model = LogisticClassifier(lambda=0)
 
     tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
+    ose_result, fluctuation_mach = ose!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
+    test_coverage(ose_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-6)
-    @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
     # The initial estimate is far away
     @test naive_plugin_estimate(Ψ) == 0
 
@@ -166,7 +172,9 @@ end
     scm.T.model = ConstantClassifier()
 
     tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
+    ose_result, fluctuation_mach = ose!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
+    test_coverage(ose_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-6)
 end
@@ -184,10 +192,12 @@ end
     scm.T.model = LogisticClassifier(lambda=0)
 
     tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
+    ose_result, fluctuation_mach = ose!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
+    test_coverage(ose_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
-    @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
     # The initial estimate is far away
     @test naive_plugin_estimate(Ψ) == 0
 
@@ -196,7 +206,9 @@ end
     scm.T.model = ConstantClassifier()
 
     tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
+    ose_result, fluctuation_mach = ose!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, Ψ₀)
+    test_coverage(ose_result, Ψ₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
@@ -215,17 +227,21 @@ end
     scm.T₂.model = LogisticClassifier(lambda=0)
 
     tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
+    ose_result, fluctuation_mach = ose!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₁)
+    test_coverage(ose_result, ATE₁₁₋₀₁)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
-    @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
     # When Q is well specified but G is misspecified
     scm.Y.model = TreatmentTransformer() |> LinearRegressor()
     scm.T₁.model = ConstantClassifier()
     scm.T₂.model = ConstantClassifier()
 
     tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
+    ose_result, fluctuation_mach = ose!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₁)
+    test_coverage(ose_result, ATE₁₁₋₀₁)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 
@@ -236,10 +252,12 @@ end
         treatment   = (T₁=(case=1., control=0.), T₂=(case=1., control=0.)),
     )
     tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
+    ose_result, fluctuation_mach = ose!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₀)
+    test_coverage(ose_result, ATE₁₁₋₀₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
-    @test_skip test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
 
     # When Q is well specified but G is misspecified
     scm.Y.model =  TreatmentTransformer() |> MLJModels.DeterministicConstantRegressor()
@@ -247,7 +265,9 @@ end
     scm.T₂.model = LogisticClassifier(lambda=0)
 
     tmle_result, fluctuation_mach = tmle!(Ψ, dataset, verbosity=0)
+    ose_result, fluctuation_mach = ose!(Ψ, dataset, verbosity=0)
     test_coverage(tmle_result, ATE₁₁₋₀₀)
+    test_coverage(ose_result, ATE₁₁₋₀₀)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
     test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
 end
