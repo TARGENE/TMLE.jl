@@ -1,9 +1,9 @@
 #####################################################################
-###                      Conditional Mean                         ###
+###                      Counterfactual Mean                         ###
 #####################################################################
 
 """
-# Conditional Mean / CM
+# Counterfactual Mean / CM
 
 ## Definition
 
@@ -27,17 +27,17 @@
 
 ```
 """
-struct ConditionalMean <: Estimand
+struct CounterfactualMean <: Estimand
     scm::StructuralCausalModel
     outcome::Symbol
     treatment::NamedTuple
-    function ConditionalMean(scm, outcome, treatment)
+    function CounterfactualMean(scm, outcome, treatment)
         check_parameter_against_scm(scm, outcome, treatment)
         return new(scm, outcome, treatment)
     end
 end
 
-const CM = ConditionalMean
+const CM = CounterfactualMean
 
 indicator_fns(Ψ::CM) = Dict(values(Ψ.treatment) => 1.)
 

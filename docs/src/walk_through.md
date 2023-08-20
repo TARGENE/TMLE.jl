@@ -91,7 +91,7 @@ AVAILABLE_ESTIMANDS
 
 At the moment there are 3 main estimand types we can estimate in TMLE.jl, we provide below a few examples.
 
-- The Interventional Conditional Mean:
+- The Interventional Counterfactual Mean:
 
 ```@example walk-through
 cm = CM(

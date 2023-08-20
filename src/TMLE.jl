@@ -26,7 +26,7 @@ import AbstractDifferentiation as AD
 export SE, StructuralEquation
 export StructuralCausalModel, SCM, StaticConfoundedModel
 export setmodel!, equations, reset!, parents
-export ConditionalMean, CM
+export CounterfactualMean, CM
 export AverageTreatmentEffect, ATE
 export InteractionAverageTreatmentEffect, IATE
 export AVAILABLE_ESTIMANDS

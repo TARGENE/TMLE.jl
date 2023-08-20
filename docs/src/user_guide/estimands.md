@@ -16,7 +16,7 @@ At the moment, most of the work in this package has been focused on estimands th
 
 In what follows, ``P`` is a probability distribution generating an outcome ``Y``, a random vector of "treatment" variables ``\textbf{T}`` and a random vector of "confounding" variables ``\textbf{W}``.
 
-## The Interventional Conditional Mean (CM)
+## The Interventional Counterfactual Mean (CM)
 
 - Causal Question:
 

@@ -253,7 +253,7 @@ end
         T₃ = ["C", "C", "C", "C", "D", "D", "D", "D"],
         Y =  [1, 1, 1, 1, 1, 1, 1, 1]
     )
-    # Conditional Mean
+    # Counterfactual Mean
     Ψ = CM(
         scm,
         outcome=:Y, 

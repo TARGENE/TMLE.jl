@@ -34,7 +34,7 @@ end
 
 @testset "Test composition CM(1) - CM(0) = ATE(1,0)" begin
     dataset, scm = make_dataset_and_scm(;n=1000)
-    # Conditional Mean T = 1
+    # Counterfactual Mean T = 1
     CM₁ = CM(
         scm,
         outcome = :Y,
@@ -42,7 +42,7 @@ end
     )
     CM_tmle_result₁, _ = tmle!(CM₁, dataset, verbosity=0)
     CM_ose_result₁, _ = ose!(CM₁, dataset, verbosity=0)
-    # Conditional Mean T = 0
+    # Counterfactual Mean T = 0
     CM₀ = CM(
         scm,
         outcome = :Y,
