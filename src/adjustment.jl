@@ -16,31 +16,13 @@ in order to improve inference.
 """
 BackdoorAdjustment(;outcome_extra=[]) = BackdoorAdjustment(outcome_extra)
 
-"""
-    outcome_input_variables(treatments, confounding_variables)
+confounders(::BackdoorAdjustment, Ψ::Estimand) = 
+    union((parents(Ψ.scm, treatment) for treatment in treatments(Ψ))...)
 
-This is defined as the set of variable corresponding to:
+outcome_parents(adjustment_method::BackdoorAdjustment, Ψ::Estimand) =
+    Set(vcat(
+        treatments(Ψ), 
+        confounders(adjustment_method, Ψ)..., 
+        adjustment_method.outcome_extra
+    ))
 
-- Treatment variables
-- Confounding variables
-- Extra covariates
-"""
-outcome_input_variables(treatments, confounding_variables, extra_covariates) = unique(vcat(
-    treatments, 
-    confounding_variables, 
-    extra_covariates
-))
-
-function get_models_input_variables(adjustment_method::BackdoorAdjustment, Ψ::Estimand)
-    models_inputs = []
-    for treatment in treatments(Ψ)
-        push!(models_inputs, parents(Ψ.scm, treatment))
-    end
-    unique_confounders = unique(vcat(models_inputs...))
-    push!(
-        models_inputs, 
-        outcome_input_variables(treatments(Ψ), unique_confounders, adjustment_method.outcome_extra)
-    )
-    variables = Tuple(vcat(treatments(Ψ), outcome(Ψ)))
-    return NamedTuple{variables}(models_inputs)
-end

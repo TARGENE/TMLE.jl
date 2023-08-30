@@ -1,6 +1,7 @@
 using Test
 
 @time begin
+    @test include("distribution_factors.jl")
     @test include("scm.jl")
     @test include("utils.jl")
     @test include("missing_management.jl")

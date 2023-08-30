@@ -1,107 +1,45 @@
 #####################################################################
 ###                  Structural Equation                          ###
 #####################################################################
+
+SelfReferringEquationError(outcome) = 
+    ArgumentError(string("Variable ", outcome, " appears on both sides of the equation."))
+
 """
 # Structural Equation / SE
 
 ## Constructors
 
-- SE(outcome, parents; model=nothing)
-- SE(;outcome, parents, model=nothing)
+- SE(outcome, parents)
+- SE(;outcome, parents)
 
 ## Examples
 
 eq = SE(:Y, [:T, :W])
-eq = SE(:Y, [:T, :W], model = LinearRegressor())
+eq = SE(outcome=:Y, parents=[:T, :W])
 
 """
-mutable struct StructuralEquation
+struct StructuralEquation
     outcome::Symbol
-    parents::Vector{Symbol}
-    model::Union{Model, Nothing}
-    mach::Union{Machine, Nothing}
-    function StructuralEquation(outcome, parents, model)
+    parents::Set{Symbol}
+    function StructuralEquation(outcome, parents)
+        outcome = Symbol(outcome)
+        parents = Set(Symbol(x) for x in parents)
         outcome ∉ parents || throw(SelfReferringEquationError(outcome))
-        return new(outcome, parents, model, nothing)
+        return new(outcome, parents)
     end
 end
 
 const SE = StructuralEquation
 
-SE(outcome, parents; model=nothing) = SE(outcome, parents, model)
-SE(;outcome, parents, model=nothing) = SE(outcome, parents, model)
-
-SelfReferringEquationError(outcome) = 
-    ArgumentError(string("Variable ", outcome, " appears on both sides of the equation."))
-
-NoModelError(eq::SE) = ArgumentError(string("It seems the following structural equation needs to be fitted.\n",
-    " Please provide a suitable model for it :\n\t⋆ ", eq))
-
-fit_message(eq::SE) = string("Fitting Structural Equation corresponding to variable ", outcome(eq), ".")
-
-
-equation_inputs(eq::SE, input_variables::Nothing) = parents(eq)
-equation_inputs(eq::SE, input_variables) = input_variables
-
-"""
-    MLJBase.fit!(eq::SE, dataset; input_variables=nothing, verbosity=1, cache=true, force=false)
-
-Fits the outcome's Structural Equation using the dataset with inputs variables given by either:
-
-- The variables corresponding to parents(eq) if `input_variables`= nothing
-- The alternative variables provided by `input_variables`.
-
-Extra keyword arguments are:
-
-- cache: Controls whether the associated MLJ.Machine will cache data.
-- force: Controls whether to force the associated MLJ.Machine to refit even if neither the model or data has changed.
-- verbosity: Controls the verbosity level
-"""
-function MLJBase.fit!(eq::SE, dataset; input_variables=nothing, verbosity=1, cache=true, force=false)
-    eq.model !== nothing || throw(NoModelError(eq))
-    # Fit when: never fitted OR model has changed OR inputs have changed
-    dofit = eq.mach === nothing || eq.model != eq.mach.model
-    if !dofit
-        if isdefined(eq.mach, :data)
-            dofit = Tables.columnnames(eq.mach.data[1]) !== Tuple(equation_inputs(eq, input_variables))
-        else
-            dofit = true
-        end
-    end
-
-    if dofit
-        verbosity >= 1 && @info(fit_message(eq))
-        input_colnames = equation_inputs(eq, input_variables)
-        data = nomissing(dataset, vcat(input_colnames, outcome(eq)))
-        X = selectcols(data, input_colnames)
-        y = Tables.getcolumn(data, outcome(eq))
-        mach = machine(eq.model, X, y, cache=cache)
-        MLJBase.fit!(mach, verbosity=verbosity-1)
-        eq.mach = mach
-    # Also refit if force is true
-    else 
-        verbosity >= 1 && force === true && @info(fit_message(eq))
-        MLJBase.fit!(eq.mach, verbosity=verbosity-1, force=force)
-    end
-end
-
-reset!(eq::SE) = eq.mach = nothing
-
-function string_repr(eq::SE; subscript="")
-    eq_string = string(eq.outcome, " = f", subscript, "(", join(eq.parents, ", "), ")")
-    if eq.model !== nothing
-        eq_string = string(eq_string, ", ", nameof(typeof(eq.model)), ", fitted=", eq.mach !== nothing)
-    end
-    return eq_string
-end
-
-Base.show(io::IO, ::MIME"text/plain", eq::SE) = println(io, string_repr(eq))
-
-setmodel!(eq::SE, model::Nothing) = nothing
-setmodel!(eq::SE, model::Model) = eq.model = model
+SE(;outcome, parents) = SE(outcome, parents)
 
 outcome(se::SE) = se.outcome
 parents(se::SE) = se.parents
+
+string_repr(eq::SE; subscript="") = string(outcome(eq), " = f", subscript, "(", join(parents(eq), ", "), ")")
+
+Base.show(io::IO, ::MIME"text/plain", eq::SE) = println(io, string_repr(eq))
 
 #####################################################################
 ###                Structural Causal Model                        ###
@@ -127,16 +65,68 @@ scm = SCM(
 """
 struct StructuralCausalModel
     equations::Dict{Symbol, StructuralEquation}
+    factors::Dict
 end
 
 const SCM = StructuralCausalModel
 
-SCM(;equations=Dict{Symbol, SE}()) = SCM(equations)
-SCM(equations::Vararg{SE}) = 
-    SCM(Dict(outcome(eq) => eq for eq in equations))
-
+SCM(;equations=Dict{Symbol, SE}(), factors=Dict()) = SCM(equations, factors)
+SCM(equations::Vararg{SE}; factors=Dict()) = SCM(Dict(outcome(eq) => eq for eq in equations), factors)
 
 equations(scm::SCM) = scm.equations
+factors(scm::SCM) = scm.factors
+
+parents(scm::StructuralCausalModel, outcome::Symbol) = 
+    haskey(equations(scm), outcome) ? parents(equations(scm)[outcome]) : Set{Symbol}()
+
+setequation!(scm::SCM, eq::SE) = scm.equations[outcome(eq)] = eq
+
+getequation(scm::StructuralCausalModel, key::Symbol) = scm.equations[key]
+
+get_conditional_distribution(scm::SCM, outcome::Symbol) = get_conditional_distribution(scm, outcome, parents(scm, outcome))
+get_conditional_distribution(scm::SCM, outcome::Symbol, parents) = scm.factors[(outcome, Set(parents))]
+
+NoAvailableConditionalDistributionError(scm, outcome, conditioning_set) = ArgumentError(string(
+    "Could not find a conditional distribution for either : \n - The required: ", 
+    cond_dist_string(outcome, conditioning_set), 
+    "\n - The natural (that could be used as a template): ", 
+    cond_dist_string(outcome, parents(scm, outcome)), 
+    "\nSet at least one of them using `set_conditional_distribution!` before proceeding to estimation."
+    ))
+
+UsingNaturalDistributionLog(scm, outcome, conditioning_set) = string(
+    "Could not retrieve a conditional distribution for the required: ", 
+    cond_dist_string(outcome, conditioning_set),
+    ".\n Will use the model class found in the natural candidate: ",
+    cond_dist_string(outcome, parents(scm, outcome))
+)
+
+function get_or_set_conditional_distribution_from_natural!(scm::SCM, outcome::Symbol, conditioning_set::Set{Symbol}; verbosity=1)
+    try 
+        return get_conditional_distribution(scm, outcome, conditioning_set)
+    catch KeyError
+        try
+            template_factor = get_conditional_distribution(scm, outcome)
+            set_conditional_distribution!(scm, outcome, conditioning_set, template_factor.model)
+            factor = get_conditional_distribution(scm, outcome, conditioning_set)
+            verbosity > 0 && @info(UsingNaturalDistributionLog(scm, outcome, conditioning_set))
+            return factor
+        catch KeyError
+            throw(NoAvailableConditionalDistributionError(scm, outcome, conditioning_set))
+        end
+    end
+end
+
+set_conditional_distribution!(scm::SCM, outcome::Symbol, model) =
+    set_conditional_distribution!(scm, outcome, parents(scm, outcome), model)
+
+function set_conditional_distribution!(scm::SCM, outcome::Symbol, parents, model)
+    factor = ConditionalDistribution(outcome, parents, model)
+    setfactor!(scm, factor)
+end
+
+setfactor!(scm::SCM, factor::DistributionFactor) =
+    scm.factors[key(factor)] = factor
 
 function string_repr(scm::SCM)
     scm_string = """
@@ -154,40 +144,6 @@ end
 Base.show(io::IO, ::MIME"text/plain", scm::SCM) = println(io, string_repr(scm))
 
 
-function Base.push!(scm::SCM, eq::SE)
-    key = outcome(eq)
-    scm[key] = eq
-end
-
-function Base.setindex!(scm::SCM, eq::SE, key::Symbol)
-    if haskey(scm.equations, key)
-        throw(AlreadyAssignedError(key))
-    end
-    scm.equations[key] = eq
-end
-
-Base.getindex(scm::SCM, key::Symbol) = scm.equations[key]
-
-function Base.getproperty(scm::StructuralCausalModel, key::Symbol)
-    hasfield(StructuralCausalModel, key) && return getfield(scm, key)
-    return scm.equations[key]
-end
-
-parents(scm::StructuralCausalModel, key::Symbol) = 
-    haskey(equations(scm), key) ? parents(scm[key]) : Symbol[]
-
-function MLJBase.fit!(scm::SCM, dataset; verbosity=1, cache=true, force=false)
-    for eq in values(equations(scm))
-        fit!(eq, dataset; verbosity=verbosity, cache=cache, force=force)
-    end
-end
-
-function reset!(scm::SCM)
-    for eq in values(equations(scm))
-        reset!(eq)
-    end
-end
-
 """
     is_upstream(var₁, var₂, scm::SCM)
 
@@ -199,27 +155,18 @@ function is_upstream(var₁, var₂, scm::SCM)
         if var₁ ∈ upstream
             return true
         else
-            upstream = vcat((parents(scm, v) for v in upstream)...)
+            upstream = union((parents(scm, v) for v in upstream)...)
         end
         isempty(upstream) && return false
     end
 end
 
-function upstream_variables(var, scm::SCM)
-    upstream = parents(scm, var)
-    current_upstream = upstream
-    while true
-        current_upstream = vcat((parents(scm, v) for v in current_upstream)...)
-        union!(upstream, current_upstream)
-        isempty(current_upstream) && return upstream
-    end
-end
 #####################################################################
 ###                  StaticConfoundedModel                        ###
 #####################################################################
 
-vcat_covariates(treatment, confounders, covariates::Nothing) = vcat(treatment, confounders)
-vcat_covariates(treatment, confounders, covariates) = vcat(treatment, confounders, covariates)
+combine_outcome_parents(treatment, confounders, covariates::Nothing) = vcat(treatment, confounders)
+combine_outcome_parents(treatment, confounders, covariates) = vcat(treatment, confounders, covariates)
 
 """
     StaticConfoundedModel(
@@ -236,22 +183,20 @@ The `outcome_model` and `treatment_model` define the relationship between
 the outcome (resp. treatment) and their ancestors.
 """
 function StaticConfoundedModel(
-    outcome::Symbol, treatment::Symbol, confounders::Union{Symbol, AbstractVector{Symbol}}; 
-    covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
+    outcome, treatment, confounders; 
+    covariates = nothing, 
     outcome_model = TreatmentTransformer() |> LinearRegressor(),
-    treatment_model = LinearBinaryClassifier()
+    treatment_model = LinearBinaryClassifier(),
     )
-    Yeq = SE(
-        outcome, 
-        vcat_covariates(treatment, confounders, covariates), 
-        outcome_model
+    Yeq = SE(outcome, combine_outcome_parents(treatment, confounders, covariates))
+    Teq = SE(treatment, vcat(confounders))
+    outcome_factor = ConditionalDistribution(Yeq.outcome, Yeq.parents, outcome_model)
+    treatment_factor = ConditionalDistribution(Teq.outcome, Teq.parents, treatment_model)
+    factors = Dict(
+        key(outcome_factor) => outcome_factor,
+        key(treatment_factor) => treatment_factor
     )
-    Teq = SE(
-        treatment, 
-        vcat(confounders), 
-        treatment_model
-    )
-    return StructuralCausalModel(Yeq, Teq)
+    return StructuralCausalModel(Yeq, Teq; factors)
 end
 
 """
@@ -274,14 +219,27 @@ The `outcome_model` and `treatment_model` define the relationships between
 the outcomes (resp. treatments) and their ancestors.
 """
 function StaticConfoundedModel(
-    outcomes::Vector{Symbol}, 
-    treatments::Vector{Symbol}, 
-    confounders::Union{Symbol, AbstractVector{Symbol}}; 
-    covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
+    outcomes::AbstractVector, 
+    treatments::AbstractVector, 
+    confounders; 
+    covariates = nothing, 
     outcome_model = TreatmentTransformer() |> LinearRegressor(),
     treatment_model = LinearBinaryClassifier()
     )
-    Yequations = (SE(outcome, vcat_covariates(treatments, confounders, covariates), outcome_model) for outcome in outcomes)
-    Tequations = (SE(treatment, vcat(confounders), treatment_model) for treatment in treatments)
-    return SCM(Yequations..., Tequations...)
+    Yequations = (SE(outcome, combine_outcome_parents(treatments, confounders, covariates)) for outcome in outcomes)
+    Tequations = (SE(treatment, vcat(confounders)) for treatment in treatments)
+    factors = Dict(
+        (outcome(Yeq) => Dict(parents(Yeq) => outcome_model) for Yeq in Yequations)...,
+        (outcome(Teq) => Dict(parents(Teq) => treatment_model) for Teq in Tequations)...
+    )
+    factors = Dict()
+    for eq in Yequations
+        factor = ConditionalDistribution(eq.outcome, eq.parents, outcome_model)
+        factors[key(factor)] = factor
+    end
+    for eq in Tequations
+        factor = ConditionalDistribution(eq.outcome, eq.parents, treatment_model)
+        factors[key(factor)] = factor
+    end
+    return SCM(Yequations..., Tequations...; factors=factors)
 end

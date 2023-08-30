@@ -67,6 +67,11 @@ Function used to sort estimands for optimal estimation ordering.
 function estimand_key end
 
 """
+Retrieves the relevant factors of the distribution to be fitted.
+"""
+relevant_factors(Ψ::Estimand; adjustment_method::AdjustmentMethod)
+
+"""
     optimize_ordering!(estimands::Vector{<:Estimand})
 
 Optimizes the order of the `estimands` to maximize reuse of 

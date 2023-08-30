@@ -168,7 +168,10 @@ for typename in CMCompositeTypenames
             covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
             outcome_model = with_encoder(LinearRegressor()),
             treatment_model = LinearBinaryClassifier())
-            scm = StaticConfoundedModel([outcome], collect(keys(treatment)), confounders;
+            scm = StaticConfoundedModel(
+                [outcome], 
+                collect(keys(treatment)), 
+                confounders;
                 covariates=covariates,
                 outcome_model=outcome_model,
                 treatment_model=treatment_model
@@ -192,11 +195,20 @@ function check_parameter_against_scm(scm::SCM, outcome, treatment)
     end
 end
 
-function MLJBase.fit!(Ψ::CMCompositeEstimand, dataset; adjustment_method=BackdoorAdjustment(), verbosity=1, force=false) 
-    models_input_variables = get_models_input_variables(adjustment_method, Ψ)
-    for (variable, input_variables) in zip(keys(models_input_variables), models_input_variables)
-        fit!(Ψ.scm[variable], dataset; 
-            input_variables=input_variables, 
+function relevant_factors(Ψ::CMCompositeEstimand; adjustment_method=BackdoorAdjustment(), verbosity=1)
+    outcome_factor = TMLE.get_or_set_conditional_distribution_from_natural!(
+        Ψ.scm, TMLE.outcome(Ψ), 
+        TMLE.outcome_parents(adjustment_method, Ψ); 
+        verbosity=verbosity
+    )
+    treatment_factors = (get_conditional_distribution(Ψ.scm, treatment, parents(Ψ.scm, treatment)) for treatment in treatments(Ψ))
+    return (outcome_factor, treatment_factors...)
+end
+
+function MLJBase.fit!(Ψ::CMCompositeEstimand, dataset; adjustment_method=BackdoorAdjustment(), verbosity=1, force=false, cache=true) 
+    for factor in relevant_factors(Ψ; adjustment_method=adjustment_method, verbosity=verbosity)
+        fit!(factor, dataset; 
+            cache=cache,
             verbosity=verbosity, 
             force=force
         )

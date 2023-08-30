@@ -25,7 +25,9 @@ import AbstractDifferentiation as AD
 
 export SE, StructuralEquation
 export StructuralCausalModel, SCM, StaticConfoundedModel
+export setequation!, getequation, get_conditional_distribution, set_conditional_distribution!
 export setmodel!, equations, reset!, parents
+export ConditionalDistribution
 export CounterfactualMean, CM
 export AverageTreatmentEffect, ATE
 export InteractionAverageTreatmentEffect, IATE
@@ -42,6 +44,7 @@ export BackdoorAdjustment
 # #############################################################################
 
 include("utils.jl")
+include("distribution_factors.jl")
 include("scm.jl")
 include("estimands.jl")
 include("estimate.jl")
@@ -157,6 +160,6 @@ function run_precompile_workload()
 
 end
 
-run_precompile_workload()
+# run_precompile_workload()
 
 end

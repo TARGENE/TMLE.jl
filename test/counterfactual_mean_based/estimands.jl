@@ -74,13 +74,13 @@ end
 
 @testset "Test constructors" begin
     Ψ = CM(outcome=:Y, treatment=(T=1,), confounders=[:W])
-    @test parents(Ψ.scm.Y) == [:T, :W]
+    @test parents(Ψ.scm, :Y) == Set([:T, :W])
 
     Ψ = ATE(outcome=:Y, treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)), confounders=:W)
-    @test parents(Ψ.scm.Y) == [:T₁, :T₂, :W]
+    @test parents(Ψ.scm, :Y) == Set([:T₁, :T₂, :W])
 
     Ψ = IATE(outcome=:Y, treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)), confounders=:W)
-    @test parents(Ψ.scm.Y) == [:T₁, :T₂, :W]
+    @test parents(Ψ.scm, :Y) == Set([:T₁, :T₂, :W])
 end
 
 
@@ -100,25 +100,36 @@ end
     )
 
     scm = SCM(
-        SE(:Ycat, [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C], TreatmentTransformer() |> LinearBinaryClassifier()),
-        SE(:Ycont, [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C],  TreatmentTransformer() |> LinearRegressor()),
-        SE(:T₁, [:W₁₁, :W₁₂], LinearBinaryClassifier()),
-        SE(:T₂, [:W₂₁, :W₂₂], LinearBinaryClassifier()),
+        SE(:Ycat, [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C]),
+        SE(:Ycont, [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C]),
+        SE(:T₁, [:W₁₁, :W₁₂]),
+        SE(:T₂, [:W₂₁, :W₂₂]),
     )
-
-    # Fits CM required equations
+    set_conditional_distribution!(scm, :Ycat, with_encoder(LinearBinaryClassifier()))
+    set_conditional_distribution!(scm, :Ycont, with_encoder(LinearRegressor()))
+    set_conditional_distribution!(scm, :T₁, LinearBinaryClassifier())
+    set_conditional_distribution!(scm, :T₂, LinearBinaryClassifier())
+    # Fits CM required factors
     Ψ = CM(
         scm,
         treatment=(T₁=1,),
         outcome=:Ycat
     )
-    fit!(Ψ, dataset; adjustment_method=BackdoorAdjustment([:C]), verbosity=0)
-    @test scm.Ycat.mach isa Machine
-    @test keys(scm.Ycat.mach.data[1]) == (:T₁, :W₁₁, :W₁₂, :C)
-    @test scm.T₁.mach isa Machine
-    @test keys(scm.T₁.mach.data[1]) == (:W₁₁, :W₁₂)
-    @test scm.Ycont.mach isa Nothing
-    @test scm.T₂.mach isa Nothing
+    log_sequence = (
+        (:info, TMLE.UsingNaturalDistributionLog(scm, :Ycat, Set([:W₁₂, :W₁₁, :T₁, :C]))),
+        (:info, "Fitting Conditional Distribution Factor: Ycat | W₁₂, W₁₁, T₁, C"),
+        (:info, "Fitting Conditional Distribution Factor: T₁ | W₁₂, W₁₁"),
+    )
+    @test_logs log_sequence... fit!(Ψ, dataset; adjustment_method=BackdoorAdjustment([:C]), verbosity=1)
+    outcome_dist = get_conditional_distribution(scm, :Ycat, Set([:W₁₂, :W₁₁, :T₁, :C]))
+    @test keys(fitted_params(outcome_dist.machine)) == (:linear_binary_classifier, :treatment_transformer)
+    @test keys(outcome_dist.machine.data[1]) == (:W₁₂, :W₁₁, :T₁, :C)
+    treatment_dist = get_conditional_distribution(scm, :T₁, Set([:W₁₁, :W₁₂]))
+    @test fitted_params(treatment_dist.machine).features == [:W₁₂, :W₁₁]
+    @test keys(treatment_dist.machine.data[1]) == (:W₁₂, :W₁₁)
+    # The natural outcome distribution has not been fitted for instance
+    natural_outcome_dist = get_conditional_distribution(scm, :Ycat, Set([:T₂, :W₁₂, :W₂₂, :W₂₁, :W₁₁, :T₁, :C]))
+    @test !isdefined(natural_outcome_dist, :machine)
 
     # Fits ATE required equations that haven't been fitted yet.
     Ψ = ATE(
@@ -126,16 +137,21 @@ end
         treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
         outcome =:Ycat,
     )
+    conditioning_set = Set([:W₁₂, :W₂₂, :W₂₁, :W₁₁, :T₁, :T₂])
     log_sequence = (
-        (:info, "Fitting Structural Equation corresponding to variable T₂."),
-        (:info, "Fitting Structural Equation corresponding to variable Ycat.")
+        (:info, TMLE.UsingNaturalDistributionLog(scm, :Ycat, conditioning_set)),
+        (:info, "Fitting Conditional Distribution Factor: Ycat | W₁₂, W₂₂, W₂₁, W₁₁, T₁, T₂"),
+        (:info, "Reusing or Updating Conditional Distribution Factor: T₁ | W₁₂, W₁₁"),
+        (:info, "Fitting Conditional Distribution Factor: T₂ | W₂₂, W₂₁"),
     )
     @test_logs log_sequence... fit!(Ψ, dataset, verbosity=1)
-    @test scm.Ycat.mach isa Machine
-    keys(scm.Ycat.mach.data[1])
-    @test scm.T₁.mach isa Machine
-    @test scm.T₂.mach isa Machine
-    @test scm.Ycont.mach isa Nothing
+
+    outcome_dist = get_conditional_distribution(scm, :Ycat, conditioning_set)
+    @test keys(fitted_params(outcome_dist.machine)) == (:linear_binary_classifier, :treatment_transformer)
+    @test Set(keys(outcome_dist.machine.data[1])) == conditioning_set
+    treatment_dist = get_conditional_distribution(scm, :T₂, Set([:W₂₂, :W₂₁]))
+    @test fitted_params(treatment_dist.machine).features == [:W₂₂, :W₂₁]
+    @test keys(treatment_dist.machine.data[1]) == (:W₂₂, :W₂₁)
     
     # Fits IATE required equations that haven't been fitted yet.
     Ψ = IATE(
@@ -143,21 +159,18 @@ end
         treatment=(T₁=(case=1, control=0), T₂=(case=1, control=0)),
         outcome =:Ycont,
     )
+    conditioning_set = Set([:W₁₂, :W₂₂, :W₂₁, :W₁₁, :T₁, :T₂])
     log_sequence = (
-        (:info, "Fitting Structural Equation corresponding to variable Ycont."),
+        (:info, TMLE.UsingNaturalDistributionLog(scm, :Ycont, conditioning_set)),
+        (:info, "Fitting Conditional Distribution Factor: Ycont | W₁₂, W₂₂, W₂₁, W₁₁, T₁, T₂"),
+        (:info, "Reusing or Updating Conditional Distribution Factor: T₁ | W₁₂, W₁₁"),
+        (:info, "Reusing or Updating Conditional Distribution Factor: T₂ | W₂₂, W₂₁"),
     )
     @test_logs log_sequence... fit!(Ψ, dataset, verbosity=1)
-    @test scm.Ycat.mach isa Machine
-    @test scm.T₁.mach isa Machine
-    @test scm.T₂.mach isa Machine
-    @test scm.Ycont.mach isa Machine
+    outcome_dist = get_conditional_distribution(scm, :Ycont, conditioning_set)
+    @test keys(fitted_params(outcome_dist.machine)) == (:linear_regressor, :treatment_transformer)
+    @test Set(keys(outcome_dist.machine.data[1])) == conditioning_set
 
-    # Change a model
-    scm.Ycont.model = TreatmentTransformer() |> LinearRegressor(fit_intercept=false)
-    log_sequence = (
-        (:info, "Fitting Structural Equation corresponding to variable Ycont."),
-    )
-    @test_logs log_sequence... fit!(Ψ, dataset, verbosity=1)
 end
 
 @testset "Test optimize_ordering" begin
