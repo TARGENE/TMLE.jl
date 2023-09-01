@@ -1,20 +1,18 @@
 
-data_adaptive_ps_lower_bound(n::Int; max_lb=0.1) = 
-    min(5 / (√(n)*log(n/5)), max_lb)
-
 """
     data_adaptive_ps_lower_bound(Ψ::CMCompositeEstimand)
 
 This startegy is from [this paper](https://academic.oup.com/aje/article/191/9/1640/6580570?login=false) 
 but the study does not show strictly better behaviour of the strategy so not a default for now.
 """
-function data_adaptive_ps_lower_bound(Ψ::CMCompositeEstimand; max_lb=0.1)
-    n = nrows(get_outcome_datas(Ψ)[2])
-    return data_adaptive_ps_lower_bound(n; max_lb=max_lb) 
-end
+data_adaptive_ps_lower_bound(n::Int; max_lb=0.1) = 
+    min(5 / (√(n)*log(n/5)), max_lb)
 
-ps_lower_bound(Ψ::CMCompositeEstimand, lower_bound::Nothing; max_lb=0.1) = data_adaptive_ps_lower_bound(Ψ; max_lb=max_lb)
-ps_lower_bound(Ψ::CMCompositeEstimand, lower_bound; max_lb=0.1) = min(max_lb, lower_bound)
+ps_lower_bound(n::Int, lower_bound::Nothing; max_lb=0.1) = data_adaptive_ps_lower_bound(n; max_lb=max_lb)
+ps_lower_bound(n::Int, lower_bound; max_lb=0.1) = min(max_lb, lower_bound)
+
+treatments(dataset, G) = selectcols(dataset, keys(G))
+confounders(dataset, G) = (;(key => selectcols(dataset, keys(cd.machine.data[1])) for (key, cd) in zip(keys(G), G))...)
 
 
 function truncate!(v::AbstractVector, ps_lowerbound::AbstractFloat)
@@ -31,18 +29,14 @@ end
 compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
 compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
 
-compute_offset(Ψ::CMCompositeEstimand) = 
-    compute_offset(MLJBase.predict(get_outcome_model(Ψ)))
 
-function balancing_weights(Ψ::CMCompositeEstimand, W, T; ps_lowerbound=1e-8)
-    density = ones(nrows(T))
-    for colname ∈ Tables.columnnames(T)
-        mach = Ψ.scm[colname].mach
-        ŷ = MLJBase.predict(mach, W[colname])
-        density .*= pdf.(ŷ, Tables.getcolumn(T, colname))
+function balancing_weights(Gs, dataset; ps_lowerbound=1e-8)
+    jointlikelihood = ones(nrows(dataset))
+    for G ∈ Gs
+        jointlikelihood .*= likelihood(G, dataset)
     end
-    truncate!(density, ps_lowerbound)
-    return 1. ./ density
+    truncate!(jointlikelihood, ps_lowerbound)
+    return 1. ./ jointlikelihood
 end
 
 """
@@ -62,12 +56,11 @@ if `weighted_fluctuation = true`:
 
 where SpecialIndicator(t) is defined in `indicator_fns`.
 """
-function clever_covariate_and_weights(Ψ::CMCompositeEstimand, X; ps_lowerbound=1e-8, weighted_fluctuation=false)
+function clever_covariate_and_weights(Ψ::CMCompositeEstimand, Gs, dataset; ps_lowerbound=1e-8, weighted_fluctuation=false)
     # Compute the indicator values
-    T = treatments(X, Ψ)
-    W = confounders(X, Ψ)
+    T = treatments(dataset, Gs)
     indic_vals = indicator_values(indicator_fns(Ψ), T)
-    weights = balancing_weights(Ψ, W, T, ps_lowerbound=ps_lowerbound)
+    weights = balancing_weights(Gs, dataset; ps_lowerbound=ps_lowerbound)
     if weighted_fluctuation
         return indic_vals, weights
     end
@@ -89,7 +82,7 @@ weighted_covariate(Q::Machine{<:FluctuationModel, }, args...; kwargs...) = Q.cac
 
 Computes the weighted covariate for the gradient.
 """
-function weighted_covariate(Q::Machine, Ψ, X; ps_lowerbound=1e-8)
-    H, weights = clever_covariate_and_weights(Ψ, X; ps_lowerbound=ps_lowerbound)
+function weighted_covariate(Q::Machine, G, Ψ, X; ps_lowerbound=1e-8)
+    H, weights = clever_covariate_and_weights(Ψ, G, X; ps_lowerbound=ps_lowerbound)
     return H .* weights
 end

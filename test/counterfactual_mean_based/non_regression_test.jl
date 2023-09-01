@@ -25,10 +25,10 @@ using MLJGLMInterface
         treatment_model = LinearBinaryClassifier()
     )
 
-    tmle_result, fluctuation_mach = tmle!(Ψ, dataset, ps_lowerbound=0.025, verbosity=0)
+    tmle_result, targeted_factors = tmle!(Ψ, dataset; ps_lowerbound=0.025, verbosity=0)
     # TMLE
     @test estimate(tmle_result) ≈ -0.185533 atol = 1e-6
-    @test naive_plugin_estimate(Ψ) ≈ -0.150078 atol = 1e-6
+    @test naive_plugin_estimate!(Ψ, dataset) ≈ -0.150078 atol = 1e-6
     l, u = confint(OneSampleTTest(tmle_result))
     @test l ≈ -0.279246 atol = 1e-6
     @test u ≈ -0.091821 atol = 1e-6

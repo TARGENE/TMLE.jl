@@ -39,14 +39,35 @@ end
         W₂ = rand(7),
         W₃ = rand(7)
     )
-    fit!(Ψ, dataset, verbosity=0)
-
+    initial_factors = fit!(Ψ, dataset, verbosity=0)
     ps_lowerbound = 1e-8
     weighted_fluctuation = true
-    test_fluctuation_fit(Ψ, ps_lowerbound, weighted_fluctuation)
+    targeted_factors = TMLE.fluctuate(initial_factors, Ψ; 
+        ps_lowerbound=ps_lowerbound,
+        weighted_fluctuation=weighted_fluctuation,
+        verbosity=1,
+        tol=nothing
+    )
+    @test targeted_factors.T === initial_factors.T
+    @test targeted_factors.Y !== initial_factors.Y
+    @test targeted_factors.Y.machine.cache.weighted_covariate ==  [1.75, -3.5, 0.0, 1.75, 1.75, -3.5, 1.75]
+    Q = targeted_factors.Y
+    X = Q.machine.data[1]
+    Xfluct, weights = TMLE.clever_covariate_offset_and_weights(Q.model, X)
+    @test weights == [1.75, 3.5, 7.0, 1.75, 1.75, 3.5, 1.75]
+    @test targeted_factors.Y.machine.cache.weighted_covariate == Xfluct.covariate .* weights
 
     weighted_fluctuation = false
-    test_fluctuation_fit(Ψ, ps_lowerbound, weighted_fluctuation)
+    targeted_factors = TMLE.fluctuate(initial_factors, Ψ; 
+        ps_lowerbound=ps_lowerbound,
+        weighted_fluctuation=weighted_fluctuation,
+        verbosity=1,
+        tol=nothing
+    )
+    Q = targeted_factors.Y
+    X = Q.machine.data[1]
+    Xfluct, weights = TMLE.clever_covariate_offset_and_weights(Q.model, X)
+    @test weights == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 end
 
 @testset "Test Fluctuation with 2 Treatments" begin
@@ -68,14 +89,24 @@ end
     ps_lowerbound = 1e-8
     weighted_fluctuation = false
 
-    fit!(Ψ, dataset, verbosity=0)
-    test_fluctuation_fit(Ψ, ps_lowerbound, weighted_fluctuation)
+    initial_factors = fit!(Ψ, dataset, verbosity=0)
+    targeted_factors = TMLE.fluctuate(initial_factors, Ψ; 
+        ps_lowerbound=ps_lowerbound,
+        weighted_fluctuation=weighted_fluctuation,
+        verbosity=1,
+        tol=nothing
+    )
+    @test targeted_factors.T₁ === initial_factors.T₁
+    @test targeted_factors.T₂ === initial_factors.T₂
+    @test targeted_factors.Y !== initial_factors.Y
+    @test targeted_factors.Y.machine.cache.weighted_covariate ≈ 
+        [2.45, -3.27, -3.27, 2.45, 2.45, -6.13, 8.17] atol=0.01
 end
 
 @testset "Test Fluctuation with 3 Treatments" begin
     ## Third case: 3 Treatment variables
     Ψ = IATE(
-        outcome =:Y, 
+        outcome = :Y, 
         treatment=(T₁=(case="a", control="b"), 
                    T₂=(case=1, control=2), 
                    T₃=(case=true, control=false)),
@@ -93,8 +124,19 @@ end
     ps_lowerbound = 1e-8 
     weighted_fluctuation = false
 
-    fit!(Ψ, dataset, verbosity=0)
-    test_fluctuation_fit(Ψ, ps_lowerbound, weighted_fluctuation)
+    initial_factors = fit!(Ψ, dataset, verbosity=0)
+    targeted_factors = TMLE.fluctuate(initial_factors, Ψ; 
+        ps_lowerbound=ps_lowerbound,
+        weighted_fluctuation=weighted_fluctuation,
+        verbosity=1,
+        tol=nothing
+    )
+    @test targeted_factors.T₁ === initial_factors.T₁
+    @test targeted_factors.T₂ === initial_factors.T₂
+    @test targeted_factors.T₃ === initial_factors.T₃
+    @test targeted_factors.Y !== initial_factors.Y
+    @test targeted_factors.Y.machine.cache.weighted_covariate ≈
+        [0.0, 8.58, -21.44, 8.58, 0.0, -4.29, -4.29] atol=0.01
 end
 
 @testset "Test fluctuation_input" begin
@@ -109,7 +151,6 @@ end
     X = TMLE.fluctuation_input([1.f0, 2.f0], [1., 2.])
     @test X.covariate isa Vector{Float32}
     @test X.offset isa Vector{Float32}
-
 end
 
 end

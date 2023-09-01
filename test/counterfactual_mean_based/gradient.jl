@@ -34,30 +34,29 @@ end
         outcome_model   = with_encoder(InteractionTransformer(order=2) |> LinearRegressor())
     )
     dataset = one_treatment_dataset(;n=100)
-    fit!(Ψ, dataset, verbosity=0)
+    factors = fit!(Ψ, dataset, verbosity=0)
     
     # Retrieve outcome model
-    Q = TMLE.get_outcome_model(Ψ)
+    Q = factors.Y
+    G = (T=factors.T, )
     linear_model = fitted_params(Q).deterministic_pipeline.linear_regressor
     intercept = linear_model.intercept
     coefs = Dict(linear_model.coefs)
     # Counterfactual aggregate
-    ctf_agg = TMLE.counterfactual_aggregate(Ψ, Q)
+    ctf_agg = TMLE.counterfactual_aggregate(Ψ, Q, G)
     expected_ctf_agg = (intercept .+ coefs[:T] .+ dataset.W.*coefs[:W] .+ dataset.W.*coefs[:T_W]) .- (intercept .+ dataset.W.*coefs[:W])
     @test ctf_agg ≈ expected_ctf_agg atol=1e-10
-    # Retrieve propensity score model
-    G = Ψ.scm[:T].mach
     # Gradient Y|X
-    H = 1 ./ pdf.(predict(G), dataset.T) .* [t == 1 ? 1. : -1. for t in dataset.T]
-    expected_∇YX = H .* (dataset.Y .- predict(Q))
-    ∇YX = TMLE.∇YX(Ψ, Q; ps_lowerbound=ps_lowerbound)
+    H = 1 ./ pdf.(predict(G.T.machine), dataset.T) .* [t == 1 ? 1. : -1. for t in dataset.T]
+    expected_∇YX = H .* (dataset.Y .- predict(Q.machine))
+    ∇YX = TMLE.∇YX(Ψ, Q, G; ps_lowerbound=ps_lowerbound)
     @test expected_∇YX == ∇YX
     # Gradient W
     expectedΨ̂ = mean(ctf_agg)
     ∇W = TMLE.∇W(ctf_agg, expectedΨ̂)
     @test ∇W == ctf_agg .- expectedΨ̂
     # gradient_and_estimate
-    IC, Ψ̂ = TMLE.gradient_and_estimate(Ψ, Q; ps_lowerbound=ps_lowerbound)
+    IC, Ψ̂ = TMLE.gradient_and_estimate(Ψ, factors; ps_lowerbound=ps_lowerbound)
     @test expectedΨ̂ == Ψ̂
     @test IC == ∇YX .+ ∇W
 end

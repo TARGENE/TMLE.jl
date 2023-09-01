@@ -19,7 +19,8 @@ Performs Targeted Minimum Loss Based Estimation of the target estimand.
 - ps_lowerbound: The propensity score will be truncated to respect this lower bound.
 - weighted_fluctuation: To use a weighted fluctuation instead of the vanilla TMLE, can improve stability.
 """
-function tmle!(Ψ::CMCompositeEstimand, dataset; 
+function tmle!(Ψ::CMCompositeEstimand, dataset;
+    resampling=nothing,
     adjustment_method=BackdoorAdjustment(), 
     verbosity=1, 
     force=false, 
@@ -30,27 +31,26 @@ function tmle!(Ψ::CMCompositeEstimand, dataset;
     check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's equations
     verbosity >= 1 && @info "Fitting the required equations..."
-    fit!(Ψ, dataset;
+    initial_factors = fit!(Ψ, dataset;
         adjustment_method=adjustment_method, 
         verbosity=verbosity, 
         force=force
     )
     # Get propensity score truncation threshold
-    ps_lowerbound = ps_lower_bound(Ψ, ps_lowerbound)
+    n = nrows(initial_factors[outcome(Ψ)].machine.data[2])
+    ps_lowerbound = ps_lower_bound(n, ps_lowerbound)
     # Fit Fluctuation
     verbosity >= 1 && @info "Performing TMLE..."
-    Q⁰ = get_outcome_model(Ψ)
-    X, y = Q⁰.data
-    Q = machine(
-        Fluctuation(Ψ, 0.1, ps_lowerbound, weighted_fluctuation), 
-        X, 
-        y
+    targeted_factors = fluctuate(initial_factors, Ψ; 
+        tol=nothing, 
+        verbosity=verbosity, 
+        weighted_fluctuation=weighted_fluctuation, 
+        ps_lowerbound=ps_lowerbound
     )
-    fit!(Q, verbosity=verbosity-1)
     # Estimation results after TMLE
-    IC, Ψ̂ = gradient_and_estimate(Ψ, Q; ps_lowerbound=ps_lowerbound)
+    IC, Ψ̂ = gradient_and_estimate(Ψ, targeted_factors; ps_lowerbound=ps_lowerbound)
     verbosity >= 1 && @info "Done."
-    return TMLEstimate(Ψ̂, IC), Q
+    return TMLEstimate(Ψ̂, IC), targeted_factors
 end
 
 function ose!(Ψ::CMCompositeEstimand, dataset; 
@@ -77,8 +77,6 @@ function ose!(Ψ::CMCompositeEstimand, dataset;
     return OSEstimate(Ψ̂ + mean(IC), IC), Q
 end
 
-naive_plugin_estimate(Ψ::CMCompositeEstimand) = mean(counterfactual_aggregate(Ψ, get_outcome_model(Ψ)))
-
 function naive_plugin_estimate!(Ψ::CMCompositeEstimand, dataset;
     adjustment_method=BackdoorAdjustment(), 
     verbosity=1, 
@@ -87,12 +85,16 @@ function naive_plugin_estimate!(Ψ::CMCompositeEstimand, dataset;
     check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's equations
     verbosity >= 1 && @info "Fitting the required equations..."
-    fit!(Ψ, dataset;
-        adjustment_method=adjustment_method, 
+    Q = get_or_set_conditional_distribution_from_natural!(
+        Ψ.scm, outcome(Ψ), 
+        outcome_parents(adjustment_method, Ψ); 
+        verbosity=verbosity
+    )
+    fit!(Q, dataset; 
         verbosity=verbosity, 
         force=force
     )
-    return naive_plugin_estimate(Ψ)
+    return mean(counterfactual_aggregate(Ψ, Q))
 end
 
 """
@@ -123,41 +125,6 @@ function cvtmle!(Ψ::CMCompositeEstimand, dataset;
     force=false, 
     ps_lowerbound=1e-8, 
     weighted_fluctuation=false) 
-
-    # Check the estimand against the dataset
-    check_treatment_levels(Ψ, dataset)
-    # Initial fit of the SCM's equations
-    verbosity >= 1 && @info "Fitting the required equations..."
-    fit!(Ψ, dataset;
-        resampling=resampling,
-        adjustment_method=adjustment_method, 
-        verbosity=verbosity, 
-        force=force
-    )
-    # Get propensity score truncation threshold
-    ps_lowerbound = ps_lower_bound(Ψ, ps_lowerbound)
-    # Fit Fluctuation
-    verbosity >= 1 && @info "Performing TMLE..."
-    Q⁰ = get_outcome_model(Ψ)
-    X, y = Q⁰.data
-    Q = machine(
-        Fluctuation(Ψ, 0.1, ps_lowerbound, weighted_fluctuation), 
-        X, 
-        y
-    )
-    fit!(Q, verbosity=verbosity-1)
-    # Estimation results after TMLE
-    IC, Ψ̂ = gradient_and_estimate(Ψ, Q; ps_lowerbound=ps_lowerbound)
-    verbosity >= 1 && @info "Done."
-    return TMLEstimate(Ψ̂, IC), Q
 end
 
-"""
 
-# Algorithm
-
-1. Split the dataset in v-folds splits
-2. For each split, fit the relevant factors of the distribution on the training sets
-3.
-"""
-function easy_cvtmle!() end

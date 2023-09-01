@@ -7,9 +7,6 @@ A Estimand is a functional on distribution space Ψ: ℳ → ℜ.
 abstract type Estimand end
 
 treatments(Ψ::Estimand) = collect(keys(Ψ.treatment))
-treatments(dataset, Ψ::Estimand) = selectcols(dataset, treatments(Ψ))
-
-confounders(dataset, Ψ::Estimand) = (;(T => selectcols(dataset, keys(Ψ.scm[T].mach.data[1])) for T in treatments(Ψ))...)
 
 AbsentLevelError(treatment_name, key, val, levels) = ArgumentError(string(
     "The treatment variable ", treatment_name, "'s, '", key, "' level: '", val,
@@ -69,7 +66,7 @@ function estimand_key end
 """
 Retrieves the relevant factors of the distribution to be fitted.
 """
-relevant_factors(Ψ::Estimand; adjustment_method::AdjustmentMethod)
+get_relevant_factors(Ψ::Estimand; adjustment_method::AdjustmentMethod)
 
 """
     optimize_ordering!(estimands::Vector{<:Estimand})
