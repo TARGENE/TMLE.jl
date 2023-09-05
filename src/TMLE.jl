@@ -44,10 +44,9 @@ export BackdoorAdjustment
 # #############################################################################
 
 include("utils.jl")
-include("distribution_factors.jl")
 include("scm.jl")
 include("estimands.jl")
-include("estimate.jl")
+include("estimates.jl")
 include("treatment_transformer.jl")
 include("adjustment.jl")
 

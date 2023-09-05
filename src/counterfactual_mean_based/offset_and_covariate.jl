@@ -74,7 +74,7 @@ end
 
 If Q is a fluctuation and caches data, the covariate has already been computed and can be retrieved.
 """
-weighted_covariate(Q::Machine{<:FluctuationModel, }, args...; kwargs...) = Q.cache.weighted_covariate
+weighted_covariate(Q::Machine{<:Fluctuation, }, args...; kwargs...) = Q.cache.weighted_covariate
 
 
 """

@@ -8,3 +8,10 @@
 This package enables the estimation of various Causal Inference related estimands using Targeted Minimum Loss-Based Estimation (TMLE). TMLE.jl is based on top of [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/), which means any MLJ compliant machine-learning model can be used here.
 
 **New to TMLE.jl?** [Get started now](https://targene.github.io/TMLE.jl/stable/)
+
+## Notes to self
+
+- Factors should probably not be exposed. For instance resampling should only be specified once per estimation procedure and not for each factor.
+- For multiple TMLE steps, convergence when the mean of the IC is below: σ/n where σ is the standard deviation of the IC.
+- Try make selectcols preserve input type
+- Watch for discrepancy in train_validation_indices with missing data...

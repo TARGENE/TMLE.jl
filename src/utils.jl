@@ -41,7 +41,7 @@ expected_value(ŷ::UnivariateFiniteVector{Multiclass{2}}) = pdf.(ŷ, levels(firs
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
-training_expected_value(Q::Machine) = expected_value(predict(Q))
+training_expected_value(Q::Machine, dataset) = expected_value(predict(Q, dataset))
 
 
 function counterfactualTreatment(vals, T)

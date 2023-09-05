@@ -6,6 +6,11 @@ A Estimand is a functional on distribution space Ψ: ℳ → ℜ.
 """
 abstract type Estimand end
 
+string_repr(estimand::Estimand) = estimand
+
+Base.show(io::IO, ::MIME"text/plain", estimand::Estimand) =
+    println(io, string_repr(estimand))
+
 treatments(Ψ::Estimand) = collect(keys(Ψ.treatment))
 
 AbsentLevelError(treatment_name, key, val, levels) = ArgumentError(string(
@@ -64,11 +69,6 @@ Function used to sort estimands for optimal estimation ordering.
 function estimand_key end
 
 """
-Retrieves the relevant factors of the distribution to be fitted.
-"""
-get_relevant_factors(Ψ::Estimand; adjustment_method::AdjustmentMethod)
-
-"""
     optimize_ordering!(estimands::Vector{<:Estimand})
 
 Optimizes the order of the `estimands` to maximize reuse of 
@@ -82,3 +82,65 @@ optimize_ordering!(estimands::Vector{<:Estimand}) = sort!(estimands, by=estimand
 See [`optimize_ordering!`](@ref)
 """
 optimize_ordering(estimands::Vector{<:Estimand}) = sort(estimands, by=estimand_key)
+
+#####################################################################
+###                   Conditional Distribution                    ###
+#####################################################################
+"""
+Defines a Conditional Distribution estimand ``(outcome, parents) → P(outcome|parents)``.
+"""
+struct ConditionalDistribution <: Estimand
+    scm::SCM
+    outcome::Symbol
+    parents::Set{Symbol}
+    function ConditionalDistribution(scm, outcome, parents)
+        outcome = Symbol(outcome)
+        parents = Set(Symbol(x) for x in parents)
+        outcome ∉ parents || throw(SelfReferringEquationError(outcome))
+        # Maybe check variables are in the SCM?
+        return new(scm, outcome, parents)
+    end
+end
+
+string_repr(estimand::ConditionalDistribution) = 
+    string("P₀(", estimand.outcome, " | ", join(estimand.parents, ", "), ")")
+
+featurenames(estimand::ConditionalDistribution) = sort(collect(estimand.parents))
+
+variables(estimand::ConditionalDistribution) = union(Set([estimand.outcome]), estimand.parents)
+
+estimand_key(cd::ConditionalDistribution) = (cd.outcome, cd.parents)
+
+#####################################################################
+###                        ExpectedValue                          ###
+#####################################################################
+
+"""
+Defines an Expected Value estimand ``parents → E[Outcome|parents]``.
+At the moment there is no distinction between an Expected Value and 
+a Conditional Distribution because they are estimated in the same way.
+"""
+const ExpectedValue = ConditionalDistribution
+
+#####################################################################
+###                       CMRelevantFactors                       ###
+#####################################################################
+
+"""
+Defines relevant factors that need to be estimated in order to estimate any
+Counterfactual Mean composite estimand (see `CMCompositeEstimand`).
+"""
+struct CMRelevantFactors <: Estimand
+    scm::SCM
+    outcome_mean::ConditionalDistribution
+    propensity_score::Tuple{Vararg{ConditionalDistribution}}
+end
+
+string_repr(estimand::CMRelevantFactors) = 
+    string("Composite Factor: \n",
+           "----------------\n- ",
+        string_repr(estimand.outcome_mean),"\n- ", 
+        join((string_repr(f) for f in estimand.propensity_score), "\n- "))
+
+variables(estimand::CMRelevantFactors) = 
+    union(variables(estimand.outcome_mean), (variables(est) for est in estimand.propensity_score)...)

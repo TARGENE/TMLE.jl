@@ -1,5 +1,5 @@
 #####################################################################
-###                      Counterfactual Mean                         ###
+###                      Counterfactual Mean                      ###
 #####################################################################
 
 """
@@ -195,26 +195,10 @@ function check_parameter_against_scm(scm::SCM, outcome, treatment)
     end
 end
 
-function get_relevant_factors(Ψ::CMCompositeEstimand; adjustment_method=BackdoorAdjustment(), verbosity=1)
-    outcome_factor = get_or_set_conditional_distribution_from_natural!(
-        Ψ.scm, outcome(Ψ), 
-        outcome_parents(adjustment_method, Ψ); 
-        verbosity=verbosity
-    )
-    treatment_factors = (get_conditional_distribution(Ψ.scm, treatment, parents(Ψ.scm, treatment)) for treatment in treatments(Ψ))
-    return NamedTuple{(outcome_factor.outcome, (tf.outcome for tf in treatment_factors)...)}([outcome_factor, treatment_factors...])
-end
-
-function MLJBase.fit!(Ψ::CMCompositeEstimand, dataset; adjustment_method=BackdoorAdjustment(), verbosity=1, force=false, cache=true) 
-    relevant_factors = get_relevant_factors(Ψ; adjustment_method=adjustment_method, verbosity=verbosity)
-    for factor in relevant_factors
-        fit!(factor, dataset; 
-            cache=cache,
-            verbosity=verbosity, 
-            force=force
-        )
-    end
-    return relevant_factors
+function get_relevant_factors(Ψ::CMCompositeEstimand; adjustment_method=BackdoorAdjustment())
+    outcome_model = ExpectedValue(Ψ.scm, outcome(Ψ), outcome_parents(adjustment_method, Ψ))
+    treatment_factors = Tuple(ConditionalDistribution(Ψ.scm, treatment, parents(Ψ.scm, treatment)) for treatment in treatments(Ψ))
+    return CMRelevantFactors(Ψ.scm, outcome_model, treatment_factors)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: CMCompositeEstimand 

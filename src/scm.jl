@@ -101,32 +101,44 @@ UsingNaturalDistributionLog(scm, outcome, conditioning_set) = string(
     cond_dist_string(outcome, parents(scm, outcome))
 )
 
-function get_or_set_conditional_distribution_from_natural!(scm::SCM, outcome::Symbol, conditioning_set::Set{Symbol}; verbosity=1)
+function get_or_set_conditional_distribution_from_natural!(scm::SCM, outcome::Symbol, conditioning_set::Set{Symbol}; resampling=nothing, verbosity=1)
     try 
-        return get_conditional_distribution(scm, outcome, conditioning_set)
-    catch KeyError
-        try
-            template_factor = get_conditional_distribution(scm, outcome)
-            set_conditional_distribution!(scm, outcome, conditioning_set, template_factor.model)
-            factor = get_conditional_distribution(scm, outcome, conditioning_set)
-            verbosity > 0 && @info(UsingNaturalDistributionLog(scm, outcome, conditioning_set))
+        # A factor has already been setup
+        factor =  get_conditional_distribution(scm, outcome, conditioning_set)
+        # If the resampling strategies also match then we can reuse the already set factor
+        new_factor = ConditionalDistribution(outcome, conditioning_set, factor.model, resampling=resampling)
+        if match(factor, new_factor)
             return factor
+        else
+            setfactor!(scm, new_factor)
+            return new_factor
+        end
+    catch KeyError
+        # A factor has not already been setup
+        try
+            # A natural factor can be used as a template
+            template_factor = get_conditional_distribution(scm, outcome)
+            new_factor = set_conditional_distribution!(scm, outcome, conditioning_set, template_factor.model, resampling)
+            verbosity > 0 && @info(UsingNaturalDistributionLog(scm, outcome, conditioning_set))
+            return new_factor
         catch KeyError
             throw(NoAvailableConditionalDistributionError(scm, outcome, conditioning_set))
         end
     end
 end
 
-set_conditional_distribution!(scm::SCM, outcome::Symbol, model) =
-    set_conditional_distribution!(scm, outcome, parents(scm, outcome), model)
+set_conditional_distribution!(scm::SCM, outcome::Symbol, model, resampling) =
+    set_conditional_distribution!(scm, outcome, parents(scm, outcome), model, resampling)
 
-function set_conditional_distribution!(scm::SCM, outcome::Symbol, parents, model)
-    factor = ConditionalDistribution(outcome, parents, model)
-    setfactor!(scm, factor)
+function set_conditional_distribution!(scm::SCM, outcome::Symbol, parents, model, resampling)
+    factor = ConditionalDistribution(outcome, parents, model, resampling=resampling)
+    return setfactor!(scm, factor)
 end
 
-setfactor!(scm::SCM, factor::DistributionFactor) =
+function setfactor!(scm::SCM, factor)
     scm.factors[key(factor)] = factor
+    return factor
+end
 
 function string_repr(scm::SCM)
     scm_string = """
@@ -192,11 +204,11 @@ function StaticConfoundedModel(
     Teq = SE(treatment, vcat(confounders))
     outcome_factor = ConditionalDistribution(Yeq.outcome, Yeq.parents, outcome_model)
     treatment_factor = ConditionalDistribution(Teq.outcome, Teq.parents, treatment_model)
-    factors = Dict(
-        key(outcome_factor) => outcome_factor,
-        key(treatment_factor) => treatment_factor
-    )
-    return StructuralCausalModel(Yeq, Teq; factors)
+    # factors = Dict(
+    #     key(outcome_factor) => outcome_factor,
+    #     key(treatment_factor) => treatment_factor
+    # )
+    return StructuralCausalModel(Yeq, Teq)
 end
 
 """
@@ -228,18 +240,18 @@ function StaticConfoundedModel(
     )
     Yequations = (SE(outcome, combine_outcome_parents(treatments, confounders, covariates)) for outcome in outcomes)
     Tequations = (SE(treatment, vcat(confounders)) for treatment in treatments)
-    factors = Dict(
-        (outcome(Yeq) => Dict(parents(Yeq) => outcome_model) for Yeq in Yequations)...,
-        (outcome(Teq) => Dict(parents(Teq) => treatment_model) for Teq in Tequations)...
-    )
-    factors = Dict()
-    for eq in Yequations
-        factor = ConditionalDistribution(eq.outcome, eq.parents, outcome_model)
-        factors[key(factor)] = factor
-    end
-    for eq in Tequations
-        factor = ConditionalDistribution(eq.outcome, eq.parents, treatment_model)
-        factors[key(factor)] = factor
-    end
-    return SCM(Yequations..., Tequations...; factors=factors)
+    # factors = Dict(
+    #     (outcome(Yeq) => Dict(parents(Yeq) => outcome_model) for Yeq in Yequations)...,
+    #     (outcome(Teq) => Dict(parents(Teq) => treatment_model) for Teq in Tequations)...
+    # )
+    # factors = Dict()
+    # for eq in Yequations
+    #     factor = ConditionalDistribution(eq.outcome, eq.parents, outcome_model)
+    #     factors[key(factor)] = factor
+    # end
+    # for eq in Tequations
+    #     factor = ConditionalDistribution(eq.outcome, eq.parents, treatment_model)
+    #     factors[key(factor)] = factor
+    # end
+    return SCM(Yequations..., Tequations...)
 end
