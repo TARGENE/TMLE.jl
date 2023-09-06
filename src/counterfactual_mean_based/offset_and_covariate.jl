@@ -11,9 +11,6 @@ data_adaptive_ps_lower_bound(n::Int; max_lb=0.1) =
 ps_lower_bound(n::Int, lower_bound::Nothing; max_lb=0.1) = data_adaptive_ps_lower_bound(n; max_lb=max_lb)
 ps_lower_bound(n::Int, lower_bound; max_lb=0.1) = min(max_lb, lower_bound)
 
-treatments(dataset, G) = selectcols(dataset, keys(G))
-confounders(dataset, G) = (;(key => selectcols(dataset, keys(cd.machine.data[1])) for (key, cd) in zip(keys(G), G))...)
-
 
 function truncate!(v::AbstractVector, ps_lowerbound::AbstractFloat)
     for i in eachindex(v)
@@ -58,7 +55,7 @@ where SpecialIndicator(t) is defined in `indicator_fns`.
 """
 function clever_covariate_and_weights(Ψ::CMCompositeEstimand, Gs, dataset; ps_lowerbound=1e-8, weighted_fluctuation=false)
     # Compute the indicator values
-    T = treatments(dataset, Gs)
+    T = TMLE.selectcols(dataset, (p.estimand.outcome for p in Gs))
     indic_vals = indicator_values(indicator_fns(Ψ), T)
     weights = balancing_weights(Gs, dataset; ps_lowerbound=ps_lowerbound)
     if weighted_fluctuation

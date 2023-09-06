@@ -66,12 +66,13 @@ scm = SCM(
 struct StructuralCausalModel
     equations::Dict{Symbol, StructuralEquation}
     factors::Dict
+    StructuralCausalModel(equations) = new(equations, Dict())
 end
 
 const SCM = StructuralCausalModel
 
-SCM(;equations=Dict{Symbol, SE}(), factors=Dict()) = SCM(equations, factors)
-SCM(equations::Vararg{SE}; factors=Dict()) = SCM(Dict(outcome(eq) => eq for eq in equations), factors)
+SCM(;equations=Dict{Symbol, SE}()) = SCM(equations)
+SCM(equations::Vararg{SE}) = SCM(Dict(outcome(eq) => eq for eq in equations))
 
 equations(scm::SCM) = scm.equations
 factors(scm::SCM) = scm.factors
@@ -177,37 +178,24 @@ end
 ###                  StaticConfoundedModel                        ###
 #####################################################################
 
-combine_outcome_parents(treatment, confounders, covariates::Nothing) = vcat(treatment, confounders)
+combine_outcome_parents(treatment, confounders, ::Nothing) = vcat(treatment, confounders)
 combine_outcome_parents(treatment, confounders, covariates) = vcat(treatment, confounders, covariates)
 
 """
     StaticConfoundedModel(
         outcome::Symbol, treatment::Symbol, confounders::Union{Symbol, AbstractVector{Symbol}}; 
-        covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing, 
-        outcome_model = TreatmentTransformer() |> LinearRegressor(),
-        treatment_model = LinearBinaryClassifier()
+        covariates::Union{Nothing, Symbol, AbstractVector{Symbol}} = nothing
     )
 
 Defines a classic Structural Causal Model with one outcome, one treatment, 
 a set of confounding variables and optional covariates influencing the outcome only.
-
-The `outcome_model` and `treatment_model` define the relationship between 
-the outcome (resp. treatment) and their ancestors.
 """
 function StaticConfoundedModel(
     outcome, treatment, confounders; 
-    covariates = nothing, 
-    outcome_model = TreatmentTransformer() |> LinearRegressor(),
-    treatment_model = LinearBinaryClassifier(),
+    covariates = nothing
     )
     Yeq = SE(outcome, combine_outcome_parents(treatment, confounders, covariates))
     Teq = SE(treatment, vcat(confounders))
-    outcome_factor = ConditionalDistribution(Yeq.outcome, Yeq.parents, outcome_model)
-    treatment_factor = ConditionalDistribution(Teq.outcome, Teq.parents, treatment_model)
-    # factors = Dict(
-    #     key(outcome_factor) => outcome_factor,
-    #     key(treatment_factor) => treatment_factor
-    # )
     return StructuralCausalModel(Yeq, Teq)
 end
 
@@ -226,32 +214,14 @@ a set of confounding variables and optional covariates influencing the outcomes 
 
 All treatments are assumed to be direct parents of all outcomes. The confounding variables 
 are shared for all treatments.
-
-The `outcome_model` and `treatment_model` define the relationships between 
-the outcomes (resp. treatments) and their ancestors.
 """
 function StaticConfoundedModel(
     outcomes::AbstractVector, 
     treatments::AbstractVector, 
     confounders; 
-    covariates = nothing, 
-    outcome_model = TreatmentTransformer() |> LinearRegressor(),
-    treatment_model = LinearBinaryClassifier()
+    covariates = nothing
     )
     Yequations = (SE(outcome, combine_outcome_parents(treatments, confounders, covariates)) for outcome in outcomes)
     Tequations = (SE(treatment, vcat(confounders)) for treatment in treatments)
-    # factors = Dict(
-    #     (outcome(Yeq) => Dict(parents(Yeq) => outcome_model) for Yeq in Yequations)...,
-    #     (outcome(Teq) => Dict(parents(Teq) => treatment_model) for Teq in Tequations)...
-    # )
-    # factors = Dict()
-    # for eq in Yequations
-    #     factor = ConditionalDistribution(eq.outcome, eq.parents, outcome_model)
-    #     factors[key(factor)] = factor
-    # end
-    # for eq in Tequations
-    #     factor = ConditionalDistribution(eq.outcome, eq.parents, treatment_model)
-    #     factors[key(factor)] = factor
-    # end
     return SCM(Yequations..., Tequations...)
 end

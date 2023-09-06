@@ -24,6 +24,12 @@ function counterfactual_aggregate(Ψ::CMCompositeEstimand, Q, dataset)
     return ctf_agg
 end
 
+compute_estimate(ctf_aggregate, ::Nothing) = mean(ctf_aggregate)
+
+compute_estimate(ctf_aggregate, train_validation_indices) =
+    mean(compute_estimate(ctf_aggregate[val_indices], nothing) for (_, val_indices) in train_validation_indices)
+
+
 """
     ∇W(ctf_agg, Ψ̂)
 
@@ -39,10 +45,10 @@ end
 This part of the gradient is evaluated on the original dataset. All quantities have been precomputed and cached.
 """
 function ∇YX(Ψ::CMCompositeEstimand, Q, G, dataset; ps_lowerbound=1e-8)
-    Qmach = Q.machine
-    H = weighted_covariate(Qmach, G, Ψ, dataset; ps_lowerbound=ps_lowerbound)
+    # Maybe can cache some results (H and E[Y|X]) to improve perf here
+    H, weights = clever_covariate_and_weights(Ψ, G, dataset; ps_lowerbound=ps_lowerbound)
     y = float(Tables.getcolumn(dataset, Q.estimand.outcome))
-    gradient_Y_X_fluct = H .* (y .- training_expected_value(Qmach, dataset))
+    gradient_Y_X_fluct = H .* weights .* (y .- expected_value(Q, dataset))
     return gradient_Y_X_fluct
 end
 
@@ -50,8 +56,15 @@ end
 function gradient_and_estimate(Ψ::CMCompositeEstimand, factors, dataset; ps_lowerbound=1e-8)
     Q = factors.outcome_mean
     G = factors.propensity_score
-    ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
-    Ψ̂ = mean(ctf_agg)
-    IC = ∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound) .+ ∇W(ctf_agg, Ψ̂)
+    ctf_agg = TMLE.counterfactual_aggregate(Ψ, Q, dataset)
+    Ψ̂ = TMLE.compute_estimate(ctf_agg, TMLE.train_validation_indices_from_factors(factors))
+    IC = TMLE.∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound) .+ TMLE.∇W(ctf_agg, Ψ̂)
     return IC, Ψ̂
 end
+
+
+train_validation_indices_from_ps(::MLConditionalDistribution) = nothing
+train_validation_indices_from_ps(factor::SampleSplitMLConditionalDistribution) = factor.train_validation_indices
+
+train_validation_indices_from_factors(factors) = 
+    train_validation_indices_from_ps(first(factors.propensity_score))
