@@ -18,7 +18,7 @@ function tmle!(Ψ::CMCompositeEstimand, models, dataset;
     nomissing_dataset = TMLE.nomissing(dataset, TMLE.variables(relevant_factors))
     initial_factors_dataset = TMLE.choose_initial_dataset(dataset, nomissing_dataset, resampling)
     initial_factors_estimate = TMLE.estimate(relevant_factors, resampling, models, initial_factors_dataset; 
-        factors_cache=factors_cache, 
+        factors_cache=factors_cache,
         verbosity=verbosity
     )
     # Get propensity score truncation threshold

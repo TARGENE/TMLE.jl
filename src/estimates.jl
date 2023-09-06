@@ -106,7 +106,6 @@ function likelihood(estimate::ConditionalDistributionEstimate, dataset)
     return pdf.(ŷ, y)
 end
 
-
 #####################################################################
 ###                       MLCMRelevantFactors                     ###
 #####################################################################

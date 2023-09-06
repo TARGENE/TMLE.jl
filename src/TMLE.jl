@@ -27,7 +27,7 @@ export SE, StructuralEquation
 export StructuralCausalModel, SCM, StaticConfoundedModel
 export setequation!, getequation, get_conditional_distribution, set_conditional_distribution!
 export setmodel!, equations, reset!, parents
-export ConditionalDistribution
+export ConditionalDistribution, ExpectedValue
 export CounterfactualMean, CM
 export AverageTreatmentEffect, ATE
 export InteractionAverageTreatmentEffect, IATE

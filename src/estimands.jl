@@ -136,6 +136,9 @@ struct CMRelevantFactors <: Estimand
     propensity_score::Tuple{Vararg{ConditionalDistribution}}
 end
 
+CMRelevantFactors(scm, outcome_mean, propensity_score::ConditionalDistribution) = 
+    CMRelevantFactors(scm, outcome_mean, (propensity_score,))
+
 string_repr(estimand::CMRelevantFactors) = 
     string("Composite Factor: \n",
            "----------------\n- ",
@@ -144,3 +147,14 @@ string_repr(estimand::CMRelevantFactors) =
 
 variables(estimand::CMRelevantFactors) = 
     union(variables(estimand.outcome_mean), (variables(est) for est in estimand.propensity_score)...)
+
+"""
+    estimand_key(estimand::CMRelevantFactors)
+
+The key combines the outcome_mean's key anc the propensity scores' keys. 
+Because the order of treatment does not matter, we order them by treatment.
+"""
+estimand_key(estimand::CMRelevantFactors) = (
+    estimand_key(estimand.outcome_mean),
+    sort((estimand_key(ps) for ps in estimand.propensity_score), by=x->x[1])...
+    )
