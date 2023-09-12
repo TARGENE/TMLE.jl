@@ -22,7 +22,9 @@ function MLJBase.transform(model::TreatmentTransformer, fitresult, Xnew)
     Xt = MLJBase.transform(model.encoder, fitresult, Xnew)
     ordered_factors_names = []
     ordered_factors_values = []
-    for (colname, column) in pairs(Xnew)
+    
+    for colname in Tables.columnnames(Xnew)
+        column = Tables.getcolumn(Xnew, colname)
         if eltype(scitype(column)) <: OrderedFactor
             try
                 push!(ordered_factors_values, float(column)) 
@@ -38,7 +40,7 @@ function MLJBase.transform(model::TreatmentTransformer, fitresult, Xnew)
     end
     ordered_factors_names = Tuple(ordered_factors_names)
     ordered_factors = NamedTuple{ordered_factors_names}(ordered_factors_values) 
-    return merge(Xt, ordered_factors)
+    return merge(Tables.columntable(Xt), ordered_factors)
 end
 
 with_encoder(model; encoder=encoder()) = Pipeline(TreatmentTransformer(;encoder=encoder),  model)

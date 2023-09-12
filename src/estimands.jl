@@ -139,6 +139,8 @@ end
 CMRelevantFactors(scm, outcome_mean, propensity_score::ConditionalDistribution) = 
     CMRelevantFactors(scm, outcome_mean, (propensity_score,))
 
+CMRelevantFactors(scm; outcome_mean, propensity_score) = CMRelevantFactors(scm, outcome_mean, propensity_score)
+
 string_repr(estimand::CMRelevantFactors) = 
     string("Composite Factor: \n",
            "----------------\n- ",
