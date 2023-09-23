@@ -20,11 +20,12 @@ The fluctuation is supposed to decrease the risk as its objective function is th
 It seems that sometimes this is not entirely true in practice, so the test actually checks that it does not
 increase risk more than tol
 """
-function test_fluct_decreases_risk(Ψ::TMLE.CMCompositeEstimand, fluctuation_mach; atol=1e-6)
-    outcome_mach = TMLE.get_outcome_model(Ψ)
-    y = outcome_mach.data[2]
-    initial_risk = risk(MLJBase.predict(outcome_mach), y)
-    fluct_risk = risk(MLJBase.predict(fluctuation_mach), y)
+function test_fluct_decreases_risk(cache; atol=1e-6)
+    fluctuated_mean_machine = cache[:last_fluctuation].outcome_mean.machine
+    initial_mean_machine = fluctuated_mean_machine.model.initial_factors.outcome_mean.machine
+    y = fluctuated_mean_machine.data[2]
+    initial_risk = risk(MLJBase.predict(initial_mean_machine), y)
+    fluct_risk = risk(MLJBase.predict(fluctuated_mean_machine), y)
     @test initial_risk >= fluct_risk || isapprox(initial_risk, fluct_risk, atol=atol)
 end
 

@@ -21,31 +21,36 @@ function dataset_scm_and_truth(;n=1000)
 
     Y = 2 .- 2T₁.*T₂.*T₃.*(W .+ 10) + rand(rng, Normal(0, 0.03), n)
     dataset = (W=W, T₁=categorical(T₁), T₂=categorical(T₂), T₃=categorical(T₃), Y=Y)
-    scm = StaticConfoundedModel(
-        [:Y], 
-        [:T₁, :T₂, :T₃], 
-        :W,
-        outcome_model = TreatmentTransformer() |> InteractionTransformer(order=3) |> LinearRegressor(),
-        treatment_model = LogisticClassifier(lambda=0)
-        )
     truth = -21
-    return dataset, scm, truth
+    return dataset, truth
 end
 
 @testset "Test 3-points interactions" begin
-    dataset, scm, Ψ₀ = dataset_scm_and_truth(;n=1000)
+    dataset, Ψ₀ = dataset_scm_and_truth(;n=1000)
     Ψ = IATE(
-        scm,
         outcome   = :Y,
-        treatment = (T₁=(case=true, control=false), T₂=(case=true, control=false), T₃=(case=1, control=0))
+        treatment_values = (
+            T₁=(case=true, control=false), 
+            T₂=(case=true, control=false), 
+            T₃=(case=1, control=0)
+        ),
+        treatment_confounders = (T₁=[:W], T₂=[:W], T₃=[:W])
+    )
+    models = (
+        Y = TreatmentTransformer() |> InteractionTransformer(order=3) |> LinearRegressor(),
+        T₁ = LogisticClassifier(lambda=0),
+        T₂ = LogisticClassifier(lambda=0),
+        T₃ = LogisticClassifier(lambda=0)
     )
 
-    result, fluctuation = tmle!(Ψ, dataset, verbosity=0)
+    tmle = TMLEE(models)
+    result, cache = tmle(Ψ, dataset, verbosity=0);
     test_coverage(result, Ψ₀)
-    test_fluct_decreases_risk(Ψ, fluctuation)
+    test_fluct_decreases_risk(cache)
     test_mean_inf_curve_almost_zero(result; atol=1e-10)
 
-    result, fluctuation = tmle!(Ψ, dataset, verbosity=0, weighted_fluctuation=true)
+    tmle.weighted = true
+    result, cache = tmle(Ψ, dataset, verbosity=0)
     test_coverage(result, Ψ₀)
     test_mean_inf_curve_almost_zero(result; atol=1e-10)
 

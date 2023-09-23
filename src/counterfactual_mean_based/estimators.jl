@@ -81,7 +81,7 @@ function (estimator::TargetedCMRelevantFactorsEstimator)(estimand, dataset; cach
     # Do not fluctuate propensity score
     fluctuated_propensity_score = model.initial_factors.propensity_score
     # Build estimate
-    estimate =  MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score)
+    estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score)
     # Update cache
     cache[:last_fluctuation] = estimate
 
