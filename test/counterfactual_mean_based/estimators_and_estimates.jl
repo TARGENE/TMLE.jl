@@ -44,14 +44,8 @@ function build_dataset_and_scm(;n=100)
         Y₂ = Y₂,
         Y₃ = Y₃
         )
-    scm = SCM(
-        SE(:T₁, [:W₁, :W₂], LogisticClassifier(lambda=0)),
-        SE(:T₂, [:W₁, :W₂], LogisticClassifier(lambda=0)),
-        SE(:Y₁, [:T₁, :T₂, :W₁, :W₂, :C₁], TreatmentTransformer() |> LinearRegressor()),
-        SE(:Y₂, [:T₂, :W₂], TreatmentTransformer() |> LinearRegressor()),
-        SE(:Y₃, [:T₁, :T₂, :W₁, :W₂, :C₁], TreatmentTransformer() |> LinearRegressor()),
-    )
-    return dataset, scm
+
+    return dataset
 end
 
 

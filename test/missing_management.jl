@@ -47,9 +47,9 @@ end
         treatment_confounders=(T=[:W],))
     models=(Y=with_encoder(LinearRegressor()), T=LogisticClassifier(lambda=0))
     tmle = TMLEE(models)
-    tmle_result, fluctuation_mach = tmle(Ψ, dataset; verbosity=0)
+    tmle_result, cache = tmle(Ψ, dataset; verbosity=0)
     test_coverage(tmle_result, 1)
-    test_fluct_decreases_risk(Ψ, fluctuation_mach)
+    test_fluct_decreases_risk(cache)
 end
 
 end

@@ -8,7 +8,7 @@ using MLJLinearModels
 using TMLE
 using CategoricalArrays
 
-function make_dataset_and_scm(;n=100)
+function make_dataset(;n=100)
     rng = StableRNG(123)
     W = rand(rng, Uniform(), n)
     T = rand(rng, [0, 1], n)
@@ -18,8 +18,7 @@ function make_dataset_and_scm(;n=100)
         W = W,
         T = categorical(T)
     )
-    scm = StaticConfoundedModel(:Y, :T, :W)
-    return dataset, scm
+    return dataset
 end
 
 @testset "Test cov" begin
@@ -33,23 +32,31 @@ end
 end
 
 @testset "Test composition CM(1) - CM(0) = ATE(1,0)" begin
-    dataset, scm = make_dataset_and_scm(;n=1000)
+    dataset = make_dataset(;n=1000)
     # Counterfactual Mean T = 1
     CM₁ = CM(
-        scm,
         outcome = :Y,
-        treatment = (T=1,)
+        treatment_values = (T=1,),
+        treatment_confounders = (T=[:W],)
     )
-    CM_tmle_result₁, _ = tmle!(CM₁, dataset, verbosity=0)
-    CM_ose_result₁, _ = ose!(CM₁, dataset, verbosity=0)
+    models = (
+        Y = with_encoder(LinearRegressor()),
+        T = LogisticClassifier(lambda=0)
+    )
+    tmle = TMLEE(models)
+    ose = OSE(models)
+    cache = Dict()
+
+    CM_tmle_result₁, cache = tmle(CM₁, dataset; cache=cache, verbosity=0)
+    CM_ose_result₁, cache = ose(CM₁, dataset; cache=cache, verbosity=0)
     # Counterfactual Mean T = 0
     CM₀ = CM(
-        scm,
         outcome = :Y,
-        treatment = (T=0,)
+        treatment_values = (T=0,),
+        treatment_confounders = (T=[:W],)
     )
-    CM_tmle_result₀, _ = tmle!(CM₀, dataset, verbosity=0)
-    CM_ose_result₀, _ = ose!(CM₀, dataset, verbosity=0)
+    CM_tmle_result₀, cache = tmle(CM₀, dataset; cache=cache, verbosity=0)
+    CM_ose_result₀, cache = ose(CM₀, dataset; cache=cache, verbosity=0)
     # Composition of TMLE
 
     CM_result_composed_tmle = compose(-, CM_tmle_result₁, CM_tmle_result₀);
@@ -57,12 +64,12 @@ end
 
     # Via ATE
     ATE₁₀ = ATE(
-        scm,
         outcome = :Y,
-        treatment = (T=(case=1, control=0),),
+        treatment_values = (T=(case=1, control=0),),
+        treatment_confounders = (T=[:W],)
     )
     # Check composed TMLE
-    ATE_tmle_result₁₀, _ = tmle!(ATE₁₀, dataset, verbosity=0)
+    ATE_tmle_result₁₀, cache = tmle(ATE₁₀, dataset; cache=cache, verbosity=0)
     @test estimate(ATE_tmle_result₁₀) ≈ estimate(CM_result_composed_tmle) atol = 1e-7
     # T Test
     composed_confint = collect(confint(OneSampleTTest(CM_result_composed_tmle)))
@@ -76,7 +83,7 @@ end
     @test var(ATE_tmle_result₁₀) ≈ var(CM_result_composed_tmle) atol = 1e-3
 
     # Check composed OSE
-    ATE_ose_result₁₀, _ = ose!(ATE₁₀, dataset, verbosity=0)
+    ATE_ose_result₁₀, cache = ose(ATE₁₀, dataset; cache=cache, verbosity=0)
     @test estimate(ATE_ose_result₁₀) ≈ estimate(CM_result_composed_ose) atol = 1e-7
     # T Test
     composed_confint = collect(confint(OneSampleTTest(CM_result_composed_ose)))
@@ -91,20 +98,27 @@ end
 end
 
 @testset "Test compose multidimensional function" begin
-    dataset, scm = make_dataset_and_scm(;n=1000)
-    CM₁ = CM(
-        scm,
-        outcome = :Y,
-        treatment = (T=1,)
+    dataset = make_dataset(;n=1000)
+    models = (
+        Y = with_encoder(LinearRegressor()),
+        T = LogisticClassifier(lambda=0)
     )
-    CM_result₁, _ = tmle!(CM₁, dataset, verbosity=0)
+    tmle = TMLEE(models)
+    cache = Dict()
+    
+    CM₁ = CM(
+        outcome = :Y,
+        treatment_values = (T=1,),
+        treatment_confounders = (T=[:W],)
+    )
+    CM_result₁, cache = tmle(CM₁, dataset; cache=cache, verbosity=0)
 
     CM₀ = CM(
-        scm,
         outcome = :Y,
-        treatment = (T=0,)
+        treatment_values = (T=0,),
+        treatment_confounders = (T=[:W],)
     )
-    CM_result₀, _ = tmle!(CM₀, dataset, verbosity=0)
+    CM_result₀, cache = tmle(CM₀, dataset; cache=cache, verbosity=0)
     f(x, y) = [x^2 - y, x/y, 2x + 3y]
     CM_result_composed = compose(f, CM_result₁, CM_result₀)
 
