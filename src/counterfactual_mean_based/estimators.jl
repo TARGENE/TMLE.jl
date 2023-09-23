@@ -7,6 +7,9 @@ struct CMRelevantFactorsEstimator <: Estimator
     models
 end
 
+key(estimator::CMRelevantFactorsEstimator) = 
+    (CMRelevantFactorsEstimator, estimator.resampling, estimator.models)
+
 get_train_validation_indices(resampling::Nothing, factors, dataset) = nothing
 
 function get_train_validation_indices(resampling::ResamplingStrategy, factors, dataset)
@@ -22,11 +25,13 @@ function get_train_validation_indices(resampling::ResamplingStrategy, factors, d
 end
 
 function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1)
-    # Lookup in cache
-    if haskey(cache, (estimand, estimator))
-        return from_cache(cache, estimand, estimator; verbosity=verbosity)
+    cache_key = key(estimand, estimator)
+    if haskey(cache, cache_key)
+        estimate = cache[cache_key]
+        verbosity > 0 && @info(string("Reusing estimate for: ", string_repr(estimand)))
+        return estimate
     end
-    # Otherwise estimate
+    verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
     models = estimator.models
     # Get train validation indices
     train_validation_indices = TMLE.get_train_validation_indices(estimator.resampling, estimand, dataset)
@@ -145,7 +150,7 @@ end
 OSE(models; resampling=nothing, ps_lowerbound=1e-8) = 
     OSE(models, resampling, ps_lowerbound)
 
-function (estimator::OSE)(Ψ::CMCompositeEstimand, dataset; verbosity=1)
+function (estimator::OSE)(Ψ::CMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     TMLE.check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
@@ -154,7 +159,12 @@ function (estimator::OSE)(Ψ::CMCompositeEstimand, dataset; verbosity=1)
     nomissing_dataset = TMLE.nomissing(dataset, TMLE.variables(initial_factors))
     initial_factors_dataset = TMLE.choose_initial_dataset(dataset, nomissing_dataset, estimator.resampling)
     initial_factors_estimator = TMLE.CMRelevantFactorsEstimator(estimator.resampling, estimator.models)
-    initial_factors_estimate = initial_factors_estimator(initial_factors, initial_factors_dataset, verbosity=verbosity)
+    initial_factors_estimate = initial_factors_estimator(
+        initial_factors, 
+        initial_factors_dataset;
+        cache=cache, 
+        verbosity=verbosity
+    )
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)
     ps_lowerbound = TMLE.ps_lower_bound(n, estimator.ps_lowerbound)
@@ -162,7 +172,7 @@ function (estimator::OSE)(Ψ::CMCompositeEstimand, dataset; verbosity=1)
     # Gradient and estimate
     IC, Ψ̂ = TMLE.gradient_and_estimate(Ψ, initial_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
     verbosity >= 1 && @info "Done."
-    return OSEstimate(Ψ̂ + mean(IC), IC), initial_factors_estimate
+    return OSEstimate(Ψ̂ + mean(IC), IC), cache
 end
 
 #####################################################################
@@ -173,7 +183,7 @@ mutable struct NAIVE <: Estimator
     model
 end
 
-function (estimator::NAIVE)(Ψ::CMCompositeEstimand, dataset; verbosity=1)
+function (estimator::NAIVE)(Ψ::CMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     TMLE.check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
@@ -182,8 +192,10 @@ function (estimator::NAIVE)(Ψ::CMCompositeEstimand, dataset; verbosity=1)
     nomissing_dataset = TMLE.nomissing(dataset, TMLE.variables(relevant_factors))
     outcome_mean_estimate = MLConditionalDistributionEstimator(estimator.model)(
         relevant_factors.outcome_mean, 
-        dataset; 
+        dataset;
+        cache=cache,
         verbosity=verbosity
     )
-    return mean(counterfactual_aggregate(Ψ, outcome_mean_estimate, nomissing_dataset))
+    Ψ̂ = mean(counterfactual_aggregate(Ψ, outcome_mean_estimate, nomissing_dataset))
+    return Ψ̂, cache
 end
