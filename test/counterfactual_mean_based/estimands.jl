@@ -2,12 +2,6 @@ module TestEstimands
 
 using Test
 using TMLE
-using CategoricalArrays
-using Random
-using StableRNGs
-using MLJBase
-using MLJGLMInterface
-
 
 @testset "Test CMCompositeEstimand" begin
     dataset = (
@@ -87,9 +81,9 @@ using MLJGLMInterface
 end
 
 @testset "Test structs are concrete types" begin
-    @test isconcretetype(ATE)
-    @test isconcretetype(IATE)
-    @test isconcretetype(CM)
+    for type in Base.uniontypes(TMLE.CMCompositeEstimand)
+        @test isconcretetype(type)
+    end
 end
 
 end
