@@ -3,34 +3,29 @@ module TestEstimands
 using TMLE
 using Test
 
-scm = SCM(
-    SE(:Y, [:T, :W]),
-    SE(:T₁, [:W]),
-    SE(:T₂, [:W])
-    )
-Q̄₀  = TMLE.ExpectedValue(scm, :Y, [:T₁, :T₂, :W])
-G₀₁ = TMLE.ConditionalDistribution(scm, :T₁, [:W])
-G₀₂ = TMLE.ConditionalDistribution(scm, :T₂, [:W])
 
 @testset "Test ConditionalDistribution" begin
-    @test TMLE.estimand_key(Q̄₀) == (:Y, Set([:W, :T₁, :T₂]))  
-    @test TMLE.featurenames(Q̄₀) == [:T₁, :T₂, :W]
-    @test TMLE.variables(Q̄₀) == Set([:Y, :W, :T₁, :T₂])
-    @test TMLE.variables(G₀₁) == Set([:W, :T₁])
+    distr = ConditionalDistribution("Y", ["C", 1, :A, ])
+    @test distr.outcome === :Y
+    @test distr.parents === (Symbol("1"), :A, :C)
+    @test TMLE.variables(distr) == (:Y, Symbol("1"), :A, :C)
 end
 
 @testset "Test CMRelevantFactors" begin
-    expected_key = (
-        (:Y, Set([:W, :T₁, :T₂])), 
-        (:T₁, Set([:W])), 
-        (:T₂, Set([:W]))
+    η = TMLE.CMRelevantFactors(
+        outcome_mean=ExpectedValue(:Y, [:T, :W]),
+        propensity_score=ConditionalDistribution(:T, [:W])
     )
-    Q₀ = TMLE.CMRelevantFactors(scm, Q̄₀, (G₀₁, G₀₂))
-    @test TMLE.estimand_key(Q₀) == expected_key
-    Q₀ = TMLE.CMRelevantFactors(scm, Q̄₀, (G₀₂, G₀₁))
-    @test TMLE.estimand_key(Q₀) == expected_key
+    @test TMLE.variables(η) == (:Y, :T, :W)
 
-    @test TMLE.variables(Q₀) == Set([:Y, :W, :T₁, :T₂])
+    η = TMLE.CMRelevantFactors(
+        outcome_mean=ExpectedValue(:Y, [:T, :W]),
+        propensity_score=(
+            ConditionalDistribution(:T₁, [:W₁]),
+            ConditionalDistribution(:T₂, [:W₂₁, :W₂₂])
+        )
+    )
+    @test TMLE.variables(η) == (:Y, :T, :W, :T₁, :W₁, :T₂, :W₂₁, :W₂₂)
 end
 
 end

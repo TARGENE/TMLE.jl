@@ -25,23 +25,11 @@ string_repr(estimate::MLConditionalDistribution) = string(
     Base.typename(typeof(estimate.machine.model)).wrapper
 )
 
-featurenames(estimate::MLConditionalDistribution) = featurenames(estimate.estimand)
-
 function MLJBase.predict(estimate::MLConditionalDistribution, dataset)
-    X = selectcols(dataset, featurenames(estimate))
+    X = selectcols(dataset, estimate.estimand.parents)
     return predict(estimate.machine, X)
 end
 
-function Distributions.estimate(factor::ConditionalDistribution, dataset, model, train_validation_indices::Nothing;
-    factors_cache=nothing,
-    verbosity=1)
-    relevant_dataset = TMLE.nomissing(dataset, TMLE.variables(factor))
-    X = selectcols(relevant_dataset, TMLE.featurenames(factor))
-    y = Tables.getcolumn(relevant_dataset, factor.outcome)
-    mach = machine(model, X, y)
-    fit!(mach, verbosity=verbosity-1)
-    return MLConditionalDistribution(factor, mach)
-end
 
 #####################################################################
 ###             SampleSplitMLConditionalDistribution              ###
@@ -63,31 +51,13 @@ string_repr(estimate::SampleSplitMLConditionalDistribution) =
 )
 
 function MLJBase.predict(estimate::SampleSplitMLConditionalDistribution, dataset)
-    X = selectcols(dataset, featurenames(estimate.estimand))
+    X = selectcols(dataset, estimate.estimand.parents)
     ŷs = []
     for (fold, (_, validation_indices)) in enumerate(estimate.train_validation_indices)
         Xval = selectrows(X, validation_indices)
         push!(ŷs, predict(estimate.machines[fold], Xval))
     end
     return vcat(ŷs...)
-end
-
-function Distributions.estimate(factor::ConditionalDistribution, dataset, model, train_validation_indices;
-    factors_cache=nothing,
-    verbosity=1)
-    relevant_dataset = TMLE.selectcols(dataset, TMLE.variables(factor))
-    nfolds = size(train_validation_indices, 1)
-    machines = Vector{Machine}(undef, nfolds)
-    features = TMLE.featurenames(factor)
-    for (index, (train_indices, _)) in enumerate(train_validation_indices)
-        train_dataset = selectrows(relevant_dataset, train_indices)
-        Xtrain = selectcols(train_dataset, features)
-        ytrain = Tables.getcolumn(train_dataset, factor.outcome)
-        mach = machine(model, Xtrain, ytrain)
-        fit!(mach, verbosity=verbosity-1)
-        machines[index] = mach
-    end
-    return SampleSplitMLConditionalDistribution(factor, train_validation_indices, machines)
 end
 
 #####################################################################
@@ -118,50 +88,6 @@ struct MLCMRelevantFactors <: Estimate
     estimand::CMRelevantFactors
     outcome_mean::ConditionalDistributionEstimate
     propensity_score::Tuple{Vararg{ConditionalDistributionEstimate}}
-end
-
-get_train_validation_indices(resampling::Nothing, factors, dataset) = nothing
-
-function get_train_validation_indices(resampling::ResamplingStrategy, factors, dataset)
-    relevant_columns = collect(TMLE.variables(factors))
-    outcome_variable = factors.outcome_mean.outcome
-    feature_variables = filter(x -> x !== outcome_variable, relevant_columns)
-    return collect(MLJBase.train_test_pairs(
-        resampling,
-        1:nrows(dataset),
-        selectcols(dataset, feature_variables), 
-        Tables.getcolumn(dataset, outcome_variable)
-    ))
-end
-
-function Distributions.estimate(relevant_factors::CMRelevantFactors, resampling, models, dataset; 
-        factors_cache=nothing, 
-        verbosity=1)
-    # Get train validation indices
-    train_validation_indices = get_train_validation_indices(resampling, relevant_factors, dataset)
-    # Fit propensity score
-    propensity_score_estimate = Tuple(
-        estimate(
-            factor,
-            dataset,
-            models[factor.outcome],
-            train_validation_indices; 
-            verbosity=verbosity, 
-            factors_cache=factors_cache) 
-            for factor in relevant_factors.propensity_score
-    )
-    # Fit outcome mean
-    outcome_mean = relevant_factors.outcome_mean
-    model = models[outcome_mean.outcome]
-    outcome_mean_estimate = TMLE.estimate(
-        outcome_mean,
-        dataset,
-        model,
-        train_validation_indices; 
-        verbosity=verbosity, 
-        factors_cache=factors_cache)
-    
-    return MLCMRelevantFactors(relevant_factors, outcome_mean_estimate, propensity_score_estimate)
 end
 
 string_repr(estimate::MLCMRelevantFactors) = string(

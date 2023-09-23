@@ -57,6 +57,53 @@ end
 
 table_types = (Tables.columntable, DataFrame)
 
+@testset "Test MLCMRelevantFactors" begin
+    n = 100
+    W = rand(Normal(), n)
+    T₁ = rand(n) .< logistic.(1 .- W)
+    Y = T₁ .+ W .+ rand(n)
+    dataset = DataFrame(Y=Y, W=W, T₁=categorical(T₁, ordered=true))
+    models = (Y=with_encoder(LinearRegressor()), T₁=LinearBinaryClassifier())
+    estimand = TMLE.CMRelevantFactors(
+        scm,
+        outcome_mean = TMLE.ConditionalDistribution(scm, :Y, Set([:T₁, :W])),
+        propensity_score = (TMLE.ConditionalDistribution(scm, :T₁, Set([:W])),)
+    )
+    # No resampling
+    resampling = nothing
+    estimate = Distributions.estimate(estimand, resampling, models, dataset; 
+        factors_cache=nothing, 
+        verbosity=0
+    )
+    outcome_model_features = [:T₁, :W]
+    @test predict(estimate.outcome_mean, dataset) == predict(estimate.outcome_mean.machine, dataset[!, outcome_model_features])
+    @test predict(estimate.propensity_score[1], dataset).prob_given_ref == predict(estimate.propensity_score[1].machine, dataset[!, [:W]]).prob_given_ref
+
+    # No resampling
+    nfolds = 3
+    resampling = CV(nfolds=nfolds)
+    estimate = Distributions.estimate(estimand, resampling, models, dataset; 
+        factors_cache=nothing, 
+        verbosity=0
+    )
+    train_validation_indices = estimate.outcome_mean.train_validation_indices
+    # Check all models share the same train/validation indices
+    @test train_validation_indices == estimate.propensity_score[1].train_validation_indices
+    outcome_model_features = [:T₁, :W]
+    ŷ = predict(estimate.outcome_mean, dataset)
+    t̂ = predict(estimate.propensity_score[1], dataset)
+    for foldid in 1:nfolds
+        train, val = train_validation_indices[foldid]
+        # The predictions on validation samples are made from
+        # the machine trained on the train sample
+        ŷfold = predict(estimate.outcome_mean.machines[foldid], dataset[val, outcome_model_features])
+        @test ŷ[val] == ŷfold
+        t̂fold = predict(estimate.propensity_score[1].machines[foldid], dataset[val, [:W]])
+        @test t̂fold.prob_given_ref == t̂[val].prob_given_ref
+    end
+
+end
+
 @testset "Test Warm restart: ATE single treatment, $tt" for tt in table_types
     dataset, scm = build_dataset_and_scm(;n=50_000)
     dataset = tt(dataset)

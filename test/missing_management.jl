@@ -20,13 +20,11 @@ function dataset_with_missing_and_ordered_treatment(;n=1000)
     dataset.W[1:5] .= missing
     dataset.T[6:10] .= missing
     dataset.Y[11:15] .= missing
-    scm = StaticConfoundedModel(:Y, :T, :W, treatment_model = LogisticClassifier(lambda=0))
-    return dataset, scm
+    return dataset
 end
 
-
 @testset "Test nomissing" begin
-    dataset, scm = dataset_with_missing_and_ordered_treatment(;n=100)
+    dataset = dataset_with_missing_and_ordered_treatment(;n=100)
     # filter missing rows based on W column
     filtered = TMLE.nomissing(dataset, [:W])
     @test filtered.W == dataset.W[6:end]
@@ -42,12 +40,14 @@ end
 end
 
 @testset "Test estimation with missing values and ordered factor treatment" begin
-    dataset, scm = dataset_with_missing_and_ordered_treatment(;n=1000)
+    dataset = dataset_with_missing_and_ordered_treatment(;n=1000)
     Ψ = ATE(
-        scm,
         outcome=:Y, 
-        treatment=(T=(case=1, control=0),))
-    tmle_result, fluctuation_mach = tmle!(Ψ, dataset; verbosity=0)
+        treatment_values=(T=(case=1, control=0),),
+        treatment_confounders=(T=[:W],))
+    models=(Y=with_encoder(LinearRegressor()), T=LogisticClassifier(lambda=0))
+    tmle = TMLEE(models)
+    tmle_result, fluctuation_mach = tmle(Ψ, dataset; verbosity=0)
     test_coverage(tmle_result, 1)
     test_fluct_decreases_risk(Ψ, fluctuation_mach)
 end

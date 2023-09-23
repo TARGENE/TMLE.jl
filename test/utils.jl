@@ -8,32 +8,6 @@ using CategoricalArrays
 using MLJLinearModels
 using MLJModels
 
-@testset "Test estimand validation" begin
-    dataset = (
-        W₁ = [1., 2., 3.],
-        T = categorical([1, 2, 3]), 
-        Y = [1., 2., 3.]
-        )
-    # Treatment values absent from dataset
-    scm = SCM(
-        SE(:T, [:W₁]),
-        SE(:Y, [:T, :W₁])
-    )
-    Ψ = ATE(
-        scm,
-        outcome=:Y,
-        treatment=(T=(case=1, control=0),)
-    )
-    @test_throws TMLE.AbsentLevelError("T", "control", 0, [1, 2, 3]) TMLE.check_treatment_levels(Ψ, dataset)
-
-    Ψ = CM(
-        scm,
-        outcome=:Y,
-        treatment=(T=0,),
-    )
-    @test_throws TMLE.AbsentLevelError("T", 0, [1, 2, 3]) TMLE.check_treatment_levels(Ψ, dataset)
-end
-
 @testset "Test expected_value" begin
     n = 100
     X = MLJBase.table(rand(n, 3))

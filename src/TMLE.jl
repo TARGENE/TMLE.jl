@@ -33,19 +33,20 @@ export AverageTreatmentEffect, ATE
 export InteractionAverageTreatmentEffect, IATE
 export AVAILABLE_ESTIMANDS
 export fit!, optimize_ordering, optimize_ordering!
-export tmle!, ose!, naive_plugin_estimate!, naive_plugin_estimate
+export TMLEE, OSE, NAIVE
 export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
 export TreatmentTransformer, with_encoder
 export BackdoorAdjustment
-
+ 
 # #############################################################################
 # INCLUDES
 # #############################################################################
 
 include("utils.jl")
-include("scm.jl")
+# include("scm.jl")
 include("estimands.jl")
+include("estimators.jl")
 include("estimates.jl")
 include("treatment_transformer.jl")
 include("adjustment.jl")

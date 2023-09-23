@@ -11,7 +11,7 @@ string_repr(estimand::Estimand) = estimand
 Base.show(io::IO, ::MIME"text/plain", estimand::Estimand) =
     println(io, string_repr(estimand))
 
-treatments(Ψ::Estimand) = collect(keys(Ψ.treatment))
+treatments(Ψ::Estimand) = collect(keys(Ψ.treatment_values))
 
 AbsentLevelError(treatment_name, key, val, levels) = ArgumentError(string(
     "The treatment variable ", treatment_name, "'s, '", key, "' level: '", val,
@@ -58,7 +58,7 @@ Makes sure the defined treatment levels are present in the dataset.
 function check_treatment_levels(Ψ::Estimand, dataset)
     for treatment_name in treatments(Ψ)
         treatment_levels = levels(Tables.getcolumn(dataset, treatment_name))
-        treatment_settings = getproperty(Ψ.treatment, treatment_name)
+        treatment_settings = getproperty(Ψ.treatment_values, treatment_name)
         check_treatment_settings(treatment_settings, treatment_levels, treatment_name)
     end
 end
@@ -66,7 +66,7 @@ end
 """
 Function used to sort estimands for optimal estimation ordering.
 """
-function estimand_key end
+key(estimand::Estimand) = estimand
 
 """
     optimize_ordering!(estimands::Vector{<:Estimand})
@@ -90,26 +90,21 @@ optimize_ordering(estimands::Vector{<:Estimand}) = sort(estimands, by=estimand_k
 Defines a Conditional Distribution estimand ``(outcome, parents) → P(outcome|parents)``.
 """
 struct ConditionalDistribution <: Estimand
-    scm::SCM
     outcome::Symbol
-    parents::Set{Symbol}
-    function ConditionalDistribution(scm, outcome, parents)
+    parents::Tuple{Vararg{Symbol}}
+    function ConditionalDistribution(outcome, parents)
         outcome = Symbol(outcome)
-        parents = Set(Symbol(x) for x in parents)
+        parents = unique_sorted_tuple(parents)
         outcome ∉ parents || throw(SelfReferringEquationError(outcome))
         # Maybe check variables are in the SCM?
-        return new(scm, outcome, parents)
+        return new(outcome, parents)
     end
 end
 
 string_repr(estimand::ConditionalDistribution) = 
     string("P₀(", estimand.outcome, " | ", join(estimand.parents, ", "), ")")
 
-featurenames(estimand::ConditionalDistribution) = sort(collect(estimand.parents))
-
-variables(estimand::ConditionalDistribution) = union(Set([estimand.outcome]), estimand.parents)
-
-estimand_key(cd::ConditionalDistribution) = (cd.outcome, cd.parents)
+variables(estimand::ConditionalDistribution) = (estimand.outcome, estimand.parents...)
 
 #####################################################################
 ###                        ExpectedValue                          ###
@@ -131,15 +126,18 @@ Defines relevant factors that need to be estimated in order to estimate any
 Counterfactual Mean composite estimand (see `CMCompositeEstimand`).
 """
 struct CMRelevantFactors <: Estimand
-    scm::SCM
     outcome_mean::ConditionalDistribution
     propensity_score::Tuple{Vararg{ConditionalDistribution}}
 end
 
-CMRelevantFactors(scm, outcome_mean, propensity_score::ConditionalDistribution) = 
-    CMRelevantFactors(scm, outcome_mean, (propensity_score,))
+CMRelevantFactors(outcome_mean, propensity_score::ConditionalDistribution) = 
+    CMRelevantFactors(outcome_mean, (propensity_score,))
 
-CMRelevantFactors(scm; outcome_mean, propensity_score) = CMRelevantFactors(scm, outcome_mean, propensity_score)
+CMRelevantFactors(outcome_mean, propensity_score) = 
+    CMRelevantFactors(outcome_mean, propensity_score)
+
+CMRelevantFactors(;outcome_mean, propensity_score) = 
+    CMRelevantFactors(outcome_mean, propensity_score)
 
 string_repr(estimand::CMRelevantFactors) = 
     string("Composite Factor: \n",
@@ -148,15 +146,4 @@ string_repr(estimand::CMRelevantFactors) =
         join((string_repr(f) for f in estimand.propensity_score), "\n- "))
 
 variables(estimand::CMRelevantFactors) = 
-    union(variables(estimand.outcome_mean), (variables(est) for est in estimand.propensity_score)...)
-
-"""
-    estimand_key(estimand::CMRelevantFactors)
-
-The key combines the outcome_mean's key anc the propensity scores' keys. 
-Because the order of treatment does not matter, we order them by treatment.
-"""
-estimand_key(estimand::CMRelevantFactors) = (
-    estimand_key(estimand.outcome_mean),
-    sort((estimand_key(ps) for ps in estimand.propensity_score), by=x->x[1])...
-    )
+    Tuple(union(variables(estimand.outcome_mean), (variables(est) for est in estimand.propensity_score)...))

@@ -174,6 +174,18 @@ function is_upstream(var₁, var₂, scm::SCM)
     end
 end
 
+VariableNotAChildInSCMError(variable) = ArgumentError(string("Variable ", variable, " is not associated with a Structural Equation in the SCM."))
+TreatmentMustBeInOutcomeParentsError(variable) = ArgumentError(string("Treatment variable ", variable, " must be a parent of the outcome."))
+
+function check_parameter_against_scm(scm::SCM, outcome, treatment)
+    eqs = equations(scm)
+    haskey(eqs, outcome) || throw(VariableNotAChildInSCMError(outcome))
+    for treatment_variable in keys(treatment)
+        haskey(eqs, treatment_variable) || throw(VariableNotAChildInSCMError(treatment_variable))
+        is_upstream(treatment_variable, outcome, scm) || throw(TreatmentMustBeInOutcomeParentsError(treatment_variable))
+    end
+end
+
 #####################################################################
 ###                  StaticConfoundedModel                        ###
 #####################################################################
