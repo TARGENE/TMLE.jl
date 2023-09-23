@@ -116,34 +116,3 @@ At the moment there is no distinction between an Expected Value and
 a Conditional Distribution because they are estimated in the same way.
 """
 const ExpectedValue = ConditionalDistribution
-
-#####################################################################
-###                       CMRelevantFactors                       ###
-#####################################################################
-
-"""
-Defines relevant factors that need to be estimated in order to estimate any
-Counterfactual Mean composite estimand (see `CMCompositeEstimand`).
-"""
-struct CMRelevantFactors <: Estimand
-    outcome_mean::ConditionalDistribution
-    propensity_score::Tuple{Vararg{ConditionalDistribution}}
-end
-
-CMRelevantFactors(outcome_mean, propensity_score::ConditionalDistribution) = 
-    CMRelevantFactors(outcome_mean, (propensity_score,))
-
-CMRelevantFactors(outcome_mean, propensity_score) = 
-    CMRelevantFactors(outcome_mean, propensity_score)
-
-CMRelevantFactors(;outcome_mean, propensity_score) = 
-    CMRelevantFactors(outcome_mean, propensity_score)
-
-string_repr(estimand::CMRelevantFactors) = 
-    string("Composite Factor: \n",
-           "----------------\n- ",
-        string_repr(estimand.outcome_mean),"\n- ", 
-        join((string_repr(f) for f in estimand.propensity_score), "\n- "))
-
-variables(estimand::CMRelevantFactors) = 
-    Tuple(union(variables(estimand.outcome_mean), (variables(est) for est in estimand.propensity_score)...))
