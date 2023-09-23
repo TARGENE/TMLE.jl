@@ -31,7 +31,7 @@ using MLJBase
     resampling=nothing # No CV
     ps_lowerbound = 0.025 # Cutoff hardcoded in tmle3
     weighted = false # Unweighted fluctuation
-    verbosity = 1 # No logs
+    verbosity = 0 # No logs
     tmle = TMLEE(models;
         resampling=resampling,
         ps_lowerbound=ps_lowerbound,
@@ -39,9 +39,6 @@ using MLJBase
     )
     
     tmle_result, cache = tmle(Ψ, dataset; verbosity=verbosity);
-    tmle_result
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=verbosity);
-    cache
     tmle.models = (
         haz01 = with_encoder(LinearBinaryClassifier()),
         parity01 = LinearBinaryClassifier(fit_intercept=false)
@@ -52,22 +49,10 @@ using MLJBase
     @test u ≈ -0.091821 atol = 1e-6
     @test OneSampleZTest(tmle_result) isa OneSampleZTest
 
-    # OSE
-    ose = OSE(models; 
-        resampling=resampling,
-        ps_lowerbound=ps_lowerbound
-    )
-    ose_result, targeted_factors = ose(Ψ, dataset; verbosity=verbosity)
-    ose_result
-
-    # CV-TMLE
-    tmle.resampling = StratifiedCV(nfolds=10)
-    cv_tmle_result, targeted_factors = tmle(Ψ, dataset; verbosity=verbosity)
-    cv_tmle_result
-
     # Naive
     naive = NAIVE(models.haz01)
-    @test naive(Ψ, dataset) ≈ -0.150078 atol = 1e-6
+    naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=verbosity)
+    @test naive_result ≈ -0.150078 atol = 1e-6
 
 end
 
