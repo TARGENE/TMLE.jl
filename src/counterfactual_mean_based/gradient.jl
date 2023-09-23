@@ -9,7 +9,7 @@ For the ATE with binary treatment, confounded by W it is equal to:
 
 """
 function counterfactual_aggregate(Ψ::CMCompositeEstimand, Q, dataset)
-    X = selectcols(dataset, featurenames(Q))
+    X = selectcols(dataset, Q.estimand.parents)
     Ttemplate = selectcols(X, treatments(Ψ))
     n = nrows(Ttemplate)
     ctf_agg = zeros(n)

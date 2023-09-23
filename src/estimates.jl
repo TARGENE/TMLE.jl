@@ -76,6 +76,21 @@ function likelihood(estimate::ConditionalDistributionEstimate, dataset)
     return pdf.(ŷ, y)
 end
 
+function compute_offset(ŷ::UnivariateFiniteVector{Multiclass{2}})
+    μy = expected_value(ŷ)
+    logit!(μy)
+    return μy
+end
+
+compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
+
+compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
+
+function compute_offset(estimate::ConditionalDistributionEstimate, X)
+    ŷ = predict(estimate, X)
+    return compute_offset(ŷ)
+end
+
 #####################################################################
 ###                       MLCMRelevantFactors                     ###
 #####################################################################

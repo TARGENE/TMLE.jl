@@ -18,15 +18,6 @@ function truncate!(v::AbstractVector, ps_lowerbound::AbstractFloat)
     end
 end
 
-function compute_offset(ŷ::UnivariateFiniteVector{Multiclass{2}})
-    μy = expected_value(ŷ)
-    logit!(μy)
-    return μy
-end
-compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
-compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
-
-
 function balancing_weights(Gs, dataset; ps_lowerbound=1e-8)
     jointlikelihood = ones(nrows(dataset))
     for G ∈ Gs
@@ -37,7 +28,13 @@ function balancing_weights(Gs, dataset; ps_lowerbound=1e-8)
 end
 
 """
-    clever_covariate_and_weights(jointT, W, G, indicator_fns; ps_lowerbound=1e-8, weighted_fluctuation=false)
+    clever_covariate_and_weights(
+        Ψ::CMCompositeEstimand, 
+        Gs::Tuple{Vararg{ConditionalDistributionEstimate}}, 
+        dataset; 
+        ps_lowerbound=1e-8, 
+        weighted_fluctuation=false
+    )
 
 Computes the clever covariate and weights that are used to fluctuate the initial Q.
 
@@ -53,7 +50,13 @@ if `weighted_fluctuation = true`:
 
 where SpecialIndicator(t) is defined in `indicator_fns`.
 """
-function clever_covariate_and_weights(Ψ::CMCompositeEstimand, Gs, dataset; ps_lowerbound=1e-8, weighted_fluctuation=false)
+function clever_covariate_and_weights(
+    Ψ::CMCompositeEstimand, 
+    Gs::Tuple{Vararg{ConditionalDistributionEstimate}}, 
+    dataset; 
+    ps_lowerbound=1e-8, 
+    weighted_fluctuation=false
+    )
     # Compute the indicator values
     T = TMLE.selectcols(dataset, (p.estimand.outcome for p in Gs))
     indic_vals = indicator_values(indicator_fns(Ψ), T)

@@ -9,30 +9,6 @@ end
 Fluctuation(Ψ, initial_factors; tol=nothing, ps_lowerbound=1e-8, weighted=false) =
     Fluctuation(Ψ, initial_factors, tol, ps_lowerbound, weighted)
 
-function fluctuate(initial_factors_estimate::MLCMRelevantFactors, Ψ, dataset;
-        tol=nothing, 
-        verbosity=1, 
-        weighted_fluctuation=false, 
-        ps_lowerbound=1e-8,
-        factors_cache=nothing
-    )
-    Qfluct_model = TMLE.Fluctuation(Ψ, initial_factors_estimate; 
-        tol=tol, 
-        ps_lowerbound=ps_lowerbound, 
-        weighted=weighted_fluctuation
-    )
-    fluctuated_outcome_mean = TMLE.estimate(
-        initial_factors_estimate.outcome_mean.estimand,
-        dataset,
-        Qfluct_model,
-        nothing;
-        factors_cache=factors_cache,
-        verbosity=verbosity
-    )
-    fluctuated_propensity_score = initial_factors_estimate.propensity_score
-    return MLCMRelevantFactors(initial_factors_estimate.estimand, fluctuated_outcome_mean, fluctuated_propensity_score)
-end
-
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:MLJBase.Continuous} = LinearRegressor(fit_intercept=false, offsetcol = :offset)
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:Finite} = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
 

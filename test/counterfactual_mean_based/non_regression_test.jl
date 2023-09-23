@@ -8,6 +8,7 @@ using CategoricalArrays
 using MLJGLMInterface
 using MLJBase
 
+
 @testset "Test ATE on perinatal dataset." begin
     # This is a non-regression test which was checked against the R tmle3 package
     dataset = CSV.read(joinpath("data", "perinatal.csv"), DataFrame, missingstring=["", "NA"])
@@ -20,27 +21,31 @@ using MLJBase
 
     Ψ = ATE(
         outcome=:haz01, 
-        treatment=(parity01=(case=1, control=0),),
-        confounders=confounders
+        treatment_values=(parity01=(case=1, control=0),),
+        treatment_confounders=(parity01=confounders,)
     )
     models = (
         haz01 = with_encoder(LinearBinaryClassifier()),
         parity01 = LinearBinaryClassifier()
         )
-
+    resampling=nothing # No CV
     ps_lowerbound = 0.025 # Cutoff hardcoded in tmle3
-    resampling = nothing # Vanilla TMLE
-    weighted_fluctuation = false # Unweighted fluctuation
+    weighted = false # Unweighted fluctuation
     verbosity = 1 # No logs
-    adjustment_method = BackdoorAdjustment()
-    factors_cache = nothing
-    tmle_result, targeted_factors = tmle!(Ψ, models, dataset;
+    tmle = TMLEE(models;
         resampling=resampling,
-        weighted_fluctuation=weighted_fluctuation,
-        ps_lowerbound=ps_lowerbound, 
-        adjustment_method=adjustment_method,
-        verbosity=verbosity)
+        ps_lowerbound=ps_lowerbound,
+        weighted=weighted
+    )
+    
+    tmle_result, cache = tmle(Ψ, dataset; verbosity=verbosity);
     tmle_result
+    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=verbosity);
+    cache
+    tmle.models = (
+        haz01 = with_encoder(LinearBinaryClassifier()),
+        parity01 = LinearBinaryClassifier(fit_intercept=false)
+        )
     @test estimate(tmle_result) ≈ -0.185533 atol = 1e-6
     l, u = confint(OneSampleTTest(tmle_result))
     @test l ≈ -0.279246 atol = 1e-6
@@ -48,25 +53,21 @@ using MLJBase
     @test OneSampleZTest(tmle_result) isa OneSampleZTest
 
     # OSE
-    ose_result, targeted_factors = ose!(Ψ, models, dataset;
+    ose = OSE(models; 
         resampling=resampling,
-        ps_lowerbound=ps_lowerbound, 
-        adjustment_method=adjustment_method,
-        verbosity=verbosity)
+        ps_lowerbound=ps_lowerbound
+    )
+    ose_result, targeted_factors = ose(Ψ, dataset; verbosity=verbosity)
     ose_result
 
     # CV-TMLE
-    resampling = StratifiedCV(nfolds=10)
-    cv_tmle_result, targeted_factors = tmle!(Ψ, models, dataset;
-        resampling=resampling,
-        weighted_fluctuation=weighted_fluctuation,
-        ps_lowerbound=ps_lowerbound, 
-        adjustment_method=adjustment_method,
-        verbosity=verbosity)
+    tmle.resampling = StratifiedCV(nfolds=10)
+    cv_tmle_result, targeted_factors = tmle(Ψ, dataset; verbosity=verbosity)
     cv_tmle_result
 
     # Naive
-    @test naive_plugin_estimate!(Ψ, models, dataset) ≈ -0.150078 atol = 1e-6
+    naive = NAIVE(models.haz01)
+    @test naive(Ψ, dataset) ≈ -0.150078 atol = 1e-6
 
 end
 

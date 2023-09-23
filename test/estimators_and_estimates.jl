@@ -5,6 +5,8 @@ using TMLE
 using MLJBase
 using DataFrames
 using MLJGLMInterface
+using MLJModels
+using LogExpFunctions
 
 verbosity = 1
 n = 100
@@ -26,7 +28,7 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
     @test ŷ == predict(estimate.machine, dataset[!, expected_features])
     μ̂ = TMLE.expected_value(estimate, dataset)
     @test μ̂ == mean.(ŷ)
-    @test all(0. <= x <= 1. for x in TMLE.likelihood(estimate, dataset))
+    @test_skip all(0. <= x <= 1. for x in TMLE.likelihood(estimate, dataset)) # The pdf is not necessarily between 0 and 1
     # Uses the cache instead of fitting
     new_estimator = TMLE.MLConditionalDistributionEstimator(LinearRegressor())
     @test TMLE.key(new_estimator) == TMLE.key(estimator)
@@ -61,7 +63,7 @@ end
         @test ŷ[val] == ŷfold
         @test μ̂[val] == mean.(ŷfold)
     end
-    all(0. <= x <= 1. for x in TMLE.likelihood(estimate, dataset))
+    @test_skip all(0. <= x <= 1. for x in TMLE.likelihood(estimate, dataset))
     # Uses the cache instead of fitting
     new_estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
         LinearRegressor(),
@@ -84,6 +86,47 @@ end
     @test_logs (:info, fit_log) new_estimator(estimand, dataset; cache=cache, verbosity=verbosity)
     # The cache contains 3 estimators for the estimand
     @test length(cache) == 3
+end
+
+@testset "Test compute_offset MLConditionalDistributionEstimator" begin
+    dataset = (
+        T = categorical(["a", "b", "c", "a", "a", "b", "a"]),
+        Ycont = [1., 2., 3, 4, 5, 6, 7],
+        Ycat = categorical([1, 0, 0, 1, 1, 1, 0]),
+        W = rand(7),
+    )
+    μYcont = mean(dataset.Ycont)
+    μYcat = mean(float(dataset.Ycat))
+    # The model is probabilistic continuous, the offset is the mean of 
+    # the conditional distribution
+    distr_estimate = TMLE.MLConditionalDistributionEstimator(ConstantRegressor())(
+        TMLE.ConditionalDistribution(:Ycont, [:W, :T]),
+        dataset,
+        verbosity=0
+    )
+    offset = TMLE.compute_offset(distr_estimate, dataset)
+    @test offset == mean.(predict(distr_estimate, dataset))
+    @test offset == repeat([μYcont], 7)
+    # The model is deterministic, the offset is simply the output 
+    # of the predict function which is assumed to correspond to the mean
+    # if the squared loss was optimized for by the underlying model
+    distr_estimate = TMLE.MLConditionalDistributionEstimator(DeterministicConstantRegressor())(
+        TMLE.ConditionalDistribution(:Ycont, [:W, :T]),
+        dataset,
+        verbosity=0
+    )
+    offset = TMLE.compute_offset(distr_estimate, dataset)
+    @test offset == predict(distr_estimate, dataset)
+    @test offset == repeat([μYcont], 7)
+    # The model is probabilistic binary, the offset is the logit
+    # of the mean of the conditional distribution
+    distr_estimate = TMLE.MLConditionalDistributionEstimator(ConstantClassifier())(
+        TMLE.ConditionalDistribution(:Ycat, [:W, :T]),
+        dataset,
+        verbosity=0
+    )
+    offset = TMLE.compute_offset(distr_estimate, dataset)
+    @test offset == repeat([logit(μYcat)], 7)
 end
 
 end
