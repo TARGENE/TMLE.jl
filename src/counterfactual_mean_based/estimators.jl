@@ -111,7 +111,7 @@ end
 TMLEE(models; resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing) = 
     TMLEE(models, resampling, ps_lowerbound, weighted, tol)
 
-function (tmle::TMLEE)(Ψ, dataset; cache=Dict(), verbosity=1)
+function (tmle::TMLEE)(Ψ::CMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     TMLE.check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
