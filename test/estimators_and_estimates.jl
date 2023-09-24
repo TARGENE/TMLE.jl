@@ -10,14 +10,14 @@ using LogExpFunctions
 
 verbosity = 1
 n = 100
-X, y = make_regression(n, 4)
-dataset = DataFrame(Y=y, T₁=X.x1, T₂=X.x2, W=X.x3)
-estimand = ConditionalDistribution(:Y, [:W, :T₁, :T₂])
+X, y = make_moons(n)
+dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
+estimand = ConditionalDistribution(:Y, [:X₁, :X₂])
 fit_log = string("Estimating: ", TMLE.string_repr(estimand))
 reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
 
 @testset "Test MLConditionalDistributionEstimator" begin
-    estimator = TMLE.MLConditionalDistributionEstimator(LinearRegressor())
+    estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
     # Fitting with no cache
     cache = Dict()
     estimate = @test_logs (:info, fit_log) estimator(estimand, dataset; cache=cache, verbosity=verbosity)
@@ -25,25 +25,27 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
     @test estimate isa TMLE.MLConditionalDistribution
     @test fitted_params(estimate.machine).features == expected_features
     ŷ = predict(estimate, dataset)
-    @test ŷ == predict(estimate.machine, dataset[!, expected_features])
+    mach_ŷ = predict(estimate.machine, dataset[!, expected_features])
+    @test all(ŷ[i].prob_given_ref == mach_ŷ[i].prob_given_ref for i in eachindex(ŷ))
     μ̂ = TMLE.expected_value(estimate, dataset)
-    @test μ̂ == mean.(ŷ)
-    @test_skip all(0. <= x <= 1. for x in TMLE.likelihood(estimate, dataset)) # The pdf is not necessarily between 0 and 1
+    @test μ̂ == [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)]
+    @test all(0. <= x <= 1. for x in TMLE.likelihood(estimate, dataset)) # The pdf is not necessarily between 0 and 1
     # Uses the cache instead of fitting
-    new_estimator = TMLE.MLConditionalDistributionEstimator(LinearRegressor())
+    new_estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
     @test TMLE.key(new_estimator) == TMLE.key(estimator)
     @test_logs (:info, reuse_log) estimator(estimand, dataset; cache=cache, verbosity=verbosity)
     # Changing the model leads to refit
-    new_estimator = TMLE.MLConditionalDistributionEstimator(LinearRegressor(fit_intercept=false))
+    new_estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(fit_intercept=false))
+    @test TMLE.key(new_estimator) != TMLE.key(estimator)
     @test_logs (:info, fit_log) new_estimator(estimand, dataset; cache=cache, verbosity=verbosity)
 end
 
 @testset "Test SampleSplitMLConditionalDistributionEstimator" begin
     nfolds = 3
     train_validation_indices = collect(MLJBase.train_test_pairs(CV(nfolds=nfolds), 1:n, dataset))
-    model = LinearRegressor()
+    model = LinearBinaryClassifier()
     estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
-        LinearRegressor(),
+        model,
         train_validation_indices
     )
     cache = Dict()
@@ -58,27 +60,28 @@ end
         # The predictions on validation samples are made from
         # the machine trained on the train sample
         ŷfold = predict(estimate.machines[foldid], dataset[val, expected_features])
-        @test ŷ[val] == ŷfold
-        @test μ̂[val] == mean.(ŷfold)
+        @test [ŷᵢ.prob_given_ref for ŷᵢ ∈ ŷ[val]] == [ŷᵢ.prob_given_ref for ŷᵢ ∈ ŷfold]
+        @test μ̂[val] == [ŷᵢ.prob_given_ref[2] for ŷᵢ ∈ ŷfold]
     end
-    @test_skip all(0. <= x <= 1. for x in TMLE.likelihood(estimate, dataset))
+    @test all(0. <= x <= 1. for x in TMLE.likelihood(estimate, dataset))
     # Uses the cache instead of fitting
     new_estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
-        LinearRegressor(),
+        LinearBinaryClassifier(),
         train_validation_indices
     )
     @test TMLE.key(new_estimator) == TMLE.key(estimator)
     @test_logs (:info, reuse_log) estimator(estimand, dataset;cache=cache, verbosity=verbosity)
     # Changing the model leads to refit
+    new_model = LinearBinaryClassifier(fit_intercept=false)
     new_estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
-        LinearRegressor(fit_intercept=false),
+        new_model,
         train_validation_indices
     )
     @test_logs (:info, fit_log) new_estimator(estimand, dataset; cache=cache, verbosity=verbosity)
     # Changing the train/validation splits leads to refit
     train_validation_indices = collect(MLJBase.train_test_pairs(CV(nfolds=4), 1:n, dataset))
     new_estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
-        LinearRegressor(),
+        new_model,
         train_validation_indices
     )
     @test_logs (:info, fit_log) new_estimator(estimand, dataset; cache=cache, verbosity=verbosity)
