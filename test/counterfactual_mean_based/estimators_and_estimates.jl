@@ -9,8 +9,7 @@ using Distributions
 using MLJLinearModels
 using CategoricalArrays
 using LogExpFunctions
-
-include(joinpath(dirname(@__DIR__), "helper_fns.jl"))
+using MLJBase
 
 @testset "Test CMRelevantFactorsEstimator" begin
     n = 100
@@ -66,8 +65,14 @@ include(joinpath(dirname(@__DIR__), "helper_fns.jl"))
     )
     @test_logs partial_reuse_log... new_η̂(η, dataset; cache=cache, verbosity=1)
 
+    # Adding a resampling strategy
+    resampled_η̂ = TMLE.CMRelevantFactorsEstimator(models=new_models, resampling=CV(nfolds=3))
+    @test TMLE.key(η, new_η̂) != TMLE.key(η, resampled_η̂)
+    η̂ₙ = @test_logs fit_log... resampled_η̂(η, dataset; cache=cache, verbosity=1)
+    @test length(η̂ₙ.outcome_mean.machines) == 3
+    @test length(η̂ₙ.propensity_score[1].machines) == 3
+    @test η̂ₙ.outcome_mean.train_validation_indices == η̂ₙ.propensity_score[1].train_validation_indices
 end
-
 
 end
 

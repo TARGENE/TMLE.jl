@@ -59,3 +59,24 @@ This cqnnot be guaranteed in general since a well specified maximum
 likelihood estimator also solves the score equation.
 """
 test_fluct_mean_inf_curve_lower_than_initial(tmle_result::TMLE.TMLEstimate, ose_result::TMLE.OSEstimate) = @test abs(mean(tmle_result.IC)) < abs(mean(ose_result.IC))
+
+double_robust_estimators(models; resampling=CV(nfolds=3)) = (
+    tmle = TMLEE(models),
+    ose = OSE(models),
+    cv_tmle = TMLEE(models, resampling=resampling),
+    cv_ose = TMLEE(models, resampling=resampling),
+)
+
+function test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    cache = Dict()
+    results = []
+    for estimator ∈ dr_estimators
+        result, cache = estimator(Ψ, dataset, cache=cache, verbosity=verbosity)
+        push!(results, result)
+        test_coverage(result, Ψ₀)
+        if estimator isa TMLEE && estimator.resampling === nothing
+            test_fluct_decreases_risk(cache)
+        end
+    end
+    return NamedTuple{keys(dr_estimators)}(results), cache
+end

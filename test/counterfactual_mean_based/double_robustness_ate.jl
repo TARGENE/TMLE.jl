@@ -117,18 +117,12 @@ end
         Y = with_encoder(MLJModels.DeterministicConstantRegressor()),
         T = LogisticClassifier(lambda=0)
     )
-    tmle = TMLEE(models)
-    ose = OSE(models)
-    naive = NAIVE(models.Y)
-    cache = Dict()
-    tmle_result, cache = tmle(Ψ, dataset, cache=cache, verbosity=0)
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0)
-    test_coverage(tmle_result, Ψ₀)
-    test_coverage(ose_result, Ψ₀)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
+    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
     # The initial estimate is far away
+    naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
     
@@ -137,16 +131,9 @@ end
         Y = with_encoder(TreatmentTransformer() |> LinearRegressor()),
         T = ConstantClassifier()
     )
-    tmle.models = models
-    ose.models = models
-    naive.model = models.Y
-
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0)
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0)
-    test_coverage(tmle_result, Ψ₀)
-    test_coverage(ose_result, Ψ₀)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
 end
 
 @testset "Test Double Robustness ATE on binary_outcome_binary_treatment_pb" begin
@@ -161,19 +148,12 @@ end
         Y = with_encoder(ConstantClassifier()),
         T = LogisticClassifier(lambda=0)
     )
-    tmle = TMLEE(models)
-    ose = OSE(models)
-    naive = NAIVE(models.Y)
-    cache = Dict()
-
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0)
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0)
-    test_coverage(tmle_result, Ψ₀)
-    test_coverage(ose_result, Ψ₀)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-6)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-6)
+    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
     # The initial estimate is far away
+    naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0) 
     @test naive_result == 0
     # When Q is well specified but G is misspecified
@@ -181,16 +161,9 @@ end
         Y = with_encoder(LogisticClassifier(lambda=0)),
         T = ConstantClassifier()
     )
-    tmle.models = models
-    ose.models = models
-    naive.model = models.Y
-
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0)
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0)
-    test_coverage(tmle_result, Ψ₀)
-    test_coverage(ose_result, Ψ₀)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-6)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-6)
 end
 
 
@@ -206,19 +179,13 @@ end
         Y = with_encoder(MLJModels.DeterministicConstantRegressor()),
         T = LogisticClassifier(lambda=0)
     )
-    tmle = TMLEE(models)
-    ose = OSE(models)
-    naive = NAIVE(models.Y)
-    cache = Dict()
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
 
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0)
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0)
-    test_coverage(tmle_result, Ψ₀)
-    test_coverage(ose_result, Ψ₀)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
+    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
     # The initial estimate is far away
+    naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
 
@@ -227,16 +194,9 @@ end
         Y = with_encoder(LinearRegressor()),
         T = ConstantClassifier()
     )
-    tmle.models = models
-    ose.models = models
-    naive.model = models.Y
-
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0)
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0)
-    test_coverage(tmle_result, Ψ₀)
-    test_coverage(ose_result, Ψ₀)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
 end
 
 @testset "Test Double Robustness ATE with two treatment variables" begin
@@ -259,34 +219,19 @@ end
         T₁ = LogisticClassifier(lambda=0),
         T₂ = LogisticClassifier(lambda=0)
     )
-    tmle = TMLEE(models)
-    ose = OSE(models)
-    naive = NAIVE(models.Y)
-    cache = Dict()
-
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0)
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0)
-    test_coverage(tmle_result, ATE₁₁₋₀₁)
-    test_coverage(ose_result, ATE₁₁₋₀₁)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₁, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
+    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
     # When Q is well specified but G is misspecified
     models = (
         Y = with_encoder(LinearRegressor()),
         T₁ = ConstantClassifier(),
         T₂ = ConstantClassifier()
     )
-    tmle.models = models
-    ose.models = models
-    naive.model = models.Y
-
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0)
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0)
-    test_coverage(tmle_result, ATE₁₁₋₀₁)
-    test_coverage(ose_result, ATE₁₁₋₀₁)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₁, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
 
     # Test second ATE, two treatment varies 
     Ψ = ATE(
@@ -300,13 +245,10 @@ end
             T₂ = [:W₁, :W₂],
         )
     )
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0)
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0)
-    test_coverage(tmle_result, ATE₁₁₋₀₀)
-    test_coverage(ose_result, ATE₁₁₋₀₀)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
+    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
 
     # When Q is well specified but G is misspecified
     models = (
@@ -314,16 +256,9 @@ end
         T₁ = LogisticClassifier(lambda=0),
         T₂ = LogisticClassifier(lambda=0),
     )
-    tmle.models = models
-    ose.models = models
-    naive.model = models.Y
-
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0)
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0)
-    test_coverage(tmle_result, ATE₁₁₋₀₀)
-    test_coverage(ose_result, ATE₁₁₋₀₀)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
 end
 
 end;

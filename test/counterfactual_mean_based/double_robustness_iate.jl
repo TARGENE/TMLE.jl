@@ -184,19 +184,12 @@ end
         T₁ = LogisticClassifier(lambda=0),
         T₂ = LogisticClassifier(lambda=0),
     )
-    tmle = TMLEE(models)
-    ose = OSE(models)
-    naive = NAIVE(models.Y)
-    cache = Dict()
-
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0);
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0);
-    test_coverage(tmle_result, Ψ₀)
-    test_coverage(ose_result, Ψ₀)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-9)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
+    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
     # The initial estimate is far away
+    naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
 
@@ -206,18 +199,12 @@ end
         T₁ = ConstantClassifier(),
         T₂ = ConstantClassifier(),
     )
-    tmle.models = models
-    ose.models = models
-    naive.model = models.Y
-    
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0);
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0);
-    test_coverage(tmle_result, Ψ₀)
-    test_coverage(ose_result, Ψ₀)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-9)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
+    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
     # The initial estimate is far away
+    naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result ≈ -0.0 atol=1e-1
 end
@@ -241,19 +228,13 @@ end
         T₁ = LogisticClassifier(lambda=0),
         T₂ = LogisticClassifier(lambda=0),
     )
-    tmle = TMLEE(models)
-    ose = OSE(models)
-    naive = NAIVE(models.Y)
-    cache = Dict()
 
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0)
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0);
-    test_coverage(tmle_result, Ψ₀)
-    test_coverage(ose_result, Ψ₀)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
+    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
     # The initial estimate is far away
+    naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
 
@@ -263,16 +244,9 @@ end
         T₁ = ConstantClassifier(),
         T₂ = ConstantClassifier(),
     )
-    tmle.models = models
-    ose.models = models
-    naive.model = models.Y
-
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0)
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0);
-    test_coverage(tmle_result, Ψ₀)
-    test_coverage(ose_result, Ψ₀)
-    test_fluct_decreases_risk(cache)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
 end
 
 
@@ -295,18 +269,11 @@ end
         T₁ = LogisticClassifier(lambda=0),
         T₂ = LogisticClassifier(lambda=0)
     )
-    tmle = TMLEE(models)
-    ose = OSE(models)
-    naive = NAIVE(models.Y)
-    cache = Dict()
-
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0);
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0);
-    test_coverage(tmle_result, Ψ₀)
-    test_coverage(ose_result, Ψ₀)
-    test_fluct_decreases_risk(cache)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
     # The initial estimate is far away
+    naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
 
@@ -316,17 +283,11 @@ end
         T₁ = ConstantClassifier(),
         T₂ = ConstantClassifier(),
     )
-    tmle.models = models
-    ose.models = models
-    naive.model = models.Y
-
-    tmle_result, cache = tmle(Ψ, dataset; cache=cache, verbosity=0);
-    ose_result, cache = ose(Ψ, dataset; cache=cache, verbosity=0);
-    test_coverage(tmle_result, Ψ₀)
-    test_coverage(ose_result, Ψ₀)
-    test_fluct_decreases_risk(cache)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result, ose_result)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
     # The initial estimate is far away
+    naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result ≈ -0.02 atol=1e-2
 end
