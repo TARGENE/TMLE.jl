@@ -5,7 +5,7 @@ abstract type Estimator end
 #####################################################################
 
 struct MLConditionalDistributionEstimator <: Estimator
-    model
+    model::MLJBase.Supervised
 end
 
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1)
@@ -41,8 +41,8 @@ key(estimator::MLConditionalDistributionEstimator) =
 #####################################################################
 
 struct SampleSplitMLConditionalDistributionEstimator <: Estimator
-    model
-    train_validation_indices
+    model::MLJBase.Supervised
+    train_validation_indices::Tuple
 end
 
 function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1)

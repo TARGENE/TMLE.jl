@@ -40,8 +40,8 @@ Holds a Sample Split Machine Learning estimate for a Conditional Distribution.
 """
 struct SampleSplitMLConditionalDistribution <: Estimate
     estimand::ConditionalDistribution
-    train_validation_indices
-    machines
+    train_validation_indices::Tuple
+    machines::Vector{Machine}
 end
 
 string_repr(estimate::SampleSplitMLConditionalDistribution) = 

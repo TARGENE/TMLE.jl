@@ -25,8 +25,6 @@ import AbstractDifferentiation as AD
 
 export SE, StructuralEquation
 export StructuralCausalModel, SCM, StaticConfoundedModel
-export setequation!, getequation, get_conditional_distribution, set_conditional_distribution!
-export setmodel!, equations, reset!, parents
 export ConditionalDistribution, ExpectedValue
 export CounterfactualMean, CM
 export AverageTreatmentEffect, ATE
@@ -52,9 +50,9 @@ include("treatment_transformer.jl")
 include("adjustment.jl")
 
 include("counterfactual_mean_based/estimands.jl")
-include("counterfactual_mean_based/estimators.jl")
 include("counterfactual_mean_based/estimates.jl")
 include("counterfactual_mean_based/fluctuation.jl")
+include("counterfactual_mean_based/estimators.jl")
 include("counterfactual_mean_based/clever_covariate.jl")
 include("counterfactual_mean_based/gradient.jl")
 

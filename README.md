@@ -11,7 +11,11 @@ This package enables the estimation of various Causal Inference related estimand
 
 ## Notes to self
 
-- Factors should probably not be exposed. For instance resampling should only be specified once per estimation procedure and not for each factor.
 - For multiple TMLE steps, convergence when the mean of the IC is below: σ/n where σ is the standard deviation of the IC.
-- Try make selectcols preserve input type
+- Try make selectcols preserve input type (see MLJModel has a facility)
 - Watch for discrepancy in train_validation_indices with missing data...
+- Check that for IATEs simulations, the true effect size is actually an additive interaction and not a multiplicative one.
+- clean imports in test files
+- clean export list
+- look into dataset management and missing values
+- See about ordering of parameters

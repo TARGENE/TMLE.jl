@@ -42,7 +42,7 @@ end
 
 @testset "Test SampleSplitMLConditionalDistributionEstimator" begin
     nfolds = 3
-    train_validation_indices = collect(MLJBase.train_test_pairs(CV(nfolds=nfolds), 1:n, dataset))
+    train_validation_indices = Tuple(MLJBase.train_test_pairs(CV(nfolds=nfolds), 1:n, dataset))
     model = LinearBinaryClassifier()
     estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
         model,
@@ -79,7 +79,7 @@ end
     )
     @test_logs (:info, fit_log) new_estimator(estimand, dataset; cache=cache, verbosity=verbosity)
     # Changing the train/validation splits leads to refit
-    train_validation_indices = collect(MLJBase.train_test_pairs(CV(nfolds=4), 1:n, dataset))
+    train_validation_indices = Tuple(MLJBase.train_test_pairs(CV(nfolds=4), 1:n, dataset))
     new_estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
         new_model,
         train_validation_indices

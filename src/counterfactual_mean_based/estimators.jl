@@ -3,8 +3,8 @@
 #####################################################################
 
 struct CMRelevantFactorsEstimator <: Estimator
-    resampling
-    models
+    resampling::Union{Nothing, ResamplingStrategy}
+    models::NamedTuple
 end
 
 CMRelevantFactorsEstimator(;models, resampling=nothing) =
@@ -19,7 +19,7 @@ function get_train_validation_indices(resampling::ResamplingStrategy, factors, d
     relevant_columns = collect(TMLE.variables(factors))
     outcome_variable = factors.outcome_mean.outcome
     feature_variables = filter(x -> x !== outcome_variable, relevant_columns)
-    return collect(MLJBase.train_test_pairs(
+    return Tuple(MLJBase.train_test_pairs(
         resampling,
         1:nrows(dataset),
         selectcols(dataset, feature_variables), 
@@ -69,7 +69,7 @@ end
 #####################################################################
 
 struct TargetedCMRelevantFactorsEstimator
-    model
+    model::Fluctuation
 end
 
 TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate; tol=nothing, ps_lowerbound=1e-8, weighted=false) = 
@@ -101,11 +101,11 @@ end
 ###                            TMLE                               ###
 #####################################################################
 mutable struct TMLEE <: Estimator
-    models
-    resampling
-    ps_lowerbound
-    weighted
-    tol
+    models::NamedTuple
+    resampling::Union{Nothing, ResamplingStrategy}
+    ps_lowerbound::Float64
+    weighted::Bool
+    tol::Union{Float64, Nothing}
 end
 
 TMLEE(models; resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing) = 
@@ -146,9 +146,9 @@ end
 #####################################################################
 
 mutable struct OSE <: Estimator
-    models
-    resampling
-    ps_lowerbound
+    models::NamedTuple
+    resampling::Union{Nothing, ResamplingStrategy}
+    ps_lowerbound::Float64
 end
 
 OSE(models; resampling=nothing, ps_lowerbound=1e-8) = 
@@ -184,7 +184,7 @@ end
 #####################################################################
 
 mutable struct NAIVE <: Estimator
-    model
+    model::MLJBase.Supervised
 end
 
 function (estimator::NAIVE)(Ψ::CMCompositeEstimand, dataset; cache=Dict(), verbosity=1)

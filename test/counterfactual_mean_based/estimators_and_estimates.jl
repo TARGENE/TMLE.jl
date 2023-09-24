@@ -74,6 +74,12 @@ using MLJBase
     @test η̂ₙ.outcome_mean.train_validation_indices == η̂ₙ.propensity_score[1].train_validation_indices
 end
 
+@testset "Test structs are concrete types" begin
+    for type in (OSE, TMLEE, NAIVE)
+        @test isconcretetype(type)
+    end
+end
+
 end
 
 true
