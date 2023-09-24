@@ -10,11 +10,12 @@ end
 
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1)
     # Lookup in cache
-    cache_key = key(estimand, estimator)
-    if haskey(cache, cache_key)
-        estimate = cache[cache_key]
-        verbosity > 0 && @info(string("Reusing estimate for: ", string_repr(estimand)))
-        return estimate
+    if haskey(cache, estimand)
+        old_estimator, estimate = cache[estimand]
+        if key(old_estimator) == key(estimator)
+            verbosity > 0 && @info(reuse_string(estimand))
+            return estimate
+        end
     end
     verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
     # Otherwise estimate
@@ -27,7 +28,7 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cach
     # Build estimate
     estimate = MLConditionalDistribution(estimand, mach)
     # Update cache
-    cache[cache_key] = estimate
+    cache[estimand] = estimator => estimate
 
     return estimate
 end
@@ -46,11 +47,12 @@ end
 
 function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1)
     # Lookup in cache
-    cache_key = key(estimand, estimator)
-    if haskey(cache, cache_key)
-        estimate = cache[cache_key]
-        verbosity > 0 && @info(string("Reusing estimate for: ", string_repr(estimand)))
-        return estimate    
+    if haskey(cache, estimand)
+        old_estimator, estimate = cache[estimand]
+        if key(old_estimator) == key(estimator)
+            verbosity > 0 && @info(reuse_string(estimand))
+            return estimate
+        end
     end
     # Otherwise estimate
     verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
@@ -70,7 +72,7 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     # Build estimate
     estimate = SampleSplitMLConditionalDistribution(estimand, estimator.train_validation_indices, machines)
     # Update cache
-    cache[cache_key] = estimate
+    cache[estimand] = estimator => estimate
 
     return estimate
 end

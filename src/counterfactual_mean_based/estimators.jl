@@ -7,6 +7,9 @@ struct CMRelevantFactorsEstimator <: Estimator
     models
 end
 
+CMRelevantFactorsEstimator(;models, resampling=nothing) =
+    CMRelevantFactorsEstimator(resampling, models)
+
 key(estimator::CMRelevantFactorsEstimator) = 
     (CMRelevantFactorsEstimator, estimator.resampling, estimator.models)
 
@@ -25,13 +28,14 @@ function get_train_validation_indices(resampling::ResamplingStrategy, factors, d
 end
 
 function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1)
-    cache_key = key(estimand, estimator)
-    if haskey(cache, cache_key)
-        estimate = cache[cache_key]
-        verbosity > 0 && @info(string("Reusing estimate for: ", string_repr(estimand)))
-        return estimate
+    if haskey(cache, estimand)
+        old_estimator, estimate = cache[estimand]
+        if key(old_estimator) == key(estimator)
+            verbosity > 0 && @info(reuse_string(estimand))
+            return estimate
+        end
     end
-    verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
+    verbosity > 0 && @info(fit_string(estimand))
     models = estimator.models
     # Get train validation indices
     train_validation_indices = TMLE.get_train_validation_indices(estimator.resampling, estimand, dataset)
@@ -55,7 +59,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
     # Build estimate
     estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate)
     # Update cache
-    cache[(estimand, estimator)] = estimate
+    cache[estimand] = estimator => estimate
 
     return estimate
 end

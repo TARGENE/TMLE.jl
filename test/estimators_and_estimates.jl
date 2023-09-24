@@ -36,8 +36,6 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
     # Changing the model leads to refit
     new_estimator = TMLE.MLConditionalDistributionEstimator(LinearRegressor(fit_intercept=false))
     @test_logs (:info, fit_log) new_estimator(estimand, dataset; cache=cache, verbosity=verbosity)
-    # The cache contains two estimators for the estimand
-    @test length(cache) == 2
 end
 
 @testset "Test SampleSplitMLConditionalDistributionEstimator" begin
@@ -84,8 +82,6 @@ end
         train_validation_indices
     )
     @test_logs (:info, fit_log) new_estimator(estimand, dataset; cache=cache, verbosity=verbosity)
-    # The cache contains 3 estimators for the estimand
-    @test length(cache) == 3
 end
 
 @testset "Test compute_offset MLConditionalDistributionEstimator" begin
