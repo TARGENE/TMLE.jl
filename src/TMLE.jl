@@ -18,19 +18,20 @@ using PrecompileTools
 using PrettyTables
 using Random
 import AbstractDifferentiation as AD
+using Graphs
+using MetaGraphsNext
 
 # #############################################################################
 # EXPORTS
 # #############################################################################
 
-export SE, StructuralEquation
 export StructuralCausalModel, SCM, StaticConfoundedModel
 export ConditionalDistribution, ExpectedValue
 export CounterfactualMean, CM
 export AverageTreatmentEffect, ATE
 export InteractionAverageTreatmentEffect, IATE
 export AVAILABLE_ESTIMANDS
-export fit!, optimize_ordering, optimize_ordering!
+export optimize_ordering, optimize_ordering!
 export TMLEE, OSE, NAIVE
 export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose

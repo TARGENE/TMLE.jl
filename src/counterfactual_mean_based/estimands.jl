@@ -38,42 +38,30 @@ ESTIMANDS_DOCS = Dict(
     :ATE => (formula="``ATE(Y, T, case, control) = E[Y|do(T=case)] - E[Y|do(T=control)``",),
     :IATE => (formula="``IATE = E[Y|do(T₁=1, T₂=1)] - E[Y|do(T₁=1, T₂=0)] - E[Y|do(T₁=0, T₂=1)] + E[Y|do(T₁=0, T₂=0)]``",)
 )
-# Define constructors/name for CMCompositeEstimand types
 
-for (typename, (formula,)) ∈ ESTIMANDS_DOCS
+for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
+    causal_estimand = Symbol(:Causal, estimand)
+    statistical_estimand = Symbol(:Statistical, estimand)
     ex = quote
-        # """
-        # # $(typename)
+        # Causal Estimand
+        struct $(causal_estimand) <: Estimand
+            outcome::Symbol
+            treatment_values::NamedTuple
 
-        # ## Definition
-
-        # For two treatments with case/control settings (1, 0):
-
-        # $(formula)
-
-        # ## Constructors
-
-        # - $(typename)(outcome, treatment, confounders; extra_outcome_covariates=Set{Symbol}())
-        # - $(typename)(;
-        #     outcome, 
-        #     treatment, 
-        #     confounders, 
-        #     extra_outcome_covariates 
-        # )
-
-        # ## Example
-
-        # ```julia
-        # Ψ = $(typename)(outcome=:Y, treatment=(T₁=(case=1, control=0), T₂=(case=1,control=0), confounders=[:W₁, :W₂])
-        # ```
-        # """
-        struct $(typename) <: Estimand
+            function $(statistical_estimand)(outcome, treatment_values)
+                outcome = Symbol(outcome)
+                treatment_variables = Tuple(keys(treatment_values))
+                return new(outcome, treatment_values)
+            end
+        end
+        # Statistical Estimand
+        struct $(statistical_estimand) <: Estimand
             outcome::Symbol
             treatment_values::NamedTuple
             treatment_confounders::NamedTuple
             outcome_extra_covariates::Tuple{Vararg{Symbol}}
 
-            function $(typename)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
+            function $(statistical_estimand)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
                 outcome = Symbol(outcome)
                 treatment_variables = Tuple(keys(treatment_values))
                 treatment_confounders = NamedTuple{treatment_variables}([unique_sorted_tuple(treatment_confounders[T]) for T ∈ treatment_variables])
@@ -82,22 +70,27 @@ for (typename, (formula,)) ∈ ESTIMANDS_DOCS
             end
         end
 
-        $(typename)(outcome, treatment_values, treatment_confounders; outcome_extra_covariates=()) = 
-            $(typename)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
-    
-        $(typename)(;outcome, treatment_values, treatment_confounders, outcome_extra_covariates=()) = 
-            $(typename)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
+        # Constructors
+        $(estimand)(outcome, treatment_values) = $(causal_estimand)(outcome, treatment_values)
 
-        name(::Type{$(typename)}) = string($(typename))
+        $(estimand)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates) = 
+            $(statistical_estimand)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
+
+        $(estimand)(outcome, treatment_values, treatment_confounders::Nothing, outcome_extra_covariates) = 
+            $(statistical_estimand)(outcome, treatment_values)
+
+        $(estimand)(;outcome, treatment_values, treatment_confounders, outcome_extra_covariates=()) =
+            $(estimand)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
+
     end
     eval(ex)
 end
 
-CMCompositeEstimand = Union{(eval(x) for x in keys(ESTIMANDS_DOCS))...}
+CMCompositeEstimand = Union{(eval(Symbol(:Statistical, x)) for x in keys(ESTIMANDS_DOCS))...}
 
-indicator_fns(Ψ::CM) = Dict(values(Ψ.treatment_values) => 1.)
+indicator_fns(Ψ::StatisticalCM) = Dict(values(Ψ.treatment_values) => 1.)
 
-function indicator_fns(Ψ::ATE)
+function indicator_fns(Ψ::StatisticalATE)
     case = []
     control = []
     for treatment in Ψ.treatment_values
@@ -107,9 +100,9 @@ function indicator_fns(Ψ::ATE)
     return Dict(Tuple(case) => 1., Tuple(control) => -1.)
 end
 
-ncases(value, Ψ::IATE) = sum(value[i] == Ψ.treatment_values[i].case for i in eachindex(value))
+ncases(value, Ψ::StatisticalIATE) = sum(value[i] == Ψ.treatment_values[i].case for i in eachindex(value))
 
-function indicator_fns(Ψ::IATE)
+function indicator_fns(Ψ::StatisticalIATE)
     N = length(treatments(Ψ))
     key_vals = Pair[]
     for cf in Iterators.product((values(Ψ.treatment_values[T]) for T in treatments(Ψ))...)
@@ -126,7 +119,7 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: CMCompositeEstimand 
     param_string = string(
-        name(T),
+        Base.typename(T).wrapper,
         "\n-----",
         "\nOutcome: ", Ψ.outcome,
         "\nTreatment: ", Ψ.treatment_values
