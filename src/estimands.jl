@@ -68,21 +68,6 @@ Function used to sort estimands for optimal estimation ordering.
 """
 key(estimand::Estimand) = estimand
 
-"""
-    optimize_ordering!(estimands::Vector{<:Estimand})
-
-Optimizes the order of the `estimands` to maximize reuse of 
-fitted equations in the associated SCM.
-"""
-optimize_ordering!(estimands::Vector{<:Estimand}) = sort!(estimands, by=estimand_key)
-
-"""
-    optimize_ordering(estimands::Vector{<:Estimand})
-
-See [`optimize_ordering!`](@ref)
-"""
-optimize_ordering(estimands::Vector{<:Estimand}) = sort(estimands, by=estimand_key)
-
 #####################################################################
 ###                   Conditional Distribution                    ###
 #####################################################################
