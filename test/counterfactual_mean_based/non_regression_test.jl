@@ -8,7 +8,6 @@ using CategoricalArrays
 using MLJGLMInterface
 using MLJBase
 
-
 @testset "Test ATE on perinatal dataset." begin
     # This is a non-regression test which was checked against the R tmle3 package
     dataset = CSV.read(joinpath("data", "perinatal.csv"), DataFrame, missingstring=["", "NA"])

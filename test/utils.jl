@@ -3,7 +3,6 @@ module TestUtils
 using Test
 using TMLE
 using MLJBase
-using StableRNGs
 using CategoricalArrays
 using MLJLinearModels
 using MLJModels

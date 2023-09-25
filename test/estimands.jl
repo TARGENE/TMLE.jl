@@ -3,7 +3,6 @@ module TestEstimands
 using TMLE
 using Test
 
-
 @testset "Test ConditionalDistribution" begin
     distr = ConditionalDistribution("Y", ["C", 1, :A, ])
     @test distr.outcome === :Y

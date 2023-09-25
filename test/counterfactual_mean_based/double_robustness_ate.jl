@@ -9,7 +9,6 @@ using MLJLinearModels
 using MLJModels
 using StableRNGs
 using StatsBase
-using HypothesisTests
 using LogExpFunctions
 
 include(joinpath(dirname(@__DIR__), "helper_fns.jl"))

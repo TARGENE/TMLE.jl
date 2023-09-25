@@ -6,7 +6,6 @@ using MLJModels
 using MLJBase
 using DataFrames
 
-
 @testset "Test Fluctuation with 1 Treatments" begin
     Ψ = ATE(
         outcome=:Y,
