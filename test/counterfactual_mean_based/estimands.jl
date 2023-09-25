@@ -3,7 +3,7 @@ module TestEstimands
 using Test
 using TMLE
 
-@testset "Test CMCompositeEstimand" begin
+@testset "Test StatisticalCMCompositeEstimand" begin
     dataset = (
         W  = [1, 2, 3, 4, 5, 6, 7, 8],
         T₁ = ["A", "B", "A", "B", "A", "B", "A", "B"],
@@ -81,7 +81,7 @@ using TMLE
 end
 
 @testset "Test structs are concrete types" begin
-    for type in Base.uniontypes(TMLE.CMCompositeEstimand)
+    for type in Base.uniontypes(TMLE.StatisticalCMCompositeEstimand)
         @test isconcretetype(type)
     end
 end

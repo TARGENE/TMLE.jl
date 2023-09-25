@@ -1,5 +1,5 @@
 """
-    counterfactual_aggregate(Ψ::CMCompositeEstimand, Q::Machine)
+    counterfactual_aggregate(Ψ::StatisticalCMCompositeEstimand, Q::Machine)
 
 This is a counterfactual aggregate that depends on the parameter of interest.
 
@@ -8,7 +8,7 @@ For the ATE with binary treatment, confounded by W it is equal to:
 ``ctf_agg = Q(1, W) - Q(0, W)``
 
 """
-function counterfactual_aggregate(Ψ::CMCompositeEstimand, Q, dataset)
+function counterfactual_aggregate(Ψ::StatisticalCMCompositeEstimand, Q, dataset)
     X = selectcols(dataset, Q.estimand.parents)
     Ttemplate = selectcols(X, treatments(Ψ))
     n = nrows(Ttemplate)
@@ -44,7 +44,7 @@ compute_estimate(ctf_aggregate, train_validation_indices) =
 
 This part of the gradient is evaluated on the original dataset. All quantities have been precomputed and cached.
 """
-function ∇YX(Ψ::CMCompositeEstimand, Q, G, dataset; ps_lowerbound=1e-8)
+function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound=1e-8)
     # Maybe can cache some results (H and E[Y|X]) to improve perf here
     H, weights = clever_covariate_and_weights(Ψ, G, dataset; ps_lowerbound=ps_lowerbound)
     y = float(Tables.getcolumn(dataset, Q.estimand.outcome))
@@ -53,7 +53,7 @@ function ∇YX(Ψ::CMCompositeEstimand, Q, G, dataset; ps_lowerbound=1e-8)
 end
 
 
-function gradient_and_estimate(Ψ::CMCompositeEstimand, factors, dataset; ps_lowerbound=1e-8)
+function gradient_and_estimate(Ψ::StatisticalCMCompositeEstimand, factors, dataset; ps_lowerbound=1e-8)
     Q = factors.outcome_mean
     G = factors.propensity_score
     ctf_agg = TMLE.counterfactual_aggregate(Ψ, Q, dataset)

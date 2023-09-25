@@ -4,7 +4,7 @@
 
 """
 Defines relevant factors that need to be estimated in order to estimate any
-Counterfactual Mean composite estimand (see `CMCompositeEstimand`).
+Counterfactual Mean composite estimand (see `StatisticalCMCompositeEstimand`).
 """
 struct CMRelevantFactors <: Estimand
     outcome_mean::ConditionalDistribution
@@ -48,7 +48,7 @@ for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
             outcome::Symbol
             treatment_values::NamedTuple
 
-            function $(statistical_estimand)(outcome, treatment_values)
+            function $(causal_estimand)(outcome, treatment_values)
                 outcome = Symbol(outcome)
                 treatment_variables = Tuple(keys(treatment_values))
                 return new(outcome, treatment_values)
@@ -77,16 +77,18 @@ for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
             $(statistical_estimand)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
 
         $(estimand)(outcome, treatment_values, treatment_confounders::Nothing, outcome_extra_covariates) = 
-            $(statistical_estimand)(outcome, treatment_values)
+            $(causal_estimand)(outcome, treatment_values)
 
-        $(estimand)(;outcome, treatment_values, treatment_confounders, outcome_extra_covariates=()) =
+        $(estimand)(;outcome, treatment_values, treatment_confounders=nothing, outcome_extra_covariates=()) =
             $(estimand)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
 
     end
     eval(ex)
 end
 
-CMCompositeEstimand = Union{(eval(Symbol(:Statistical, x)) for x in keys(ESTIMANDS_DOCS))...}
+CausalCMCompositeEstimands = Union{(eval(Symbol(:Causal, x)) for x in keys(ESTIMANDS_DOCS))...}
+
+StatisticalCMCompositeEstimand = Union{(eval(Symbol(:Statistical, x)) for x in keys(ESTIMANDS_DOCS))...}
 
 indicator_fns(Ψ::StatisticalCM) = Dict(values(Ψ.treatment_values) => 1.)
 
@@ -111,13 +113,13 @@ function indicator_fns(Ψ::StatisticalIATE)
     return Dict(key_vals...)
 end
 
-function get_relevant_factors(Ψ::CMCompositeEstimand)
+function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand)
     outcome_model = ExpectedValue(Ψ.outcome, Tuple(union(Ψ.outcome_extra_covariates, keys(Ψ.treatment_confounders), (Ψ.treatment_confounders)...)))
     treatment_factors = Tuple(ConditionalDistribution(T, Ψ.treatment_confounders[T]) for T in treatments(Ψ))
     return CMRelevantFactors(outcome_model, treatment_factors)
 end
 
-function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: CMCompositeEstimand 
+function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: StatisticalCMCompositeEstimand 
     param_string = string(
         Base.typename(T).wrapper,
         "\n-----",

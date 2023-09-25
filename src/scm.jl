@@ -2,6 +2,11 @@
 ###                  Structural Equation                          ###
 #####################################################################
 
+"""
+A SCM is simply a MetaGraph over a Directed Acyclic Graph with additional methods.
+"""
+const SCM = MetaGraph
+
 function SCM(equations...)
     scm =  MetaGraph(
         SimpleDiGraph();
@@ -9,13 +14,18 @@ function SCM(equations...)
         vertex_data_type=Nothing,
         edge_data_type=Nothing
     )
-    for (outcome, parents) in equations
-        add_equation!(scm, outcome, parents)
-    end
+    add_equations!(scm, equations...)
     return scm
 end
 
-function add_equation!(scm::MetaGraph, outcome, parents)
+function add_equations!(scm::SCM, equations...)
+    for outcome_parents_pair in equations
+        add_equation!(scm, outcome_parents_pair)
+    end
+end
+
+function add_equation!(scm::SCM, outcome_parents_pair)
+    outcome, parents = outcome_parents_pair
     outcome_symbol = Symbol(outcome)
     add_vertex!(scm, outcome_symbol)
     for parent in parents
@@ -25,53 +35,26 @@ function add_equation!(scm::MetaGraph, outcome, parents)
     end
 end
 
-
-get_outcome_extra_covariates(outcome_parents, treatment_and_confounders, vertex_labels) = 
-    [vertex_labels[p] for p ∈ outcome_parents if p ∉ treatment_and_confounders]
-
-#####################################################################
-###                    Identification Methods                     ###
-#####################################################################
-
-abstract type AdjustmentMethod end
-
-struct BackdoorAdjustment <: AdjustmentMethod
-    outcome_extra::Bool
+function parents(scm, label)
+    code, _ = scm.vertex_properties[label]
+    return [scm.vertex_labels[parent_code] for parent_code in scm.graph.badjlist[code]]
 end
 
-function identify(method::BackdoorAdjustment, estimand::T, scm::MetaGraph) where T<:Union{Cau}
-    # Treatment confounders
-    treatment_names = keys(estimand.treatment)
-    treatment_codes = [code_for(scm, treatment) for treatment ∈ treatment_names]
-    confounders_codes = scm.graph.badjlist[treatment_codes]
-    treatment_confounders = NamedTuple{treatment_names}(
-        [[scm.vertex_labels[w] for w in confounders_codes[i]] 
-        for i in eachindex(confounders_codes)]
-    )
-    # Extra covariates
-    outcome_extra_covariates = nothing
-    if method.outcome_extra_covariates
-        outcome_parents_codes = scm.graph.badjlist[code_for(scm, estimand.outcome)]
-        treatment_and_confounders_codes = Set(vcat(treatment_codes, confounders_codes...))
-        outcome_extra_covariates = get_outcome_extra_covariates(
-            outcome_parents_codes, 
-            treatment_and_confounders_codes, 
-            scm.vertex_labels
-        )
-    end
+"""
+A plate Structural Causal Model where:
 
-    return T(
-        outcome=estimand.outcome,
-        treatment_values = estimand.treatment_values,
-        treatment_confounders = treatment_confounders,
-        outcome_extra_covariates = outcome_extra_covariates
-    )
+- For all outcomes: oᵢ = fᵢ(treatments, confounders, outcome_extra_covariates)
+- For all treatments: tⱼ = fⱼ(confounders)
+
+#  Example
+
+StaticSCM([:Y], [:T₁, :T₂], [:W₁, :W₂, :W₃]; outcome_extra_covariates=[:C])
+"""
+function StaticSCM(outcomes, treatments, confounders; outcome_extra_covariates=())
+    outcome_equations = (outcome => unique(vcat(treatments, confounders, outcome_extra_covariates)) for outcome in outcomes)
+    treatment_equations = (treatment => unique(confounders) for treatment in treatments)
+    return SCM(outcome_equations..., treatment_equations...)
 end
 
-#####################################################################
-###                      Causal Estimand                          ###
-#####################################################################
-struct CausalATE
-    outcome::Symbol
-    treatment_values::NamedTuple
-end
+StaticSCM(;outcomes, treatments, confounders, outcome_extra_covariates=()) = 
+    StaticSCM(outcomes, treatments, confounders; outcome_extra_covariates=outcome_extra_covariates)

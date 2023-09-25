@@ -1,6 +1,6 @@
 
 """
-    data_adaptive_ps_lower_bound(Ψ::CMCompositeEstimand)
+    data_adaptive_ps_lower_bound(Ψ::StatisticalCMCompositeEstimand)
 
 This startegy is from [this paper](https://academic.oup.com/aje/article/191/9/1640/6580570?login=false) 
 but the study does not show strictly better behaviour of the strategy so not a default for now.
@@ -29,7 +29,7 @@ end
 
 """
     clever_covariate_and_weights(
-        Ψ::CMCompositeEstimand, 
+        Ψ::StatisticalCMCompositeEstimand, 
         Gs::Tuple{Vararg{ConditionalDistributionEstimate}}, 
         dataset; 
         ps_lowerbound=1e-8, 
@@ -51,7 +51,7 @@ if `weighted_fluctuation = true`:
 where SpecialIndicator(t) is defined in `indicator_fns`.
 """
 function clever_covariate_and_weights(
-    Ψ::CMCompositeEstimand, 
+    Ψ::StatisticalCMCompositeEstimand, 
     Gs::Tuple{Vararg{ConditionalDistributionEstimate}}, 
     dataset; 
     ps_lowerbound=1e-8, 

@@ -25,8 +25,7 @@ using MetaGraphsNext
 # EXPORTS
 # #############################################################################
 
-export StructuralCausalModel, SCM, StaticConfoundedModel
-export ConditionalDistribution, ExpectedValue
+export SCM, StaticSCM, add_equations!, add_equation!, parents
 export CounterfactualMean, CM
 export AverageTreatmentEffect, ATE
 export InteractionAverageTreatmentEffect, IATE
@@ -36,19 +35,18 @@ export TMLEE, OSE, NAIVE
 export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
 export TreatmentTransformer, with_encoder
-export BackdoorAdjustment
+export BackdoorAdjustment, identify
  
 # #############################################################################
 # INCLUDES
 # #############################################################################
 
 include("utils.jl")
-# include("scm.jl")
+include("scm.jl")
 include("estimands.jl")
 include("estimators.jl")
 include("estimates.jl")
 include("treatment_transformer.jl")
-include("adjustment.jl")
 
 include("counterfactual_mean_based/estimands.jl")
 include("counterfactual_mean_based/estimates.jl")
@@ -56,6 +54,8 @@ include("counterfactual_mean_based/fluctuation.jl")
 include("counterfactual_mean_based/estimators.jl")
 include("counterfactual_mean_based/clever_covariate.jl")
 include("counterfactual_mean_based/gradient.jl")
+include("counterfactual_mean_based/adjustment.jl")
+
 
 
 # #############################################################################

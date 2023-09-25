@@ -12,7 +12,7 @@ verbosity = 1
 n = 100
 X, y = make_moons(n)
 dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
-estimand = ConditionalDistribution(:Y, [:X₁, :X₂])
+estimand = TMLE.ConditionalDistribution(:Y, [:X₁, :X₂])
 fit_log = string("Estimating: ", TMLE.string_repr(estimand))
 reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
 

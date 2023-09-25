@@ -1,5 +1,5 @@
 mutable struct Fluctuation <: MLJBase.Supervised
-    Ψ::CMCompositeEstimand
+    Ψ::StatisticalCMCompositeEstimand
     initial_factors::TMLE.MLCMRelevantFactors
     tol::Union{Nothing, Float64}
     ps_lowerbound::Float64

@@ -111,7 +111,7 @@ end
 TMLEE(models; resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing) = 
     TMLEE(models, resampling, ps_lowerbound, weighted, tol)
 
-function (tmle::TMLEE)(Ψ::CMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     TMLE.check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
@@ -154,7 +154,7 @@ end
 OSE(models; resampling=nothing, ps_lowerbound=1e-8) = 
     OSE(models, resampling, ps_lowerbound)
 
-function (estimator::OSE)(Ψ::CMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+function (estimator::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     TMLE.check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
@@ -187,7 +187,7 @@ mutable struct NAIVE <: Estimator
     model::MLJBase.Supervised
 end
 
-function (estimator::NAIVE)(Ψ::CMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+function (estimator::NAIVE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     TMLE.check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
