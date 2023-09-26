@@ -22,10 +22,15 @@ function make_dataset(;n=100)
 end
 
 @testset "Test cov" begin
+    Ψ = CM(
+        outcome = :Y,
+        treatment_values = (T=1,),
+        treatment_confounders = (T=[:W],)
+    )
     n = 10
     X = rand(n, 2)
-    ER₁ = TMLE.TMLEstimate(1., X[:, 1])
-    ER₂ = TMLE.TMLEstimate(0., X[:, 2])
+    ER₁ = TMLE.TMLEstimate(Ψ, 1., X[:, 1])
+    ER₂ = TMLE.TMLEstimate(Ψ, 0., X[:, 2])
     Σ = cov(ER₁, ER₂)
     @test size(Σ) == (2, 2)
     @test Σ == cov(X) 

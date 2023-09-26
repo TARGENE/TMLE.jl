@@ -19,18 +19,18 @@ string_repr(estimate::MLCMRelevantFactors) = string(
     join((string_repr(f) for f in estimate.propensity_score), "\n- ")
 )
 
-
 #####################################################################
 ###                   One Dimensional Estimates                   ###
 #####################################################################
 
-
 struct TMLEstimate{T<:AbstractFloat} <: Estimate
+    estimand::StatisticalCMCompositeEstimand
     Ψ̂::T
     IC::Vector{T}
 end
 
 struct OSEstimate{T<:AbstractFloat} <: Estimate
+    estimand::StatisticalCMCompositeEstimand
     Ψ̂::T
     IC::Vector{T}
 end
