@@ -24,6 +24,15 @@ function dataset_with_missing_and_ordered_treatment(;n=1000)
 end
 
 @testset "Test nomissing" begin
+    # If there is no missing data, this should be a no-op
+    dataset = DataFrame(rand(10, 3), :auto)
+    @test TMLE.nomissing(dataset) === dataset
+    filtered = TMLE.nomissing(dataset, [:x1, :x2])
+    # The only cost to this operation is the creation of a new table but the columns are indistinguishable
+    @test filtered.x1 === dataset.x1
+    @test filtered.x2 === dataset.x2
+
+    # Now with missing values
     dataset = dataset_with_missing_and_ordered_treatment(;n=100)
     # filter missing rows based on W column
     filtered = TMLE.nomissing(dataset, [:W])
