@@ -100,14 +100,41 @@ end
 #####################################################################
 ###                            TMLE                               ###
 #####################################################################
+
 mutable struct TMLEE <: Estimator
     models::NamedTuple
     resampling::Union{Nothing, ResamplingStrategy}
-    ps_lowerbound::Float64
+    ps_lowerbound::Union{Float64, Nothing}
     weighted::Bool
     tol::Union{Float64, Nothing}
 end
 
+"""
+    TMLEE(models; resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing)
+
+Defines a TMLE estimator using the specified models for estimation of the nuisance parameters. The estimator is a 
+function that can be applied to estimate estimands for a dataset.
+
+# Arguments
+
+- models: A NamedTuple{variables}(models) where the `variables` are the outcome variables modeled by the `models`.
+- resampling: Outer resampling strategy. Setting it to `nothing` (default) falls back to vanilla TMLE while 
+any valid `MLJ.ResamplingStrategy` will result in CV-TMLE.
+- ps_lowerbound: Lowerbound for the propensity score to avoid division by 0. The special value `nothing` will 
+result in a data adaptive definition as described in [here](https://pubmed.ncbi.nlm.nih.gov/35512316/).
+- weighted: Whether the fluctuation model is a classig GLM or a weighted version. The weighted fluctuation has 
+been show to be more robust to positivity violation in practice.
+- tol: This is not used at the moment.
+
+# Example
+
+```julia
+using MLJLinearModels
+models = (Y = LinearRegressor(), T = LogisticClassifier())
+tmle = TMLEE(models)
+Ψ̂ₙ, cache = tmle(Ψ, dataset)
+```
+"""
 TMLEE(models; resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing) = 
     TMLEE(models, resampling, ps_lowerbound, weighted, tol)
 
@@ -148,9 +175,32 @@ end
 mutable struct OSE <: Estimator
     models::NamedTuple
     resampling::Union{Nothing, ResamplingStrategy}
-    ps_lowerbound::Float64
+    ps_lowerbound::Union{Float64, Nothing}
 end
 
+"""
+    OSE(models; resampling=nothing, ps_lowerbound=1e-8)
+
+Defines a One Step Estimator using the specified models for estimation of the nuisance parameters. The estimator is a 
+function that can be applied to estimate estimands for a dataset.
+
+# Arguments
+
+- models: A NamedTuple{variables}(models) where the `variables` are the outcome variables modeled by the `models`.
+- resampling: Outer resampling strategy. Setting it to `nothing` (default) falls back to vanilla estimation while 
+any valid `MLJ.ResamplingStrategy` will result in CV-OSE.
+- ps_lowerbound: Lowerbound for the propensity score to avoid division by 0. The special value `nothing` will 
+result in a data adaptive definition as described in [here](https://pubmed.ncbi.nlm.nih.gov/35512316/).
+
+# Example
+
+```julia
+using MLJLinearModels
+models = (Y = LinearRegressor(), T = LogisticClassifier())
+ose = OSE(models)
+Ψ̂ₙ, cache = ose(Ψ, dataset)
+```
+"""
 OSE(models; resampling=nothing, ps_lowerbound=1e-8) = 
     OSE(models, resampling, ps_lowerbound)
 

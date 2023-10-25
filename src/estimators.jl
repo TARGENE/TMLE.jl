@@ -60,7 +60,7 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     relevant_dataset = TMLE.selectcols(dataset, TMLE.variables(estimand))
     nfolds = size(estimator.train_validation_indices, 1)
     machines = Vector{Machine}(undef, nfolds)
-    # Fit Conditional DIstribution on each training split using MLJ
+    # Fit Conditional Distribution on each training split using MLJ
     for (index, (train_indices, _)) in enumerate(estimator.train_validation_indices)
         train_dataset = selectrows(relevant_dataset, train_indices)
         Xtrain = selectcols(train_dataset, estimand.parents)
