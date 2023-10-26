@@ -34,9 +34,10 @@ export optimize_ordering, optimize_ordering!
 export TMLEE, OSE, NAIVE
 export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
 export compose
-export TreatmentTransformer, with_encoder
+export TreatmentTransformer, with_encoder, encoder
 export BackdoorAdjustment, identify
- 
+export last_fluctuation_epsilon
+
 # #############################################################################
 # INCLUDES
 # #############################################################################

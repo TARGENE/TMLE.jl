@@ -66,24 +66,15 @@ The modeling stage starts from the definition of a Structural Causal Model (`SCM
 
 ```@example walk-through
 scm = SCM(
-    SE(:Y, [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C], with_encoder(LinearRegressor())),
-    SE(:T₁, [:W₁₁, :W₁₂], LogisticClassifier()),
-    SE(:T₂, [:W₂₁, :W₂₂], LogisticClassifier()),
+    :Y  => [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C],
+    :T₁ => [:W₁₁, :W₁₂],
+    :T₂ => [:W₂₁, :W₂₂]
 )
 ```
 
----
-**NOTE**
-
-- Each Structural Equation specifies a child node, its parents and the assumed relationship between them. Here we know the model class from which each variable has been generated but in practice this is usually not the case. Instead we recommend the use of Super Learning / Stacking (see TODO).
-- Because the treatment variables are categorical, they need to be encoded to be digested by the downstream models, `with_encoder(model)` simply creates a [Pipeline](https://alan-turing-institute.github.io/MLJ.jl/dev/linear_pipelines/#Linear-Pipelines) equivalent to `TreatmentEncoder() |> model`.
-- At this point, the `SCM` has no knowledge about the dataset and cannot verify that the models are compatible with the actual data.
-
----
-
 ## The Estimands
 
-From the previous causal model we can ask multiple causal questions which are each represented by a distinct estimand. The set of available estimands types can be listed as follow:
+From the previous causal model we can ask multiple causal questions which are each represented by distinct estimands. The set of available estimands types can be listed as follow:
 
 ```@example walk-through
 AVAILABLE_ESTIMANDS

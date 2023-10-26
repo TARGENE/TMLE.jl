@@ -14,7 +14,15 @@ Mathematically speaking, denoting the estimand by ``\Psi``, the set of all proba
 
 At the moment, most of the work in this package has been focused on estimands that are composite functions of the interventional conditional mean which is easily identified via backdoor adjustment and for which the efficient influence function is well known.
 
-In what follows, ``P`` is a probability distribution generating an outcome ``Y``, a random vector of "treatment" variables ``\textbf{T}`` and a random vector of "confounding" variables ``\textbf{W}``.
+In what follows, ``P`` is a probability distribution generating an outcome ``Y``, a random vector of "treatment" variables ``\textbf{T}`` and a random vector of "confounding" variables ``\textbf{W}``. For the examples, we will assume two treatment variables ``T₁`` and ``T₂`` taking either values 0 or 1. The ``SCM`` is given by:
+
+```@example estimands
+scm = StaticSCM(
+    [:Y], 
+    [:T₁, :T₂], 
+    [:W];
+)
+```
 
 ## The Interventional Counterfactual Mean (CM)
 
@@ -36,10 +44,26 @@ CM_{\textbf{t}}(P) = \mathbb{E}_{\textbf{W}}[\mathbb{E}[Y|do(\textbf{T}=\textbf{
 
 - TMLE.jl Example
 
-For a Structural Causal Model `scm`, an outcome `Y` and two treatments `T₁` and `T₂` taking values `t₁` and `t₂` respectively:
+A causal estimand is given by:
 
-```julia
-Ψ = CM(scm, outcome=:Y, treatment=(T₁=t₁, T₂=t₂))
+```@example estimands
+causalΨ = CM(outcome=:Y, treatment_values=(T₁=1, T₂=0))
+```
+
+A corresponding statistical estimand can be identified via backdoor adjustment using the `scm`:
+
+```@example estimands
+statisticalΨ = identify(Ψ, scm)
+```
+
+or defined directly:
+
+```@example estimands
+statisticalΨ = CM(
+    outcome=:Y, 
+    treatment_values=(T₁=1, T₂=0),
+    treatment_confounders=(T₁=[:W], T₂=[:W])
+)
 ```
 
 ## The Average Treatment Effect
@@ -65,16 +89,35 @@ ATE_{\textbf{t}_1 \rightarrow \textbf{t}_2}(P) &= CM_{\textbf{t}_2}(P) - CM_{\te
 
 - TMLE.jl Example
 
-For a Structural Causal Model `scm`, an outcome `Y` and two treatments differences `T₁`:`t₁₁ → t₁₂` and `T₂`:`t₂₁ → t₂₂`:
+A causal estimand is given by:
 
-```julia
-Ψ = ATE(scm, outcome=:Y, treatment=(T₁=(case=t₁₂, control=t₁₁), T₂=(case=t₂₂, control=t₂₁)))
+```@example estimands
+causalΨ = ATE(
+    outcome=:Y, 
+    treatment_values=(
+        T₁=(case=1, control=0), 
+        T₂=(case=1, control=0)
+    )
+)
 ```
 
-Note that all treatments are not required to change, for instance the following where `T₁` is held fixed at `t₁₁` is also a valid `ATE`:
+A corresponding statistical estimand can be identified via backdoor adjustment using the `scm`:
 
-```julia
-Ψ = ATE(scm, outcome=:Y, treatment=(T₁=(case=t₁₁, control=t₁₁), T₂=(case=t₂₂, control=t₂₁)))
+```@example estimands
+statisticalΨ = identify(causalΨ, scm)
+```
+
+or defined directly:
+
+```@example estimands
+statisticalΨ = ATE(
+    outcome=:Y, 
+    treatment_values=(
+        T₁=(case=1, control=0), 
+        T₂=(case=1, control=0)
+    ),
+    treatment_confounders=(T₁=[:W], T₂=[:W])
+)
 ```
 
 ## The Interaction Average Treatment Effect
@@ -103,10 +146,35 @@ IATE_{0 \rightarrow 1, 0 \rightarrow 1}(P) = \mathbb{E}_{\textbf{W}}[\mathbb{E}[
 
 - TMLE.jl Example
 
-For a Structural Causal Model `scm`, an outcome `Y` and two treatments differences `T₁`:`t₁₁ → t₁₂` and `T₂`:`t₂₁ → t₂₂`:
+A causal estimand is given by:
 
-```julia
-Ψ = IATE(scm, outcome=:Y, treatment=(T₁=(case=t₁₂, control=t₁₁), T₂=(case=t₂₂, control=t₂₁)))
+```@example estimands
+causalΨ = IATE(
+    outcome=:Y, 
+    treatment_values=(
+        T₁=(case=1, control=0), 
+        T₂=(case=1, control=0)
+    )
+)
+```
+
+A corresponding statistical estimand can be identified via backdoor adjustment using the `scm`:
+
+```@example estimands
+statisticalΨ = identify(causalΨ, scm)
+```
+
+or defined directly:
+
+```@example estimands
+statisticalΨ = IATE(
+    outcome=:Y, 
+    treatment_values=(
+        T₁=(case=1, control=0), 
+        T₂=(case=1, control=0)
+    ),
+    treatment_confounders=(T₁=[:W], T₂=[:W])
+)
 ```
 
 ## Any function of the previous Estimands

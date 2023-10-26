@@ -59,3 +59,12 @@ function counterfactualTreatment(vals, T)
             [categorical(repeat([vals[i]], n), levels=levels(Tables.getcolumn(T, name)), ordered=isordered(Tables.getcolumn(T, name)))
                             for (i, name) in enumerate(Tnames)])
 end
+
+
+last_fluctuation(cache) = cache[:last_fluctuation]
+
+function last_fluctuation_epsilon(cache)
+    mach = TMLE.last_fluctuation(cache).outcome_mean.machine
+    fp = fitted_params(fitted_params(mach).fitresult.one_dimensional_path)
+    return fp.coef
+end

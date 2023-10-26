@@ -44,101 +44,118 @@ function make_dataset(;n=1000)
 end
 dataset = make_dataset(n=10000)
 scm = SCM(
-    SE(:Y, [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C], with_encoder(LinearRegressor())),
-    SE(:T₁, [:W₁₁, :W₁₂], LogisticClassifier()),
-    SE(:T₂, [:W₂₁, :W₂₂], LogisticClassifier()),
+    :Y  => [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C],
+    :T₁ => [:W₁₁, :W₁₂],
+    :T₂ => [:W₂₁, :W₂₂],
 )
 ```
 
-Once a `SCM` and an estimand have been defined, we can proceed with Targeted Estimation. This is done via the `tmle` function. Drawing from the example dataset and `SCM` from the Walk Through section, we can estimate the ATE for `T₁`.
+Once a statistical estimand has been defined, we can proceed with estimation. At the moment, we provide 3 main types of estimators:
+
+- Targeted Maximum Likelihood Estimator (`TMLEE`)
+- One-Step Estimator (`OSE`)
+- Naive Plugin Estimator (`NAIVE`)
+
+Drawing from the example dataset and `SCM` from the Walk Through section, we can estimate the ATE for `T₁`. Let's use TMLE:
 
 ```@example estimation
-Ψ₁ = ATE(scm, outcome=:Y, treatment=(T₁=(case=true, control=false),))
-result₁, fluctuation_mach = tmle!(Ψ₁, dataset;
-    adjustment_method=BackdoorAdjustment([:C]), 
-    verbosity=1, 
-    force=false, 
-    ps_lowerbound=1e-8, 
-    weighted_fluctuation=false
+Ψ₁ = ATE(
+    outcome=:Y, 
+    treatment_values=(T₁=(case=true, control=false),),
+    treatment_confounders=(T₁=[:W₁₁, :W₁₂],),
+    outcome_extra_covariates=[:C]
 )
+models = (
+    Y=with_encoder(LinearRegressor()), 
+    T₁=LogisticClassifier(),
+    T₂=LogisticClassifier(),
+)
+tmle = TMLEE(models)
+result₁, cache = tmle(Ψ₁, dataset);
+result₁
 nothing # hide
 ```
 
 We see that both models corresponding to variables `Y` and `T₁` were fitted in the process but that the model for `T₂` was not because it was not necessary to estimate this estimand.
 
-The `fluctuation_mach` corresponds to the fitted machine that was used to fluctuate the initial fit. For instance, we can see what is the value of ``\epsilon`` corresponding to the clever covariate.
+The `cache` contains estimates for the nuisance functions that were necessary to estimate the ATE. For instance, we can see what is the value of ``\epsilon`` corresponding to the clever covariate.
 
 ```@example estimation
-ϵ = fitted_params(fluctuation_mach).coef[1]
+ϵ = last_fluctuation_epsilon(cache)
 ```
 
-The `result` corresponds to the estimation result and contains 3 main elements:
+The `result₁` structure corresponds to the estimation result and should report 3 main elements:
 
-- The `TMLEEstimate` than can be accessed via: `tmle(result)`.
-- The `OSEstimate` than can be accessed via: `ose(result)`.
-- The naive initial estimate.
+- A point estimate.
+- A 95% confidence interval.
+- A p-value (Corresponding to the test that the estimand is different than 0).
 
-Since both the TMLE and OSE are asymptotically linear estimators, standard T tests from [HypothesisTests.jl](https://juliastats.org/HypothesisTests.jl/stable/) can be performed for each of them.
+This is only summary statistics but since both the TMLE and OSE are asymptotically linear estimators, standard Z/T tests from [HypothesisTests.jl](https://juliastats.org/HypothesisTests.jl/stable/) can be performed.
 
 ```@example estimation
-tmle_test_result = OneSampleTTest(tmle(result))
+tmle_test_result₁ = OneSampleTTest(result₁)
 ```
 
-We could now get an interest in the Average Treatment Effect of `T₂`:
+We could now get an interest in the Average Treatment Effect of `T₂` that we will estimate with an `OSE`:
 
 ```@example estimation
-Ψ₂ = ATE(scm, outcome=:Y, treatment=(T₂=(case=true, control=false),))
-result₂, fluctuation_mach = tmle!(Ψ₂, dataset;
-    adjustment_method=BackdoorAdjustment([:C]), 
-    verbosity=1, 
-    force=false, 
-    ps_lowerbound=1e-8, 
-    weighted_fluctuation=false
+Ψ₂ = ATE(
+    outcome=:Y, 
+    treatment_values=(T₂=(case=true, control=false),),
+    treatment_confounders=(T₂=[:W₂₁, :W₂₂],),
+    outcome_extra_covariates=[:C]
 )
+ose = OSE(models)
+result₂, cache = ose(Ψ₂, dataset;cache=cache);
+result₂
 nothing # hide
 ```
 
-The model for `T₂` was fitted in the process but so was the model for `Y` 🤔. This is because the `BackdoorAdjustment` method determined that the set of inputs for `Y` were different in both cases.
+Again, required nuisance functions are fitted and stored in the cache.
 
 ## Reusing the SCM
 
-Let's now see how the models can be reused with a new estimand, say the Total Average Treatment Effecto of both `T₁` and `T₂`.
+Let's now see how the `cache` can be reused with a new estimand, say the Total Average Treatment Effect of both `T₁` and `T₂`.
 
 ```@example estimation
-Ψ₃ = ATE(scm, outcome=:Y, treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)))
-result₃, fluctuation_mach = tmle!(Ψ₃, dataset;
-    adjustment_method=BackdoorAdjustment([:C]), 
-    verbosity=1, 
-    force=false, 
-    ps_lowerbound=1e-8, 
-    weighted_fluctuation=false
+Ψ₃ = ATE(
+    outcome=:Y, 
+    treatment_values=(
+        T₁=(case=true, control=false), 
+        T₂=(case=true, control=false)
+    ),
+    treatment_confounders=(
+        T₁=[:W₁₁, :W₁₂], 
+        T₂=[:W₂₁, :W₂₂],
+    ),
+    outcome_extra_covariates=[:C]
 )
+result₃, cache = tmle(Ψ₃, dataset; cache=cache);
+result₃
 nothing # hide
 ```
 
-This time only the statistical model for `Y` is fitted again while reusing the models for `T₁` and `T₂`. Finally, let's see what happens if we estimate the `IATE` between `T₁` and `T₂`.
+This time only the model for `Y` is fitted again while reusing the models for `T₁` and `T₂`. Finally, let's see what happens if we estimate the `IATE` between `T₁` and `T₂`.
 
 ```@example estimation
-Ψ₄ = IATE(scm, outcome=:Y, treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)))
-result₄, fluctuation_mach = tmle!(Ψ₄, dataset;
-    adjustment_method=BackdoorAdjustment([:C]), 
-    verbosity=1, 
-    force=false, 
-    ps_lowerbound=1e-8, 
-    weighted_fluctuation=false
+Ψ₄ = IATE(
+    outcome=:Y, 
+    treatment_values=(
+        T₁=(case=true, control=false), 
+        T₂=(case=true, control=false)
+    ),
+    treatment_confounders=(
+        T₁=[:W₁₁, :W₁₂], 
+        T₂=[:W₂₁, :W₂₂],
+    ),
+    outcome_extra_covariates=[:C]
 )
+result₄, cache = tmle(Ψ₄, dataset; cache=cache);
+result₄
 nothing # hide
 ```
 
-All statistical models have been reused 😊!
-
-## Ordering the estimands
-
-Given a vector of estimands, a clever ordering can be obtained via the `optimize_ordering/optimize_ordering!` functions.
-
-```@example estimation
-optimize_ordering([Ψ₃, Ψ₁, Ψ₂, Ψ₄]) == [Ψ₁, Ψ₃, Ψ₄, Ψ₂]
-```
+All nuisance functions have been reused, only the fluctuation is fitted!
 
 ## Composing Estimands
 
@@ -151,25 +168,37 @@ IATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} = ATE_{T_1=0 \rightarrow 1, T_2=
 ```
 
 ```@example estimation
-first_ate = ATE(scm, outcome=:Y, treatment=(T₁=(case=true, control=false), T₂=(case=false, control=false)))
-first_ate_result, _ = tmle!(first_ate, dataset)
+first_ate = ATE(
+    outcome=:Y, 
+    treatment_values=(
+        T₁=(case=true, control=false), 
+        T₂=(case=false, control=false)),
+    treatment_confounders=(
+        T₁=[:W₁₁, :W₁₂], 
+        T₂=[:W₂₁, :W₂₂],
+    ),
+)
+first_ate_result, cache = tmle(first_ate, dataset, cache=cache, verbosity=0);
 
-second_ate = ATE(scm, outcome=:Y, treatment=(T₁=(case=false, control=false), T₂=(case=true, control=false)))
-second_ate_result, _ = tmle!(second_ate, dataset)
+second_ate = ATE(
+    outcome=:Y, 
+    treatment_values=(
+        T₁=(case=false, control=false), 
+        T₂=(case=true, control=false)),
+    treatment_confounders=(
+        T₁=[:W₁₁, :W₁₂], 
+        T₂=[:W₂₁, :W₂₂],
+    ),
+    )
+second_ate_result, cache = tmle(second_ate, dataset, cache=cache, verbosity=0);
 
 composed_iate_result = compose(
     (x, y, z) -> x - y - z, 
-    tmle(result₃), tmle(first_ate_result), tmle(second_ate_result)
+    result₃, first_ate_result, second_ate_result
 )
 isapprox(
-    estimate(tmle(result₄)),
+    estimate(result₄),
     estimate(composed_iate_result),
     atol=0.1
 )
 ```
-
-## Weighted Fluctuation
-
-It has been reported that, in settings close to positivity violation (some treatments' values are very rare) TMLE may be unstable. This has been shown to be stabilized by fitting a weighted fluctuation model instead and by slightly modifying the clever covariate to keep things mathematically sound.
-
-This is implemented in TMLE.jl and can be turned on by selecting `weighted_fluctuation=true` in the `tmle` function.

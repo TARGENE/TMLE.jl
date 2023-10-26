@@ -142,7 +142,6 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
     # Check the estimand against the dataset
     TMLE.check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
-    verbosity >= 1 && @info "Fitting the required equations..."
     relevant_factors = TMLE.get_relevant_factors(Ψ)
     nomissing_dataset = TMLE.nomissing(dataset, TMLE.variables(relevant_factors))
     initial_factors_dataset = TMLE.choose_initial_dataset(dataset, nomissing_dataset, tmle.resampling)
@@ -208,7 +207,6 @@ function (estimator::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dic
     # Check the estimand against the dataset
     TMLE.check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
-    verbosity >= 1 && @info "Fitting the required equations..."
     initial_factors = TMLE.get_relevant_factors(Ψ)
     nomissing_dataset = TMLE.nomissing(dataset, TMLE.variables(initial_factors))
     initial_factors_dataset = TMLE.choose_initial_dataset(dataset, nomissing_dataset, estimator.resampling)
@@ -241,7 +239,6 @@ function (estimator::NAIVE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=D
     # Check the estimand against the dataset
     TMLE.check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
-    verbosity >= 1 && @info "Fitting the required equations..."
     relevant_factors = TMLE.get_relevant_factors(Ψ)
     nomissing_dataset = TMLE.nomissing(dataset, TMLE.variables(relevant_factors))
     outcome_mean_estimate = MLConditionalDistributionEstimator(estimator.model)(
@@ -252,4 +249,18 @@ function (estimator::NAIVE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=D
     )
     Ψ̂ = mean(counterfactual_aggregate(Ψ, outcome_mean_estimate, nomissing_dataset))
     return Ψ̂, cache
+end
+
+#####################################################################
+###                Causal Estimand Estimation                     ###
+#####################################################################
+
+
+function (estimator::Union{NAIVE, OSE, TMLEE})(causalΨ::CausalCMCompositeEstimands, dataset;
+    identification_method=BackdoorAdjustment(),
+    cache=Dict(), 
+    verbosity=1
+    )
+    Ψ = identify(identification_method, causalΨ, scm)
+    return estimator(Ψ, dataset; cache=cache, verbosity=verbosity)
 end

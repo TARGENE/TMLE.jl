@@ -18,6 +18,10 @@ function statistical_type_from_causal_type(T)
     return eval(Symbol(new_typestring))
 end
 
+identify(causal_estimand::T, scm::MetaGraph; method=BackdoorAdjustment()::BackdoorAdjustment) where T<:CausalCMCompositeEstimands =
+    identify(method, causal_estimand, scm)
+
+
 function identify(method::BackdoorAdjustment, causal_estimand::T, scm::MetaGraph) where T<:CausalCMCompositeEstimands
     # Treatment confounders
     treatment_names = keys(causal_estimand.treatment_values)

@@ -1,10 +1,22 @@
 # Miscellaneous
 
+## Adjustment Methods
+
+An adjustment method is a function that transforms a causal estimand into a statistical estimand using an associated `SCM`. At the moment, the only available adjustment method is the backdoor adjustment.
+
+### Backdoor Adjustment
+
+The adjustment set consists of all the treatment variable's parents. Additional covariates used to fit the outcome model can be provided via `outcome_extra`.
+
+```julia
+BackdoorAdjustment(;outcome_extra_covariates=[:C])
+```
+
 ## Treatment Transformer
 
 To account for the fact that treatment variables are categorical variables we provide a MLJ compliant transformer that will either:
 
-- Retrieve the floating point representation of a treatment it it has a natural ordering
+- Retrieve the floating point representation of a treatment if it has a natural ordering
 - One hot encode it otherwise
 
 Such transformer can be created with:

@@ -20,9 +20,7 @@ Pkg> add TMLE
 
 To run an estimation procedure, we need 3 ingredients:
 
-1. A dataset
-2. A Structural Causal Model that describes the relationship between the variables.
-3. An estimand of interest
+1. A dataset: here a simulation dataset.
 
 For illustration, assume we know the actual data generating process is as follows:
 
@@ -54,51 +52,31 @@ dataset = (Y=Y, T=categorical(T), W=W)
 nothing # hide
 ```
 
-### Two lines TMLE
+2. A quantity of interest: here the Average Treatment Effect (ATE).
 
-Estimating the Average Treatment Effect can of ``T`` on ``Y`` can be as simple as:
-
-```@example quick-start
-Ψ = ATE(outcome=:Y, treatment=(T=(case=true, control = false),), confounders=:W)
-result, _ = tmle!(Ψ, dataset)
-result
-```
-
-### Two steps approach
-
-Let's first define the Structural Causal Model:
-
-```@example quick-start
-scm = StaticConfoundedModel(:Y, :T, :W)
-```
-
-and second, define the Average Treatment Effect of the treatment ``T`` on the outcome ``Y``: $ATE_{T:0 \rightarrow 1}(Y)$:
+The Average Treatment Effect of ``T`` on ``Y`` confounded by ``W`` is defined as:
 
 ```@example quick-start
 Ψ = ATE(
-    scm,
-    outcome      = :Y,
-    treatment   = (T=(case=true, control = false),),
+    outcome=:Y, 
+    treatment_values=(T=(case=true, control = false),), 
+    treatment_confounders=(T=[:W],)
 )
 ```
 
-Note that in this example the ATE can be computed exactly and is given by:
-
-```math
-ATE_{0 \rightarrow 1}(P_0) = \mathbb{E}[1 + 3 - W] - \mathbb{E}[1] = 3 - \mathbb{E}[W] = 2.5
-```
-
-Running the `tmle` will produce two asymptotically linear estimators: the TMLE and the One Step Estimator. For each we can look at the associated estimate, confidence interval and p-value:
+3. An estimator: here a Targeted Maximum Likelihood Estimator (TMLE).
 
 ```@example quick-start
-result, _ = tmle!(Ψ, dataset)
+models = (Y=with_encoder(LinearRegressor()), T = LogisticClassifier())
+tmle = TMLEE(models)
+result, _ = tmle(Ψ, dataset, verbosity=0);
 result
 ```
 
-and be comforted to see that our estimators covers the ground truth! 🥳
+We are comforted to see that our estimator covers the ground truth! 🥳
 
 ```@example quick-start
 using Test # hide
-@test pvalue(OneSampleTTest(result.tmle, 2.5)) > 0.05 # hide
+@test pvalue(OneSampleTTest(result, 2.5)) > 0.05 # hide
 nothing # hide
 ```
