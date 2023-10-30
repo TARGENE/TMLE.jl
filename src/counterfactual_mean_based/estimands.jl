@@ -33,7 +33,7 @@ variables(estimand::CMRelevantFactors) =
 ###                         Functionals                           ###
 #####################################################################
 
-ESTIMANDS_DOCS = Dict(
+const ESTIMANDS_DOCS = Dict(
     :CM => (formula="``CM(Y, T=t) = E[Y|do(T=t)]``",),
     :ATE => (formula="``ATE(Y, T, case, control) = E[Y|do(T=case)] - E[Y|do(T=control)``",),
     :IATE => (formula="``IATE = E[Y|do(T₁=1, T₂=1)] - E[Y|do(T₁=1, T₂=0)] - E[Y|do(T₁=0, T₂=1)] + E[Y|do(T₁=0, T₂=0)]``",)
@@ -89,6 +89,8 @@ end
 CausalCMCompositeEstimands = Union{(eval(Symbol(:Causal, x)) for x in keys(ESTIMANDS_DOCS))...}
 
 StatisticalCMCompositeEstimand = Union{(eval(Symbol(:Statistical, x)) for x in keys(ESTIMANDS_DOCS))...}
+
+const AVAILABLE_ESTIMANDS = [x[1] for x ∈ ESTIMANDS_DOCS]
 
 indicator_fns(Ψ::StatisticalCM) = Dict(values(Ψ.treatment_values) => 1.)
 

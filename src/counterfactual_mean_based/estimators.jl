@@ -256,7 +256,7 @@ end
 #####################################################################
 
 
-function (estimator::Union{NAIVE, OSE, TMLEE})(causalΨ::CausalCMCompositeEstimands, dataset;
+function (estimator::Union{NAIVE, OSE, TMLEE})(causalΨ::CausalCMCompositeEstimands, scm, dataset;
     identification_method=BackdoorAdjustment(),
     cache=Dict(), 
     verbosity=1
