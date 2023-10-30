@@ -30,14 +30,15 @@ makedocs(;
         "Walk Through" => "walk_through.md",
         "User Guide" => [joinpath("user_guide", f) for f in 
             ("scm.md", "estimands.md", "estimation.md", "misc.md")],
-        "Examples" => [
-            # joinpath("examples", "introduction_to_targeted_learning.md"), 
-            # joinpath("examples", "super_learning.md"),
-            # joinpath("examples", "double_robustness.md")
-            ],
+        # "Examples" => [
+        #     joinpath("examples", "introduction_to_targeted_learning.md"), 
+        #     joinpath("examples", "super_learning.md"),
+        #     joinpath("examples", "double_robustness.md")
+        #     ],
         "Resources" => "resources.md",
         "API Reference" => "api.md"
     ],
+    pagesonly=true
 )
 
 @info "Deploying docs..."
