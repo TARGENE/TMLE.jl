@@ -14,9 +14,6 @@ end
 CMRelevantFactors(outcome_mean, propensity_score::ConditionalDistribution) = 
     CMRelevantFactors(outcome_mean, (propensity_score,))
 
-CMRelevantFactors(outcome_mean, propensity_score) = 
-    CMRelevantFactors(outcome_mean, propensity_score)
-
 CMRelevantFactors(;outcome_mean, propensity_score) = 
     CMRelevantFactors(outcome_mean, propensity_score)
 

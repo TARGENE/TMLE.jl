@@ -1,6 +1,6 @@
 # Resources
 
-Targeted Learning is a difficult topic, while it is not strictly necessary to understand the details to use this package it can certainly help. Here is an incomplete list of external ressources that I found useful in my personnal search for enlightenment.
+Targeted Learning is a difficult topic, while it is not strictly necessary to understand the details to use this package it can certainly help. Here is an incomplete list of external resources that I found useful in my journey.
 
 ## Websites
 

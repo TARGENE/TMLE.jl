@@ -58,11 +58,11 @@ Even though the role of a variable (treatment, outcome, confounder, ...) is rela
 
 - 1 Outcome variable (``Y``).
 - 2 Treatment variables ``(T₁, T₂)`` with confounders ``(W₁₁, W₁₂)`` and ``(W₂₁, W₂₂)`` respectively.
-- 1 Extra Covariate variable (``C``).
+- 1 Outcome extra covariate variable (``C``).
 
 ## The Structural Causal Model
 
-The modeling stage starts from the definition of a Structural Causal Model (`SCM`). This is simply a list of Structural Equations (`SE`) describing the relationships between the random variables associated with our problem. See [Structural Causal Models](@ref) for an in-depth explanation. For our purposes, we will simply define it as follows:
+The modeling stage starts from the definition of a Structural Causal Model (`SCM`). This is simply a list of relationships between the random variables in our dataset. See [Structural Causal Models](@ref) for an in-depth explanation. For our purposes, because we know the data generating process, we can define it as follows:
 
 ```@example walk-through
 scm = SCM(
@@ -74,7 +74,7 @@ scm = SCM(
 
 ## The Causal Estimands
 
-From the previous causal model we can ask multiple causal questions which are each represented by distinct causal estimands. The set of available estimands types can be listed as follow:
+From the previous causal model we can ask multiple causal questions, all represented by distinct causal estimands. The set of available estimands types can be listed as follow:
 
 ```@example walk-through
 AVAILABLE_ESTIMANDS
@@ -131,7 +131,7 @@ Alternatively, you can also directly define the statistical parameters (see [Est
 
 ## Estimation
 
-Then each parameter can be estimated by building an estimator (which is simply a function) and calling it on data. For illustration, we will keep the models used simple linear models. We define a TMLE:
+Then each parameter can be estimated by building an estimator (which is simply a function) and evaluating it on data. For illustration, we will keep the models simple. We define a Targeted Maximum Likelihood Estimator:
 
 ```@example walk-through
 models = (
@@ -142,14 +142,14 @@ models = (
 tmle = TMLEE(models)
 ```
 
-And estimate the `cm` causal parameter. Because we haven't identified the parameter, we need to provide the `scm` as well:
+Because we haven't identified the `cm` causal estimand yet, we need to provide the `scm` as well to the estimator:
 
 ```@example walk-through
 result, cache = tmle(cm, scm, dataset);
 result
 ```
 
-We can estimate statistical parameters directly, let's use the One-Step estimator:
+Statistical Estimands can be estimated without a ``SCM``, let's use the One-Step estimator:
 
 ```@example walk-through
 ose = OSE(models)
@@ -159,7 +159,7 @@ result
 
 ## Hypothesis Testing
 
-Because the TMLE and OSE are asymptotically linear estimators, they asymptotically follow a Normal distribution. This means one can perform standard T/Z tests of null hypothesis. TMLE.jl extends the method provided by the [HypothesisTests.jl](https://juliastats.org/HypothesisTests.jl/stable/) package that can be used as follows.
+Both TMLE and OSE asymptotically follow a Normal distribution. It means we can perform standard T/Z tests of null hypothesis. TMLE.jl extends the method provided by the [HypothesisTests.jl](https://juliastats.org/HypothesisTests.jl/stable/) package that can be used as follows.
 
 ```@example walk-through
 OneSampleTTest(result)
