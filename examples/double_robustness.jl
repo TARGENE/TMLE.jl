@@ -154,13 +154,14 @@ that we now have full coverage of the ground truth.
 function tmle_inference(data)
     Ψ = ATE(
         outcome=:Y, 
-        treatment=(Tcat=(case=1.0, control=0.0),), 
-        confounders=[:W]
+        treatment_values=(Tcat=(case=1.0, control=0.0),), 
+        treatment_confounders=(Tcat=[:W],)
     )
-    result, _ = tmle!(Ψ, data; verbosity=0)
-    tmleresult = tmle(result)
-    lb, ub = confint(OneSampleTTest(tmleresult))
-    return (TMLE.estimate(tmleresult), lb, ub)
+    models = (Y=with_encoder(LinearRegressor()), Tcat=LinearBinaryClassifier())
+    tmle = TMLEE(models)
+    result, _ = tmle(Ψ, data; verbosity=0)
+    lb, ub = confint(OneSampleTTest(result))
+    return (TMLE.estimate(result), lb, ub)
 end
 
 make_animation(tmle_inference)

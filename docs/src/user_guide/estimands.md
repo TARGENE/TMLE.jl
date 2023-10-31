@@ -15,6 +15,7 @@ At the moment, most of the work in this package has been focused on estimands th
 In what follows, ``P`` is a probability distribution generating an outcome ``Y``, a random vector of "treatment" variables ``\textbf{T}`` and a random vector of "confounding" variables ``\textbf{W}``. For the examples, we will assume two treatment variables ``T₁`` and ``T₂`` taking either values 0 or 1. The ``SCM`` is given by:
 
 ```@example estimands
+using TMLE
 scm = StaticSCM(
     [:Y], 
     [:T₁, :T₂], 
@@ -51,7 +52,7 @@ causalΨ = CM(outcome=:Y, treatment_values=(T₁=1, T₂=0))
 A corresponding statistical estimand can be identified via backdoor adjustment using the `scm`:
 
 ```@example estimands
-statisticalΨ = identify(Ψ, scm)
+statisticalΨ = identify(causalΨ, scm)
 ```
 
 or defined directly:
