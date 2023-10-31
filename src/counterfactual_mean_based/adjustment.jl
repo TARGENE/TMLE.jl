@@ -28,7 +28,7 @@ function identify(method::BackdoorAdjustment, causal_estimand::T, scm::SCM) wher
     treatment_codes = [code_for(scm.graph, treatment) for treatment ∈ treatment_names]
     confounders_codes = scm.graph.graph.badjlist[treatment_codes]
     treatment_confounders = NamedTuple{treatment_names}(
-        [[scm.vertex_labels[w] for w in confounders_codes[i]] 
+        [[scm.graph.vertex_labels[w] for w in confounders_codes[i]] 
         for i in eachindex(confounders_codes)]
     )
 
