@@ -108,6 +108,7 @@ self_tuning_xgboost = TunedModel(
         range(xgboost, :lambda, lower=1e-5, upper=10, scale=:log)
         ],
     measure = log_loss,
+    cache=false
 )
 
 stack = Stack(
@@ -116,10 +117,11 @@ stack = Stack(
     self_tuning_xgboost = self_tuning_xgboost,
     lr                  = LogisticClassifier(),
     knn_2               = KNNClassifier(K=2),
-    knn_3               = KNNClassifier(K=3)
+    knn_3               = KNNClassifier(K=3),
+    cache               = false
 )
 
-mach = machine(stack, X, y)
+mach = machine(stack, X, y, cache=false)
 evaluate!(mach, measure=log_loss, resampling=resampling)
 
 #=

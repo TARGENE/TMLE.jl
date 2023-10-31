@@ -3,20 +3,41 @@
 #####################################################################
 
 """
-A SCM is simply a MetaGraph over a Directed Acyclic Graph with additional methods.
+A SCM is simply a wrapper around a MetaGraph over a Directed Acyclic Graph.
 """
-const SCM = MetaGraph
+struct SCM
+    graph::MetaGraph
+end
 
 function SCM(equations...)
-    scm =  MetaGraph(
+    graph =  MetaGraph(
         SimpleDiGraph();
         label_type=Symbol,
         vertex_data_type=Nothing,
         edge_data_type=Nothing
     )
+    scm = SCM(graph)
     add_equations!(scm, equations...)
     return scm
 end
+
+function string_repr(scm::SCM)
+    string_rep = "SCM\n---"
+    for (vertex_id, vertex_label) in scm.graph.vertex_labels
+        vertex_parents = parents(scm, vertex_label)
+        if length(vertex_parents) > 0
+            digits = split(string(vertex_id), "")
+            subscript = join(Meta.parse("'\\U0208$digit'") for digit in digits)
+            eq_string = string("\n", vertex_label, " = f", subscript, "(", join(vertex_parents, ", "), ")")
+            string_rep = string(string_rep, eq_string)
+        end
+    end
+    return string_rep
+end
+
+Base.show(io::IO, ::MIME"text/plain", scm::SCM) =
+    println(io, string_repr(scm))
+
 
 function add_equations!(scm::SCM, equations...)
     for outcome_parents_pair in equations
@@ -27,17 +48,17 @@ end
 function add_equation!(scm::SCM, outcome_parents_pair)
     outcome, parents = outcome_parents_pair
     outcome_symbol = Symbol(outcome)
-    add_vertex!(scm, outcome_symbol)
+    add_vertex!(scm.graph, outcome_symbol)
     for parent in parents
         parent_symbol = Symbol(parent)
-        add_vertex!(scm, parent_symbol)
-        add_edge!(scm, parent_symbol, outcome_symbol)
+        add_vertex!(scm.graph, parent_symbol)
+        add_edge!(scm.graph, parent_symbol, outcome_symbol)
     end
 end
 
 function parents(scm, label)
-    code, _ = scm.vertex_properties[label]
-    return [scm.vertex_labels[parent_code] for parent_code in scm.graph.badjlist[code]]
+    code, _ = scm.graph.vertex_properties[label]
+    return [scm.graph.vertex_labels[parent_code] for parent_code in scm.graph.graph.badjlist[code]]
 end
 
 """
