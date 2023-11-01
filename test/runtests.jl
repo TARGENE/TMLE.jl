@@ -19,4 +19,5 @@ using Test
     @test include("counterfactual_mean_based/double_robustness_iate.jl")
     @test include("counterfactual_mean_based/3points_interactions.jl")
     @test include("counterfactual_mean_based/adjustment.jl")
+    @test include("counterfactual_mean_based/configurations.jl")
 end

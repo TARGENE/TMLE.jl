@@ -41,7 +41,7 @@ for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
     statistical_estimand = Symbol(:Statistical, estimand)
     ex = quote
         # Causal Estimand
-        struct $(causal_estimand) <: Estimand
+        @option struct $(causal_estimand) <: Estimand
             outcome::Symbol
             treatment_values::NamedTuple
 
@@ -52,7 +52,7 @@ for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
             end
         end
         # Statistical Estimand
-        struct $(statistical_estimand) <: Estimand
+        @option struct $(statistical_estimand) <: Estimand
             outcome::Symbol
             treatment_values::NamedTuple
             treatment_confounders::NamedTuple
