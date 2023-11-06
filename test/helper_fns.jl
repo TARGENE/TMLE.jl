@@ -2,6 +2,7 @@ using TMLE
 using Test
 using MLJBase
 using CategoricalArrays
+using StatisticalMeasures
 
 """
 The risk for continuous outcomes is the MSE

@@ -135,7 +135,7 @@ function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: StatisticalCMCo
     println(io, param_string)
 end
 
-function treatment_specs_to_dict(treatment_values::NamedTuple{T, <:Tuple{Vararg{<:NamedTuple}}}) where T
+function treatment_specs_to_dict(treatment_values::NamedTuple{T, <:Tuple{Vararg{NamedTuple}}}) where T
     Dict(key => Dict(pairs(vals)) for (key, vals) in pairs(treatment_values))
 end
 

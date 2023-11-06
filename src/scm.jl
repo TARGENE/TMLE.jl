@@ -7,18 +7,18 @@ A SCM is simply a wrapper around a MetaGraph over a Directed Acyclic Graph.
 """
 struct SCM
     graph::MetaGraph
-end
-
-function SCM(equations)
-    graph =  MetaGraph(
-        SimpleDiGraph();
-        label_type=Symbol,
-        vertex_data_type=Nothing,
-        edge_data_type=Nothing
-    )
-    scm = SCM(graph)
-    add_equations!(scm, equations...)
-    return scm
+    
+    function SCM(equations)
+        graph =  MetaGraph(
+            SimpleDiGraph();
+            label_type=Symbol,
+            vertex_data_type=Nothing,
+            edge_data_type=Nothing
+        )
+        scm = new(graph)
+        add_equations!(scm, equations...)
+        return scm
+    end
 end
 
 SCM(;equations=()) = SCM(equations)
