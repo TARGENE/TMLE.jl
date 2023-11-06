@@ -8,7 +8,6 @@ using TMLE
         outcomes = [:Y₁, :Y₂],
         treatments = [:T₁, :T₂],
         confounders = [:W₁, :W₂],
-        outcome_extra_covariates = [:C]
     )
     causal_estimands = [
         CM(outcome=:Y₁, treatment_values=(T₁=1,)),
@@ -28,6 +27,16 @@ using TMLE
     @test statistical_estimands[2].treatment_confounders == (T₁=(:W₁, :W₂),)
     @test statistical_estimands[3].treatment_confounders == (T₁=(:W₁, :W₂), T₂=(:W₁, :W₂))
     @test statistical_estimands[4].treatment_confounders == (T₁=(:W₁, :W₂), T₂=(:W₁, :W₂))
+end
+
+@testset "Test to_dict" begin
+    adjustment = BackdoorAdjustment(outcome_extra_covariates=[:C])
+    adjustment_dict = to_dict(adjustment)
+    @test adjustment_dict == Dict(
+        :outcome_extra_covariates => [:C],
+        :type                     => "BackdoorAdjustment"
+    )
+    @test from_dict!(adjustment_dict) == adjustment
 end
 
 end

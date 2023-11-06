@@ -39,3 +39,8 @@ function identify(method::BackdoorAdjustment, causal_estimand::T, scm::SCM) wher
         outcome_extra_covariates = method.outcome_extra_covariates
     )
 end
+
+to_dict(adjustment::BackdoorAdjustment) = Dict(
+    :type => "BackdoorAdjustment",
+    :outcome_extra_covariates => collect(adjustment.outcome_extra_covariates)
+)

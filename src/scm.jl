@@ -9,7 +9,7 @@ struct SCM
     graph::MetaGraph
 end
 
-function SCM(equations...)
+function SCM(equations)
     graph =  MetaGraph(
         SimpleDiGraph();
         label_type=Symbol,
@@ -20,6 +20,8 @@ function SCM(equations...)
     add_equations!(scm, equations...)
     return scm
 end
+
+SCM(;equations=()) = SCM(equations)
 
 function string_repr(scm::SCM)
     string_rep = "SCM\n---"
@@ -38,6 +40,8 @@ end
 Base.show(io::IO, ::MIME"text/plain", scm::SCM) =
     println(io, string_repr(scm))
 
+split_outcome_parent_pair(outcome_parents_pair::Pair) = outcome_parents_pair
+split_outcome_parent_pair(outcome_parents_pair::Dict{T, Any}) where T = outcome_parents_pair[T(:outcome)], outcome_parents_pair[T(:parents)] 
 
 function add_equations!(scm::SCM, equations...)
     for outcome_parents_pair in equations
@@ -46,7 +50,7 @@ function add_equations!(scm::SCM, equations...)
 end
 
 function add_equation!(scm::SCM, outcome_parents_pair)
-    outcome, parents = outcome_parents_pair
+    outcome, parents = split_outcome_parent_pair(outcome_parents_pair)
     outcome_symbol = Symbol(outcome)
     add_vertex!(scm.graph, outcome_symbol)
     for parent in parents
@@ -56,10 +60,12 @@ function add_equation!(scm::SCM, outcome_parents_pair)
     end
 end
 
-function parents(scm, label)
+function parents(scm::SCM, label)
     code, _ = scm.graph.vertex_properties[label]
-    return [scm.graph.vertex_labels[parent_code] for parent_code in scm.graph.graph.badjlist[code]]
+    return Set((scm.graph.vertex_labels[parent_code] for parent_code in scm.graph.graph.badjlist[code]))
 end
+
+vertices(scm::SCM) = collect(keys(scm.graph.vertex_properties))
 
 """
 A plate Structural Causal Model where:
@@ -71,11 +77,17 @@ A plate Structural Causal Model where:
 
 StaticSCM([:Y], [:T₁, :T₂], [:W₁, :W₂, :W₃]; outcome_extra_covariates=[:C])
 """
-function StaticSCM(outcomes, treatments, confounders; outcome_extra_covariates=())
-    outcome_equations = (outcome => unique(vcat(treatments, confounders, outcome_extra_covariates)) for outcome in outcomes)
+function StaticSCM(outcomes, treatments, confounders)
+    outcome_equations = (outcome => unique(vcat(treatments, confounders)) for outcome in outcomes)
     treatment_equations = (treatment => unique(confounders) for treatment in treatments)
-    return SCM(outcome_equations..., treatment_equations...)
+    return SCM(equations=(outcome_equations..., treatment_equations...))
 end
 
-StaticSCM(;outcomes, treatments, confounders, outcome_extra_covariates=()) = 
-    StaticSCM(outcomes, treatments, confounders; outcome_extra_covariates=outcome_extra_covariates)
+StaticSCM(;outcomes, treatments, confounders) = 
+    StaticSCM(outcomes, treatments, confounders)
+
+
+to_dict(scm::SCM) = Dict(
+    :type => "SCM",
+    :equations => [Dict(:outcome => label, :parents => collect(parents(scm, label))) for label ∈ vertices(scm)]
+)

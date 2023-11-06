@@ -13,20 +13,18 @@ using Statistics
 using Distributions
 using Zygote
 using LogExpFunctions
-using YAML
 using PrecompileTools
 using PrettyTables
 using Random
 import AbstractDifferentiation as AD
 using Graphs
 using MetaGraphsNext
-using Configurations
 
 # #############################################################################
 # EXPORTS
 # #############################################################################
 
-export SCM, StaticSCM, add_equations!, add_equation!, parents
+export SCM, StaticSCM, add_equations!, add_equation!, parents, vertices
 export CounterfactualMean, CM
 export AverageTreatmentEffect, ATE
 export InteractionAverageTreatmentEffect, IATE
@@ -39,6 +37,7 @@ export TreatmentTransformer, with_encoder, encoder
 export BackdoorAdjustment, identify
 export last_fluctuation_epsilon
 export estimands_from_yaml, estimands_to_yaml
+export to_dict, from_dict!, Configuration
 
 # #############################################################################
 # INCLUDES
@@ -58,7 +57,8 @@ include("counterfactual_mean_based/estimators.jl")
 include("counterfactual_mean_based/clever_covariate.jl")
 include("counterfactual_mean_based/gradient.jl")
 include("counterfactual_mean_based/adjustment.jl")
-include("counterfactual_mean_based/configurations.jl")
+
+include("configuration.jl")
 
 # #############################################################################
 # PRECOMPILATION WORKLOAD

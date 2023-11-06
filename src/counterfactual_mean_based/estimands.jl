@@ -41,18 +41,18 @@ for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
     statistical_estimand = Symbol(:Statistical, estimand)
     ex = quote
         # Causal Estimand
-        @option struct $(causal_estimand) <: Estimand
+        struct $(causal_estimand) <: Estimand
             outcome::Symbol
             treatment_values::NamedTuple
 
             function $(causal_estimand)(outcome, treatment_values)
                 outcome = Symbol(outcome)
-                treatment_variables = Tuple(keys(treatment_values))
+                treatment_values = get_treatment_specs(treatment_values)
                 return new(outcome, treatment_values)
             end
         end
         # Statistical Estimand
-        @option struct $(statistical_estimand) <: Estimand
+        struct $(statistical_estimand) <: Estimand
             outcome::Symbol
             treatment_values::NamedTuple
             treatment_confounders::NamedTuple
@@ -60,6 +60,7 @@ for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
 
             function $(statistical_estimand)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
                 outcome = Symbol(outcome)
+                treatment_values = get_treatment_specs(treatment_values)
                 treatment_variables = Tuple(keys(treatment_values))
                 treatment_confounders = NamedTuple{treatment_variables}([unique_sorted_tuple(treatment_confounders[T]) for T ∈ treatment_variables])
                 outcome_extra_covariates = unique_sorted_tuple(outcome_extra_covariates)
@@ -68,6 +69,12 @@ for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
         end
 
         # Constructors
+        $(causal_estimand)(;outcome, treatment_values) =  $(causal_estimand)(outcome, treatment_values)
+
+        $(statistical_estimand)(;outcome, treatment_values, treatment_confounders, outcome_extra_covariates) =
+            $(statistical_estimand)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
+        
+        # Short Name Constructors
         $(estimand)(outcome, treatment_values) = $(causal_estimand)(outcome, treatment_values)
 
         $(estimand)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates) = 
@@ -126,4 +133,54 @@ function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: StatisticalCMCo
         "\nTreatment: ", Ψ.treatment_values
     )
     println(io, param_string)
+end
+
+function treatment_specs_to_dict(treatment_values::NamedTuple{T, <:Tuple{Vararg{<:NamedTuple}}}) where T
+    Dict(key => Dict(pairs(vals)) for (key, vals) in pairs(treatment_values))
+end
+
+treatment_specs_to_dict(treatment_values::NamedTuple) = Dict(pairs(treatment_values))
+
+treatment_values(d::AbstractDict) = (;d...)
+treatment_values(d) = d
+
+function treatment_specs_from_dict(dict::AbstractDict)
+    treatment_variables = keys(dict)
+    return NamedTuple{Tuple(treatment_variables)}([treatment_values(val) for val in values(dict)])
+end
+
+get_treatment_specs(treatment_values::NamedTuple) = treatment_values
+get_treatment_specs(treatment_values::AbstractDict) = treatment_specs_from_dict(treatment_values)
+
+constructorname(T; prefix="TMLE.Causal") = replace(string(T), prefix => "")
+
+treatment_confounders_to_dict(treatment_confounders::NamedTuple) = 
+    Dict(key => collect(vals) for (key, vals) in pairs(treatment_confounders))
+
+"""
+    to_dict(Ψ::T) where T <: CausalCMCompositeEstimands
+
+Converts Ψ to a dictionary that can be serialized.
+"""
+function to_dict(Ψ::T) where T <: CausalCMCompositeEstimands
+    return Dict(
+        :type => constructorname(T; prefix="TMLE.Causal"),
+        :outcome => Ψ.outcome,
+        :treatment_values => treatment_specs_to_dict(Ψ.treatment_values)
+        )
+end
+
+"""
+    to_dict(Ψ::T) where T <: StatisticalCMCompositeEstimand
+
+Converts Ψ to a dictionary that can be serialized.
+"""
+function to_dict(Ψ::T) where T <: StatisticalCMCompositeEstimand
+    return Dict(
+        :type => constructorname(T; prefix="TMLE.Statistical"),
+        :outcome => Ψ.outcome,
+        :treatment_values => treatment_specs_to_dict(Ψ.treatment_values),
+        :treatment_confounders => treatment_confounders_to_dict(Ψ.treatment_confounders),
+        :outcome_extra_covariates => collect(Ψ.outcome_extra_covariates)
+        )
 end

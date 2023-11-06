@@ -86,6 +86,80 @@ end
     end
 end
 
+@testset "Test dictionary conversion" begin
+    # Causal CM
+    Ψ = CM(
+        outcome=:y,
+        treatment_values = (T₁=1, T₂="AC")
+    )
+    d = to_dict(Ψ)
+    @test d == Dict(
+        :type             => "CM",
+        :treatment_values => Dict(:T₁=>1, :T₂=>"AC"),
+        :outcome          => :y
+    )
+    Ψreconstructed = from_dict!(d)
+    @test Ψreconstructed == Ψ
+    # Causal ATE
+    Ψ = ATE(
+        outcome=:y, 
+        treatment_values=(
+            T₁=(case="A", control="B"), 
+            T₂=(case=1, control=0), 
+            T₃=(case="C", control="D")
+        ),
+    )
+    d = to_dict(Ψ)
+    @test d == Dict(
+        :type => "ATE",
+        :treatment_values => Dict(
+            :T₁ => Dict(:case => "A", :control => "B"),
+            :T₂ => Dict(:case => 1, :control => 0), 
+            :T₃ => Dict(:control => "D", :case => "C")
+        ),
+        :outcome => :y
+    )
+    Ψreconstructed = from_dict!(d)
+    @test Ψreconstructed.outcome == Ψ.outcome
+    @test Ψreconstructed.treatment_values.T₁ == Ψ.treatment_values.T₁
+    @test Ψreconstructed.treatment_values.T₂ == Ψ.treatment_values.T₂
+    @test Ψreconstructed.treatment_values.T₃ == Ψ.treatment_values.T₃
+    
+    # Statistical CM
+    Ψ = CM(
+        outcome=:y,
+        treatment_values = (T₁=1, T₂="AC"),
+        treatment_confounders = (T₁=[:W₁₁, :W₁₂], T₂=[:W₁₂, :W₂₂])
+    )
+    d = to_dict(Ψ)
+    @test d == Dict(
+        :outcome_extra_covariates => [],
+        :type                     => "CM",
+        :treatment_values         => Dict(:T₁=>1, :T₂=>"AC"),
+        :outcome                  => :y,
+        :treatment_confounders    => Dict(:T₁=>[:W₁₁, :W₁₂], :T₂=>[:W₁₂, :W₂₂])
+    )
+    Ψreconstructed = from_dict!(d)
+    @test Ψreconstructed == Ψ
+
+    # Statistical IATE
+    Ψ = IATE(
+        outcome=:y,
+        treatment_values = (T₁=1, T₂="AC"),
+        treatment_confounders = (T₁=[:W₁₁, :W₁₂], T₂=[:W₁₂, :W₂₂]),
+        outcome_extra_covariates=[:C]
+    )
+    d = to_dict(Ψ)
+    @test d == Dict(
+        :outcome_extra_covariates => [:C],
+        :type                     => "IATE",
+        :treatment_values         => Dict(:T₁=>1, :T₂=>"AC"),
+        :outcome                  => :y,
+        :treatment_confounders    => Dict(:T₁=>[:W₁₁, :W₁₂], :T₂=>[:W₁₂, :W₂₂])
+    )
+    Ψreconstructed = from_dict!(d)
+    @test Ψreconstructed == Ψ
+end
 end
 
 true
