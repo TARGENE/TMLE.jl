@@ -34,15 +34,16 @@ function make_dataset(;n=1000)
         Y   = Y
         )
 end
-dataset = make_dataset()</code></pre><p>Even though the role of a variable (treatment, outcome, confounder, ...) is relative to the problem setting, this dataset can intuitively be decomposed into:</p><ul><li>1 Outcome variable (<span>$Y$</span>).</li><li>2 Treatment variables <span>$(T₁, T₂)$</span> with confounders <span>$(W₁₁, W₁₂)$</span> and <span>$(W₂₁, W₂₂)$</span> respectively.</li><li>1 Outcome extra covariate variable (<span>$C$</span>).</li></ul><h2 id="The-Structural-Causal-Model"><a class="docs-heading-anchor" href="#The-Structural-Causal-Model">The Structural Causal Model</a><a id="The-Structural-Causal-Model-1"></a><a class="docs-heading-anchor-permalink" href="#The-Structural-Causal-Model" title="Permalink"></a></h2><p>The modeling stage starts from the definition of a Structural Causal Model (<code>SCM</code>). This is simply a list of relationships between the random variables in our dataset. See <a href="../user_guide/scm/#Structural-Causal-Models">Structural Causal Models</a> for an in-depth explanation. For our purposes, because we know the data generating process, we can define it as follows:</p><pre><code class="language-julia hljs">scm = SCM(
+dataset = make_dataset()</code></pre><p>Even though the role of a variable (treatment, outcome, confounder, ...) is relative to the problem setting, this dataset can intuitively be decomposed into:</p><ul><li>1 Outcome variable (<span>$Y$</span>).</li><li>2 Treatment variables <span>$(T₁, T₂)$</span> with confounders <span>$(W₁₁, W₁₂)$</span> and <span>$(W₂₁, W₂₂)$</span> respectively.</li><li>1 Outcome extra covariate variable (<span>$C$</span>).</li></ul><h2 id="The-Structural-Causal-Model"><a class="docs-heading-anchor" href="#The-Structural-Causal-Model">The Structural Causal Model</a><a id="The-Structural-Causal-Model-1"></a><a class="docs-heading-anchor-permalink" href="#The-Structural-Causal-Model" title="Permalink"></a></h2><p>The modeling stage starts from the definition of a Structural Causal Model (<code>SCM</code>). This is simply a list of relationships between the random variables in our dataset. See <a href="../user_guide/scm/#Structural-Causal-Models">Structural Causal Models</a> for an in-depth explanation. For our purposes, because we know the data generating process, we can define it as follows:</p><pre><code class="language-julia hljs">scm = SCM([
     :Y  =&gt; [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C],
     :T₁ =&gt; [:W₁₁, :W₁₂],
     :T₂ =&gt; [:W₂₁, :W₂₂]
+]
 )</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">SCM
 ---
-T₁ = f₂(W₁₁, W₁₂)
-T₂ = f₃(W₂₁, W₂₂)
-Y = f₁(T₁, T₂, W₁₁, W₁₂, W₂₁, W₂₂, C)
+T₁ = f₂(W₁₂, W₁₁)
+T₂ = f₃(W₂₂, W₂₁)
+Y = f₁(C, W₁₂, W₂₂, W₂₁, W₁₁, T₁, T₂)
 </code></pre><h2 id="The-Causal-Estimands"><a class="docs-heading-anchor" href="#The-Causal-Estimands">The Causal Estimands</a><a id="The-Causal-Estimands-1"></a><a class="docs-heading-anchor-permalink" href="#The-Causal-Estimands" title="Permalink"></a></h2><p>From the previous causal model we can ask multiple causal questions, all represented by distinct causal estimands. The set of available estimands types can be listed as follow:</p><pre><code class="language-julia hljs">AVAILABLE_ESTIMANDS</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Symbol}:
  :CM
  :IATE
@@ -104,7 +105,7 @@ Test summary:
 
 Details:
     number of observations:   1000
-    t-statistic:              -2.023148752179201
+    t-statistic:              -2.0231487521792
     degrees of freedom:       999
-    empirical standard error: 0.2767463152058187
-</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../user_guide/scm/">Structural Causal Models »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.2 on <span class="colophon-date" title="Wednesday 1 November 2023 11:49">Wednesday 1 November 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+    empirical standard error: 0.2767463152058188
+</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../user_guide/scm/">Structural Causal Models »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.1.2 on <span class="colophon-date" title="Monday 6 November 2023 22:11">Monday 6 November 2023</span>. Using Julia version 1.9.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
