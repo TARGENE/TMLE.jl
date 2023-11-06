@@ -32,11 +32,11 @@ add_equations!(scm, :T₁ => [:W₁₁, :W₁₂, :W], :T₂ => [:W₂₁, :W₂
 Instead of constructing the `SCM` incrementally, one can provide all the specified equations at once:
 
 ```@example scm
-scm = SCM(
+scm = SCM([
     :Y  => [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :W, :C],
     :T₁ => [:W₁₁, :W₁₂, :W],
-    :T₂ => [:W₂₁, :W₂₂, :W],
-)
+    :T₂ => [:W₂₁, :W₂₂, :W]
+])
 ```
 
 ## Classic Structural Causal Models
@@ -45,10 +45,9 @@ There are many cases where we are interested in estimating the causal effect of 
 
 ```@example scm
 scm = StaticSCM(
-    [:Y₁, :Y₂], 
-    [:T₁, :T₂], 
-    [:W₁, :W₂];
-    outcome_extra_covariates=[:C],
+    outcomes=[:Y₁, :Y₂], 
+    treatments=[:T₁, :T₂], 
+    confounders=[:W₁, :W₂];
 )
 ```
 

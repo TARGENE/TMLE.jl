@@ -17,9 +17,9 @@ In what follows, ``P`` is a probability distribution generating an outcome ``Y``
 ```@example estimands
 using TMLE
 scm = StaticSCM(
-    [:Y], 
-    [:T₁, :T₂], 
-    [:W];
+    outcomes=[:Y], 
+    treatments=[:T₁, :T₂], 
+    confounders=[:W]
 )
 ```
 

@@ -43,10 +43,11 @@ function make_dataset(;n=1000)
         )
 end
 dataset = make_dataset(n=10000)
-scm = SCM(
+scm = SCM([
     :Y  => [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C],
     :T₁ => [:W₁₁, :W₁₂],
-    :T₂ => [:W₂₁, :W₂₂],
+    :T₂ => [:W₂₁, :W₂₂]
+]
 )
 ```
 

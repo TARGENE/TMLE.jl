@@ -65,10 +65,11 @@ Even though the role of a variable (treatment, outcome, confounder, ...) is rela
 The modeling stage starts from the definition of a Structural Causal Model (`SCM`). This is simply a list of relationships between the random variables in our dataset. See [Structural Causal Models](@ref) for an in-depth explanation. For our purposes, because we know the data generating process, we can define it as follows:
 
 ```@example walk-through
-scm = SCM(
+scm = SCM([
     :Y  => [:T₁, :T₂, :W₁₁, :W₁₂, :W₂₁, :W₂₂, :C],
     :T₁ => [:W₁₁, :W₁₂],
     :T₂ => [:W₂₁, :W₂₂]
+]
 )
 ```
 
