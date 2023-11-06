@@ -113,6 +113,23 @@ nothing # hide
 
 Again, required nuisance functions are fitted and stored in the cache.
 
+## CV-Estimation
+
+Both TMLE and OSE can be used with sample-splitting, which, for an additional computational cost, further reduces the assumptions we need to make regarding our data generating process ([see here](https://arxiv.org/abs/2203.06469)). Note that this sample-splitting procedure should not be confused with the sample-splitting happening in Super Learning. Using both CV-TMLE and Super-Learning will result in two nested sample-splitting loops.
+
+To leverage sample-splitting, simply specify a `resampling` strategy when building an estimator:
+
+```@example estimation
+cvtmle = TMLEE(models, resampling=CV())
+cvresult₁, _ = cvtmle(Ψ₁, dataset);
+```
+
+Similarly, one could build CV-OSE:
+
+```julia
+cvose = OSE(models, resampling=CV(nfolds=3))
+```
+
 ## Reusing the SCM
 
 Let's now see how the `cache` can be reused with a new estimand, say the Total Average Treatment Effect of both `T₁` and `T₂`.
