@@ -9,6 +9,7 @@ using Test
     @test include("treatment_transformer.jl")
     @test include("scm.jl")
     @test include("configuration.jl")
+    @test include("estimand_ordering.jl")
     
     @test include("counterfactual_mean_based/estimands.jl")
     @test include("counterfactual_mean_based/clever_covariate.jl")

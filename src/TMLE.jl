@@ -19,6 +19,7 @@ using Random
 import AbstractDifferentiation as AD
 using Graphs
 using MetaGraphsNext
+using Combinatorics
 
 # #############################################################################
 # EXPORTS
@@ -38,6 +39,7 @@ export BackdoorAdjustment, identify
 export last_fluctuation_epsilon
 export estimands_from_yaml, estimands_to_yaml
 export to_dict, from_dict!, Configuration
+export brute_force_ordering
 
 # #############################################################################
 # INCLUDES
@@ -49,6 +51,7 @@ include("estimands.jl")
 include("estimators.jl")
 include("estimates.jl")
 include("treatment_transformer.jl")
+include("estimand_ordering.jl")
 
 include("counterfactual_mean_based/estimands.jl")
 include("counterfactual_mean_based/estimates.jl")
