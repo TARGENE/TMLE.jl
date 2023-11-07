@@ -1,4 +1,3 @@
-
 function maybe_update_counts!(dict, key)
     if haskey(dict, key)
         dict[key] += 1
@@ -60,15 +59,48 @@ function evaluate_proxy_costs(estimands, η_counts; verbosity=0)
     return maxmem, compcost
 end
 
+"""
+    get_min_maxmem_lowerbound(estimands)
 
-function brute_force_ordering(estimands; η_counts = nuisance_counts(estimands))
+The maximum number of models for a single estimand is a lower bound 
+on the cache size. It can be computed in a single pass, i.e. in O(N).
+"""
+function get_min_maxmem_lowerbound(estimands)
+    min_maxmem_lowerbound = 0
+    for Ψ in estimands
+        η = get_relevant_factors(Ψ)
+        candidate_min = length((η.propensity_score..., η.outcome_mean))
+        if candidate_min > min_maxmem_lowerbound
+            min_maxmem_lowerbound = candidate_min
+        end
+    end
+    return min_maxmem_lowerbound
+end
+
+"""
+    brute_force_ordering(estimands; η_counts = nuisance_counts(estimands))
+
+Finds an optimal ordering of the estimands to minimize maximum cache size. 
+The approach is a brute force one, all permutations are generated and evaluated, 
+if a minimum is found fast it is immediatly returned.
+The theoretical complexity is in O(N!). However due to the stop fast approach and 
+the shuffling, this is actually expected to be much smaller than that.
+"""
+function brute_force_ordering(estimands; η_counts=nuisance_counts(estimands), do_shuffle=true, rng=Random.default_rng(), verbosity=0)
     optimal_ordering = estimands
+    estimands = do_shuffle ? shuffle(rng, estimands) : estimands
+    min_maxmem_lowerbound = get_min_maxmem_lowerbound(estimands)
     optimal_maxmem, optimal_compcost = evaluate_proxy_costs(estimands, η_counts)
     for perm ∈ Combinatorics.permutations(estimands)
         perm_maxmem, _ = evaluate_proxy_costs(perm, η_counts)
         if perm_maxmem < optimal_maxmem
             optimal_ordering = perm
             optimal_maxmem = perm_maxmem
+        end
+        # Stop fast if the lower bound is reached
+        if optimal_maxmem == min_maxmem_lowerbound
+            verbosity > 0 && @info(string("Lower bound reached, stopping."))
+            return optimal_ordering, optimal_maxmem, optimal_compcost
         end
     end
     return optimal_ordering, optimal_maxmem, optimal_compcost

@@ -2,6 +2,7 @@ module TestEstimandOrdering
 
 using TMLE
 using Test
+using StableRNGs
 
 scm = SCM([
     :Y₁ => [:T₁, :T₂, :W₁, :W₂, :C],
@@ -70,7 +71,8 @@ statistical_estimands = [identify(x, scm) for x in causal_estimands]
         TMLE.ConditionalDistribution(:Y₂, (:T₃, :W₂, :W₃))           => 1
     )
     @test TMLE.evaluate_proxy_costs(statistical_estimands, η_counts) == (4, 9)
-    optimal_ordering, optimal_maxmem, optimal_compcost = brute_force_ordering(statistical_estimands)
+    @test TMLE.get_min_maxmem_lowerbound(statistical_estimands) == 3
+    optimal_ordering, optimal_maxmem, optimal_compcost = @test_logs (:info, "Lower bound reached, stopping.") brute_force_ordering(statistical_estimands, verbosity=1, rng=StableRNG(123))
     @test optimal_maxmem == 3
     @test optimal_compcost == 9
 end
