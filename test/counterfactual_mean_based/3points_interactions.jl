@@ -43,7 +43,7 @@ end
         T₃ = LogisticClassifier(lambda=0)
     )
 
-    tmle = TMLEE(models)
+    tmle = TMLEE(models=models)
     result, cache = tmle(Ψ, dataset, verbosity=0);
     test_coverage(result, Ψ₀)
     test_fluct_decreases_risk(cache)

@@ -60,7 +60,6 @@ function counterfactualTreatment(vals, T)
                             for (i, name) in enumerate(Tnames)])
 end
 
-
 last_fluctuation(cache) = cache[:last_fluctuation]
 
 function last_fluctuation_epsilon(cache)
@@ -68,3 +67,11 @@ function last_fluctuation_epsilon(cache)
     fp = fitted_params(fitted_params(mach).fitresult.one_dimensional_path)
     return fp.coef
 end
+
+default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier(), encoder=encoder()) = (
+    Q_binary_default = with_encoder(Q_binary, encoder=encoder),
+    Q_continuous_default = with_encoder(Q_continuous, encoder=encoder),
+    G_default = G
+)
+
+is_binary(dataset, columnname) = Set(skipmissing(Tables.getcolumn(dataset, columnname))) == Set([0, 1])

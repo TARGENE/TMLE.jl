@@ -48,8 +48,8 @@ end
         Y = with_encoder(LinearRegressor()),
         T = LogisticClassifier(lambda=0)
     )
-    tmle = TMLEE(models)
-    ose = OSE(models)
+    tmle = TMLEE(models=models)
+    ose = OSE(models=models)
     cache = Dict()
 
     CM_tmle_result₁, cache = tmle(CM₁, dataset; cache=cache, verbosity=0)
@@ -108,7 +108,7 @@ end
         Y = with_encoder(LinearRegressor()),
         T = LogisticClassifier(lambda=0)
     )
-    tmle = TMLEE(models)
+    tmle = TMLEE(models=models)
     cache = Dict()
     
     CM₁ = CM(

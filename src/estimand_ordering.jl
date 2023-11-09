@@ -151,7 +151,6 @@ function groups_ordering(estimands; brute_force=false, do_shuffle=true, rng=Rand
 
     # Brute force on the propensity score groups
     if brute_force
-        
         return brute_force_ordering(estimands; 
             permutation_generator = propensity_score_group_based_permutation_generator(estimands, estimands_and_nuisances), 
             do_shuffle=do_shuffle, 

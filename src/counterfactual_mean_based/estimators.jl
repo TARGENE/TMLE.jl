@@ -27,6 +27,18 @@ function get_train_validation_indices(resampling::ResamplingStrategy, factors, d
     ))
 end
 
+function acquire_model(models, key, dataset, is_propensity_score)
+    # If the model is in models return it
+    haskey(models, key) && return models[key]
+    # Otherwise, if the required model is for a propensity_score, return the default
+    model_default = :G_default
+    if !is_propensity_score
+        # Finally, if the required model is an outcome_mean, find the type from the data
+        model_default = is_binary(dataset, key) ? :Q_binary_default : :Q_continuous_default
+    end
+    return models[model_default]
+end
+
 function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1)
     if haskey(cache, estimand)
         old_estimator, estimate = cache[estimand]
@@ -41,7 +53,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
     train_validation_indices = TMLE.get_train_validation_indices(estimator.resampling, estimand, dataset)
     # Fit propensity score
     propensity_score_estimate = Tuple(
-        ConditionalDistributionEstimator(train_validation_indices, models[factor.outcome])(
+        ConditionalDistributionEstimator(train_validation_indices, acquire_model(models, factor.outcome, dataset, true))(
             factor,    
             dataset;
             cache=cache,
@@ -51,7 +63,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
     )
     # Fit outcome mean
     outcome_mean = estimand.outcome_mean
-    model = models[outcome_mean.outcome]
+    model = acquire_model(models, outcome_mean.outcome, dataset, false)
     outcome_mean_estimate = TMLE.ConditionalDistributionEstimator( 
         train_validation_indices, 
         model
@@ -110,7 +122,7 @@ mutable struct TMLEE <: Estimator
 end
 
 """
-    TMLEE(models; resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing)
+    TMLEE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing)
 
 Defines a TMLE estimator using the specified models for estimation of the nuisance parameters. The estimator is a 
 function that can be applied to estimate estimands for a dataset.
@@ -130,12 +142,11 @@ been show to be more robust to positivity violation in practice.
 
 ```julia
 using MLJLinearModels
-models = (Y = LinearRegressor(), T = LogisticClassifier())
-tmle = TMLEE(models)
+tmle = TMLEE()
 Ψ̂ₙ, cache = tmle(Ψ, dataset)
 ```
 """
-TMLEE(models; resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing) = 
+TMLEE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing) = 
     TMLEE(models, resampling, ps_lowerbound, weighted, tol)
 
 function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
@@ -178,7 +189,7 @@ mutable struct OSE <: Estimator
 end
 
 """
-    OSE(models; resampling=nothing, ps_lowerbound=1e-8)
+    OSE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8)
 
 Defines a One Step Estimator using the specified models for estimation of the nuisance parameters. The estimator is a 
 function that can be applied to estimate estimands for a dataset.
@@ -196,11 +207,11 @@ result in a data adaptive definition as described in [here](https://pubmed.ncbi.
 ```julia
 using MLJLinearModels
 models = (Y = LinearRegressor(), T = LogisticClassifier())
-ose = OSE(models)
+ose = OSE()
 Ψ̂ₙ, cache = ose(Ψ, dataset)
 ```
 """
-OSE(models; resampling=nothing, ps_lowerbound=1e-8) = 
+OSE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8) = 
     OSE(models, resampling, ps_lowerbound)
 
 function (estimator::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)

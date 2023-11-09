@@ -140,7 +140,7 @@ models = (
     T₁ = LogisticClassifier(),
     T₂ = LogisticClassifier()
 )
-tmle = TMLEE(models)
+tmle = TMLEE(models=models)
 ```
 
 Because we haven't identified the `cm` causal estimand yet, we need to provide the `scm` as well to the estimator:
@@ -153,7 +153,7 @@ result
 Statistical Estimands can be estimated without a ``SCM``, let's use the One-Step estimator:
 
 ```@example walk-through
-ose = OSE(models)
+ose = OSE(models=models)
 result, cache = ose(statistical_iate, dataset)
 result
 ```

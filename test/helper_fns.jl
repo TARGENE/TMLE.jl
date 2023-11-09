@@ -62,10 +62,10 @@ likelihood estimator also solves the score equation.
 test_fluct_mean_inf_curve_lower_than_initial(tmle_result::TMLE.TMLEstimate, ose_result::TMLE.OSEstimate) = @test abs(mean(tmle_result.IC)) < abs(mean(ose_result.IC))
 
 double_robust_estimators(models; resampling=CV(nfolds=3)) = (
-    tmle = TMLEE(models),
-    ose = OSE(models),
-    cv_tmle = TMLEE(models, resampling=resampling),
-    cv_ose = TMLEE(models, resampling=resampling),
+    tmle = TMLEE(models=models),
+    ose = OSE(models=models),
+    cv_tmle = TMLEE(models=models, resampling=resampling),
+    cv_ose = TMLEE(models=models, resampling=resampling),
 )
 
 function test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)

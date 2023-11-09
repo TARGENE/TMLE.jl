@@ -71,7 +71,7 @@ models = (
     T₁=LogisticClassifier(),
     T₂=LogisticClassifier(),
 )
-tmle = TMLEE(models)
+tmle = TMLEE(models=models)
 result₁, cache = tmle(Ψ₁, dataset);
 result₁
 nothing # hide
@@ -106,7 +106,7 @@ We could now get an interest in the Average Treatment Effect of `T₂` that we w
     treatment_confounders=(T₂=[:W₂₁, :W₂₂],),
     outcome_extra_covariates=[:C]
 )
-ose = OSE(models)
+ose = OSE(models=models)
 result₂, cache = ose(Ψ₂, dataset;cache=cache);
 result₂
 nothing # hide
@@ -121,14 +121,14 @@ Both TMLE and OSE can be used with sample-splitting, which, for an additional co
 To leverage sample-splitting, simply specify a `resampling` strategy when building an estimator:
 
 ```@example estimation
-cvtmle = TMLEE(models, resampling=CV())
+cvtmle = TMLEE(models=models, resampling=CV())
 cvresult₁, _ = cvtmle(Ψ₁, dataset);
 ```
 
 Similarly, one could build CV-OSE:
 
 ```julia
-cvose = OSE(models, resampling=CV(nfolds=3))
+cvose = OSE(models=models, resampling=CV(nfolds=3))
 ```
 
 ## Caching model fits

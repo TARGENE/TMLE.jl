@@ -68,7 +68,7 @@ The Average Treatment Effect of ``T`` on ``Y`` confounded by ``W`` is defined as
 
 ```@example quick-start
 models = (Y=with_encoder(LinearRegressor()), T = LogisticClassifier())
-tmle = TMLEE(models)
+tmle = TMLEE(models=models)
 result, _ = tmle(Ψ, dataset, verbosity=0);
 result
 ```
