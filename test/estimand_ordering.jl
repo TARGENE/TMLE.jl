@@ -47,7 +47,7 @@ causal_estimands = [
 ]
 statistical_estimands = [identify(x, scm) for x in causal_estimands]
 
-@testset "Test evaluate_proxy_costs" begin
+@testset "Test ordering strategies" begin
     # Estimand ID || Required models   
     # 1           || (T₁, Y₁|T₁)       
     # 2           || (T₁, Y₁|T₁)       
@@ -57,7 +57,7 @@ statistical_estimands = [identify(x, scm) for x in causal_estimands]
     # 6           || (T₁, Y₂|T₁)       
     # 7           || (T₃, Y₂|T₃)       
     # 8           || (T₁, T₃, Y₂|T₁,T₃)
-
+    # ----------------------------------
     η_counts = TMLE.nuisance_counts(statistical_estimands)
     @test η_counts == Dict(
         TMLE.ConditionalDistribution(:Y₂, (:T₁, :W₁, :W₂))           => 1,
@@ -72,9 +72,19 @@ statistical_estimands = [identify(x, scm) for x in causal_estimands]
     )
     @test TMLE.evaluate_proxy_costs(statistical_estimands, η_counts) == (4, 9)
     @test TMLE.get_min_maxmem_lowerbound(statistical_estimands) == 3
-    optimal_ordering, optimal_maxmem, optimal_compcost = @test_logs (:info, "Lower bound reached, stopping.") brute_force_ordering(statistical_estimands, verbosity=1, rng=StableRNG(123))
-    @test optimal_maxmem == 3
-    @test optimal_compcost == 9
+    # The brute force solution returns the optimal solution
+    optimal_ordering = @test_logs (:info, "Lower bound reached, stopping.") brute_force_ordering(statistical_estimands, verbosity=1, rng=StableRNG(123))
+    @test TMLE.evaluate_proxy_costs(optimal_ordering, η_counts) == (3, 9)
+    # Creating a bad ordering
+    bad_ordering = statistical_estimands[[1, 7, 3, 6, 2, 5, 8, 4]]
+    @test TMLE.evaluate_proxy_costs(bad_ordering, η_counts) == (6, 9)
+    # Without the brute force on groups, the solution is not necessarily optimal
+    # but still widely improved
+    ordering_from_groups = groups_ordering(bad_ordering)
+    @test TMLE.evaluate_proxy_costs(ordering_from_groups, η_counts) == (4, 9)
+    # Adding a layer of brute forcing results in an optimal ordering
+    ordering_from_groups_with_brute_force = groups_ordering(bad_ordering, brute_force=true)
+    @test TMLE.evaluate_proxy_costs(ordering_from_groups_with_brute_force, η_counts) == (3, 9)
 end
 
 

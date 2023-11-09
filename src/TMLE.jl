@@ -39,7 +39,7 @@ export BackdoorAdjustment, identify
 export last_fluctuation_epsilon
 export estimands_from_yaml, estimands_to_yaml
 export to_dict, from_dict!, Configuration
-export brute_force_ordering
+export brute_force_ordering, groups_ordering
 
 # #############################################################################
 # INCLUDES

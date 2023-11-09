@@ -77,6 +77,29 @@ function get_min_maxmem_lowerbound(estimands)
     return min_maxmem_lowerbound
 end
 
+estimands_permutation_generator(estimands) = Combinatorics.permutations(estimands)
+
+function get_propensity_score_groups(estimands_and_nuisances)
+    ps_groups = [[]]
+    current_ps = estimands_and_nuisances[1][2]
+    for (index, Ψ_and_ηs) ∈ enumerate(estimands_and_nuisances)
+        new_ps = Ψ_and_ηs[2]
+        if new_ps == current_ps
+            push!(ps_groups[end], index)
+        else
+            current_ps = new_ps
+            push!(ps_groups, [index])
+        end
+    end
+    return ps_groups
+end
+
+function propensity_score_group_based_permutation_generator(estimands, estimands_and_nuisances)
+    ps_groups = get_propensity_score_groups(estimands_and_nuisances)
+    group_permutations = Combinatorics.permutations(collect(1:length(ps_groups)))
+    return (vcat((estimands[ps_groups[index]] for index in group_perm)...) for group_perm in group_permutations)
+end
+
 """
     brute_force_ordering(estimands; η_counts = nuisance_counts(estimands))
 
@@ -86,12 +109,12 @@ if a minimum is found fast it is immediatly returned.
 The theoretical complexity is in O(N!). However due to the stop fast approach and 
 the shuffling, this is actually expected to be much smaller than that.
 """
-function brute_force_ordering(estimands; η_counts=nuisance_counts(estimands), do_shuffle=true, rng=Random.default_rng(), verbosity=0)
+function brute_force_ordering(estimands; permutation_generator = estimands_permutation_generator(estimands), η_counts=nuisance_counts(estimands), do_shuffle=true, rng=Random.default_rng(), verbosity=0)
     optimal_ordering = estimands
     estimands = do_shuffle ? shuffle(rng, estimands) : estimands
     min_maxmem_lowerbound = get_min_maxmem_lowerbound(estimands)
-    optimal_maxmem, optimal_compcost = evaluate_proxy_costs(estimands, η_counts)
-    for perm ∈ Combinatorics.permutations(estimands)
+    optimal_maxmem, _ = evaluate_proxy_costs(estimands, η_counts)
+    for perm ∈ permutation_generator
         perm_maxmem, _ = evaluate_proxy_costs(perm, η_counts)
         if perm_maxmem < optimal_maxmem
             optimal_ordering = perm
@@ -100,8 +123,42 @@ function brute_force_ordering(estimands; η_counts=nuisance_counts(estimands), d
         # Stop fast if the lower bound is reached
         if optimal_maxmem == min_maxmem_lowerbound
             verbosity > 0 && @info(string("Lower bound reached, stopping."))
-            return optimal_ordering, optimal_maxmem, optimal_compcost
+            return optimal_ordering
         end
     end
-    return optimal_ordering, optimal_maxmem, optimal_compcost
+    return optimal_ordering
+end
+
+"""
+    groups_ordering(estimands)
+
+This will order estimands based on: propensity score first, outcome mean second. This heuristic should 
+work reasonably well in practice. It could be optimized further by:
+- Organising the propensity score groups that share similar components to be close together. 
+- Brute forcing the ordering of these groups to find an optimal one.
+"""
+function groups_ordering(estimands; brute_force=false, do_shuffle=true, rng=Random.default_rng(), verbosity=0)
+    # Sort estimands based on propensity_score first and outcome_mean second
+    estimands_and_nuisances = []
+    for Ψ in estimands
+        η = TMLE.get_relevant_factors(Ψ)
+        push!(estimands_and_nuisances, (Ψ, η.propensity_score, η.outcome_mean))
+    end
+    sort!(estimands_and_nuisances, by = x -> (Tuple(TMLE.variables(ps) for ps in x[2]), TMLE.variables(x[3])))
+    
+    # Sorted estimands only
+    estimands = [x[1] for x in estimands_and_nuisances]
+
+    # Brute force on the propensity score groups
+    if brute_force
+        
+        return brute_force_ordering(estimands; 
+            permutation_generator = propensity_score_group_based_permutation_generator(estimands, estimands_and_nuisances), 
+            do_shuffle=do_shuffle, 
+            rng=rng, 
+            verbosity=verbosity
+        )
+    else
+        return estimands
+    end
 end
