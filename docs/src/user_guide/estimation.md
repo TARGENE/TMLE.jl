@@ -131,7 +131,7 @@ Similarly, one could build CV-OSE:
 cvose = OSE(models, resampling=CV(nfolds=3))
 ```
 
-## Reusing the SCM
+## Caching model fits
 
 Let's now see how the `cache` can be reused with a new estimand, say the Total Average Treatment Effect of both `T₁` and `T₂`.
 
