@@ -4,10 +4,11 @@ mutable struct Fluctuation <: MLJBase.Supervised
     tol::Union{Nothing, Float64}
     ps_lowerbound::Float64
     weighted::Bool
+    cache::Bool
 end
 
-Fluctuation(Ψ, initial_factors; tol=nothing, ps_lowerbound=1e-8, weighted=false) =
-    Fluctuation(Ψ, initial_factors, tol, ps_lowerbound, weighted)
+Fluctuation(Ψ, initial_factors; tol=nothing, ps_lowerbound=1e-8, weighted=false, cache=false) =
+    Fluctuation(Ψ, initial_factors, tol, ps_lowerbound, weighted, cache)
 
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:MLJBase.Continuous} = LinearRegressor(fit_intercept=false, offsetcol = :offset)
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:Finite} = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
@@ -43,7 +44,8 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
         one_dimensional_path(scitype(y)), 
         clever_covariate_and_offset, 
         y, 
-        weights, 
+        weights,
+        cache=model.cache
         )
     fit!(mach, verbosity=verbosity)
 

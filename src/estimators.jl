@@ -8,7 +8,7 @@ struct MLConditionalDistributionEstimator <: Estimator
     model::MLJBase.Supervised
 end
 
-function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1)
+function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     # Lookup in cache
     if haskey(cache, estimand)
         old_estimator, estimate = cache[estimand]
@@ -23,7 +23,7 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cach
     # Fit Conditional DIstribution using MLJ
     X = selectcols(relevant_dataset, estimand.parents)
     y = Tables.getcolumn(relevant_dataset, estimand.outcome)
-    mach = machine(estimator.model, X, y)
+    mach = machine(estimator.model, X, y, cache=machine_cache)
     fit!(mach, verbosity=verbosity-1)
     # Build estimate
     estimate = MLConditionalDistribution(estimand, mach)
@@ -45,7 +45,7 @@ struct SampleSplitMLConditionalDistributionEstimator <: Estimator
     train_validation_indices::Tuple
 end
 
-function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1)
+function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     # Lookup in cache
     if haskey(cache, estimand)
         old_estimator, estimate = cache[estimand]
@@ -65,7 +65,7 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
         train_dataset = selectrows(relevant_dataset, train_indices)
         Xtrain = selectcols(train_dataset, estimand.parents)
         ytrain = Tables.getcolumn(train_dataset, estimand.outcome)
-        mach = machine(estimator.model, Xtrain, ytrain)
+        mach = machine(estimator.model, Xtrain, ytrain, cache=machine_cache)
         fit!(mach, verbosity=verbosity-1)
         machines[index] = mach
     end

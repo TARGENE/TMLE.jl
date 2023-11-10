@@ -47,7 +47,7 @@ using MLJBase
     @test OneSampleZTest(tmle_result) isa OneSampleZTest
 
     # Naive
-    naive = NAIVE(LinearBinaryClassifier())
+    naive = NAIVE(with_encoder(LinearBinaryClassifier()))
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=verbosity)
     @test naive_result ≈ -0.150078 atol = 1e-6
 

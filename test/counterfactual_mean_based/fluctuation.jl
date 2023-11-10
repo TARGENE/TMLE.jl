@@ -38,7 +38,8 @@ using DataFrames
     fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ;
         tol=nothing,
         ps_lowerbound=ps_lowerbound,
-        weighted=true,        
+        weighted=true,
+        cache=true    
     )
     fitresult, cache, report = MLJBase.fit(fluctuation, 0, X, y)
     @test fitted_params(fitresult.one_dimensional_path).features == [:covariate]
@@ -102,7 +103,8 @@ end
     fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ;
         tol=nothing, 
         ps_lowerbound=1e-8,
-        weighted=false,        
+        weighted=false,   
+        cache=true     
     )
     fitresult, cache, report = MLJBase.fit(fluctuation, 0, X, y)
     @test cache.weighted_covariate ≈ [2.45, -3.27, -3.27, 2.45, 2.45, -6.13, 8.17] atol=0.01 

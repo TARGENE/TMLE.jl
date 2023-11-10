@@ -10,7 +10,7 @@ using CategoricalArrays
 using Test
 using LogExpFunctions
 
-include(joinpath(dirname(@__DIR__), "helper_fns.jl"))
+include(joinpath(dirname(dirname(pathof(TMLE))), "test", "helper_fns.jl"))
 
 function dataset_scm_and_truth(;n=1000)
     rng = StableRNG(123)
@@ -43,7 +43,7 @@ end
         T₃ = LogisticClassifier(lambda=0)
     )
 
-    tmle = TMLEE(models=models)
+    tmle = TMLEE(models=models, machine_cache=true)
     result, cache = tmle(Ψ, dataset, verbosity=0);
     test_coverage(result, Ψ₀)
     test_fluct_decreases_risk(cache)
