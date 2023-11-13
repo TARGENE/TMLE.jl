@@ -34,3 +34,6 @@ function from_dict!(d::Dict{T, Any}) where T
     constructor = eval(Meta.parse(pop!(d, :type)))
     return constructor(;[key => from_dict!(val) for (key, val) in d]...)
 end
+
+function configuration_from_yaml end
+function configuration_to_yaml end

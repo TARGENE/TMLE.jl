@@ -40,14 +40,13 @@ using YAML
         estimands=estimands
     )
     config_dict = to_dict(configuration)
-    YAML.write_file(outfilename, config_dict)
-    dict_from_yaml = YAML.load_file(outfilename, dicttype=Dict{Symbol,Any})
-    reconstructed_configuration = from_dict!(dict_from_yaml)
-    @test reconstructed_configuration.scm === nothing
-    @test reconstructed_configuration.adjustment === nothing
+    configuration_to_yaml(outfilename, configuration)
+    config_from_yaml = configuration_from_yaml(outfilename)
+    @test config_from_yaml.scm === nothing
+    @test config_from_yaml.adjustment === nothing
     for index in 1:length(estimands)
         estimand = configuration.estimands[index]
-        reconstructed_estimand = reconstructed_configuration.estimands[index]
+        reconstructed_estimand = config_from_yaml.estimands[index]
         @test estimand.outcome == reconstructed_estimand.outcome
         for treatment in keys(estimand.treatment_values)
             @test estimand.treatment_values[treatment] == reconstructed_estimand.treatment_values[treatment]
@@ -81,18 +80,14 @@ using YAML
 
     configuration = Configuration(
         estimands=estimands,
+        scm = StaticSCM(
+            confounders = [:W],
+            outcomes = [:Y1],
+            treatments = [:T1, :T2]),
         adjustment=BackdoorAdjustment([:C1, :C2])
-    )
-    config_dict = to_dict(configuration)
-    config_dict[:scm] = Dict(
-        :type => "StaticSCM",
-        :confounders => [:W],
-        :outcomes => [:Y1],
-        :treatments => [:T1, :T2]
-    )
-    YAML.write_file(outfilename, config_dict)
-    config_from_yaml = from_dict!(YAML.load_file(outfilename, dicttype=Dict{Symbol,Any}))
-
+    )   
+    configuration_to_yaml(outfilename, configuration)
+    config_from_yaml = configuration_from_yaml(outfilename)
     scm = config_from_yaml.scm
     adjustment = config_from_yaml.adjustment
     # Estimand 1
