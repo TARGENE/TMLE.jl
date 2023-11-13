@@ -8,7 +8,10 @@ using Test
     @test include("composition.jl")
     @test include("treatment_transformer.jl")
     @test include("scm.jl")
-    @test include("configuration.jl")
+    # Requires Extensions
+    if VERSION >= v"1.9"
+        @test include("configuration.jl")
+    end
     @test include("estimand_ordering.jl")
     
     @test include("counterfactual_mean_based/estimands.jl")
