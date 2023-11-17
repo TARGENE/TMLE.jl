@@ -26,16 +26,20 @@ string_repr(estimate::MLCMRelevantFactors) = string(
 struct TMLEstimate{T<:AbstractFloat} <: Estimate
     estimand::StatisticalCMCompositeEstimand
     Ψ̂::T
+    σ::T
     IC::Vector{T}
 end
 
 struct OSEstimate{T<:AbstractFloat} <: Estimate
     estimand::StatisticalCMCompositeEstimand
     Ψ̂::T
+    σ̂::T
     IC::Vector{T}
 end
 
 const EICEstimate = Union{TMLEstimate, OSEstimate}
+
+without_ic(estimate::E) where E <: EICEstimate = E(estimate.estimand, estimate.Ψ̂, estimate.σ̂, [])
 
 function Base.show(io::IO, ::MIME"text/plain", est::EICEstimate)
     testresult = OneSampleTTest(est)

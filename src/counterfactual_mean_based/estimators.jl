@@ -187,9 +187,10 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
         )
     # Estimation results after TMLE
     IC, Ψ̂ = TMLE.gradient_and_estimate(Ψ, targeted_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
+    σ̂ = std(IC) / sqrt(size(IC, 1))
     verbosity >= 1 && @info "Done."
     # update!(cache, relevant_factors, targeted_factors_estimate)
-    return TMLEstimate(Ψ, Ψ̂, IC), cache
+    return TMLEstimate(Ψ, Ψ̂, σ̂, IC), cache
 end
 
 #####################################################################
@@ -250,8 +251,9 @@ function (estimator::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dic
 
     # Gradient and estimate
     IC, Ψ̂ = TMLE.gradient_and_estimate(Ψ, initial_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
+    σ̂ = std(IC) / sqrt(size(IC, 1))
     verbosity >= 1 && @info "Done."
-    return OSEstimate(Ψ, Ψ̂ + mean(IC), IC), cache
+    return OSEstimate(Ψ, Ψ̂ + mean(IC), σ̂, IC), cache
 end
 
 #####################################################################

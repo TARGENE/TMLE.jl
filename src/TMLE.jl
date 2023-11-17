@@ -38,6 +38,7 @@ export TreatmentTransformer, with_encoder, encoder
 export BackdoorAdjustment, identify
 export last_fluctuation_epsilon
 export configuration_from_yaml, configuration_to_yaml
+export configuration_from_json, configuration_to_json
 export to_dict, from_dict!, Configuration
 export brute_force_ordering, groups_ordering
 

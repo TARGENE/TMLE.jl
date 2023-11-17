@@ -1,10 +1,10 @@
-module TMLEYAMLExt
+module YAMLExt
 
 using YAML
 using TMLE
 
 """
-    load_estimands_config(file)
+    configuration_from_yaml(file)
 
 Loads a YAML configuration file containing:
     - Estimands
@@ -19,6 +19,6 @@ TMLE.configuration_from_yaml(file) = from_dict!(YAML.load_file(file, dicttype=Di
 Writes a `Configuration` struct to a YAML file. The latter can be deserialized 
 with `configuration_from_yaml`.
 """
-TMLE.configuration_to_yaml(file, config::Configuration) = YAML.write_file(file, to_dict(config))
+TMLE.configuration_to_yaml(file, config) = YAML.write_file(file, to_dict(config))
 
 end

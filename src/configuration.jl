@@ -20,6 +20,10 @@ function to_dict(configuration::Configuration)
     return config_dict
 end
 
+to_dict(x) = x
+
+to_dict(v::AbstractVector) = [to_dict(x) for x in v]
+
 from_dict!(x) = x
 
 from_dict!(v::AbstractVector) = [from_dict!(x) for x in v]
@@ -37,3 +41,5 @@ end
 
 function configuration_from_yaml end
 function configuration_to_yaml end
+function configuration_from_json end
+function configuration_to_json end
