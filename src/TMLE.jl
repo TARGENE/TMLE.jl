@@ -32,7 +32,7 @@ export InteractionAverageTreatmentEffect, IATE
 export AVAILABLE_ESTIMANDS
 export optimize_ordering, optimize_ordering!
 export TMLEE, OSE, NAIVE
-export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint
+export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint, emptyIC
 export compose
 export TreatmentTransformer, with_encoder, encoder
 export BackdoorAdjustment, identify

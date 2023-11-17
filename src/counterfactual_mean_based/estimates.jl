@@ -31,6 +31,8 @@ struct TMLEstimate{T<:AbstractFloat} <: Estimate
     IC::Vector{T}
 end
 
+TMLEstimate(;estimand, estimate::T, std::T, n, IC) where T = TMLEstimate(estimand, estimate, std, n, convert(Vector{T}, IC))
+
 struct OSEstimate{T<:AbstractFloat} <: Estimate
     estimand::StatisticalCMCompositeEstimand
     estimate::T
@@ -39,9 +41,23 @@ struct OSEstimate{T<:AbstractFloat} <: Estimate
     IC::Vector{T}
 end
 
+OSEstimate(;estimand, estimate::T, std::T, n, IC) where T = OSEstimate(estimand, estimate, std, n, convert(Vector{T}, IC))
+
 const EICEstimate = Union{TMLEstimate, OSEstimate}
 
-without_ic(estimate::E) where E <: EICEstimate = E(estimate.estimand, estimate.estimate, estimate.σ̂, [])
+function to_dict(estimate::T) where T <: EICEstimate
+    Dict(
+        :type => replace(string(Base.typename(T).wrapper), "TMLE." => ""),
+        :estimate => estimate.estimate,
+        :estimand => to_dict(estimate.estimand),
+        :std => estimate.std,
+        :n => estimate.n,
+        :IC => estimate.IC
+    )
+end
+
+emptyIC(estimate::T) where T <: EICEstimate = 
+    T(estimate.estimand, estimate.estimate, estimate.std, estimate.n, [])
 
 function Base.show(io::IO, ::MIME"text/plain", est::EICEstimate)
     testresult = OneSampleTTest(est)
