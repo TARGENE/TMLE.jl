@@ -26,11 +26,8 @@ using Combinatorics
 # #############################################################################
 
 export SCM, StaticSCM, add_equations!, add_equation!, parents, vertices
-export CounterfactualMean, CM
-export AverageTreatmentEffect, ATE
-export InteractionAverageTreatmentEffect, IATE
+export CM, ATE, IATE
 export AVAILABLE_ESTIMANDS
-export optimize_ordering, optimize_ordering!
 export TMLEE, OSE, NAIVE
 export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint, emptyIC
 export compose
