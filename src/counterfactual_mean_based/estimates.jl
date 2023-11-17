@@ -25,21 +25,23 @@ string_repr(estimate::MLCMRelevantFactors) = string(
 
 struct TMLEstimate{T<:AbstractFloat} <: Estimate
     estimand::StatisticalCMCompositeEstimand
-    Ψ̂::T
-    σ::T
+    estimate::T
+    std::T
+    n::Int
     IC::Vector{T}
 end
 
 struct OSEstimate{T<:AbstractFloat} <: Estimate
     estimand::StatisticalCMCompositeEstimand
-    Ψ̂::T
-    σ̂::T
+    estimate::T
+    std::T
+    n::Int
     IC::Vector{T}
 end
 
 const EICEstimate = Union{TMLEstimate, OSEstimate}
 
-without_ic(estimate::E) where E <: EICEstimate = E(estimate.estimand, estimate.Ψ̂, estimate.σ̂, [])
+without_ic(estimate::E) where E <: EICEstimate = E(estimate.estimand, estimate.estimate, estimate.σ̂, [])
 
 function Base.show(io::IO, ::MIME"text/plain", est::EICEstimate)
     testresult = OneSampleTTest(est)
@@ -48,7 +50,7 @@ function Base.show(io::IO, ::MIME"text/plain", est::EICEstimate)
 end
 
 struct ComposedEstimate{T<:AbstractFloat} <: Estimate
-    Ψ̂::Array{T}
+    estimate::Array{T}
     σ̂::Matrix{T}
     n::Int
 end
@@ -69,7 +71,7 @@ end
 
 Retrieves the final estimate: after the TMLE step.
 """
-Distributions.estimate(est::EICEstimate) = est.Ψ̂
+Distributions.estimate(est::EICEstimate) = est.estimate
 
 """
     Distributions.estimate(r::ComposedEstimate)
@@ -77,7 +79,7 @@ Distributions.estimate(est::EICEstimate) = est.Ψ̂
 Retrieves the final estimate: after the TMLE step.
 """
 Distributions.estimate(est::ComposedEstimate) = 
-    length(est.Ψ̂) == 1 ? est.Ψ̂[1] : est.Ψ̂
+    length(est.estimate) == 1 ? est.estimate[1] : est.estimate
 
 """
     var(r::EICEstimate)
@@ -102,7 +104,7 @@ Statistics.var(est::ComposedEstimate) =
 Performs a Z test on the EICEstimate.
 """
 HypothesisTests.OneSampleZTest(est::EICEstimate, Ψ₀=0) = 
-    OneSampleZTest(estimate(est), std(est.IC), size(est.IC, 1), Ψ₀)
+    OneSampleZTest(est.estimate, est.std, est.n, Ψ₀)
 
 """
     OneSampleTTest(r::EICEstimate, Ψ₀=0)
@@ -110,7 +112,7 @@ HypothesisTests.OneSampleZTest(est::EICEstimate, Ψ₀=0) =
 Performs a T test on the EICEstimate.
 """
 HypothesisTests.OneSampleTTest(est::EICEstimate, Ψ₀=0) = 
-    OneSampleTTest(estimate(est), std(est.IC), size(est.IC, 1), Ψ₀)
+    OneSampleTTest(est.estimate, est.std, est.n, Ψ₀)
 
 """
     OneSampleTTest(r::ComposedEstimate, Ψ₀=0)
@@ -118,7 +120,7 @@ HypothesisTests.OneSampleTTest(est::EICEstimate, Ψ₀=0) =
 Performs a T test on the ComposedEstimate.
 """
 function HypothesisTests.OneSampleTTest(est::ComposedEstimate, Ψ₀=0) 
-    @assert length(est.Ψ̂) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
+    @assert length(est.estimate) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
     return OneSampleTTest(estimate(est), sqrt(est.σ̂[1]), est.n, Ψ₀)
 end
 
@@ -128,7 +130,7 @@ end
 Performs a T test on the ComposedEstimate.
 """
 function HypothesisTests.OneSampleZTest(est::ComposedEstimate, Ψ₀=0) 
-    @assert length(est.Ψ̂) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
+    @assert length(est.estimate) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
     return OneSampleZTest(estimate(est), sqrt(est.σ̂[1]), est.n, Ψ₀)
 end
 

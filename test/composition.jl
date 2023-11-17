@@ -29,8 +29,8 @@ end
     )
     n = 10
     X = rand(n, 2)
-    ER₁ = TMLE.TMLEstimate(Ψ, 1., 1., X[:, 1])
-    ER₂ = TMLE.TMLEstimate(Ψ, 0., 1., X[:, 2])
+    ER₁ = TMLE.TMLEstimate(Ψ, 1., 1., n, X[:, 1])
+    ER₂ = TMLE.TMLEstimate(Ψ, 0., 1., n, X[:, 2])
     Σ = cov(ER₁, ER₂)
     @test size(Σ) == (2, 2)
     @test Σ == cov(X) 
