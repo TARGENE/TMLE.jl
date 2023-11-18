@@ -20,9 +20,9 @@ Writes a `Configuration` struct to a YAML file. The latter can be deserialized
 with `configuration_from_yaml`.
 """
 function TMLE.configuration_to_json(file, config; indent=1)
-    io = open(file, "w")
-    JSON.print(io, to_dict(config), indent)
-    close(io)
+    open(file, "w") do io 
+        write(io, JSON.json(to_dict(config), indent))
+    end
 end
 
 end
