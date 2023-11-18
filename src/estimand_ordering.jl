@@ -109,9 +109,15 @@ if a minimum is found fast it is immediatly returned.
 The theoretical complexity is in O(N!). However due to the stop fast approach and 
 the shuffling, this is actually expected to be much smaller than that.
 """
-function brute_force_ordering(estimands; permutation_generator = estimands_permutation_generator(estimands), η_counts=nuisance_counts(estimands), do_shuffle=true, rng=Random.default_rng(), verbosity=0)
-    optimal_ordering = estimands
+function brute_force_ordering(estimands; 
+    permutation_generator = estimands_permutation_generator(estimands), 
+    η_counts=nuisance_counts(estimands), 
+    do_shuffle=true, 
+    rng=Random.default_rng(), 
+    verbosity=0
+    )
     estimands = do_shuffle ? shuffle(rng, estimands) : estimands
+    optimal_ordering = estimands
     min_maxmem_lowerbound = get_min_maxmem_lowerbound(estimands)
     optimal_maxmem, _ = evaluate_proxy_costs(estimands, η_counts)
     for perm ∈ permutation_generator

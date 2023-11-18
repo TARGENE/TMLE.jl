@@ -83,6 +83,7 @@ statistical_estimands = [identify(x, scm) for x in causal_estimands]
     ordering_from_groups = groups_ordering(bad_ordering)
     @test TMLE.evaluate_proxy_costs(ordering_from_groups, η_counts) == (4, 9)
     # Adding a layer of brute forcing results in an optimal ordering
+
     ordering_from_groups_with_brute_force = groups_ordering(bad_ordering, brute_force=true)
     @test TMLE.evaluate_proxy_costs(ordering_from_groups_with_brute_force, η_counts) == (3, 9)
 end
