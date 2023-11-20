@@ -4,22 +4,22 @@ using JSON
 using TMLE
 
 """
-    configuration_from_json(file)
+    read_json(file)
 
 Loads a YAML configuration file containing:
     - Estimands
     - An SCM (optional)
     - An Adjustment Method (optional)
 """
-TMLE.configuration_from_json(file) = from_dict!(JSON.parsefile(file, dicttype=Dict{Symbol, Any}))
+TMLE.read_json(file) = from_dict!(JSON.parsefile(file, dicttype=Dict{Symbol, Any}))
 
 """
-    configuration_to_json(file, config::Configuration)
+    write_json(file, config::Configuration)
 
 Writes a `Configuration` struct to a YAML file. The latter can be deserialized 
-with `configuration_from_yaml`.
+with `read_yaml`.
 """
-function TMLE.configuration_to_json(file, config; indent=1)
+function TMLE.write_json(file, config; indent=1)
     open(file, "w+") do io 
         write(io, JSON.json(to_dict(config), indent))
     end

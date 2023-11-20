@@ -39,7 +39,7 @@ function from_dict!(d::Dict{T, Any}) where T
     return constructor(;[key => from_dict!(val) for (key, val) in d]...)
 end
 
-function configuration_from_yaml end
-function configuration_to_yaml end
-function configuration_from_json end
-function configuration_to_json end
+function read_yaml end
+function write_yaml end
+function read_json end
+function write_json end

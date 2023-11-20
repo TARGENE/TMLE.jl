@@ -51,13 +51,13 @@ end
     tmle_result, cache = tmle(Ψ, dataset; verbosity=verbosity);
     regression_tests(tmle_result)
     if VERSION >= v"1.9"
-        configuration_to_json("result.json", [tmle_result])
-        results_from_json = configuration_from_json("result.json")
+        write_json("result.json", [tmle_result])
+        results_from_json = read_json("result.json")
         regression_tests(results_from_json[1])
         rm("result.json")
 
-        configuration_to_yaml("result.yaml", [emptyIC(tmle_result)])
-        results_from_yaml = configuration_from_yaml("result.yaml")
+        write_yaml("result.yaml", [emptyIC(tmle_result)])
+        results_from_yaml = read_yaml("result.yaml")
         regression_tests(results_from_yaml[1])
         rm("result.yaml")
     end

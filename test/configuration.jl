@@ -52,12 +52,12 @@ jsonfilename = string(outprefix, "json")
             treatment_confounders=(T3 = [:W], T1 = [:W])
         )
     ]
-    configuration_to_yaml(yamlfilename, estimands)
-    estimands_from_yaml = configuration_from_yaml(yamlfilename)
+    write_yaml(yamlfilename, estimands)
+    estimands_from_yaml = read_yaml(yamlfilename)
     check_estimands(estimands_from_yaml, estimands)
     rm(yamlfilename)
-    configuration_to_json(jsonfilename, estimands)
-    estimands_from_json = configuration_from_json(jsonfilename)
+    write_json(jsonfilename, estimands)
+    estimands_from_json = read_json(jsonfilename)
     check_estimands(estimands_from_json, estimands)
     rm(jsonfilename)
    
@@ -65,10 +65,10 @@ jsonfilename = string(outprefix, "json")
         estimands=estimands
     )
     config_dict = to_dict(configuration)
-    configuration_to_yaml(yamlfilename, configuration)
-    configuration_to_json(jsonfilename, configuration)
-    config_from_yaml = configuration_from_yaml(yamlfilename)
-    config_from_json = configuration_from_json(jsonfilename)
+    write_yaml(yamlfilename, configuration)
+    write_json(jsonfilename, configuration)
+    config_from_yaml = read_yaml(yamlfilename)
+    config_from_json = read_json(jsonfilename)
     for loaded_config in (config_from_yaml, config_from_json)
         @test loaded_config.scm === nothing
         @test loaded_config.adjustment === nothing
@@ -77,7 +77,6 @@ jsonfilename = string(outprefix, "json")
     end
     rm(yamlfilename)
     rm(jsonfilename)
-
 end
 
 @testset "Test with an SCM and causal estimands" begin
@@ -111,11 +110,11 @@ end
             treatments = [:T1, :T2]),
         adjustment=BackdoorAdjustment([:C1, :C2])
     )   
-    configuration_to_yaml(yamlfilename, configuration)
-    configuration_to_json(jsonfilename, configuration)
+    write_yaml(yamlfilename, configuration)
+    write_json(jsonfilename, configuration)
 
-    config_from_yaml = configuration_from_yaml(yamlfilename)
-    config_from_json = configuration_from_json(jsonfilename)
+    config_from_yaml = read_yaml(yamlfilename)
+    config_from_json = read_json(jsonfilename)
 
     for loaded_config in (config_from_yaml, config_from_json)
         scm = loaded_config.scm
