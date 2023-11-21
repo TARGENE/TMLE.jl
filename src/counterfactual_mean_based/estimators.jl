@@ -1,6 +1,18 @@
 #####################################################################
 ###                  CMRelevantFactorsEstimator                   ###
 #####################################################################
+struct FitFailedError <: Exception
+    msg::String
+    origin::Exception
+end
+
+propensity_score_fit_error_msg(factor) = string("Could not fit the following propensity score model: ", string_repr(factor))
+outcome_mean_fit_error_msg(factor) = string(
+    "Could not fit the following Outcome mean model: ", 
+    string_repr(factor), 
+    ".\n Hint: don't forget to use `with_encoder` to encode categorical variables.")
+
+Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
 struct CMRelevantFactorsEstimator <: Estimator
     resampling::Union{Nothing, ResamplingStrategy}
@@ -52,23 +64,30 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
     # Get train validation indices
     train_validation_indices = TMLE.get_train_validation_indices(estimator.resampling, estimand, dataset)
     # Fit propensity score
-    propensity_score_estimate = Tuple(
-        ConditionalDistributionEstimator(train_validation_indices, acquire_model(models, factor.outcome, dataset, true))(
-            factor,    
-            dataset;
-            cache=cache,
-            verbosity=verbosity,
-            machine_cache=machine_cache
-        ) 
-        for factor in estimand.propensity_score
-    )
+    propensity_score_estimate = map(estimand.propensity_score) do factor
+        try
+            ConditionalDistributionEstimator(train_validation_indices, acquire_model(models, factor.outcome, dataset, true))(
+                factor,    
+                dataset;
+                cache=cache,
+                verbosity=verbosity,
+                machine_cache=machine_cache
+            )
+        catch e
+            throw(FitFailedError(propensity_score_fit_error_msg(factor), e))
+        end
+    end
     # Fit outcome mean
     outcome_mean = estimand.outcome_mean
     model = acquire_model(models, outcome_mean.outcome, dataset, false)
-    outcome_mean_estimate = ConditionalDistributionEstimator( 
-        train_validation_indices, 
-        model
+    outcome_mean_estimate = try
+        ConditionalDistributionEstimator( 
+            train_validation_indices, 
+            model
         )(outcome_mean, dataset; cache=cache, verbosity=verbosity, machine_cache=machine_cache)
+    catch e
+        throw(FitFailedError(outcome_mean_fit_error_msg(outcome_mean), e))
+    end
     # Build estimate
     estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate)
     # Update cache

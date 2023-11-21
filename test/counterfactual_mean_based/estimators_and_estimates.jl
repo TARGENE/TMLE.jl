@@ -11,12 +11,17 @@ using CategoricalArrays
 using LogExpFunctions
 using MLJBase
 
-@testset "Test CMRelevantFactorsEstimator" begin
+function make_dataset()
     n = 100
     W = rand(Normal(), n)
     T₁ = rand(n) .< logistic.(1 .- W)
     Y = T₁ .+ W .+ rand(n)
     dataset = DataFrame(Y=Y, W=W, T₁=categorical(T₁, ordered=true))
+    return dataset
+end
+
+@testset "Test CMRelevantFactorsEstimator" begin
+    dataset = make_dataset()
     # Estimand
     Q = TMLE.ConditionalDistribution(:Y, [:T₁, :W])
     G = (TMLE.ConditionalDistribution(:T₁, [:W]),)
@@ -72,6 +77,34 @@ using MLJBase
     @test length(η̂ₙ.outcome_mean.machines) == 3
     @test length(η̂ₙ.propensity_score[1].machines) == 3
     @test η̂ₙ.outcome_mean.train_validation_indices == η̂ₙ.propensity_score[1].train_validation_indices
+end
+
+@testset "Test FitFailedError" begin
+    dataset = make_dataset()
+    # Estimand
+    Q = TMLE.ConditionalDistribution(:Y, [:T₁, :W])
+    G = (TMLE.ConditionalDistribution(:T₁, [:W]),)
+    η = TMLE.CMRelevantFactors(outcome_mean=Q, propensity_score=G)
+    # Estimator
+    models = (
+        Y = with_encoder(LinearRegressor()), 
+        T₁ = LinearRegressor()
+    )
+    η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
+    try 
+        η̂(η, dataset; verbosity=0)
+        @test true === false
+    catch e
+        @test e isa TMLE.FitFailedError
+        @test e.msg == TMLE.propensity_score_fit_error_msg(G[1])
+    end
+
+    models = (
+        Y = LogisticClassifier(), 
+        T₁ = LogisticClassifier(fit_intercept=false)
+    )
+    η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
+    @test_throws TMLE.FitFailedError η̂(η, dataset; verbosity=0)
 end
 
 @testset "Test structs are concrete types" begin
