@@ -2,6 +2,7 @@
 ###                  CMRelevantFactorsEstimator                   ###
 #####################################################################
 struct FitFailedError <: Exception
+    estimand::Estimand
     msg::String
     origin::Exception
 end
@@ -74,7 +75,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
                 machine_cache=machine_cache
             )
         catch e
-            throw(FitFailedError(propensity_score_fit_error_msg(factor), e))
+            throw(FitFailedError(factor, propensity_score_fit_error_msg(factor), e))
         end
     end
     # Fit outcome mean
@@ -86,7 +87,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
             model
         )(outcome_mean, dataset; cache=cache, verbosity=verbosity, machine_cache=machine_cache)
     catch e
-        throw(FitFailedError(outcome_mean_fit_error_msg(outcome_mean), e))
+        throw(FitFailedError(outcome_mean, outcome_mean_fit_error_msg(outcome_mean), e))
     end
     # Build estimate
     estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate)
