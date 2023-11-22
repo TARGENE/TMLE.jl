@@ -54,11 +54,11 @@ jsonfilename = string(outprefix, "json")
     ]
     write_yaml(yamlfilename, estimands)
     estimands_from_yaml = read_yaml(yamlfilename)
-    check_estimands(estimands_from_yaml, estimands)
+    @test estimands_from_yaml == estimands
     rm(yamlfilename)
     write_json(jsonfilename, estimands)
     estimands_from_json = read_json(jsonfilename)
-    check_estimands(estimands_from_json, estimands)
+    @test estimands_from_json == estimands
     rm(jsonfilename)
    
     configuration = Configuration(
@@ -73,7 +73,7 @@ jsonfilename = string(outprefix, "json")
         @test loaded_config.scm === nothing
         @test loaded_config.adjustment === nothing
         reconstructed_estimands = loaded_config.estimands
-        check_estimands(reconstructed_estimands, estimands)
+        @test reconstructed_estimands == estimands
     end
     rm(yamlfilename)
     rm(jsonfilename)
@@ -121,20 +121,12 @@ end
         adjustment = loaded_config.adjustment
         # Estimand 1
         estimand₁ = loaded_config.estimands[1]
+        @test estimand₁ == estimands[1]
         statistical_estimand₁ = identify(adjustment, estimand₁, scm)
-        @test statistical_estimand₁.outcome == :Y1
-        @test statistical_estimand₁.treatment_values.T1 == (case=1, control=0)
-        @test statistical_estimand₁.treatment_values.T2 == (case=1, control=0)
-        @test statistical_estimand₁.treatment_confounders.T2 == (:W,)
-        @test statistical_estimand₁.treatment_confounders.T1 == (:W,)
-        @test statistical_estimand₁.outcome_extra_covariates == (:C1, :C2)
+        @test identify(adjustment, estimand₁, scm) == identify(configuration.adjustment, estimands[1], configuration.scm)
         # Estimand 2
         estimand₂ = loaded_config.estimands[2]
-        @test estimand₂.outcome == :Y3
-        @test estimand₂.treatment_values.T1 == (case = 1, control = 0)
-        @test estimand₂.treatment_values.T3 == (case = "AC", control = "CC")
-        @test estimand₂.treatment_confounders.T1 == (:W,)
-        @test estimand₂.treatment_confounders.T3 == (:W,)
+        @test estimand₂ == estimands[2]
     end
     rm(yamlfilename)
     rm(jsonfilename)

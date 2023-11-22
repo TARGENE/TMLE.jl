@@ -80,6 +80,50 @@ using TMLE
     @test indic_values == [-1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0]
 end
 
+@testset "Test standardization of StatisticalCMCompositeEstimand" begin
+    # ATE
+    Ψ₁ = ATE(
+        outcome="Y",
+        treatment_values = (T₁=(case=1, control=0), T₂=(control=1, case=0)),
+        treatment_confounders = (
+            T₂ = [:W₂, "W₁"],
+            T₁ = ["W₀"]
+            ),
+        outcome_extra_covariates = ["Z", :A]
+    )
+    Ψ₂ = ATE(
+        outcome=:Y,
+        treatment_values = (T₁=(case=1, control=0), T₂=(case=0, control=1)),
+        treatment_confounders = (
+            T₁ = [:W₀],
+            T₂ = [:W₂, :W₁]
+            ),
+        outcome_extra_covariates = [:A, :Z]
+    )
+    @test Ψ₁ == Ψ₂
+    @test Ψ₁.outcome == :Y
+    @test Ψ₁.treatment_values == (T₁=(case=1, control=0), T₂=(case=0, control=1))
+    @test Ψ₁.treatment_confounders == (T₁ = (:W₀,), T₂ = (:W₁, :W₂))
+    @test Ψ₁.outcome_extra_covariates == (:A, :Z)
+    
+    # CM
+    Ψ₁ = CM(
+        outcome=:Y,
+        treatment_values=(T₁=1, T₂=0),
+        treatment_confounders = (T₂ = ["W₁", "W₂"], T₁ = [:W₀]),
+    )
+    Ψ₂ = CM(
+        outcome=:Y,
+        treatment_values=(T₂=0, T₁=1),
+        treatment_confounders = (T₂ = [:W₂, "W₁"],T₁ = ["W₀"]),
+    )
+    @test Ψ₁ == Ψ₂
+    @test Ψ₁.outcome == :Y
+    @test Ψ₁.treatment_values == (T₁=1, T₂=0)
+    @test Ψ₁.treatment_confounders == (T₁ = (:W₀,), T₂ = (:W₁, :W₂))
+    @test Ψ₁.outcome_extra_covariates == ()
+end
+
 @testset "Test structs are concrete types" begin
     for type in Base.uniontypes(TMLE.StatisticalCMCompositeEstimand)
         @test isconcretetype(type)
@@ -120,10 +164,7 @@ end
         :outcome => :y
     )
     Ψreconstructed = from_dict!(d)
-    @test Ψreconstructed.outcome == Ψ.outcome
-    @test Ψreconstructed.treatment_values.T₁ == Ψ.treatment_values.T₁
-    @test Ψreconstructed.treatment_values.T₂ == Ψ.treatment_values.T₂
-    @test Ψreconstructed.treatment_values.T₃ == Ψ.treatment_values.T₃
+    @test Ψ == Ψ
     
     # Statistical CM
     Ψ = CM(

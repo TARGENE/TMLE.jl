@@ -144,13 +144,17 @@ treatment_specs_to_dict(treatment_values::NamedTuple) = Dict(pairs(treatment_val
 treatment_values(d::AbstractDict) = (;d...)
 treatment_values(d) = d
 
-function treatment_specs_from_dict(dict::AbstractDict)
-    treatment_variables = keys(dict)
-    return NamedTuple{Tuple(treatment_variables)}([treatment_values(val) for val in values(dict)])
-end
+get_treatment_specs(treatment_specs::NamedTuple{names, }) where names = 
+    NamedTuple{sort(names)}(treatment_specs)
 
-get_treatment_specs(treatment_values::NamedTuple) = treatment_values
-get_treatment_specs(treatment_values::AbstractDict) = treatment_specs_from_dict(treatment_values)
+function get_treatment_specs(treatment_specs::NamedTuple{names, <:Tuple{Vararg{NamedTuple}}}) where names
+    case_control = ((case=v[:case], control=v[:control]) for v in values(treatment_specs))
+    treatment_specs = (;zip(keys(treatment_specs), case_control)...)
+    return NamedTuple{sort(names)}(treatment_specs)
+end
+    
+get_treatment_specs(treatment_specs::AbstractDict) = 
+    get_treatment_specs((;(key => treatment_values(val) for (key, val) in treatment_specs)...))
 
 constructorname(T; prefix="TMLE.Causal") = replace(string(T), prefix => "")
 
