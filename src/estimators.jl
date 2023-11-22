@@ -85,3 +85,88 @@ ConditionalDistributionEstimator(train_validation_indices::Nothing, model) =
 
 ConditionalDistributionEstimator(train_validation_indices, model) =
     SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices)
+
+#####################################################################
+###                   ComposedEstimand Estimator                  ###
+#####################################################################
+
+"""
+    (estimator::Estimator)(Ψ::ComposedEstimand, dataset; cache=Dict(), verbosity=1)
+
+Estimates all components of Ψ and then Ψ itself.
+"""
+function (estimator::Estimator)(Ψ::ComposedEstimand, dataset; cache=Dict(), verbosity=1, backend=AD.ZygoteBackend())
+    estimates = map(Ψ.args) do estimand 
+        estimate, cache = estimator(estimand, dataset; cache=cache, verbosity=verbosity)
+        estimate
+    end
+    f₀, σ₀, n = _compose(Ψ.f, estimates...; backend=backend)
+    return ComposedEstimate(Ψ, estimates, f₀, σ₀, n), cache
+end
+
+
+"""
+    compose(f, estimation_results::Vararg{EICEstimate, N}) where N
+
+Provides an estimator of f(estimation_results...).
+
+# Mathematical details
+
+The following is a summary from `Asymptotic Statistics`, A. W. van der Vaart.
+
+Consider k TMLEs computed from a dataset of size n and embodied by Tₙ = (T₁,ₙ, ..., Tₖ,ₙ). 
+Since each of them is asymptotically normal, the multivariate CLT provides the joint 
+distribution:
+
+    √n(Tₙ - Ψ₀) ↝ N(0, Σ), 
+    
+where Σ is the covariance matrix of the TMLEs influence curves.
+
+Let f:ℜᵏ→ℜᵐ, be a differentiable map at Ψ₀. Then, the delta method provides the
+limiting distribution of √n(f(Tₙ) - f(Ψ₀)). Because Tₙ is normal, the result is:
+
+    √n(f(Tₙ) - f(Ψ₀)) ↝ N(0, ∇f(Ψ₀) ̇Σ ̇(∇f(Ψ₀))ᵀ),
+
+where ∇f(Ψ₀):ℜᵏ→ℜᵐ is a linear map such that by abusing notations and identifying the 
+function with the multiplication matrix: ∇f(Ψ₀):h ↦ ∇f(Ψ₀) ̇h. And the matrix ∇f(Ψ₀) is 
+the jacobian of f at Ψ₀.
+
+Hence, the only thing we need to do is:
+- Compute the covariance matrix Σ
+- Compute the jacobian ∇f, which can be done using Julia's automatic differentiation facilities.
+- The final estimator is normal with mean f₀=f(Ψ₀) and variance σ₀=∇f(Ψ₀) ̇Σ ̇(∇f(Ψ₀))ᵀ
+
+# Arguments
+
+- f: An array-input differentiable map.
+- estimation_results: 1 or more `EICEstimate` structs.
+
+# Examples
+
+Assuming `res₁` and `res₂` are TMLEs:
+
+```julia
+f(x, y) = [x^2 - y, y - 3x]
+compose(f, res₁, res₂)
+```
+"""
+function compose(f, estimates...; backend=AD.ZygoteBackend())
+    f₀, σ₀, n = _compose(f, estimates...; backend=backend)
+    estimand = ComposedEstimand(f, Tuple(e.estimand for e in estimates))
+    return ComposedEstimate(estimand, estimates, f₀, σ₀, n)
+end
+
+function _compose(f, estimates...; backend=AD.ZygoteBackend())
+    Σ = cov(estimates...)
+    point_estimates = [r.estimate for r in estimates]
+    f₀, Js = AD.value_and_jacobian(backend, f, point_estimates...)
+    J = hcat(Js...)
+    n = size(first(estimates).IC, 1)
+    σ₀ = J*Σ*J'
+    return collect(f₀), σ₀, n
+end
+
+function Statistics.cov(estimates...)
+    X = hcat([r.IC for r in estimates]...)
+    return Statistics.cov(X, dims=1, corrected=true)
+end

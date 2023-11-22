@@ -60,13 +60,19 @@ end
         treatment_values = (T=0,),
         treatment_confounders = (T=[:W],)
     )
+    # Estimate Individually
     CM_tmle_result₀, cache = tmle(CM₀, dataset; cache=cache, verbosity=0)
     CM_ose_result₀, cache = ose(CM₀, dataset; cache=cache, verbosity=0)
-    # Composition of TMLE
-
+    # Compose estimates
     CM_result_composed_tmle = compose(-, CM_tmle_result₁, CM_tmle_result₀);
     CM_result_composed_ose = compose(-, CM_ose_result₁, CM_ose_result₀);
-
+    # Estimate via ComposedEstimand
+    composed_estimand = ComposedEstimand(-, (CM₁, CM₀))
+    composed_estimate, cache = tmle(composed_estimand, dataset; cache=cache, verbosity=0)
+    @test composed_estimate.estimand == CM_result_composed_tmle.estimand
+    @test CM_result_composed_tmle.estimate == composed_estimate.estimate
+    @test CM_result_composed_tmle.std == composed_estimate.std
+    @test CM_result_composed_tmle.n == composed_estimate.n
     # Via ATE
     ATE₁₀ = ATE(
         outcome = :Y,

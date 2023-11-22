@@ -101,3 +101,12 @@ At the moment there is no distinction between an Expected Value and
 a Conditional Distribution because they are estimated in the same way.
 """
 const ExpectedValue = ConditionalDistribution
+
+#####################################################################
+###                      ComposedEstimand                         ###
+#####################################################################
+
+struct ComposedEstimand <: Estimand
+    f::Function
+    args::Tuple
+end

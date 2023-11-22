@@ -29,6 +29,7 @@ export SCM, StaticSCM, add_equations!, add_equation!, parents, vertices
 export CM, ATE, IATE
 export AVAILABLE_ESTIMANDS
 export TMLEE, OSE, NAIVE
+export ComposedEstimand
 export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint, emptyIC
 export compose
 export TreatmentTransformer, with_encoder, encoder
