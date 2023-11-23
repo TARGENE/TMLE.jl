@@ -36,6 +36,22 @@ end
     @test Σ == cov(X) 
 end
 
+@testset "Test to_dict and from_dict!" begin
+    ATE₁ = ATE(
+        outcome=:Y,
+        treatment_values = (T=(case=1, control=0),),
+        treatment_confounders = (T=[:W],)
+    )
+    ATE₂ = ATE(
+        outcome=:Y,
+        treatment_values = (T=(case=2, control=1),),
+        treatment_confounders = (T=[:W],)
+    )
+    diff = ComposedEstimand(-, (ATE₁, ATE₂))
+    d = TMLE.to_dict(diff)
+    diff_from_dict = TMLE.from_dict!(d)
+    @test diff_from_dict == diff
+end
 @testset "Test composition CM(1) - CM(0) = ATE(1,0)" begin
     dataset = make_dataset(;n=1000)
     # Counterfactual Mean T = 1

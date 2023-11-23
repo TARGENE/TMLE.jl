@@ -4,6 +4,7 @@ using Test
 using TMLE
 using YAML
 using JSON
+using Serialization
 
 function check_estimands(reconstructed_estimands, estimands)
     for (index, estimand) in enumerate(estimands)
@@ -127,6 +128,27 @@ end
         @test estimand₂ == estimands[2]
     end
 end
+
+@testset "Test serialization" begin
+    ATE₁ = ATE(
+        outcome=:Y,
+        treatment_values = (T=(case=1, control=0),),
+        treatment_confounders = (T=[:W],)
+    )
+    ATE₂ = ATE(
+        outcome=:Y,
+        treatment_values = (T=(case=2, control=1),),
+        treatment_confounders = (T=[:W],)
+    )
+    diff = ComposedEstimand(-, (ATE₁, ATE₂))
+    jlsfile = mktemp()[1]
+    serialize(jlsfile, estimands)
+    estimands_from_jls = deserialize(jlsfile)
+    @test estimands_from_jls[1] == estimands[1]
+    @test estimands_from_jls[2] == estimands[2]
+    @test estimands_from_jls[3] == estimands[3]
+end
+
 
 end
 

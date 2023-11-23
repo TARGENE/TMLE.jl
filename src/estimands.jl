@@ -110,3 +110,13 @@ struct ComposedEstimand <: Estimand
     f::Function
     args::Tuple
 end
+
+ComposedEstimand(f::String, args::AbstractVector) = ComposedEstimand(eval(Meta.parse(f)), Tuple(args))
+
+ComposedEstimand(;f, args) = ComposedEstimand(f, args)
+
+to_dict(Ψ::ComposedEstimand) = Dict(
+    :type => string(ComposedEstimand),
+    :f => string(nameof(Ψ.f)),
+    :args => [to_dict(x) for x in Ψ.args]
+)
