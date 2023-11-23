@@ -141,6 +141,7 @@ end
         treatment_confounders = (T=[:W],)
     )
     diff = ComposedEstimand(-, (ATE₁, ATE₂))
+    estimands = [ATE₁, ATE₂, diff]
     jlsfile = mktemp()[1]
     serialize(jlsfile, estimands)
     estimands_from_jls = deserialize(jlsfile)
