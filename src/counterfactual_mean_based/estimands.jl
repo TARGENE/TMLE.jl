@@ -119,11 +119,17 @@ function indicator_fns(Ψ::StatisticalIATE)
     return Dict(key_vals...)
 end
 
+expected_value(Ψ::StatisticalCMCompositeEstimand) = ExpectedValue(Ψ.outcome, Tuple(union(Ψ.outcome_extra_covariates, keys(Ψ.treatment_confounders), (Ψ.treatment_confounders)...)))
+propensity_score(Ψ::StatisticalCMCompositeEstimand) = Tuple(ConditionalDistribution(T, Ψ.treatment_confounders[T]) for T in treatments(Ψ))
+
 function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand)
-    outcome_model = ExpectedValue(Ψ.outcome, Tuple(union(Ψ.outcome_extra_covariates, keys(Ψ.treatment_confounders), (Ψ.treatment_confounders)...)))
-    treatment_factors = Tuple(ConditionalDistribution(T, Ψ.treatment_confounders[T]) for T in treatments(Ψ))
+    outcome_model = expected_value(Ψ)
+    treatment_factors = propensity_score(Ψ)
     return CMRelevantFactors(outcome_model, treatment_factors)
 end
+
+nuisance_functions_iterator(Ψ::StatisticalCMCompositeEstimand) =
+    (propensity_score(Ψ)..., expected_value(Ψ))
 
 function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: StatisticalCMCompositeEstimand 
     param_string = string(

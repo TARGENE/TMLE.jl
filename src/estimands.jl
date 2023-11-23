@@ -120,3 +120,6 @@ to_dict(Ψ::ComposedEstimand) = Dict(
     :f => string(nameof(Ψ.f)),
     :args => [to_dict(x) for x in Ψ.args]
 )
+
+nuisance_functions_iterator(Ψ::ComposedEstimand) =
+    Iterators.flatten(nuisance_functions_iterator(arg) for arg in Ψ.args)

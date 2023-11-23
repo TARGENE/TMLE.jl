@@ -1,4 +1,4 @@
-function maybe_update_counts!(dict, key)
+function update_counts!(dict, key)
     if haskey(dict, key)
         dict[key] += 1
     else
@@ -6,14 +6,12 @@ function maybe_update_counts!(dict, key)
     end
 end
 
-function nuisance_counts(estimands)
+function nuisance_function_counts(estimands)
     η_counts = Dict()
     for Ψ in estimands
-        η = TMLE.get_relevant_factors(Ψ)
-        for ps in η.propensity_score
-            maybe_update_counts!(η_counts, ps)
+        for η in nuisance_functions_iterator(Ψ)
+            update_counts!(η_counts, η)
         end
-        maybe_update_counts!(η_counts, η.outcome_mean)
     end
     return η_counts
 end
@@ -101,7 +99,7 @@ function propensity_score_group_based_permutation_generator(estimands, estimands
 end
 
 """
-    brute_force_ordering(estimands; η_counts = nuisance_counts(estimands))
+    brute_force_ordering(estimands; η_counts = nuisance_function_counts(estimands))
 
 Finds an optimal ordering of the estimands to minimize maximum cache size. 
 The approach is a brute force one, all permutations are generated and evaluated, 
@@ -111,7 +109,7 @@ the shuffling, this is actually expected to be much smaller than that.
 """
 function brute_force_ordering(estimands; 
     permutation_generator = estimands_permutation_generator(estimands), 
-    η_counts=nuisance_counts(estimands), 
+    η_counts=nuisance_function_counts(estimands), 
     do_shuffle=true, 
     rng=Random.default_rng(), 
     verbosity=0

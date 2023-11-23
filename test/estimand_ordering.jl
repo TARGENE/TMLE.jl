@@ -58,7 +58,7 @@ statistical_estimands = [identify(x, scm) for x in causal_estimands]
     # 7           || (T₃, Y₂|T₃)       
     # 8           || (T₁, T₃, Y₂|T₁,T₃)
     # ----------------------------------
-    η_counts = TMLE.nuisance_counts(statistical_estimands)
+    η_counts = TMLE.nuisance_function_counts(statistical_estimands)
     @test η_counts == Dict(
         TMLE.ConditionalDistribution(:Y₂, (:T₁, :W₁, :W₂))           => 1,
         TMLE.ConditionalDistribution(:Y₂, (:T₁, :T₃, :W₁, :W₂, :W₃)) => 1,
