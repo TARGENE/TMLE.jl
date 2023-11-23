@@ -51,15 +51,15 @@ end
     tmle_result, cache = tmle(Ψ, dataset; verbosity=verbosity);
     regression_tests(tmle_result)
     if VERSION >= v"1.9"
-        write_json("result.json", [tmle_result])
-        results_from_json = read_json("result.json")
+        jsonfile = mktemp()[1]
+        TMLE.write_json(jsonfile, [tmle_result])
+        results_from_json = TMLE.read_json(jsonfile)
         regression_tests(results_from_json[1])
-        rm("result.json")
 
-        write_yaml("result.yaml", [emptyIC(tmle_result)])
-        results_from_yaml = read_yaml("result.yaml")
+        yamlfile = mktemp()[1]
+        TMLE.write_yaml(yamlfile, [emptyIC(tmle_result)])
+        results_from_yaml = TMLE.read_yaml(yamlfile)
         regression_tests(results_from_yaml[1])
-        rm("result.yaml")
     end
     # Naive
     naive = NAIVE(with_encoder(LinearBinaryClassifier()))

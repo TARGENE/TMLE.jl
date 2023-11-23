@@ -35,9 +35,7 @@ export compose
 export TreatmentTransformer, with_encoder, encoder
 export BackdoorAdjustment, identify
 export last_fluctuation_epsilon
-export read_yaml, write_yaml
-export read_json, write_json
-export to_dict, from_dict!, Configuration
+export Configuration
 export brute_force_ordering, groups_ordering
 
 # #############################################################################

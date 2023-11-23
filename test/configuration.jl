@@ -17,11 +17,9 @@ function check_estimands(reconstructed_estimands, estimands)
     end
 end
 
-outprefix = "test_serialized."
-yamlfilename = string(outprefix, "yaml")
-jsonfilename = string(outprefix, "json")
-
 @testset "Test Configurations" begin
+    yamlfilename = mktemp()[1]
+    jsonfilename = mktemp()[1]
     estimands = [
         IATE(
             outcome=:Y1, 
@@ -52,34 +50,34 @@ jsonfilename = string(outprefix, "json")
             treatment_confounders=(T3 = [:W], T1 = [:W])
         )
     ]
-    write_yaml(yamlfilename, estimands)
-    estimands_from_yaml = read_yaml(yamlfilename)
+    TMLE.write_yaml(yamlfilename, estimands)
+    estimands_from_yaml = TMLE.read_yaml(yamlfilename)
     @test estimands_from_yaml == estimands
-    rm(yamlfilename)
-    write_json(jsonfilename, estimands)
-    estimands_from_json = read_json(jsonfilename)
+
+    TMLE.write_json(jsonfilename, estimands)
+    estimands_from_json = TMLE.read_json(jsonfilename)
     @test estimands_from_json == estimands
-    rm(jsonfilename)
    
     configuration = Configuration(
         estimands=estimands
     )
-    config_dict = to_dict(configuration)
-    write_yaml(yamlfilename, configuration)
-    write_json(jsonfilename, configuration)
-    config_from_yaml = read_yaml(yamlfilename)
-    config_from_json = read_json(jsonfilename)
+    config_dict = TMLE.to_dict(configuration)
+    TMLE.write_yaml(yamlfilename, configuration)
+    TMLE.write_json(jsonfilename, configuration)
+    config_from_yaml = TMLE.read_yaml(yamlfilename)
+    config_from_json = TMLE.read_json(jsonfilename)
     for loaded_config in (config_from_yaml, config_from_json)
         @test loaded_config.scm === nothing
         @test loaded_config.adjustment === nothing
         reconstructed_estimands = loaded_config.estimands
         @test reconstructed_estimands == estimands
     end
-    rm(yamlfilename)
-    rm(jsonfilename)
+
 end
 
 @testset "Test with an SCM and causal estimands" begin
+    yamlfilename = mktemp()[1]
+    jsonfilename = mktemp()[1]
     # With a StaticSCM, some Causal estimands and an Adjustment Method
     estimands = [
         IATE(
@@ -110,11 +108,11 @@ end
             treatments = [:T1, :T2]),
         adjustment=BackdoorAdjustment([:C1, :C2])
     )   
-    write_yaml(yamlfilename, configuration)
-    write_json(jsonfilename, configuration)
+    TMLE.write_yaml(yamlfilename, configuration)
+    TMLE.write_json(jsonfilename, configuration)
 
-    config_from_yaml = read_yaml(yamlfilename)
-    config_from_json = read_json(jsonfilename)
+    config_from_yaml = TMLE.read_yaml(yamlfilename)
+    config_from_json = TMLE.read_json(jsonfilename)
 
     for loaded_config in (config_from_yaml, config_from_json)
         scm = loaded_config.scm
@@ -128,8 +126,6 @@ end
         estimand₂ = loaded_config.estimands[2]
         @test estimand₂ == estimands[2]
     end
-    rm(yamlfilename)
-    rm(jsonfilename)
 end
 
 end

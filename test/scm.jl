@@ -19,7 +19,7 @@ using TMLE
     expected_vertices = Set([:Y, :T₁, :T₂, :W₁, :W₂, :C])
     @test Set(vertices(scm)) == expected_vertices
 
-    scm_dict = to_dict(scm)
+    scm_dict = TMLE.to_dict(scm)
     @test scm_dict == Dict(
         :type => "SCM", 
         :equations => [
@@ -31,7 +31,7 @@ using TMLE
             Dict(:parents => [:W₂], :outcome => :T₂)
         ]
     )
-    reconstructed_scm = from_dict!(scm_dict)
+    reconstructed_scm = TMLE.from_dict!(scm_dict)
     for vertexlabel ∈ expected_vertices
         @test parents(reconstructed_scm, vertexlabel) == parents(scm, vertexlabel)
     end
@@ -61,7 +61,7 @@ end
     @test parents(scm, :Y₁) == parents(scm, :Y₂) == Set([:T₁, :T₂, :T₃, :W₁, :W₂])
     @test parents(scm, :T₁) == parents(scm, :T₂) == parents(scm, :T₃) == Set([:W₁, :W₂])
 
-    reconstructed_scm = from_dict!(Dict(
+    reconstructed_scm = TMLE.from_dict!(Dict(
         :type => "StaticSCM",
         :outcomes => [:Y₁, :Y₂],
         :treatments => [:T₁, :T₂, :T₃],

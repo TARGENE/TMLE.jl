@@ -29,14 +29,14 @@ using TMLE
     @test statistical_estimands[4].treatment_confounders == (T₁=(:W₁, :W₂), T₂=(:W₁, :W₂))
 end
 
-@testset "Test to_dict" begin
+@testset "Test TMLE.to_dict" begin
     adjustment = BackdoorAdjustment(outcome_extra_covariates=[:C])
-    adjustment_dict = to_dict(adjustment)
+    adjustment_dict = TMLE.to_dict(adjustment)
     @test adjustment_dict == Dict(
         :outcome_extra_covariates => [:C],
         :type                     => "BackdoorAdjustment"
     )
-    @test from_dict!(adjustment_dict) == adjustment
+    @test TMLE.from_dict!(adjustment_dict) == adjustment
 end
 
 end

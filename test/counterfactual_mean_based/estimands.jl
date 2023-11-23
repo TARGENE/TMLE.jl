@@ -136,13 +136,13 @@ end
         outcome=:y,
         treatment_values = (T₁=1, T₂="AC")
     )
-    d = to_dict(Ψ)
+    d = TMLE.to_dict(Ψ)
     @test d == Dict(
         :type             => "CM",
         :treatment_values => Dict(:T₁=>1, :T₂=>"AC"),
         :outcome          => :y
     )
-    Ψreconstructed = from_dict!(d)
+    Ψreconstructed = TMLE.from_dict!(d)
     @test Ψreconstructed == Ψ
     # Causal ATE
     Ψ = ATE(
@@ -153,7 +153,7 @@ end
             T₃=(case="C", control="D")
         ),
     )
-    d = to_dict(Ψ)
+    d = TMLE.to_dict(Ψ)
     @test d == Dict(
         :type => "ATE",
         :treatment_values => Dict(
@@ -163,7 +163,7 @@ end
         ),
         :outcome => :y
     )
-    Ψreconstructed = from_dict!(d)
+    Ψreconstructed = TMLE.from_dict!(d)
     @test Ψ == Ψ
     
     # Statistical CM
@@ -172,7 +172,7 @@ end
         treatment_values = (T₁=1, T₂="AC"),
         treatment_confounders = (T₁=[:W₁₁, :W₁₂], T₂=[:W₁₂, :W₂₂])
     )
-    d = to_dict(Ψ)
+    d = TMLE.to_dict(Ψ)
     @test d == Dict(
         :outcome_extra_covariates => [],
         :type                     => "CM",
@@ -180,7 +180,7 @@ end
         :outcome                  => :y,
         :treatment_confounders    => Dict(:T₁=>[:W₁₁, :W₁₂], :T₂=>[:W₁₂, :W₂₂])
     )
-    Ψreconstructed = from_dict!(d)
+    Ψreconstructed = TMLE.from_dict!(d)
     @test Ψreconstructed == Ψ
 
     # Statistical IATE
@@ -190,7 +190,7 @@ end
         treatment_confounders = (T₁=[:W₁₁, :W₁₂], T₂=[:W₁₂, :W₂₂]),
         outcome_extra_covariates=[:C]
     )
-    d = to_dict(Ψ)
+    d = TMLE.to_dict(Ψ)
     @test d == Dict(
         :outcome_extra_covariates => [:C],
         :type                     => "IATE",
@@ -198,7 +198,7 @@ end
         :outcome                  => :y,
         :treatment_confounders    => Dict(:T₁=>[:W₁₁, :W₁₂], :T₂=>[:W₁₂, :W₂₂])
     )
-    Ψreconstructed = from_dict!(d)
+    Ψreconstructed = TMLE.from_dict!(d)
     @test Ψreconstructed == Ψ
 end
 end
