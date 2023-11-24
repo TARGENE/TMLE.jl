@@ -119,17 +119,24 @@ function indicator_fns(Ψ::StatisticalIATE)
     return Dict(key_vals...)
 end
 
-expected_value(Ψ::StatisticalCMCompositeEstimand) = ExpectedValue(Ψ.outcome, Tuple(union(Ψ.outcome_extra_covariates, keys(Ψ.treatment_confounders), (Ψ.treatment_confounders)...)))
+outcome_mean(Ψ::StatisticalCMCompositeEstimand) = ExpectedValue(Ψ.outcome, Tuple(union(Ψ.outcome_extra_covariates, keys(Ψ.treatment_confounders), (Ψ.treatment_confounders)...)))
+
+outcome_mean_key(Ψ::StatisticalCMCompositeEstimand) = variables(outcome_mean(Ψ))
+
 propensity_score(Ψ::StatisticalCMCompositeEstimand) = Tuple(ConditionalDistribution(T, Ψ.treatment_confounders[T]) for T in treatments(Ψ))
 
+propensity_score_key(Ψ::StatisticalCMCompositeEstimand) = Tuple(variables(x) for x ∈ propensity_score(Ψ))
+
 function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand)
-    outcome_model = expected_value(Ψ)
+    outcome_model = outcome_mean(Ψ)
     treatment_factors = propensity_score(Ψ)
     return CMRelevantFactors(outcome_model, treatment_factors)
 end
 
+n_uniques_nuisance_functions(Ψ::StatisticalCMCompositeEstimand) = length(propensity_score(Ψ)) + 1
+
 nuisance_functions_iterator(Ψ::StatisticalCMCompositeEstimand) =
-    (propensity_score(Ψ)..., expected_value(Ψ))
+    (propensity_score(Ψ)..., outcome_mean(Ψ))
 
 function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: StatisticalCMCompositeEstimand 
     param_string = string(
@@ -193,4 +200,24 @@ function to_dict(Ψ::T) where T <: StatisticalCMCompositeEstimand
         :treatment_confounders => treatment_confounders_to_dict(Ψ.treatment_confounders),
         :outcome_extra_covariates => collect(Ψ.outcome_extra_covariates)
         )
+end
+
+identify(method::AdjustmentMethod, Ψ::StatisticalCMCompositeEstimand, scm::SCM) = Ψ
+
+function identify(method::BackdoorAdjustment, causal_estimand::T, scm::SCM) where T<:CausalCMCompositeEstimands
+    # Treatment confounders
+    treatment_names = keys(causal_estimand.treatment_values)
+    treatment_codes = [code_for(scm.graph, treatment) for treatment ∈ treatment_names]
+    confounders_codes = scm.graph.graph.badjlist[treatment_codes]
+    treatment_confounders = NamedTuple{treatment_names}(
+        [[scm.graph.vertex_labels[w] for w in confounders_codes[i]] 
+        for i in eachindex(confounders_codes)]
+    )
+
+    return statistical_type_from_causal_type(T)(;
+        outcome=causal_estimand.outcome,
+        treatment_values = causal_estimand.treatment_values,
+        treatment_confounders = treatment_confounders,
+        outcome_extra_covariates = method.outcome_extra_covariates
+    )
 end

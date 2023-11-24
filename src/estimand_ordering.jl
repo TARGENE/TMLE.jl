@@ -33,23 +33,22 @@ function evaluate_proxy_costs(estimands, η_counts; verbosity=0)
     maxmem = 0
     compcost = 0
     for (estimand_index, Ψ) ∈ enumerate(estimands)
-        η = get_relevant_factors(Ψ)
-        models = (η.propensity_score..., η.outcome_mean)
         # Append cache
-        for model in models
-            if model ∉ cache
+        ηs = collect(nuisance_functions_iterator(Ψ))
+        for η ∈ ηs
+            if η ∉ cache
                 compcost += 1
-                push!(cache, model)
+                push!(cache, η)
             end
         end
         # Update maxmem
         maxmem = max(maxmem, length(cache))
         verbosity > 0 && @info string("Cache size after estimand $estimand_index: ", length(cache))
         # Free cache from models that are not useful anymore
-        for model in models
-            η_counts[model] -= 1
-            if η_counts[model] <= 0
-                pop!(cache, model)
+        for η in ηs
+            η_counts[η] -= 1
+            if η_counts[η] <= 0
+                pop!(cache, η)
             end
         end
     end
@@ -66,8 +65,7 @@ on the cache size. It can be computed in a single pass, i.e. in O(N).
 function get_min_maxmem_lowerbound(estimands)
     min_maxmem_lowerbound = 0
     for Ψ in estimands
-        η = get_relevant_factors(Ψ)
-        candidate_min = length((η.propensity_score..., η.outcome_mean))
+        candidate_min = n_uniques_nuisance_functions(Ψ)
         if candidate_min > min_maxmem_lowerbound
             min_maxmem_lowerbound = candidate_min
         end
@@ -77,25 +75,9 @@ end
 
 estimands_permutation_generator(estimands) = Combinatorics.permutations(estimands)
 
-function get_propensity_score_groups(estimands_and_nuisances)
-    ps_groups = [[]]
-    current_ps = estimands_and_nuisances[1][2]
-    for (index, Ψ_and_ηs) ∈ enumerate(estimands_and_nuisances)
-        new_ps = Ψ_and_ηs[2]
-        if new_ps == current_ps
-            push!(ps_groups[end], index)
-        else
-            current_ps = new_ps
-            push!(ps_groups, [index])
-        end
-    end
-    return ps_groups
-end
-
-function propensity_score_group_based_permutation_generator(estimands, estimands_and_nuisances)
-    ps_groups = get_propensity_score_groups(estimands_and_nuisances)
-    group_permutations = Combinatorics.permutations(collect(1:length(ps_groups)))
-    return (vcat((estimands[ps_groups[index]] for index in group_perm)...) for group_perm in group_permutations)
+function propensity_score_group_based_permutation_generator(groups)
+    group_permutations = Combinatorics.permutations(collect(keys(groups)))
+    return (vcat((groups[ps_key] for ps_key in group_perm)...) for group_perm in group_permutations)
 end
 
 """
@@ -134,6 +116,32 @@ function brute_force_ordering(estimands;
 end
 
 """
+    groupby_by_propensity_score(estimands)
+
+Group parameters per propensity score and order each group by outcome_mean.
+"""
+function groupby_by_propensity_score(estimands)
+    groups = Dict()
+    for Ψ in estimands
+        propensity_score_key_ = propensity_score_key(Ψ)
+        outcome_mean_key_ = outcome_mean_key(Ψ)
+        if haskey(groups, propensity_score_key_)
+            propensity_score_group = groups[propensity_score_key_]
+            if haskey(propensity_score_group, outcome_mean_key_)
+                push!(propensity_score_group[outcome_mean_key_], Ψ)
+            else
+                propensity_score_group[outcome_mean_key_] = Any[Ψ]
+            end
+        else
+            groups[propensity_score_key_] = Dict()
+            groups[propensity_score_key_][outcome_mean_key_] = Any[Ψ]
+        end
+        
+    end
+    return Dict(key => vcat(values(groups[key])...) for key in keys(groups))
+end
+
+"""
     groups_ordering(estimands)
 
 This will order estimands based on: propensity score first, outcome mean second. This heuristic should 
@@ -142,26 +150,18 @@ work reasonably well in practice. It could be optimized further by:
 - Brute forcing the ordering of these groups to find an optimal one.
 """
 function groups_ordering(estimands; brute_force=false, do_shuffle=true, rng=Random.default_rng(), verbosity=0)
-    # Sort estimands based on propensity_score first and outcome_mean second
-    estimands_and_nuisances = []
-    for Ψ in estimands
-        η = TMLE.get_relevant_factors(Ψ)
-        push!(estimands_and_nuisances, (Ψ, η.propensity_score, η.outcome_mean))
-    end
-    sort!(estimands_and_nuisances, by = x -> (Tuple(TMLE.variables(ps) for ps in x[2]), TMLE.variables(x[3])))
-    
-    # Sorted estimands only
-    estimands = [x[1] for x in estimands_and_nuisances]
+    # Group estimands based on propensity_score first and outcome_mean second
+    groups = groupby_by_propensity_score(estimands)
 
     # Brute force on the propensity score groups
     if brute_force
         return brute_force_ordering(estimands; 
-            permutation_generator = propensity_score_group_based_permutation_generator(estimands, estimands_and_nuisances), 
+            permutation_generator = propensity_score_group_based_permutation_generator(groups), 
             do_shuffle=do_shuffle, 
             rng=rng, 
             verbosity=verbosity
         )
     else
-        return estimands
+        return vcat(values(groups)...)
     end
 end

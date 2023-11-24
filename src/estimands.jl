@@ -121,5 +121,13 @@ to_dict(Ψ::ComposedEstimand) = Dict(
     :args => [to_dict(x) for x in Ψ.args]
 )
 
+propensity_score_key(Ψ::ComposedEstimand) = Tuple(unique(Iterators.flatten(propensity_score_key(arg) for arg in Ψ.args)))
+outcome_mean_key(Ψ::ComposedEstimand) = Tuple(unique(outcome_mean_key(arg) for arg in Ψ.args))
+
+n_uniques_nuisance_functions(Ψ::ComposedEstimand) = length(propensity_score_key(Ψ)) + length(outcome_mean_key(Ψ))
+
 nuisance_functions_iterator(Ψ::ComposedEstimand) =
     Iterators.flatten(nuisance_functions_iterator(arg) for arg in Ψ.args)
+
+identify(method::AdjustmentMethod, Ψ::ComposedEstimand, scm::SCM) = 
+    ComposedEstimand(Ψ.f, Tuple(identify(method, arg, scm) for arg ∈ Ψ.args))
