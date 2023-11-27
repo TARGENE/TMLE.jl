@@ -166,7 +166,7 @@ function _compose(f, estimates...; backend=AD.ZygoteBackend())
     return collect(f₀), σ₀, n
 end
 
-function Statistics.cov(estimates...)
+function Statistics.cov(estimates::Vararg{EICEstimate})
     X = hcat([r.IC for r in estimates]...)
     return Statistics.cov(X, dims=1, corrected=true)
 end

@@ -12,7 +12,7 @@ using MLJModels
 using MLJLinearModels
 using LogExpFunctions
 
-include(joinpath(dirname(@__DIR__), "helper_fns.jl"))
+include(joinpath(pkgdir(TMLE), "test", "helper_fns.jl"))
 
 cont_interacter = InteractionTransformer(order=2) |> LinearRegressor
 cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1.)
@@ -187,7 +187,7 @@ end
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
-    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-9)
     # The initial estimate is far away
     naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
@@ -202,7 +202,7 @@ end
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
-    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-9)
     # The initial estimate is far away
     naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
@@ -232,7 +232,7 @@ end
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
-    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
     # The initial estimate is far away
     naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
@@ -271,7 +271,9 @@ end
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
-    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-5)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
+
     # The initial estimate is far away
     naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
@@ -285,7 +287,9 @@ end
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
-    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-5)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-15)
+
     # The initial estimate is far away
     naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)

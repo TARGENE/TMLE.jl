@@ -272,10 +272,12 @@ function (estimator::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dic
 
     # Gradient and estimate
     IC, Ψ̂ = TMLE.gradient_and_estimate(Ψ, initial_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
+    IC_mean = mean(IC)
+    IC .-= IC_mean
     σ̂ = std(IC)
     n = size(IC, 1)
     verbosity >= 1 && @info "Done."
-    return OSEstimate(Ψ, Ψ̂ + mean(IC), σ̂, n, IC), cache
+    return OSEstimate(Ψ, Ψ̂ + IC_mean, σ̂, n, IC), cache
 end
 
 #####################################################################

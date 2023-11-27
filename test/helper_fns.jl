@@ -53,14 +53,6 @@ The TMLE is supposed to solve the EIC score equation.
 """
 test_mean_inf_curve_almost_zero(tmle_result::TMLE.EICEstimate; atol=1e-10) = @test mean(tmle_result.IC) ≈ 0.0 atol=atol
 
-"""
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result::TMLE.TMLEResult)
-
-This cqnnot be guaranteed in general since a well specified maximum 
-likelihood estimator also solves the score equation.
-"""
-test_fluct_mean_inf_curve_lower_than_initial(tmle_result::TMLE.TMLEstimate, ose_result::TMLE.OSEstimate) = @test abs(mean(tmle_result.IC)) < abs(mean(ose_result.IC))
-
 double_robust_estimators(models; resampling=CV(nfolds=3)) = (
     tmle = TMLEE(models=models, machine_cache=true),
     ose = OSE(models=models, machine_cache=true),

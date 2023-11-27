@@ -119,7 +119,7 @@ end
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
-    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
+    test_mean_inf_curve_almost_zero(results.ose, ; atol=1e-10)
     # Test emptyIC function
     @test emptyIC(results.tmle).IC == []
     pval = pvalue(OneSampleZTest(results.tmle))
@@ -155,7 +155,7 @@ end
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-6)
-    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-6)
     # The initial estimate is far away
     naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0) 
@@ -187,7 +187,7 @@ end
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
 
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
-    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
     # The initial estimate is far away
     naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
@@ -226,7 +226,7 @@ end
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₁, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
-    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
     # When Q is well specified but G is misspecified
     models = (
         Y = with_encoder(LinearRegressor()),
@@ -252,7 +252,7 @@ end
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
-    test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
 
     # When Q is well specified but G is misspecified
     models = (

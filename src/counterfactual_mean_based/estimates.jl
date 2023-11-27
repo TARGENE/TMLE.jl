@@ -66,8 +66,6 @@ end
 emptyIC(estimate::T; pval_threshold=nothing) where T <: EICEstimate = emptyIC(estimate, pval_threshold)
 
 
-
-
 function Base.show(io::IO, ::MIME"text/plain", est::EICEstimate)
     testresult = OneSampleTTest(est)
     data = [estimate(est) confint(testresult) pvalue(testresult);]
