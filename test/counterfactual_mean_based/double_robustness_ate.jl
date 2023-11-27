@@ -11,7 +11,7 @@ using StableRNGs
 using StatsBase
 using LogExpFunctions
 
-include(joinpath(dirname(@__DIR__), "helper_fns.jl"))
+include(joinpath(pkgdir(TMLE), "test", "helper_fns.jl"))
 
 """
 Q and G are two logistic models
@@ -120,6 +120,11 @@ end
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
     test_fluct_mean_inf_curve_lower_than_initial(results.tmle, results.ose)
+    # Test emptyIC function
+    @test emptyIC(results.tmle).IC == []
+    pval = pvalue(OneSampleZTest(results.tmle))
+    @test emptyIC(results.tmle, pval_threshold=0.9pval).IC == []
+    @test emptyIC(results.tmle, pval_threshold=1.1pval) === results.tmle
     # The initial estimate is far away
     naive = NAIVE(models.Y)
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
