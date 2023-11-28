@@ -122,6 +122,12 @@ end
     )
     estimands = [identify(x, scm) for x in [ATE₁, ATE₃, diff, ATE₂]]
     η_counts = TMLE.nuisance_function_counts(estimands)
+    η_counts == Dict(
+        TMLE.ConditionalDistribution(:Y₁, (:T₂, :W₂))      => 1,
+        TMLE.ConditionalDistribution(:T₁, (:W₁, :W₂))      => 4,
+        TMLE.ConditionalDistribution(:Y₁, (:T₁, :W₁, :W₂)) => 4,
+        TMLE.ConditionalDistribution(:T₂, (:W₂,))          => 1
+    )
     @test TMLE.get_min_maxmem_lowerbound(estimands) == 2
     @test TMLE.evaluate_proxy_costs(estimands, η_counts) == (4, 4)
     # Brute Force
