@@ -202,7 +202,7 @@ function to_dict(Ψ::T) where T <: StatisticalCMCompositeEstimand
         )
 end
 
-identify(method::AdjustmentMethod, Ψ::StatisticalCMCompositeEstimand, scm::SCM) = Ψ
+identify(method, Ψ::StatisticalCMCompositeEstimand, scm) = Ψ
 
 function identify(method::BackdoorAdjustment, causal_estimand::T, scm::SCM) where T<:CausalCMCompositeEstimands
     # Treatment confounders

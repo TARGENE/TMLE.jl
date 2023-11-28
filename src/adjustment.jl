@@ -18,7 +18,7 @@ function statistical_type_from_causal_type(T)
     return eval(Symbol(new_typestring))
 end
 
-identify(estimand, scm::SCM; method=BackdoorAdjustment()::BackdoorAdjustment) =
+identify(estimand, scm; method=BackdoorAdjustment()) =
     identify(method, estimand, scm)
 
 
