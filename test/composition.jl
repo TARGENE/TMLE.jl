@@ -7,6 +7,8 @@ using Distributions
 using MLJLinearModels
 using TMLE
 using CategoricalArrays
+using LogExpFunctions
+using HypothesisTests
 
 function make_dataset(;n=100)
     rng = StableRNG(123)
@@ -31,7 +33,7 @@ end
     X = rand(n, 2)
     ER₁ = TMLE.TMLEstimate(Ψ, 1., 1., n, X[:, 1])
     ER₂ = TMLE.TMLEstimate(Ψ, 0., 1., n, X[:, 2])
-    Σ = cov(ER₁, ER₂)
+    Σ = TMLE.covariance_matrix(ER₁, ER₂)
     @test size(Σ) == (2, 2)
     @test Σ == cov(X) 
 end
@@ -152,6 +154,54 @@ end
     @test estimate(CM_result_composed) == f(estimate(CM_result₁), TMLE.estimate(CM_result₀))
     @test size(var(CM_result_composed)) == (3, 3)
 end
+
+@testset "Test Joint Interaction" begin
+    # Dataset
+    n = 100
+    rng = StableRNG(123)
+
+    W = rand(rng, n)
+
+    θT₁ = rand(rng, Normal(), 3)
+    pT₁ =  softmax(W*θT₁', dims=2)
+    T₁ = [rand(rng, Categorical(collect(p))) for p in eachrow(pT₁)]
+    
+    θT₂ = rand(rng, Normal(), 3)
+    pT₂ =  softmax(W*θT₂', dims=2)
+    T₂ = [rand(rng, Categorical(collect(p))) for p in eachrow(pT₂)]
+
+    Y = 1 .+ W .+ T₁ .- T₂ .- T₁.*T₂ .+ rand(rng, Normal())
+    dataset = (
+        W = W,
+        T₁ = categorical(T₁),
+        T₂ = categorical(T₂),
+        Y = Y
+    )
+    IATE₁ = IATE(
+        outcome = :Y,
+        treatment_values = (T₁=(case=2, control=1), T₂=(case=2, control=1)),
+        treatment_confounders = (T₁ = [:W], T₂ = [:W])
+    )
+    IATE₂ = IATE(
+        outcome = :Y,
+        treatment_values = (T₁=(case=3, control=1), T₂=(case=3, control=1)),
+        treatment_confounders = (T₁ = [:W], T₂ = [:W])
+    )
+    IATE₃ = IATE(
+        outcome = :Y,
+        treatment_values = (T₁=(case=3, control=2), T₂=(case=3, control=2)),
+        treatment_confounders = (T₁ = [:W], T₂ = [:W])
+    )
+
+    jointIATE = ComposedEstimand((x, y, z) -> [x, y, z], (IATE₁, IATE₂, IATE₃))
+    ose = OSE(models=TMLE.default_models(G=LogisticClassifier(), Q_continuous=LinearRegressor()))
+    jointEstimate, _ = ose(jointIATE, dataset, verbosity=0)
+
+    testres = OneSampleHotellingT2Test(jointEstimate)
+    @test testres.x̄ ≈ jointEstimate.estimate
+    @test pvalue(testres) < 1e-10
+end
+
 
 end
 

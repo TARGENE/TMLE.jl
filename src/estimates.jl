@@ -137,9 +137,22 @@ Statistics.var(est::ComposedEstimate) =
 
 Performs a T test on the ComposedEstimate.
 """
-function HypothesisTests.OneSampleTTest(est::ComposedEstimate, Ψ₀=0) 
-    @assert length(est.estimate) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
-    return OneSampleTTest(estimate(est), sqrt(est.std[1]), est.n, Ψ₀)
+function HypothesisTests.OneSampleTTest(estimate::ComposedEstimate, Ψ₀=0) 
+    @assert length(estimate.estimate) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
+    return OneSampleTTest(estimate.estimate[1], sqrt(estimate.std[1]), estimate.n, Ψ₀)
+end
+
+function HypothesisTests.OneSampleHotellingT2Test(estimate::ComposedEstimate, Ψ₀=zeros(size(estimate.estimate, 1)))
+    x̄ = estimate.estimate
+    S = estimate.std
+    n, p = estimate.n, length(x̄)
+    p == length(Ψ₀) ||
+        throw(DimensionMismatch("Number of variables does not match number of means"))
+    n > 0 || throw(ArgumentError("The input must be non-empty"))
+    
+    T² = n * HypothesisTests.At_Binv_A(x̄ .- Ψ₀, S)
+    F = (n - p) * T² / (p * (n - 1))
+    return OneSampleHotellingT2Test(T², F, n, p, Ψ₀, x̄, S)
 end
 
 """
@@ -147,7 +160,7 @@ end
 
 Performs a T test on the ComposedEstimate.
 """
-function HypothesisTests.OneSampleZTest(est::ComposedEstimate, Ψ₀=0) 
-    @assert length(est.estimate) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
-    return OneSampleZTest(estimate(est), sqrt(est.std[1]), est.n, Ψ₀)
+function HypothesisTests.OneSampleZTest(estimate::ComposedEstimate, Ψ₀=0) 
+    @assert length(estimate.estimate) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
+    return OneSampleZTest(estimate.estimate[1], sqrt(estimate.std[1]), estimate.n, Ψ₀)
 end

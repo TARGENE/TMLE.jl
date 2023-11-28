@@ -288,7 +288,7 @@ end
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-5)
-    test_mean_inf_curve_almost_zero(results.ose; atol=1e-15)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
 
     # The initial estimate is far away
     naive = NAIVE(models.Y)

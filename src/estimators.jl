@@ -157,16 +157,16 @@ function compose(f, estimates...; backend=AD.ZygoteBackend())
 end
 
 function _compose(f, estimates...; backend=AD.ZygoteBackend())
-    Σ = cov(estimates...)
+    Σ = covariance_matrix(estimates...)
     point_estimates = [r.estimate for r in estimates]
     f₀, Js = AD.value_and_jacobian(backend, f, point_estimates...)
     J = hcat(Js...)
     n = size(first(estimates).IC, 1)
-    σ₀ = J*Σ*J'
+    σ₀ = J * Σ * J'
     return collect(f₀), σ₀, n
 end
 
-function Statistics.cov(estimates::Vararg{EICEstimate})
+function covariance_matrix(estimates...)
     X = hcat([r.IC for r in estimates]...)
-    return Statistics.cov(X, dims=1, corrected=true)
+    return cov(X, dims=1, corrected=true)
 end
