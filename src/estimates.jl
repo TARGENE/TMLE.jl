@@ -99,14 +99,14 @@ struct ComposedEstimate{T<:AbstractFloat} <: Estimate
     estimand::ComposedEstimand
     estimates::Tuple
     estimate::Array{T}
-    std::Matrix{T}
+    cov::Matrix{T}
     n::Int
 end
 
-ComposedEstimate(;estimand, estimates, estimate, std, n) = ComposedEstimate(estimand, estimates, estimate, std, n)
+ComposedEstimate(;estimand, estimates, estimate, cov, n) = ComposedEstimate(estimand, estimates, estimate, cov, n)
 
 function Base.show(io::IO, ::MIME"text/plain", est::ComposedEstimate)
-    if length(est.std) !== 1
+    if length(est.cov) !== 1
         println(io, string("Estimate: ", estimate(est), "\nVariance: \n", var(est)))
     else
         testresult = OneSampleTTest(est)
@@ -131,7 +131,7 @@ Distributions.estimate(est::ComposedEstimate) =
 Computes the estimated variance associated with the estimate.
 """
 Statistics.var(est::ComposedEstimate) = 
-    length(est.std) == 1 ? est.std[1] / est.n : est.std ./ est.n
+    length(est.cov) == 1 ? est.cov[1] / est.n : est.cov ./ est.n
 
 
 """
@@ -141,12 +141,12 @@ Performs a T test on the ComposedEstimate.
 """
 function HypothesisTests.OneSampleTTest(estimate::ComposedEstimate, Ψ₀=0) 
     @assert length(estimate.estimate) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
-    return OneSampleTTest(estimate.estimate[1], sqrt(estimate.std[1]), estimate.n, Ψ₀)
+    return OneSampleTTest(estimate.estimate[1], sqrt(estimate.cov[1]), estimate.n, Ψ₀)
 end
 
 function HypothesisTests.OneSampleHotellingT2Test(estimate::ComposedEstimate, Ψ₀=zeros(size(estimate.estimate, 1)))
     x̄ = estimate.estimate
-    S = estimate.std
+    S = estimate.cov
     n, p = estimate.n, length(x̄)
     p == length(Ψ₀) ||
         throw(DimensionMismatch("Number of variables does not match number of means"))
@@ -164,10 +164,10 @@ Performs a T test on the ComposedEstimate.
 """
 function HypothesisTests.OneSampleZTest(estimate::ComposedEstimate, Ψ₀=0) 
     @assert length(estimate.estimate) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
-    return OneSampleZTest(estimate.estimate[1], sqrt(estimate.std[1]), estimate.n, Ψ₀)
+    return OneSampleZTest(estimate.estimate[1], sqrt(estimate.cov[1]), estimate.n, Ψ₀)
 end
 
 function emptyIC(estimate::ComposedEstimate, pval_threshold)
     emptied_estimates = Tuple(emptyIC(e, pval_threshold) for e in estimate.estimates)
-    ComposedEstimate(estimate.estimand, emptied_estimates, estimate.estimate, estimate.std, estimate.n)
+    ComposedEstimate(estimate.estimand, emptied_estimates, estimate.estimate, estimate.cov, estimate.n)
 end

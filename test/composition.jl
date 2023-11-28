@@ -89,7 +89,7 @@ end
     composed_estimate, cache = tmle(composed_estimand, dataset; cache=cache, verbosity=0)
     @test composed_estimate.estimand == CM_result_composed_tmle.estimand
     @test CM_result_composed_tmle.estimate == composed_estimate.estimate
-    @test CM_result_composed_tmle.std == composed_estimate.std
+    @test CM_result_composed_tmle.cov == composed_estimate.cov
     @test CM_result_composed_tmle.n == composed_estimate.n
     # Via ATE
     ATE₁₀ = ATE(
