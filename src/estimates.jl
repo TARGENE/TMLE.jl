@@ -103,6 +103,8 @@ struct ComposedEstimate{T<:AbstractFloat} <: Estimate
     n::Int
 end
 
+ComposedEstimate(;estimand, estimates, estimate, std, n) = ComposedEstimate(estimand, estimates, estimate, std, n)
+
 function Base.show(io::IO, ::MIME"text/plain", est::ComposedEstimate)
     if length(est.std) !== 1
         println(io, string("Estimate: ", estimate(est), "\nVariance: \n", var(est)))
@@ -163,4 +165,9 @@ Performs a T test on the ComposedEstimate.
 function HypothesisTests.OneSampleZTest(estimate::ComposedEstimate, Ψ₀=0) 
     @assert length(estimate.estimate) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
     return OneSampleZTest(estimate.estimate[1], sqrt(estimate.std[1]), estimate.n, Ψ₀)
+end
+
+function emptyIC(estimate::ComposedEstimate, pval_threshold)
+    emptied_estimates = Tuple(emptyIC(e, pval_threshold) for e in estimate.estimates)
+    ComposedEstimate(estimate.estimand, emptied_estimates, estimate.estimate, estimate.std, estimate.n)
 end

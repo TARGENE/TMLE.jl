@@ -200,6 +200,26 @@ end
     testres = OneSampleHotellingT2Test(jointEstimate)
     @test testres.x̄ ≈ jointEstimate.estimate
     @test pvalue(testres) < 1e-10
+
+    emptied_estimate = TMLE.emptyIC(jointEstimate)
+    for Ψ̂ₙ in emptied_estimate.estimates
+        @test Ψ̂ₙ.IC == []
+    end
+
+    pval_threshold = 1e-3
+    maybe_emptied_estimate = TMLE.emptyIC(jointEstimate, pval_threshold=pval_threshold)
+    n_empty = 0
+    for i in 1:3
+        pval = pvalue(OneSampleTTest(jointEstimate.estimates[i]))
+        maybe_emptied_IC = maybe_emptied_estimate.estimates[i].IC
+        if pval > pval_threshold
+            @test maybe_emptied_IC == []
+            n_empty += 1
+        else
+            @test length(maybe_emptied_IC) == n
+        end
+    end
+    @test n_empty > 0
 end
 
 

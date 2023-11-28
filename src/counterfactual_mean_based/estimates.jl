@@ -55,7 +55,7 @@ function to_dict(estimate::T) where T <: EICEstimate
     )
 end
 
-emptyIC(estimate::T, pval_threshold::Nothing) where T <: EICEstimate = 
+emptyIC(estimate::T, ::Nothing) where T <: EICEstimate = 
     T(estimate.estimand, estimate.estimate, estimate.std, estimate.n, [])
 
 function emptyIC(estimate::T, pval_threshold::Float64) where T <: EICEstimate
@@ -63,7 +63,7 @@ function emptyIC(estimate::T, pval_threshold::Float64) where T <: EICEstimate
     return pval < pval_threshold ? estimate : emptyIC(estimate, nothing)
 end
 
-emptyIC(estimate::T; pval_threshold=nothing) where T <: EICEstimate = emptyIC(estimate, pval_threshold)
+emptyIC(estimate; pval_threshold=nothing) = emptyIC(estimate, pval_threshold)
 
 
 function Base.show(io::IO, ::MIME"text/plain", est::EICEstimate)
