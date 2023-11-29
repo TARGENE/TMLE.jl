@@ -107,7 +107,7 @@ to_matrix(x::Matrix) = x
 to_matrix(x) = reduce(hcat, x)
 
 ComposedEstimate(;estimand, estimates, estimate, cov, n) =
-    ComposedEstimate(estimand, Tuple(estimates), estimate, to_matrix(cov), n)
+    ComposedEstimate(estimand, Tuple(estimates), collect(estimate), to_matrix(cov), n)
 
 
 function Base.show(io::IO, ::MIME"text/plain", est::ComposedEstimate)

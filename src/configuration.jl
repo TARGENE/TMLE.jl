@@ -36,7 +36,7 @@ Converts a dictionary to a TMLE struct.
 function from_dict!(d::Dict{T, Any}) where T
     haskey(d, T(:type)) || return Dict(key => from_dict!(val) for (key, val) in d)
     constructor = eval(Meta.parse(pop!(d, :type)))
-    return constructor(;[key => from_dict!(val) for (key, val) in d]...)
+    return constructor(;(key => from_dict!(val) for (key, val) in d)...)
 end
 
 function read_yaml end
