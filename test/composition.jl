@@ -38,7 +38,7 @@ end
     @test Σ == cov(X) 
 end
 
-@testset "Test to_dict and from_dict!" begin
+@testset "Test to_dict and from_dict! ComposedEstimand" begin
     ATE₁ = ATE(
         outcome=:Y,
         treatment_values = (T=(case=1, control=0),),
@@ -53,6 +53,10 @@ end
     d = TMLE.to_dict(diff)
     diff_from_dict = TMLE.from_dict!(d)
     @test diff_from_dict == diff
+
+    # Anonymous function will raise
+    anonymousdiff = ComposedEstimand((x,y) -> x - y, (ATE₁, ATE₂))
+    @test_throws ArgumentError TMLE.to_dict(anonymousdiff)
 end
 @testset "Test composition CM(1) - CM(0) = ATE(1,0)" begin
     dataset = make_dataset(;n=1000)
@@ -192,8 +196,7 @@ end
         treatment_values = (T₁=(case=3, control=2), T₂=(case=3, control=2)),
         treatment_confounders = (T₁ = [:W], T₂ = [:W])
     )
-
-    jointIATE = ComposedEstimand((x, y, z) -> [x, y, z], (IATE₁, IATE₂, IATE₃))
+    jointIATE = ComposedEstimand(TMLE.joint_estimand, (IATE₁, IATE₂, IATE₃))
     ose = OSE(models=TMLE.default_models(G=LogisticClassifier(), Q_continuous=LinearRegressor()))
     jointEstimate, _ = ose(jointIATE, dataset, verbosity=0)
 
@@ -220,6 +223,27 @@ end
         end
     end
     @test n_empty > 0
+
+    d = TMLE.to_dict(jointEstimate)
+    jointEstimate_fromdict = TMLE.from_dict!(d)
+
+    @test jointEstimate.estimand == jointEstimate_fromdict.estimand
+    @test jointEstimate.cov == jointEstimate_fromdict.cov
+    @test jointEstimate.estimate == jointEstimate_fromdict.estimate
+    @test jointEstimate.n == jointEstimate_fromdict.n
+    @test length(jointEstimate_fromdict.estimates) == 3
+
+    if VERSION >= v"1.9"
+        using JSON
+        filename, _ = mktemp()
+        TMLE.write_json(filename, jointEstimate)
+        from_json = TMLE.read_json(filename)
+        @test jointEstimate.estimand == from_json.estimand
+        @test jointEstimate.cov == from_json.cov
+        @test jointEstimate.estimate == from_json.estimate
+        @test jointEstimate.n == from_json.n
+        @test length(jointEstimate_fromdict.estimates) == 3
+    end
 end
 
 

@@ -115,11 +115,16 @@ ComposedEstimand(f::String, args::AbstractVector) = ComposedEstimand(eval(Meta.p
 
 ComposedEstimand(;f, args) = ComposedEstimand(f, args)
 
-to_dict(Ψ::ComposedEstimand) = Dict(
+function to_dict(Ψ::ComposedEstimand)
+    fname = string(nameof(Ψ.f))
+    startswith(fname, "#") && 
+        throw(ArgumentError("The function of a ComposedEstimand cannot be anonymous to be converted to a dictionary."))
+    return Dict(
     :type => string(ComposedEstimand),
-    :f => string(nameof(Ψ.f)),
+    :f => fname,
     :args => [to_dict(x) for x in Ψ.args]
 )
+end
 
 propensity_score_key(Ψ::ComposedEstimand) = Tuple(unique(Iterators.flatten(propensity_score_key(arg) for arg in Ψ.args)))
 outcome_mean_key(Ψ::ComposedEstimand) = Tuple(unique(outcome_mean_key(arg) for arg in Ψ.args))

@@ -103,7 +103,12 @@ struct ComposedEstimate{T<:AbstractFloat} <: Estimate
     n::Int
 end
 
-ComposedEstimate(;estimand, estimates, estimate, cov, n) = ComposedEstimate(estimand, estimates, estimate, cov, n)
+to_matrix(x::Matrix) = x
+to_matrix(x) = reduce(hcat, x)
+
+ComposedEstimate(;estimand, estimates, estimate, cov, n) =
+    ComposedEstimate(estimand, Tuple(estimates), estimate, to_matrix(cov), n)
+
 
 function Base.show(io::IO, ::MIME"text/plain", est::ComposedEstimate)
     if length(est.cov) !== 1
@@ -132,7 +137,6 @@ Computes the estimated variance associated with the estimate.
 """
 Statistics.var(est::ComposedEstimate) = 
     length(est.cov) == 1 ? est.cov[1] / est.n : est.cov ./ est.n
-
 
 """
     OneSampleTTest(r::ComposedEstimate, Ψ₀=0)
@@ -171,3 +175,13 @@ function emptyIC(estimate::ComposedEstimate, pval_threshold)
     emptied_estimates = Tuple(emptyIC(e, pval_threshold) for e in estimate.estimates)
     ComposedEstimate(estimate.estimand, emptied_estimates, estimate.estimate, estimate.cov, estimate.n)
 end
+
+
+to_dict(estimate::ComposedEstimate) = Dict(
+    :type => string(ComposedEstimate),
+    :estimand => to_dict(estimate.estimand),
+    :estimates => [to_dict(e) for e in estimate.estimates],
+    :estimate => estimate.estimate,
+    :cov => estimate.cov,
+    :n => estimate.n
+)

@@ -97,13 +97,20 @@ Estimates all components of Ψ and then Ψ itself.
 """
 function (estimator::Estimator)(Ψ::ComposedEstimand, dataset; cache=Dict(), verbosity=1, backend=AD.ZygoteBackend())
     estimates = map(Ψ.args) do estimand 
-        estimate, cache = estimator(estimand, dataset; cache=cache, verbosity=verbosity)
+        estimate, _ = estimator(estimand, dataset; cache=cache, verbosity=verbosity)
         estimate
     end
     f₀, σ₀, n = _compose(Ψ.f, estimates...; backend=backend)
     return ComposedEstimate(Ψ, estimates, f₀, σ₀, n), cache
 end
 
+"""
+    joint_estimand(args...)
+    
+This function is temporary and only necessary because of a bug in 
+the AD package. Simply call `vcat` in the future.
+"""
+joint_estimand(args...) = vcat(args...)
 
 """
     compose(f, estimation_results::Vararg{EICEstimate, N}) where N
@@ -157,7 +164,7 @@ function compose(f, estimates...; backend=AD.ZygoteBackend())
 end
 
 function _compose(f, estimates...; backend=AD.ZygoteBackend())
-    Σ = covariance_matrix(estimates...)
+    Σ = TMLE.covariance_matrix(estimates...)
     point_estimates = [r.estimate for r in estimates]
     f₀, Js = AD.value_and_jacobian(backend, f, point_estimates...)
     J = hcat(Js...)
