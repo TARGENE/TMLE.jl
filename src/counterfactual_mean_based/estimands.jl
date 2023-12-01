@@ -158,12 +158,13 @@ treatment_values(d::AbstractDict) = (;d...)
 treatment_values(d) = d
 
 get_treatment_specs(treatment_specs::NamedTuple{names, }) where names = 
-    NamedTuple{sort(names)}(treatment_specs)
+    NamedTuple{Tuple(sort(collect(names)))}(treatment_specs)
 
 function get_treatment_specs(treatment_specs::NamedTuple{names, <:Tuple{Vararg{NamedTuple}}}) where names
     case_control = ((case=v[:case], control=v[:control]) for v in values(treatment_specs))
     treatment_specs = (;zip(keys(treatment_specs), case_control)...)
-    return NamedTuple{sort(names)}(treatment_specs)
+    sorted_names = Tuple(sort(collect(names)))
+    return NamedTuple{sorted_names}(treatment_specs)
 end
     
 get_treatment_specs(treatment_specs::AbstractDict) = 
