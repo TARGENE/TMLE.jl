@@ -1,5 +1,5 @@
 struct Configuration
-    estimands::AbstractVector{<:Estimand}
+    estimands::AbstractVector
     scm::Union{Nothing, SCM}
     adjustment::Union{Nothing, <:AdjustmentMethod}
 end
