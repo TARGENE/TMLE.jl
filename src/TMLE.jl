@@ -30,7 +30,7 @@ export CM, ATE, IATE
 export AVAILABLE_ESTIMANDS
 export TMLEE, OSE, NAIVE
 export ComposedEstimand
-export var, estimate, OneSampleTTest, OneSampleZTest, pvalue, confint, emptyIC
+export var, estimate, OneSampleTTest, OneSampleZTest, OneSampleHotellingT2Test,pvalue, confint, emptyIC
 export compose
 export TreatmentTransformer, with_encoder, encoder
 export BackdoorAdjustment, identify
