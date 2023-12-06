@@ -16,7 +16,7 @@ function counterfactual_aggregate(Ψ::StatisticalCMCompositeEstimand, Q, dataset
     # Loop over Treatment settings
     for (vals, sign) in indicator_fns(Ψ)
         # Counterfactual dataset for a given treatment setting
-        T_ct = TMLE.counterfactualTreatment(vals, Ttemplate)
+        T_ct = counterfactualTreatment(vals, Ttemplate)
         X_ct = merge(X, T_ct)
         # Counterfactual mean
         ctf_agg .+= sign .* expected_value(Q, X_ct)
@@ -56,9 +56,9 @@ end
 function gradient_and_estimate(Ψ::StatisticalCMCompositeEstimand, factors, dataset; ps_lowerbound=1e-8)
     Q = factors.outcome_mean
     G = factors.propensity_score
-    ctf_agg = TMLE.counterfactual_aggregate(Ψ, Q, dataset)
-    Ψ̂ = TMLE.compute_estimate(ctf_agg, TMLE.train_validation_indices_from_factors(factors))
-    IC = TMLE.∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound) .+ TMLE.∇W(ctf_agg, Ψ̂)
+    ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
+    Ψ̂ = compute_estimate(ctf_agg, train_validation_indices_from_factors(factors))
+    IC = ∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound) .+ ∇W(ctf_agg, Ψ̂)
     return IC, Ψ̂
 end
 

@@ -58,7 +58,7 @@ function clever_covariate_and_weights(
     weighted_fluctuation=false
     )
     # Compute the indicator values
-    T = TMLE.selectcols(dataset, (p.estimand.outcome for p in Gs))
+    T = selectcols(dataset, (p.estimand.outcome for p in Gs))
     indic_vals = indicator_values(indicator_fns(Ψ), T)
     weights = balancing_weights(Gs, dataset; ps_lowerbound=ps_lowerbound)
     if weighted_fluctuation

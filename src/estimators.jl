@@ -19,7 +19,7 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cach
     end
     verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
     # Otherwise estimate
-    relevant_dataset = TMLE.nomissing(dataset, TMLE.variables(estimand))
+    relevant_dataset = nomissing(dataset, variables(estimand))
     # Fit Conditional DIstribution using MLJ
     X = selectcols(relevant_dataset, estimand.parents)
     y = Tables.getcolumn(relevant_dataset, estimand.outcome)
@@ -57,7 +57,7 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     # Otherwise estimate
     verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
     
-    relevant_dataset = TMLE.selectcols(dataset, TMLE.variables(estimand))
+    relevant_dataset = selectcols(dataset, variables(estimand))
     nfolds = size(estimator.train_validation_indices, 1)
     machines = Vector{Machine}(undef, nfolds)
     # Fit Conditional Distribution on each training split using MLJ
@@ -164,7 +164,7 @@ function compose(f, estimates...; backend=AD.ZygoteBackend())
 end
 
 function _compose(f, estimates...; backend=AD.ZygoteBackend())
-    Σ = TMLE.covariance_matrix(estimates...)
+    Σ = covariance_matrix(estimates...)
     point_estimates = [r.estimate for r in estimates]
     f₀, Js = AD.value_and_jacobian(backend, f, point_estimates...)
     J = hcat(Js...)

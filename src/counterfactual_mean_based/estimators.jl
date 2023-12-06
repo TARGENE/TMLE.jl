@@ -29,7 +29,7 @@ key(estimator::CMRelevantFactorsEstimator) =
 get_train_validation_indices(resampling::Nothing, factors, dataset) = nothing
 
 function get_train_validation_indices(resampling::ResamplingStrategy, factors, dataset)
-    relevant_columns = collect(TMLE.variables(factors))
+    relevant_columns = collect(variables(factors))
     outcome_variable = factors.outcome_mean.outcome
     feature_variables = filter(x -> x !== outcome_variable, relevant_columns)
     return Tuple(MLJBase.train_test_pairs(
@@ -63,7 +63,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
     verbosity > 0 && @info(fit_string(estimand))
     models = estimator.models
     # Get train validation indices
-    train_validation_indices = TMLE.get_train_validation_indices(estimator.resampling, estimand, dataset)
+    train_validation_indices = get_train_validation_indices(estimator.resampling, estimand, dataset)
     # Fit propensity score
     propensity_score_estimate = map(estimand.propensity_score) do factor
         try
@@ -106,7 +106,7 @@ struct TargetedCMRelevantFactorsEstimator
 end
 
 TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate; tol=nothing, ps_lowerbound=1e-8, weighted=false, machine_cache=false) = 
-    TargetedCMRelevantFactorsEstimator(TMLE.Fluctuation(Ψ, initial_factors_estimate; 
+    TargetedCMRelevantFactorsEstimator(Fluctuation(Ψ, initial_factors_estimate; 
         tol=tol, 
         ps_lowerbound=ps_lowerbound, 
         weighted=weighted,
@@ -176,12 +176,12 @@ TMLEE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, weighted
 
 function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
-    TMLE.check_treatment_levels(Ψ, dataset)
+    check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
-    relevant_factors = TMLE.get_relevant_factors(Ψ)
-    nomissing_dataset = TMLE.nomissing(dataset, TMLE.variables(relevant_factors))
-    initial_factors_dataset = TMLE.choose_initial_dataset(dataset, nomissing_dataset, tmle.resampling)
-    initial_factors_estimator = TMLE.CMRelevantFactorsEstimator(tmle.resampling, tmle.models)
+    relevant_factors = get_relevant_factors(Ψ)
+    nomissing_dataset = nomissing(dataset, variables(relevant_factors))
+    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, tmle.resampling)
+    initial_factors_estimator = CMRelevantFactorsEstimator(tmle.resampling, tmle.models)
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
         verbosity=verbosity, 
@@ -189,10 +189,10 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
     )
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)
-    ps_lowerbound = TMLE.ps_lower_bound(n, tmle.ps_lowerbound)
+    ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
     # Fluctuation initial factors
     verbosity >= 1 && @info "Performing TMLE..."
-    targeted_factors_estimator = TMLE.TargetedCMRelevantFactorsEstimator(
+    targeted_factors_estimator = TargetedCMRelevantFactorsEstimator(
         Ψ, 
         initial_factors_estimate; 
         tol=tmle.tol, 
@@ -206,7 +206,7 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
         machine_cache=tmle.machine_cache
         )
     # Estimation results after TMLE
-    IC, Ψ̂ = TMLE.gradient_and_estimate(Ψ, targeted_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
+    IC, Ψ̂ = gradient_and_estimate(Ψ, targeted_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
     σ̂ = std(IC)
     n = size(IC, 1)
     verbosity >= 1 && @info "Done."
@@ -254,12 +254,12 @@ OSE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_ca
 
 function (estimator::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
-    TMLE.check_treatment_levels(Ψ, dataset)
+    check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
-    initial_factors = TMLE.get_relevant_factors(Ψ)
-    nomissing_dataset = TMLE.nomissing(dataset, TMLE.variables(initial_factors))
-    initial_factors_dataset = TMLE.choose_initial_dataset(dataset, nomissing_dataset, estimator.resampling)
-    initial_factors_estimator = TMLE.CMRelevantFactorsEstimator(estimator.resampling, estimator.models)
+    initial_factors = get_relevant_factors(Ψ)
+    nomissing_dataset = nomissing(dataset, variables(initial_factors))
+    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, estimator.resampling)
+    initial_factors_estimator = CMRelevantFactorsEstimator(estimator.resampling, estimator.models)
     initial_factors_estimate = initial_factors_estimator(
         initial_factors, 
         initial_factors_dataset;
@@ -268,10 +268,10 @@ function (estimator::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dic
     )
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)
-    ps_lowerbound = TMLE.ps_lower_bound(n, estimator.ps_lowerbound)
+    ps_lowerbound = ps_lower_bound(n, estimator.ps_lowerbound)
 
     # Gradient and estimate
-    IC, Ψ̂ = TMLE.gradient_and_estimate(Ψ, initial_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
+    IC, Ψ̂ = gradient_and_estimate(Ψ, initial_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
     IC_mean = mean(IC)
     IC .-= IC_mean
     σ̂ = std(IC)
@@ -290,10 +290,10 @@ end
 
 function (estimator::NAIVE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
-    TMLE.check_treatment_levels(Ψ, dataset)
+    check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
-    relevant_factors = TMLE.get_relevant_factors(Ψ)
-    nomissing_dataset = TMLE.nomissing(dataset, TMLE.variables(relevant_factors))
+    relevant_factors = get_relevant_factors(Ψ)
+    nomissing_dataset = nomissing(dataset, variables(relevant_factors))
     outcome_mean_estimate = MLConditionalDistributionEstimator(estimator.model)(
         relevant_factors.outcome_mean, 
         dataset;
