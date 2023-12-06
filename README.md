@@ -5,7 +5,6 @@
 ![Codecov](https://img.shields.io/codecov/c/github/TARGENE/TMLE.jl/main)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/TARGENE/TMLE.jl)
 
-Targeted Minimum Loss-Based Estimation (TMLE) is a framework for efficient estimation of pathwise differentiable parameters. The goal of this package is to provide an implementation on top of the [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/) framework.
+This package enables the estimation of various Causal Inference related estimands using Targeted Minimum Loss-Based Estimation (TMLE). TMLE.jl is based on top of [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/), which means any MLJ compliant machine-learning model can be used here.
 
-
-**New to TMLE.jl?** The API design is still work in progress but you can already [get started now](https://targene.github.io/TMLE.jl/stable/)
+**New to TMLE.jl?** [Get started now](https://targene.github.io/TMLE.jl/stable/)

@@ -10,7 +10,7 @@ W:
 Y:
   - Y1
 
-Parameters:
+Estimands:
   - name: IATE
     T1:
       case: 2

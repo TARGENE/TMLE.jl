@@ -2,29 +2,23 @@
 ## General Utilities
 ###############################################################################
 
+reuse_string(estimand) = string("Reusing estimate for: ", string_repr(estimand))
+fit_string(estimand) = string("Estimating: ", string_repr(estimand))
+
+key(estimand, estimator) = (key(estimand), key(estimator))
+
+unique_sorted_tuple(iter) = Tuple(sort(unique(Symbol(x) for x in iter)))
+
+choose_initial_dataset(dataset, nomissing_dataset, resampling::Nothing) = dataset
+choose_initial_dataset(dataset, nomissing_dataset, resampling) = nomissing_dataset
+
+selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.columntable
+
 function logit!(v)
     for i in eachindex(v)
         v[i] = logit(v[i])
     end
 end
-
-function plateau!(v::AbstractVector, threshold)
-    for i in eachindex(v)
-        v[i] = max(v[i], threshold)
-    end
-end
-
-joint_name(it) = join(it, "_&_")
-
-joint_treatment(T) =
-    categorical(joint_name.(Tables.rows(T)))
-
-
-log_fit(verbosity, model) = 
-    verbosity >= 1 && @info string("→ Fitting ", model)
-
-log_no_fit(verbosity, model) =
-    verbosity >= 1 && @info string("→ Reusing previous ", model)
 
 function nomissing(table)
     sch = Tables.schema(table)
@@ -44,92 +38,19 @@ function nomissing(table, columns)
     return nomissing(columns)
 end
 
-ncases(value, Ψ::Parameter) = sum(value[i] == Ψ.treatment[i].case for i in eachindex(value))
-
-function indicator_fns(Ψ::IATE, f::Function)
-    N = length(treatments(Ψ))
-    key_vals = Pair[]
-    for cf in Iterators.product((values(Ψ.treatment[T]) for T in treatments(Ψ))...)
-        push!(key_vals, f(cf) => float((-1)^(N - ncases(cf, Ψ))))
-    end
-    return Dict(key_vals...)
-end
-
-indicator_fns(Ψ::CM, f::Function) = Dict(f(values(Ψ.treatment)) => 1.)
-
-function indicator_fns(Ψ::ATE, f::Function)
-    case = []
-    control = []
-    for treatment in Ψ.treatment
-        push!(case, treatment.case)
-        push!(control, treatment.control)
-    end
-    return Dict(f(Tuple(case)) => 1., f(Tuple(control)) => -1.)
-end
-
-function indicator_values(indicators, jointT)
-    indic = zeros(Float64, nrows(jointT))
-    for i in eachindex(jointT)
-        val = jointT[i]
-        indic[i] = get(indicators, val, 0.)
+function indicator_values(indicators, T)
+    indic = zeros(Float64, nrows(T))
+    for (index, row) in enumerate(Tables.namedtupleiterator(T))
+        indic[index] = get(indicators, values(row), 0.)
     end
     return indic
 end
-
-###############################################################################
-## Offset & Covariate
-###############################################################################
 
 expected_value(ŷ::UnivariateFiniteVector{Multiclass{2}}) = pdf.(ŷ, levels(first(ŷ))[2])
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
-function compute_offset(ŷ::UnivariateFiniteVector{Multiclass{2}})
-    μy = expected_value(ŷ)
-    logit!(μy)
-    return μy
-end
-compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
-compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
-
-function balancing_weights(G::Machine, W, jointT; threshold=1e-8)
-    ŷ = MLJBase.predict(G, W)
-    d = pdf.(ŷ, jointT)
-    plateau!(d, threshold)
-    return 1. ./ d
-end
-
-"""
-    clever_covariate_and_weights(jointT, W, G, indicator_fns; threshold=1e-8, weighted_fluctuation=false)
-
-Computes the clever covariate and weights that are used to fluctuate the initial Q.
-See [here](https://lendle.github.io/TargetedLearning.jl/user-guide/ctmle/#fluctuating-barq_n).
-"""
-function clever_covariate_and_weights(jointT, W, G, indicator_fns; threshold=1e-8, weighted_fluctuation=false)
-    # Compute the indicator values
-    indic_vals = TMLE.indicator_values(indicator_fns, jointT)
-    weights = balancing_weights(G, W, jointT, threshold=threshold)
-    if weighted_fluctuation
-        return indic_vals, weights
-    end
-    # Vanilla unweighted fluctuation
-    indic_vals .*= weights
-    return indic_vals, ones(size(weights, 1))
-end
-
-###############################################################################
-## Fluctuation
-###############################################################################
-
-fluctuation_input(covariate::AbstractVector{T}, offset::AbstractVector{T}) where T = (covariate=covariate, offset=offset)
-
-"""
-
-The GLM models require inputs of the same type
-"""
-fluctuation_input(covariate::AbstractVector{T1}, offset::AbstractVector{T2}) where {T1, T2} = 
-    (covariate=covariate, offset=convert(Vector{T1}, offset))
-
+training_expected_value(Q::Machine, dataset) = expected_value(predict(Q, dataset))
 
 function counterfactualTreatment(vals, T)
     Tnames = Tables.columnnames(T)
@@ -139,5 +60,18 @@ function counterfactualTreatment(vals, T)
                             for (i, name) in enumerate(Tnames)])
 end
 
+last_fluctuation(cache) = cache[:last_fluctuation]
 
+function last_fluctuation_epsilon(cache)
+    mach = last_fluctuation(cache).outcome_mean.machine
+    fp = fitted_params(fitted_params(mach).fitresult.one_dimensional_path)
+    return fp.coef
+end
 
+default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier(), encoder=encoder()) = (
+    Q_binary_default = with_encoder(Q_binary, encoder=encoder),
+    Q_continuous_default = with_encoder(Q_continuous, encoder=encoder),
+    G_default = G
+)
+
+is_binary(dataset, columnname) = Set(skipmissing(Tables.getcolumn(dataset, columnname))) == Set([0, 1])

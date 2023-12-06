@@ -25,7 +25,6 @@ using LogExpFunctions
 using MLJGLMInterface
 using DataFrames
 using CairoMakie
-using CategoricalArrays
 
 
 μY(T, W) = exp.(1 .- 10T .+ 1W)
@@ -33,7 +32,7 @@ using CategoricalArrays
 function generate_data(;n = 1000, rng = StableRNG(123))
     W  = rand(rng, Normal(), n)
     μT = logistic.(0.3 .- 0.5W)
-    T  = float(rand(rng, Uniform(), n) .< μT)
+    T  = float(rand(rng, n) .< μT)
     ϵ = rand(rng, Normal(), n)
     Y  = μY(T, W) .+ ϵ
     Y₁ = μY(ones(n), W) .+ ϵ
@@ -154,15 +153,15 @@ that we now have full coverage of the ground truth.
 
 function tmle_inference(data)
     Ψ = ATE(
-        target=:Y, 
-        treatment=(Tcat=(case=1.0, control=0.0),), 
-        confounders=[:W]
+        outcome=:Y, 
+        treatment_values=(Tcat=(case=1.0, control=0.0),), 
+        treatment_confounders=(Tcat=[:W],)
     )
-    η_spec = NuisanceSpec(LinearRegressor(), LinearBinaryClassifier())
-    result, _ = tmle(Ψ, η_spec, data; verbosity=0)
-    tmleresult = result.tmle
-    lb, ub = confint(OneSampleTTest(tmleresult))
-    return (TMLE.estimate(tmleresult), lb, ub)
+    models = (Y=with_encoder(LinearRegressor()), Tcat=LinearBinaryClassifier())
+    tmle = TMLEE(models=models)
+    result, _ = tmle(Ψ, data; verbosity=0)
+    lb, ub = confint(OneSampleTTest(result))
+    return (TMLE.estimate(result), lb, ub)
 end
 
 make_animation(tmle_inference)

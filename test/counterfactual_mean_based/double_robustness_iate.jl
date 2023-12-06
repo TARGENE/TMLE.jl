@@ -12,13 +12,13 @@ using MLJModels
 using MLJLinearModels
 using LogExpFunctions
 
-include("helper_fns.jl")
+include(joinpath(pkgdir(TMLE), "test", "helper_fns.jl"))
 
 cont_interacter = InteractionTransformer(order=2) |> LinearRegressor
 cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1.)
 
 
-function binary_target_binary_treatment_pb(;n=100)
+function binary_outcome_binary_treatment_pb(;n=100)
     rng = StableRNG(123)
     μy_fn(W, T₁, T₂) = logistic.(2W[:, 1] .+ 1W[:, 2] .- 2W[:, 3] .- T₁ .+ T₂ .+ 2*T₁ .* T₂)
     # Sampling W: Bernoulli
@@ -39,8 +39,8 @@ function binary_target_binary_treatment_pb(;n=100)
     W = float(W)
     T₁ = categorical(T₁)
     T₂ = categorical(T₂)
-    y = categorical(y)
-
+    Y = categorical(y)
+    dataset = (T₁=T₁, T₂=T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], Y=Y)
     # Compute the theoretical IATE
     Wcomb = [1 1 1;
             1 1 0;
@@ -59,11 +59,11 @@ function binary_target_binary_treatment_pb(;n=100)
         temp -= μy_fn(w, [0], [1])[1]
         IATE += temp*0.5*0.5*0.5
     end
-    return (T₁=T₁, T₂=T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], y=y), IATE
+    return dataset, IATE
 end
 
 
-function binary_target_categorical_treatment_pb(;n=100)
+function binary_outcome_categorical_treatment_pb(;n=100)
     rng = StableRNG(123)
     function μy_fn(W, T, Hmach)
         Thot = MLJBase.transform(Hmach, T)
@@ -95,7 +95,7 @@ function binary_target_categorical_treatment_pb(;n=100)
     # Sampling y from T, W:
     μy = μy_fn(W, T, Hmach)
     y = [rand(rng, Bernoulli(μy[i])) for i in 1:n]
-
+    dataset = (T₁=T.T₁, T₂=T.T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], Y=categorical(y))
     # Compute the theoretical IATE for the query
     # (CC, AT) against (CG, AA)
     Wcomb = [1 1 1;
@@ -117,11 +117,11 @@ function binary_target_categorical_treatment_pb(;n=100)
         temp -= μy_fn(w, (T₁=categorical(["CG"], levels=levels₁), T₂=categorical(["AT"], levels=levels₂)), Hmach)[1]
         IATE += temp*0.5*0.5*0.5
     end
-    return (T₁=T.T₁, T₂=T.T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], y=categorical(y)), IATE
+    return dataset, IATE
 end
 
 
-function continuous_target_binary_treatment_pb(;n=100)
+function continuous_outcome_binary_treatment_pb(;n=100)
     rng = StableRNG(123)
     μy_fn(W, T₁, T₂) = 2W[:, 1] .+ 1W[:, 2] .- 2W[:, 3] .- T₁ .+ T₂ .+ 2*T₁ .* T₂
     # Sampling W: Bernoulli
@@ -143,6 +143,7 @@ function continuous_target_binary_treatment_pb(;n=100)
     T₁ = categorical(T₁)
     T₂ = categorical(T₂)
 
+    dataset = (T₁=T₁, T₂=T₂,  W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], Y=y)
     # Compute the theoretical ATE
     Wcomb = [1 1 1;
             1 1 0;
@@ -161,111 +162,138 @@ function continuous_target_binary_treatment_pb(;n=100)
         temp -= μy_fn(w, [0], [1])[1]
         IATE += temp*0.5*0.5*0.5
     end
-
-    return (T₁=T₁, T₂=T₂,  W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], y=y), IATE
+    return dataset, IATE
 end
 
-@testset "Test Double Robustness IATE on binary_target_binary_treatment_pb" begin
-    dataset, Ψ₀ = binary_target_binary_treatment_pb(n=10_000)
+@testset "Test Double Robustness IATE on binary_outcome_binary_treatment_pb" begin
+    dataset, Ψ₀ = binary_outcome_binary_treatment_pb(n=10_000)
     Ψ = IATE(
-        target=:y,
-        treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
-        confounders = [:W₁, :W₂, :W₃]
+        outcome=:Y,
+        treatment_values = (
+            T₁=(case=true, control=false), 
+            T₂=(case=true, control=false)
+        ),
+        treatment_confounders = (
+            T₁=[:W₁, :W₂, :W₃],
+            T₂=[:W₁, :W₂, :W₃],
+        )
     )
     # When Q is misspecified but G is well specified
-    η_spec = NuisanceSpec(
-        ConstantClassifier(),
-        LogisticClassifier(lambda=0)
+    models = (
+        Y = with_encoder(ConstantClassifier()),
+        T₁ = LogisticClassifier(lambda=0),
+        T₂ = LogisticClassifier(lambda=0),
     )
-    tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0);
-    test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-9)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-9)
     # The initial estimate is far away
-    @test tmle_result.initial == 0
+    naive = NAIVE(models.Y)
+    naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
+    @test naive_result == 0
 
     # When Q is well specified  but G is misspecified
-    η_spec = NuisanceSpec(
-        LogisticClassifier(lambda=0),
-        ConstantClassifier()
+    models = (
+        Y = with_encoder(LogisticClassifier(lambda=0)),
+        T₁ = ConstantClassifier(),
+        T₂ = ConstantClassifier(),
     )
-    
-    tmle_result, cache = tmle!(cache, η_spec, verbosity=0);
-    test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-7)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-9)
     # The initial estimate is far away
-    @test tmle_result.initial ≈ -0.0 atol=1e-1
+    naive = NAIVE(models.Y)
+    naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
+    @test naive_result ≈ -0.0 atol=1e-1
 end
 
-@testset "Test Double Robustness IATE on continuous_target_binary_treatment_pb" begin
-    dataset, Ψ₀ = continuous_target_binary_treatment_pb(n=10_000)
+@testset "Test Double Robustness IATE on continuous_outcome_binary_treatment_pb" begin
+    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=10_000)
     Ψ = IATE(
-        target=:y,
-        treatment=(T₁=(case=true, control=false), T₂=(case=true, control=false)),
-        confounders = [:W₁, :W₂, :W₃]
+        outcome = :Y,
+        treatment_values = (
+            T₁=(case=true, control=false), 
+            T₂=(case=true, control=false)
+        ),
+        treatment_confounders = (
+            T₁=[:W₁, :W₂, :W₃],
+            T₂=[:W₁, :W₂, :W₃],
+        )
     )
     # When Q is misspecified but G is well specified
-    η_spec = NuisanceSpec(
-        MLJModels.DeterministicConstantRegressor(),
-        LogisticClassifier(lambda=0)
+    models = (
+        Y = with_encoder(MLJModels.DeterministicConstantRegressor()),
+        T₁ = LogisticClassifier(lambda=0),
+        T₂ = LogisticClassifier(lambda=0),
     )
 
-    tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0)
-    test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
     # The initial estimate is far away
-    @test tmle_result.initial == 0
+    naive = NAIVE(models.Y)
+    naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
+    @test naive_result == 0
 
     # When Q is well specified  but G is misspecified
-    η_spec = NuisanceSpec(
-        cont_interacter,
-        ConstantClassifier()
+    models = (
+        Y = with_encoder(cont_interacter),
+        T₁ = ConstantClassifier(),
+        T₂ = ConstantClassifier(),
     )
-
-    tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
-    test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
-    test_mean_inf_curve_almost_zero(tmle_result; atol=1e-10)
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
 end
 
 
-@testset "Test Double Robustness IATE on binary_target_categorical_treatment_pb" begin
-    dataset, Ψ₀ = binary_target_categorical_treatment_pb(n=10_000)
+@testset "Test Double Robustness IATE on binary_outcome_categorical_treatment_pb" begin
+    dataset, Ψ₀ = binary_outcome_categorical_treatment_pb(n=30_000)
     Ψ = IATE(
-        target=:y,
-        treatment=(T₁=(case="CC", control="CG"), T₂=(case="AT", control="AA")),
-        confounders = [:W₁, :W₂, :W₃]
+        outcome=:Y,
+        treatment_values= (
+            T₁=(case="CC", control="CG"), 
+            T₂=(case="AT", control="AA")
+        ),
+        treatment_confounders = (
+            T₁=[:W₁, :W₂, :W₃],
+            T₂=[:W₁, :W₂, :W₃],
+        )
     )
     # When Q is misspecified but G is well specified
-    η_spec = NuisanceSpec(
-        ConstantClassifier(),
-        LogisticClassifier(lambda=0)
+    models = (
+        Y = with_encoder(ConstantClassifier()),
+        T₁ = LogisticClassifier(lambda=0),
+        T₂ = LogisticClassifier(lambda=0)
     )
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-5)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
 
-    tmle_result, cache = tmle(Ψ, η_spec, dataset, verbosity=0);
-    test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test tmle_result.initial == 0 
+    naive = NAIVE(models.Y)
+    naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
+    @test naive_result == 0
 
     # When Q is well specified but G is misspecified
-    η_spec = NuisanceSpec(
-        cat_interacter,
-        ConstantClassifier()
+    models = (
+        Y = with_encoder(cat_interacter),
+        T₁ = ConstantClassifier(),
+        T₂ = ConstantClassifier(),
     )
+    dr_estimators = double_robust_estimators(models)
+    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-5)
+    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
 
-    tmle_result, cache = tmle!(cache, η_spec, verbosity=0)
-    test_coverage(tmle_result, Ψ₀)
-    test_fluct_decreases_risk(cache; target_name=:y)
-    test_fluct_mean_inf_curve_lower_than_initial(tmle_result)
     # The initial estimate is far away
-    @test tmle_result.initial ≈ -0.01 atol=1e-2
+    naive = NAIVE(models.Y)
+    naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
+    @test naive_result ≈ -0.02 atol=1e-2
 end
 
 
