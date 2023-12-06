@@ -11,7 +11,7 @@ Loads a YAML configuration file containing:
     - An SCM (optional)
     - An Adjustment Method (optional)
 """
-TMLE.read_yaml(file) = TMLE.from_dict!(YAML.load_file(file, dicttype=Dict{Symbol, Any}))
+TMLE.read_yaml(file; dicttype=Dict{Symbol, Any}, kwargs...) = TMLE.from_dict!(YAML.load_file(file, dicttype=dicttype, kwargs...))
 
 """
     write_yaml(file, config::Configuration)

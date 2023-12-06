@@ -11,7 +11,7 @@ Loads a YAML configuration file containing:
     - An SCM (optional)
     - An Adjustment Method (optional)
 """
-TMLE.read_json(file) = TMLE.from_dict!(JSON.parsefile(file, dicttype=Dict{Symbol, Any}))
+TMLE.read_json(file; dicttype=Dict{Symbol, Any}, kwargs...) = TMLE.from_dict!(JSON.parsefile(file; dicttype=dicttype, kwargs...))
 
 """
     write_json(file, config::Configuration)

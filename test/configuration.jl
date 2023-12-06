@@ -56,7 +56,7 @@ end
     @test estimands_from_yaml == estimands
 
     TMLE.write_json(jsonfilename, estimands)
-    estimands_from_json = TMLE.read_json(jsonfilename)
+    estimands_from_json = TMLE.read_json(jsonfilename, use_mmap=false)
     @test estimands_from_json == estimands
    
     configuration = Configuration(
@@ -66,7 +66,7 @@ end
     TMLE.write_yaml(yamlfilename, configuration)
     TMLE.write_json(jsonfilename, configuration)
     config_from_yaml = TMLE.read_yaml(yamlfilename)
-    config_from_json = TMLE.read_json(jsonfilename)
+    config_from_json = TMLE.read_json(jsonfilename, use_mmap=false)
     for loaded_config in (config_from_yaml, config_from_json)
         @test loaded_config.scm === nothing
         @test loaded_config.adjustment === nothing
@@ -113,7 +113,7 @@ end
     TMLE.write_json(jsonfilename, configuration)
 
     config_from_yaml = TMLE.read_yaml(yamlfilename)
-    config_from_json = TMLE.read_json(jsonfilename)
+    config_from_json = TMLE.read_json(jsonfilename, use_mmap=false)
 
     for loaded_config in (config_from_yaml, config_from_json)
         scm = loaded_config.scm

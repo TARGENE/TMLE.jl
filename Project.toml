@@ -27,15 +27,12 @@ Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [weakdeps]
-CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
-GraphMakie = "1ecd5474-83a3-4783-bb4f-06765db800d2"
-YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [extensions]
-GraphMakieExt = ["GraphMakie", "CairoMakie"]
-YAMLExt = "YAML"
 JSONExt = "JSON"
+YAMLExt = "YAML"
 
 [compat]
 AbstractDifferentiation = "0.6.0"
@@ -45,6 +42,7 @@ Distributions = "0.25"
 GLM = "1.8.2"
 Graphs = "1.8"
 HypothesisTests = "0.10, 0.11"
+JSON = "0.21.4"
 LogExpFunctions = "0.3"
 MLJBase = "1.0.1"
 MLJGLMInterface = "0.3.4"
@@ -56,13 +54,9 @@ PrettyTables = "2.2"
 TableOperations = "1.2"
 Tables = "1.6"
 YAML = "0.4.9"
-JSON = "0.21.4"
 Zygote = "0.6"
 julia = "1.6, 1.7, 1"
 
 [extras]
-CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
-GraphMakie = "1ecd5474-83a3-4783-bb4f-06765db800d2"
-YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-
+YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
