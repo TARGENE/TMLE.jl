@@ -201,6 +201,38 @@ end
     Ψreconstructed = TMLE.from_dict!(d)
     @test Ψreconstructed == Ψ
 end
+
+@testset "Test generateATEs" begin
+    dataset = (
+        T₁=[0, 1, 2, missing], 
+        T₂ = ["AC", "CC", missing, "AA"],
+        W₁ = [1, 2, 3, 4],
+        W₂ = [1, 2, 3, 4],
+        C  = [1, 2, 3, 4],
+        Y₁ = [1, 2, 3, 4],
+        Y₂ = [1, 2, 3, 4]
+    )
+    # No confounders, 1 treatment, no extra covariate: 3 causal ATEs
+    ATEs = generateATEs(dataset, [:T₁], :Y₁)
+    @test ATEs == [
+        TMLE.CausalATE(:Y₁, (T₁ = (case = 1, control = 0),)),
+        TMLE.CausalATE(:Y₁, (T₁ = (case = 2, control = 0),)),
+        TMLE.CausalATE(:Y₁, (T₁ = (case = 2, control = 1),))
+    ]
+    # 2 treatments
+    ATEs = generateATEs(dataset, [:T₁, :T₂], :Y₁;
+        confounders=[:W₁, :W₂],
+        outcome_extra_covariates=[:C]
+    )
+    # 9 expected different treatment settings
+    @test length(ATEs) == 9
+    @test length(unique([Ψ.treatment_values for Ψ in ATEs])) == 9
+    # Covariates and confounders
+    @test all(Ψ.outcome_extra_covariates == (:C,) for Ψ in ATEs)
+    @test all(Ψ.treatment_confounders == (T₁ = (:W₁, :W₂), T₂ = (:W₁, :W₂)) for Ψ in ATEs)
+end
+
+
 end
 
 true

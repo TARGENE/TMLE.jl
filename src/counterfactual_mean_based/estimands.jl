@@ -62,7 +62,7 @@ for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
                 outcome = Symbol(outcome)
                 treatment_values = get_treatment_specs(treatment_values)
                 treatment_variables = Tuple(keys(treatment_values))
-                treatment_confounders = NamedTuple{treatment_variables}([unique_sorted_tuple(treatment_confounders[T]) for T ∈ treatment_variables])
+                treatment_confounders = NamedTuple{treatment_variables}([confounders_values(treatment_confounders, T) for T ∈ treatment_variables])
                 outcome_extra_covariates = unique_sorted_tuple(outcome_extra_covariates)
                 return new(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
             end
@@ -157,6 +157,10 @@ treatment_specs_to_dict(treatment_values::NamedTuple) = Dict(pairs(treatment_val
 treatment_values(d::AbstractDict) = (;d...)
 treatment_values(d) = d
 
+confounders_values(key_value_iterable::Union{NamedTuple, Dict}, T) = unique_sorted_tuple(key_value_iterable[T])
+
+confounders_values(iterable, T) = unique_sorted_tuple(iterable)
+
 get_treatment_specs(treatment_specs::NamedTuple{names, }) where names = 
     NamedTuple{Tuple(sort(collect(names)))}(treatment_specs)
 
@@ -221,4 +225,43 @@ function identify(method::BackdoorAdjustment, causal_estimand::T, scm::SCM) wher
         treatment_confounders = treatment_confounders,
         outcome_extra_covariates = method.outcome_extra_covariates
     )
+end
+
+unique_non_missing(dataset, colname) = unique(skipmissing(Tables.getcolumn(dataset, colname)))
+
+unique_treatment_values(dataset, colnames) =(;(colname => unique_non_missing(dataset, colname) for colname in colnames)...)
+
+"""
+    generateATEs(dataset, treatments, outcome; confounders=nothing, outcome_extra_covariates=())
+
+Find all unique values for each treatment variable in the dataset and generate all possible ATEs from these values.
+"""
+function generateATEs(dataset, treatments, outcome; confounders=nothing, outcome_extra_covariates=())
+    treatments_unique_values = unique_treatment_values(dataset, treatments)
+    return generateATEs(treatments_unique_values, outcome; confounders=confounders, outcome_extra_covariates=outcome_extra_covariates)
+end
+
+"""
+    generateATEs(treatments_unique_values, outcome; confounders=nothing, outcome_extra_covariates=())
+
+Generate all possible ATEs from the `treatments_unique_values`.
+"""
+function generateATEs(treatments_unique_values, outcome; confounders=nothing, outcome_extra_covariates=())
+    treatments = Tuple(Symbol.(keys(treatments_unique_values)))
+    treatments_control_case = [collect(Combinatorics.combinations(treatments_unique_values[T], 2)) for T in treatments]
+    
+    ATEs = []
+    for combo ∈ Iterators.product(treatments_control_case...)
+        treatments_control_case = [NamedTuple{(:control, :case)}(treatment_control_case) for treatment_control_case ∈ combo]
+        push!(
+            ATEs, 
+            ATE(
+                outcome=outcome,
+                treatment_values=NamedTuple{treatments}(treatments_control_case),
+                treatment_confounders = confounders,
+                outcome_extra_covariates=outcome_extra_covariates
+            )
+        )
+    end
+    return ATEs
 end
