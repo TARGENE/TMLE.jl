@@ -4,6 +4,12 @@ struct Configuration
     adjustment::Union{Nothing, <:AdjustmentMethod}
 end
 
+"""
+    Configuration(;estimands, scm=nothing, adjustment=nothing) = Configuration(estimands, scm, adjustment)
+
+A Configuration is a set of estimands to be estimated. If the set of estimands contains causal (identifiable) estimands, 
+these will be identified using the provided `scm` and `adjustment` method.
+"""
 Configuration(;estimands, scm=nothing, adjustment=nothing) = Configuration(estimands, scm, adjustment)
 
 function to_dict(configuration::Configuration)

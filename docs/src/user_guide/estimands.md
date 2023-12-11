@@ -119,6 +119,10 @@ statisticalΨ = ATE(
 )
 ```
 
+- generating all ``ATEs``
+
+It is possible to generate all possible ATEs from a set of treatment values or from a dataset. For that purpose, use the `generateATEs` function.
+
 ## The Interaction Average Treatment Effect
 
 - Causal Question:
@@ -176,12 +180,22 @@ statisticalΨ = IATE(
 )
 ```
 
-## Any function of the previous Estimands
+## Composed Estimands
 
-As a result of Julia's automatic differentiation facilities, given a set of already estimated estimands ``(\Psi_1, ..., \Psi_k)``, we can automatically compute an estimator for $f(\Psi_1, ..., \Psi_k)$. This is done via the `compose` function:
+As a result of Julia's automatic differentiation facilities, given a set of predefined estimands ``(\Psi_1, ..., \Psi_k)``, we can automatically compute an estimator for $f(\Psi_1, ..., \Psi_k)$. This is done via the `ComposedEstimand` type.
+
+For example, the difference in ATE for a treatment with 3 levels (0, 1, 2) can be defined as follows:
 
 ```julia
-compose(f, args...)
+ATE₁ = ATE(
+    outcome = :Y, 
+    treatment_values = (T = (control = 0, case = 1),),
+    treatment_confounders = [:W]
+    )
+ATE₂ = ATE(
+    outcome = :Y, 
+    treatment_values = (T = (control = 1, case = 2),),
+    treatment_confounders = [:W]
+    )
+ATEdiff = ComposedEstimand(-, (ATE₁, ATE₂))
 ```
-
-where args are asymptotically linear estimates (see [Composing Estimands](@ref)).
