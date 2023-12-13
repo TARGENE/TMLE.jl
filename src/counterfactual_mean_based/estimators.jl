@@ -3,6 +3,7 @@
 #####################################################################
 struct FitFailedError <: Exception
     estimand::Estimand
+    model::MLJBase.Model
     msg::String
     origin::Exception
 end
@@ -12,6 +13,11 @@ outcome_mean_fit_error_msg(factor) = string(
     "Could not fit the following Outcome mean model: ", 
     string_repr(factor), 
     ".\n Hint: don't forget to use `with_encoder` to encode categorical variables.")
+
+outcome_mean_fluctuation_fit_error_msg(factor) = string(
+    "Could not fluctuate the following Outcome mean: ", 
+    string_repr(factor), 
+    ".")
 
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
@@ -67,7 +73,8 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
     # Fit propensity score
     propensity_score_estimate = map(estimand.propensity_score) do factor
         try
-            ConditionalDistributionEstimator(train_validation_indices, acquire_model(models, factor.outcome, dataset, true))(
+            ps_estimator = ConditionalDistributionEstimator(train_validation_indices, acquire_model(models, factor.outcome, dataset, true))
+            ps_estimator(
                 factor,    
                 dataset;
                 cache=cache,
@@ -75,19 +82,21 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
                 machine_cache=machine_cache
             )
         catch e
-            throw(FitFailedError(factor, propensity_score_fit_error_msg(factor), e))
+            model = acquire_model(models, factor.outcome, dataset, true)
+            throw(FitFailedError(factor, model, propensity_score_fit_error_msg(factor), e))
         end
     end
     # Fit outcome mean
     outcome_mean = estimand.outcome_mean
     model = acquire_model(models, outcome_mean.outcome, dataset, false)
+    outcome_mean_estimator = ConditionalDistributionEstimator( 
+        train_validation_indices, 
+        model
+    )
     outcome_mean_estimate = try
-        ConditionalDistributionEstimator( 
-            train_validation_indices, 
-            model
-        )(outcome_mean, dataset; cache=cache, verbosity=verbosity, machine_cache=machine_cache)
+        outcome_mean_estimator(outcome_mean, dataset; cache=cache, verbosity=verbosity, machine_cache=machine_cache)
     catch e
-        throw(FitFailedError(outcome_mean, outcome_mean_fit_error_msg(outcome_mean), e))
+        throw(FitFailedError(outcome_mean, model, outcome_mean_fit_error_msg(outcome_mean), e))
     end
     # Build estimate
     estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate)
@@ -115,13 +124,19 @@ TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate; tol=nothing, ps
 
 function (estimator::TargetedCMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     model = estimator.model
+    outcome_mean = model.initial_factors.outcome_mean.estimand
     # Fluctuate outcome model
-    fluctuated_outcome_mean = MLConditionalDistributionEstimator(model)(
-        model.initial_factors.outcome_mean.estimand,
-        dataset,
-        verbosity=verbosity,
-        machine_cache=machine_cache
-    )
+    fluctuated_estimator = MLConditionalDistributionEstimator(model)
+    fluctuated_outcome_mean = try
+        fluctuated_estimator(
+            outcome_mean,
+            dataset,
+            verbosity=verbosity,
+            machine_cache=machine_cache
+        )
+    catch e
+        throw(FitFailedError(outcome_mean, model, outcome_mean_fluctuation_fit_error_msg(outcome_mean), e))
+    end
     # Do not fluctuate propensity score
     fluctuated_propensity_score = model.initial_factors.propensity_score
     # Build estimate

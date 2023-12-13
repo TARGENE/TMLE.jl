@@ -10,6 +10,9 @@ using MLJLinearModels
 using CategoricalArrays
 using LogExpFunctions
 using MLJBase
+using CSV
+
+DATADIR = joinpath(pkgdir(TMLE), "test", "data")
 
 function make_dataset()
     n = 100
@@ -55,7 +58,6 @@ end
     @test TMLE.key(η, new_η̂) == TMLE.key(η, η̂)
     full_reuse_log = (:info, TMLE.reuse_string(η))
     @test_logs full_reuse_log new_η̂(η, dataset; cache=cache, verbosity=1)
-
     # Changing one model, only the other one is refitted
     new_models = (
         Y = with_encoder(LinearRegressor()), 
@@ -85,7 +87,7 @@ end
     Q = TMLE.ConditionalDistribution(:Y, [:T₁, :W])
     G = (TMLE.ConditionalDistribution(:T₁, [:W]),)
     η = TMLE.CMRelevantFactors(outcome_mean=Q, propensity_score=G)
-    # Estimator
+    # Propensity score model is ill-defined
     models = (
         Y = with_encoder(LinearRegressor()), 
         T₁ = LinearRegressor()
@@ -96,15 +98,44 @@ end
         @test true === false
     catch e
         @test e isa TMLE.FitFailedError
+        @test e.model isa LinearRegressor
         @test e.msg == TMLE.propensity_score_fit_error_msg(G[1])
     end
-
+    # Outcome Mean model is ill-defined
     models = (
         Y = LogisticClassifier(), 
         T₁ = LogisticClassifier(fit_intercept=false)
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
-    @test_throws TMLE.FitFailedError η̂(η, dataset; verbosity=0)
+    try 
+        η̂(η, dataset; verbosity=0)
+        @test true === false
+    catch e
+        @test e isa TMLE.FitFailedError
+        @test e.model isa LogisticClassifier
+        @test e.msg == TMLE.outcome_mean_fit_error_msg(Q)
+    end
+    # Fluctuation Pos Def Exception
+    pos_def_error_dataset = CSV.read(joinpath(DATADIR, "posdef_error_dataset.csv"), DataFrame)
+    outcome = Symbol("G25 Other extrapyramidal and movement disorders")
+    treatment = Symbol("2:14983:G:A")
+    pos_def_error_dataset[!, treatment] = categorical(pos_def_error_dataset[!, treatment])
+    pos_def_error_dataset[!, outcome] = categorical(pos_def_error_dataset[!, outcome])
+    Ψ = ATE(
+        outcome=outcome, 
+        treatment_values = NamedTuple{(treatment,)}([(case = "GG", control = "AG")]), 
+        treatment_confounders = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
+    )
+    Q = TMLE.ConditionalDistribution(outcome, [treatment, :PC1, :PC2, :PC3, :PC4, :PC5, :PC6])
+    tmle = TMLEE(models=TMLE.default_models(Q_binary=LogisticClassifier(), G = LogisticClassifier()))
+    try 
+        tmle(Ψ, pos_def_error_dataset)
+        @test true === false
+    catch e
+        @test e isa TMLE.FitFailedError
+        @test e.model isa TMLE.Fluctuation
+        @test e.msg == TMLE.outcome_mean_fluctuation_fit_error_msg(Q)
+    end
 end
 
 @testset "Test structs are concrete types" begin
