@@ -76,13 +76,6 @@ default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(
 
 is_binary(dataset, columnname) = Set(skipmissing(Tables.getcolumn(dataset, columnname))) == Set([0, 1])
 
-joint_levels(Ψ::TMLE.StatisticalIATE) = Iterators.product(values(Ψ.treatment_values)...)
-
-joint_levels(Ψ::TMLE.StatisticalATE) =
-    (Tuple(Ψ.treatment_values[T][c] for T ∈ keys(Ψ.treatment_values)) for c in (:case, :control))
-
-joint_levels(Ψ::TMLE.StatisticalCM) = (values(Ψ.treatment_values),)
-
 function satisfies_positivity(Ψ, freq_table; positivity_constraint=0.01)
     for jointlevel in joint_levels(Ψ)
         if !haskey(freq_table, jointlevel) || freq_table[jointlevel] < positivity_constraint
