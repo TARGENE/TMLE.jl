@@ -75,3 +75,30 @@ default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(
 )
 
 is_binary(dataset, columnname) = Set(skipmissing(Tables.getcolumn(dataset, columnname))) == Set([0, 1])
+
+joint_levels(Ψ::TMLE.StatisticalIATE) = Iterators.product(values(Ψ.treatment_values)...)
+
+joint_levels(Ψ::TMLE.StatisticalATE) =
+    (Tuple(Ψ.treatment_values[T][c] for T ∈ keys(Ψ.treatment_values)) for c in (:case, :control))
+
+joint_levels(Ψ::TMLE.StatisticalCM) = (values(Ψ.treatment_values),)
+
+function satisfies_positivity(Ψ, freq_table; positivity_constraint=0.01)
+    for jointlevel in joint_levels(Ψ)
+        if !haskey(freq_table, jointlevel) || freq_table[jointlevel] < positivity_constraint
+            return false
+        end
+    end
+    return true
+end
+
+satisfies_positivity(Ψ, freq_table::Nothing; positivity_constraint=nothing) = true
+
+function frequency_table(dataset, colnames)
+    iterator = zip((Tables.getcolumn(dataset, colname) for colname in sort(collect(colnames)))...)
+    counts = groupcount(x -> x, iterator) 
+    for key in keys(counts)
+        counts[key] /= nrows(dataset)
+    end
+    return counts
+end
