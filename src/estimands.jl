@@ -134,5 +134,5 @@ n_uniques_nuisance_functions(Ψ::ComposedEstimand) = length(propensity_score_key
 nuisance_functions_iterator(Ψ::ComposedEstimand) =
     Iterators.flatten(nuisance_functions_iterator(arg) for arg in Ψ.args)
 
-identify(method::AdjustmentMethod, Ψ::ComposedEstimand, scm::SCM) = 
+identify(method::AdjustmentMethod, Ψ::ComposedEstimand, scm) = 
     ComposedEstimand(Ψ.f, Tuple(identify(method, arg, scm) for arg ∈ Ψ.args))
