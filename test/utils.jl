@@ -51,6 +51,100 @@ end
     @test !isordered(cfT.T₂)
 end
 
+@testset "Test positivity_constraint" begin
+    dataset = (
+        A = [1, 1, 0, 1, 0, 2, 2, 1],
+        B = ["AC", "CC", "AA", "AA", "AA", "AA", "AA", "AA"]
+    ) 
+    # One variable
+    frequency_table = TMLE.frequency_table(dataset, [:A])
+    @test frequency_table[(0,)] == 0.25
+    @test frequency_table[(1,)] == 0.5
+    @test frequency_table[(2,)] == 0.25
+
+    Ψ = CM(
+        outcome = :toto, 
+        treatment_values = (A=1,), 
+        treatment_confounders = (A=[],)
+    )
+    @test TMLE.joint_levels(Ψ) == ((1,),)
+    @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.4) == true
+    @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.6) == false
+
+    Ψ = ATE(
+        outcome = :toto, 
+        treatment_values= (A = (case=1, control=0),), 
+        treatment_confounders = (A=[],)
+    )
+    @test collect(TMLE.joint_levels(Ψ)) == [(1,), (0,)]
+    @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.2) == true
+    @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.3) == false
+
+    # Two variables
+    ## Treatments are sorted: [:B, :A] -> [:A, :B]
+    frequency_table = TMLE.frequency_table(dataset, [:B, :A])
+    @test frequency_table[(1, "CC")] == 0.125
+    @test frequency_table[(1, "AA")] == 0.25
+    @test frequency_table[(0, "AA")] == 0.25
+    @test frequency_table[(1, "AC")] == 0.125
+    @test frequency_table[(2, "AA")] == 0.25
+
+    Ψ = CM(
+        outcome = :toto, 
+        treatment_values = (B = "CC", A = 1), 
+        treatment_confounders = (B = [], A = [])
+    )
+    @test TMLE.joint_levels(Ψ) == ((1, "CC"),)
+    @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.1) == true
+    @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.15) == false
+    
+    Ψ = ATE(
+        outcome = :toto, 
+        treatment_values = (B=(case="AA", control="AC"), A=(case=1, control=1),), 
+        treatment_confounders = (B = (), A = (),)
+    )
+    @test collect(TMLE.joint_levels(Ψ)) == [(1, "AA"), (1, "AC")]
+    @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.1) == true
+    @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.2) == false
+    
+    Ψ = IATE(
+        outcome = :toto, 
+        treatment_values = (B=(case="AC", control="AA"), A=(case=1, control=0),), 
+        treatment_confounders = (B=(), A=()), 
+    )
+    @test collect(TMLE.joint_levels(Ψ)) == [
+        (1, "AC")  (1, "AA")
+        (0, "AC")  (0, "AA")]
+    @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=1.) == false
+    
+    frequency_table = Dict(
+        (1, "CC") => 0.125,
+        (1, "AA") => 0.25,
+        (0, "AA") => 0.25,
+        (0, "AC") => 0.25,
+        (1, "AC") => 0.125,
+        (2, "AA") => 0.25
+    )
+    @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.3) == false
+    @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.1) == true
+
+    Ψ = IATE(
+        outcome = :toto, 
+        treatment_values = (B=(case="AC", control="AA"), A=(case=1, control=0), C=(control=0, case=2)), 
+        treatment_confounders = (B=(), A=(), C=())
+    )
+    expected_joint_levels = Set([
+        (1, "AC", 0),
+        (0, "AC", 0),
+        (1, "AA", 0),
+        (0, "AA", 0),
+        (1, "AC", 2),
+        (0, "AC", 2),
+        (1, "AA", 2),
+        (0, "AA", 2)])
+    @test expected_joint_levels == Set(TMLE.joint_levels(Ψ))
+end
+
 end;
 
 true

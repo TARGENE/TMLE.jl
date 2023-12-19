@@ -20,6 +20,7 @@ import AbstractDifferentiation as AD
 using Graphs
 using MetaGraphsNext
 using Combinatorics
+using SplitApplyCombine
 
 # #############################################################################
 # EXPORTS
@@ -28,7 +29,7 @@ using Combinatorics
 export SCM, StaticSCM, add_equations!, add_equation!, parents, vertices
 export CM, ATE, IATE
 export AVAILABLE_ESTIMANDS
-export generateATEs
+export generateATEs, generateIATEs
 export TMLEE, OSE, NAIVE
 export ComposedEstimand
 export var, estimate, OneSampleTTest, OneSampleZTest, OneSampleHotellingT2Test,pvalue, confint, emptyIC
