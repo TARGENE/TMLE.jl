@@ -1,7 +1,7 @@
 name = "TMLE"
 uuid = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
 authors = ["Olivier Labayle"]
-version = "0.13.1"
+version = "0.14.0"
 
 [deps]
 AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
@@ -55,7 +55,7 @@ PrettyTables = "2.2"
 TableOperations = "1.2"
 Tables = "1.6"
 YAML = "0.4.9"
-Zygote = "0.6"
+Zygote = "0.6.69"
 SplitApplyCombine = "1.2.2"
 julia = "1.6, 1.7, 1"
 

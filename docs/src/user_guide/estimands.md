@@ -119,9 +119,9 @@ statisticalΨ = ATE(
 )
 ```
 
-- generating all ``ATEs``
+- Factorial Treatments
 
-It is possible to generate all possible ATEs from a set of treatment values or from a dataset. For that purpose, use the `generateATEs` function.
+It is possible to generate a `ComposedEstimand` containing all linearly independent IATEs from a set of treatment values or from a dataset. For that purpose, use the `factorialATE` function.
 
 ## The Interaction Average Treatment Effect
 
@@ -143,7 +143,7 @@ IATE_{0 \rightarrow 1, 0 \rightarrow 1}(P) = \mathbb{E}[Y|do(T_1=1, T_2=1)] - \m
 - Statistical Estimand (via backdoor adjustment):
 
 ```math
-IATE_{0 \rightarrow 1, 0 \rightarrow 1}(P) = \mathbb{E}_{\textbf{W}}[\mathbb{E}[Y|T_1=1, T_2=1, \textbf{W}]] - \mathbb{E}[Y|T_1=1, T_2=0, \textbf{W}]  \\
+IATE_{0 \rightarrow 1, 0 \rightarrow 1}(P) = \mathbb{E}_{\textbf{W}}[\mathbb{E}[Y|T_1=1, T_2=1, \textbf{W}] - \mathbb{E}[Y|T_1=1, T_2=0, \textbf{W}]  \\
 - \mathbb{E}[Y|T_1=0, T_2=1, \textbf{W}] + \mathbb{E}[Y|T_1=0, T_2=0, \textbf{W}]] 
 ```
 
@@ -179,6 +179,10 @@ statisticalΨ = IATE(
     treatment_confounders=(T₁=[:W], T₂=[:W])
 )
 ```
+
+- Factorial Treatments
+
+It is possible to generate a `ComposedEstimand` containing all linearly independent IATEs from a set of treatment values or from a dataset. For that purpose, use the `factorialIATE` function.
 
 ## Composed Estimands
 

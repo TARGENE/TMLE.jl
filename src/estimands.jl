@@ -136,3 +136,11 @@ nuisance_functions_iterator(Ψ::ComposedEstimand) =
 
 identify(method::AdjustmentMethod, Ψ::ComposedEstimand, scm) = 
     ComposedEstimand(Ψ.f, Tuple(identify(method, arg, scm) for arg ∈ Ψ.args))
+
+function string_repr(estimand::ComposedEstimand)
+    string(
+        "Composed Estimand applying function `", estimand.f, "` to: \n",
+        "-----------------\n- ",
+        join((string_repr(arg) for arg in estimand.args), "\n- ")
+    )
+end

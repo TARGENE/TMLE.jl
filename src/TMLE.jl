@@ -29,7 +29,7 @@ using SplitApplyCombine
 export SCM, StaticSCM, add_equations!, add_equation!, parents, vertices
 export CM, ATE, IATE
 export AVAILABLE_ESTIMANDS
-export generateATEs, generateIATEs
+export factorialATE, factorialIATE
 export TMLEE, OSE, NAIVE
 export ComposedEstimand
 export var, estimate, OneSampleTTest, OneSampleZTest, OneSampleHotellingT2Test,pvalue, confint, emptyIC

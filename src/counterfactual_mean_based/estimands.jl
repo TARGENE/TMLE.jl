@@ -231,9 +231,11 @@ unique_non_missing(dataset, colname) = unique(skipmissing(Tables.getcolumn(datas
 
 unique_treatment_values(dataset, colnames) =(;(colname => unique_non_missing(dataset, colname) for colname in colnames)...)
 
-get_treatments_contrasts(treatments_unique_values) = [collect(Combinatorics.combinations(treatments_unique_values[T], 2)) for T in keys(treatments_unique_values)]
 
-function generateComposedEstimandFromContrasts(
+get_transitive_treatments_contrasts(treatments_unique_values) =
+    [collect(zip(vals[1:end-1], vals[2:end])) for vals in values(treatments_unique_values)]
+
+function generateFactorialEstimandFromContrasts(
     constructor,
     treatments_levels::NamedTuple{names}, 
     outcome; 
@@ -242,7 +244,7 @@ function generateComposedEstimandFromContrasts(
     freq_table=nothing,
     positivity_constraint=nothing
     ) where names
-    treatments_contrasts = get_treatments_contrasts(treatments_levels)
+    treatments_contrasts = get_transitive_treatments_contrasts(treatments_levels)
     components = []
     for combo ∈ Iterators.product(treatments_contrasts...)
         treatments_contrast = [NamedTuple{(:control, :case)}(treatment_control_case) for treatment_control_case ∈ combo]
@@ -262,18 +264,14 @@ end
 GENERATE_DOCSTRING = """
 The components of this estimand are generated from the treatment variables contrasts.
 For example, consider two treatment variables T₁ and T₂ each taking three possible values (0, 1, 2). 
-For each treatment variable, the marginal contrasts are defined by (0 → 1, 1 → 2, 0 → 2), there are thus 
-3 x 3 = 9 joint contrasts to be generated:
+For each treatment variable, the marginal transitive contrasts are defined by (0 → 1, 1 → 2). Note that (0 → 2) or (1 → 0) need not 
+be considered because they are linearly dependent on the other contrasts. Then, the cartesian product of treatment contrasts is taken,
+resulting in a 2 x 2 = 4 dimensional joint estimand:
 
 - (T₁: 0 → 1, T₂: 0 → 1)
 - (T₁: 0 → 1, T₂: 1 → 2)
-- (T₁: 0 → 1, T₂: 0 → 2)
 - (T₁: 1 → 2, T₂: 0 → 1)
 - (T₁: 1 → 2, T₂: 1 → 2)
-- (T₁: 1 → 2, T₂: 0 → 2)
-- (T₁: 0 → 2, T₂: 0 → 1)
-- (T₁: 0 → 2, T₂: 1 → 2)
-- (T₁: 0 → 2, T₂: 0 → 2)
 
 # Return
 
@@ -287,11 +285,10 @@ A `ComposedEstimand` with causal or statistical components.
 If `nothing`, causal estimands are generated.
 - `outcome_extra_covariates=()`: The generated components will inherit these `outcome_extra_covariates`.
 - `positivity_constraint=nothing`: Only components that pass the positivity constraint are added to the `ComposedEstimand`
-
 """
 
 """
-    generateATEs(
+    factorialATE(
         treatments_levels::NamedTuple{names}, outcome; 
         confounders=nothing, 
         outcome_extra_covariates=(),
@@ -306,23 +303,23 @@ Generate a `ComposedEstimand` of ATEs from the `treatments_levels`. $GENERATE_DO
 To generate a causal composed estimand with 3 components:
 
 ```@example
-generateATEs((T₁ = (0, 1), T₂=(0, 1, 2)), :Y₁)
+factorialATE((T₁ = (0, 1), T₂=(0, 1, 2)), :Y₁)
 ```
 
 To generate a statistical composed estimand with 9 components:
 
 ```@example
-generateATEs((T₁ = (0, 1, 2), T₂=(0, 1, 2)), :Y₁, confounders=[:W₁, :W₂])
+factorialATE((T₁ = (0, 1, 2), T₂=(0, 1, 2)), :Y₁, confounders=[:W₁, :W₂])
 ```
 """
-function generateATEs(
+function factorialATE(
     treatments_levels::NamedTuple{names}, outcome; 
     confounders=nothing, 
     outcome_extra_covariates=(),
     freq_table=nothing,
     positivity_constraint=nothing
     ) where names
-    return generateComposedEstimandFromContrasts(
+    return generateFactorialEstimandFromContrasts(
         ATE,
         treatments_levels, 
         outcome; 
@@ -334,7 +331,7 @@ function generateATEs(
 end
 
 """
-    generateATEs(dataset, treatments, outcome; 
+    factorialATE(dataset, treatments, outcome; 
         confounders=nothing, 
         outcome_extra_covariates=(),
         positivity_constraint=nothing
@@ -342,14 +339,14 @@ end
 
 Find all unique values for each treatment variable in the dataset and generate all possible ATEs from these values.
 """
-function generateATEs(dataset, treatments, outcome; 
+function factorialATE(dataset, treatments, outcome; 
     confounders=nothing, 
     outcome_extra_covariates=(),
     positivity_constraint=nothing
     )
     treatments_levels = unique_treatment_values(dataset, treatments)
     freq_table = positivity_constraint !== nothing ? frequency_table(dataset, keys(treatments_levels)) : nothing
-    return generateATEs(
+    return factorialATE(
         treatments_levels, 
         outcome; 
         confounders=confounders, 
@@ -360,7 +357,7 @@ function generateATEs(dataset, treatments, outcome;
 end
 
 """
-    generateIATEs(
+    factorialIATE(
         treatments_levels::NamedTuple{names}, outcome; 
         confounders=nothing, 
         outcome_extra_covariates=(),
@@ -368,30 +365,30 @@ end
         positivity_constraint=nothing
     ) where names
 
-Generates a `ComposedEstimand` of Average Interation Effects from `treatments_levels`. $GENERATE_DOCSTRING
+Generates a `ComposedEstimand` of IATE from `treatments_levels`. $GENERATE_DOCSTRING
 
 # Example:
 
 To generate a causal composed estimand with 3 components:
 
 ```@example
-generateIATEs((T₁ = (0, 1), T₂=(0, 1, 2)), :Y₁)
+factorialIATE((T₁ = (0, 1), T₂=(0, 1, 2)), :Y₁)
 ```
 
 To generate a statistical composed estimand with 9 components:
 
 ```@example
-generateIATEs((T₁ = (0, 1, 2), T₂=(0, 1, 2)), :Y₁, confounders=[:W₁, :W₂])
+factorialIATE((T₁ = (0, 1, 2), T₂=(0, 1, 2)), :Y₁, confounders=[:W₁, :W₂])
 ```
 """
-function generateIATEs(
+function factorialIATE(
     treatments_levels::NamedTuple{names}, outcome; 
     confounders=nothing, 
     outcome_extra_covariates=(),
     freq_table=nothing,
     positivity_constraint=nothing
     ) where names
-    return generateComposedEstimandFromContrasts(
+    return generateFactorialEstimandFromContrasts(
         IATE,
         treatments_levels, 
         outcome; 
@@ -403,23 +400,23 @@ function generateIATEs(
 end
 
 """
-    generateIATEs(dataset, treatments, outcome; 
+    factorialIATE(dataset, treatments, outcome; 
         confounders=nothing, 
         outcome_extra_covariates=(),
         positivity_constraint=nothing
     )
 
-Finds treatments levels from the dataset and generates a `ComposedEstimand` of Average Interation Effects from them 
-(see [`generateIATEs(treatments_levels, outcome; confounders=nothing, outcome_extra_covariates=())`](@ref)).
+Finds treatments levels from the dataset and generates a `ComposedEstimand` of IATE from them 
+(see [`factorialIATE(treatments_levels, outcome; confounders=nothing, outcome_extra_covariates=())`](@ref)).
 """
-function generateIATEs(dataset, treatments, outcome; 
+function factorialIATE(dataset, treatments, outcome; 
     confounders=nothing, 
     outcome_extra_covariates=(),
     positivity_constraint=nothing
     )
     treatments_levels = unique_treatment_values(dataset, treatments)
     freq_table = positivity_constraint !== nothing ? frequency_table(dataset, keys(treatments_levels)) : nothing
-    return generateIATEs(
+    return factorialIATE(
         treatments_levels, 
         outcome; 
         confounders=confounders, 
