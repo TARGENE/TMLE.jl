@@ -12,7 +12,7 @@ using YAML
 
 function regression_tests(tmle_result)
     @test estimate(tmle_result) ≈ -0.185533 atol = 1e-6
-    l, u = confint(OneSampleTTest(tmle_result))
+    l, u = confint(significance_test(tmle_result))
     @test l ≈ -0.279246 atol = 1e-6
     @test u ≈ -0.091821 atol = 1e-6
     @test OneSampleZTest(tmle_result) isa OneSampleZTest

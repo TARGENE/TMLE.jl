@@ -14,7 +14,6 @@ using Distributions
 using Zygote
 using LogExpFunctions
 using PrecompileTools
-using PrettyTables
 using Random
 import AbstractDifferentiation as AD
 using Graphs
@@ -32,7 +31,8 @@ export AVAILABLE_ESTIMANDS
 export factorialATE, factorialIATE
 export TMLEE, OSE, NAIVE
 export ComposedEstimand
-export var, estimate, OneSampleTTest, OneSampleZTest, OneSampleHotellingT2Test,pvalue, confint, emptyIC
+export var, estimate, pvalue, confint, emptyIC
+export significance_test, OneSampleTTest, OneSampleZTest, OneSampleHotellingT2Test
 export compose
 export TreatmentTransformer, with_encoder, encoder
 export BackdoorAdjustment, identify
