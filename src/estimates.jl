@@ -109,18 +109,6 @@ to_matrix(x) = reduce(hcat, x)
 ComposedEstimate(;estimand, estimates, estimate, cov, n) =
     ComposedEstimate(estimand, Tuple(estimates), collect(estimate), to_matrix(cov), n)
 
-
-function Base.show(io::IO, ::MIME"text/plain", est::ComposedEstimate)
-    if length(est.cov) !== 1
-        println(io, string("Estimate: ", estimate(est), "\nVariance: \n", var(est)))
-    else
-        testresult = OneSampleTTest(est)
-        data = [estimate(est) confint(testresult) pvalue(testresult);]
-        headers = ["Estimate", "95% Confidence Interval", "P-value"]
-        pretty_table(io, data;header=headers)
-    end
-end
-
 """
     Distributions.estimate(r::ComposedEstimate)
 
@@ -169,6 +157,15 @@ Performs a T test on the ComposedEstimate.
 function HypothesisTests.OneSampleZTest(estimate::ComposedEstimate, Ψ₀=0) 
     @assert length(estimate.estimate) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
     return OneSampleZTest(estimate.estimate[1], sqrt(estimate.cov[1]), estimate.n, Ψ₀)
+end
+
+function significance_test(estimate::ComposedEstimate, Ψ₀=zeros(size(estimate.estimate, 1)))
+    if length(estimate.estimate) == 1
+        Ψ₀ = Ψ₀ isa AbstractArray ? first(Ψ₀) : Ψ₀
+        return OneSampleTTest(estimate, Ψ₀)
+    else
+        return OneSampleHotellingT2Test(estimate, Ψ₀)
+    end
 end
 
 function emptyIC(estimate::ComposedEstimate, pval_threshold)

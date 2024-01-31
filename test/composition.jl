@@ -200,7 +200,7 @@ end
     ose = OSE(models=TMLE.default_models(G=LogisticClassifier(), Q_continuous=LinearRegressor()))
     jointEstimate, _ = ose(jointIATE, dataset, verbosity=0)
 
-    testres = OneSampleHotellingT2Test(jointEstimate)
+    testres = significance_test(jointEstimate)
     @test testres.x̄ ≈ jointEstimate.estimate
     @test pvalue(testres) < 1e-10
 
@@ -213,7 +213,7 @@ end
     maybe_emptied_estimate = TMLE.emptyIC(jointEstimate, pval_threshold=pval_threshold)
     n_empty = 0
     for i in 1:3
-        pval = pvalue(OneSampleTTest(jointEstimate.estimates[i]))
+        pval = pvalue(significance_test(jointEstimate.estimates[i]))
         maybe_emptied_IC = maybe_emptied_estimate.estimates[i].IC
         if pval > pval_threshold
             @test maybe_emptied_IC == []

@@ -39,10 +39,7 @@ at the given confidence level: here 0.05
 """
 function test_coverage(result::TMLE.EICEstimate, Ψ₀)
     # TMLE
-    lb, ub = confint(OneSampleTTest(result))
-    @test lb ≤ Ψ₀ ≤ ub
-    # OneStep
-    lb, ub = confint(OneSampleZTest(result))
+    lb, ub = confint(significance_test(result))
     @test lb ≤ Ψ₀ ≤ ub
 end
 

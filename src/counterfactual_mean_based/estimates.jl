@@ -65,13 +65,6 @@ end
 
 emptyIC(estimate; pval_threshold=nothing) = emptyIC(estimate, pval_threshold)
 
-
-function Base.show(io::IO, ::MIME"text/plain", est::EICEstimate)
-    testresult = OneSampleTTest(est)
-    data = [estimate(est) confint(testresult) pvalue(testresult);]
-    pretty_table(io, data;header=["Estimate", "95% Confidence Interval", "P-value"])
-end
-
 """
     Distributions.estimate(r::EICEstimate)
 
@@ -104,3 +97,7 @@ Performs a T test on the EICEstimate.
 HypothesisTests.OneSampleTTest(est::EICEstimate, Ψ₀=0) = 
     OneSampleTTest(est.estimate, est.std, est.n, Ψ₀)
 
+significance_test(estimate::EICEstimate, Ψ₀=0) = OneSampleTTest(estimate, Ψ₀)
+
+Base.show(io::IO, mime::MIME"text/plain", est::Union{EICEstimate, ComposedEstimand}) =
+    show(io, mime, significance_test(est))
