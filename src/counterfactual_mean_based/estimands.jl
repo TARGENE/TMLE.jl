@@ -227,10 +227,20 @@ function identify(method::BackdoorAdjustment, causal_estimand::T, scm::SCM) wher
     )
 end
 
-unique_non_missing(dataset, colname) = unique(skipmissing(Tables.getcolumn(dataset, colname)))
+function get_treatment_values(dataset, colname)
+    counts = groupcount(skipmissing(Tables.getcolumn(dataset, colname)))
+    sorted_counts = sort(collect(pairs(counts)), by = x -> x.second, rev=true)
+    return first.(sorted_counts)
+end
 
-unique_treatment_values(dataset, colnames) =(;(colname => unique_non_missing(dataset, colname) for colname in colnames)...)
+"""
+    unique_treatment_values(dataset, colnames)
 
+We ensure that the values are sorted by frequency to maximize 
+the number of estimands passing the positivity constraint.
+"""
+unique_treatment_values(dataset, colnames) =
+    (;(colname => get_treatment_values(dataset, colname) for colname in colnames)...)
 
 get_transitive_treatments_contrasts(treatments_unique_values) =
     [collect(zip(vals[1:end-1], vals[2:end])) for vals in values(treatments_unique_values)]

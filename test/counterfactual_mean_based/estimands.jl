@@ -2,7 +2,6 @@ module TestEstimands
 
 using Test
 using TMLE
-
 @testset "Test StatisticalCMCompositeEstimand" begin
     dataset = (
         W  = [1, 2, 3, 4, 5, 6, 7, 8],
@@ -208,6 +207,19 @@ end
     treatments_unique_values = (T₁=(1, 0, 2), T₂=["AC", "CC"])
     @test TMLE.get_transitive_treatments_contrasts(treatments_unique_values) == [[(1, 0), (0, 2)], [("AC", "CC")]]
 end
+
+@testset "Test unique_treatment_values" begin
+    dataset = (
+        T₁ = ["AC", missing, "AC", "CC", "CC", "AA", "CC"],
+        T₂ = [1, missing, 1, 2, 2, 3, 2]
+    )
+    # most frequent to least frequent
+    @test TMLE.unique_treatment_values(dataset, (:T₁, :T₂)) == (
+        T₁ = ["CC", "AC", "AA"],
+        T₂ = [2, 1, 3],
+    )
+end
+
 @testset "Test factorialATE" begin
     dataset = (
         T₁ = [0, 1, 2, missing], 
