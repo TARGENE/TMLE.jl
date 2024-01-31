@@ -104,5 +104,5 @@ Performs a TTest
 """
 significance_test(estimate::EICEstimate, Ψ₀=0) = OneSampleTTest(estimate, Ψ₀)
 
-Base.show(io::IO, mime::MIME"text/plain", est::Union{EICEstimate, ComposedEstimand}) =
+Base.show(io::IO, mime::MIME"text/plain", est::Union{EICEstimate, ComposedEstimate}) =
     show(io, mime, significance_test(est))
