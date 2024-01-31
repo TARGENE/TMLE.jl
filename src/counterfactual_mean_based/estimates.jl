@@ -97,6 +97,11 @@ Performs a T test on the EICEstimate.
 HypothesisTests.OneSampleTTest(est::EICEstimate, Ψ₀=0) = 
     OneSampleTTest(est.estimate, est.std, est.n, Ψ₀)
 
+"""
+    significance_test(estimate::EICEstimate, Ψ₀=0)
+
+Performs a TTest
+"""
 significance_test(estimate::EICEstimate, Ψ₀=0) = OneSampleTTest(estimate, Ψ₀)
 
 Base.show(io::IO, mime::MIME"text/plain", est::Union{EICEstimate, ComposedEstimand}) =

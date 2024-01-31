@@ -159,6 +159,11 @@ function HypothesisTests.OneSampleZTest(estimate::ComposedEstimate, Ψ₀=0)
     return OneSampleZTest(estimate.estimate[1], sqrt(estimate.cov[1]), estimate.n, Ψ₀)
 end
 
+"""
+    significance_test(estimate::ComposedEstimate, Ψ₀=zeros(size(estimate.estimate, 1)))
+
+Performs a TTest if the estimate is one dimensional and a HotellingT2Test otherwise.
+"""
 function significance_test(estimate::ComposedEstimate, Ψ₀=zeros(size(estimate.estimate, 1)))
     if length(estimate.estimate) == 1
         Ψ₀ = Ψ₀ isa AbstractArray ? first(Ψ₀) : Ψ₀
