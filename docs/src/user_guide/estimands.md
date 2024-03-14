@@ -121,7 +121,7 @@ statisticalΨ = ATE(
 
 - Factorial Treatments
 
-It is possible to generate a `ComposedEstimand` containing all linearly independent IATEs from a set of treatment values or from a dataset. For that purpose, use the `factorialATE` function.
+It is possible to generate a `ComposedEstimand` containing all linearly independent IATEs from a set of treatment values or from a dataset. For that purpose, use the `factorialEstimand` function.
 
 ## The Interaction Average Treatment Effect
 
@@ -182,7 +182,7 @@ statisticalΨ = IATE(
 
 - Factorial Treatments
 
-It is possible to generate a `ComposedEstimand` containing all linearly independent IATEs from a set of treatment values or from a dataset. For that purpose, use the `factorialIATE` function.
+It is possible to generate a `ComposedEstimand` containing all linearly independent IATEs from a set of treatment values or from a dataset. For that purpose, use the `factorialEstimand` function.
 
 ## Composed Estimands
 

@@ -242,36 +242,20 @@ the number of estimands passing the positivity constraint.
 unique_treatment_values(dataset, colnames) =
     (;(colname => get_treatment_values(dataset, colname) for colname in colnames)...)
 
-get_transitive_treatments_contrasts(treatments_unique_values) =
+"""
+Generated from transitive treatment switches to create independent estimands.
+"""
+get_treatment_settings(::Union{typeof(ATE), typeof(IATE)}, treatments_unique_values) =
     [collect(zip(vals[1:end-1], vals[2:end])) for vals in values(treatments_unique_values)]
 
-function generateFactorialEstimandFromContrasts(
-    constructor,
-    treatments_levels::NamedTuple{names}, 
-    outcome; 
-    confounders=nothing, 
-    outcome_extra_covariates=(),
-    freq_table=nothing,
-    positivity_constraint=nothing
-    ) where names
-    treatments_contrasts = get_transitive_treatments_contrasts(treatments_levels)
-    components = []
-    for combo ∈ Iterators.product(treatments_contrasts...)
-        treatments_contrast = [NamedTuple{(:control, :case)}(treatment_control_case) for treatment_control_case ∈ combo]
-        Ψ = constructor(
-            outcome=outcome,
-            treatment_values=NamedTuple{names}(treatments_contrast),
-            treatment_confounders = confounders,
-            outcome_extra_covariates=outcome_extra_covariates
-        )
-        if satisfies_positivity(Ψ, freq_table; positivity_constraint=positivity_constraint)
-            push!(components, Ψ)
-        end
-    end
-    return ComposedEstimand(joint_estimand, Tuple(components))
-end
+get_treatment_settings(::typeof(CM), treatments_unique_values) =
+    values(treatments_unique_values)
 
-GENERATE_DOCSTRING = """
+get_treatment_setting(combo::Tuple{Vararg{Tuple}}) = [NamedTuple{(:control, :case)}(treatment_control_case) for treatment_control_case ∈ combo]
+
+get_treatment_setting(combo) = collect(combo)
+
+FACTORIAL_DOCSTRING = """
 The components of this estimand are generated from the treatment variables contrasts.
 For example, consider two treatment variables T₁ and T₂ each taking three possible values (0, 1, 2). 
 For each treatment variable, the marginal transitive contrasts are defined by (0 → 1, 1 → 2). Note that (0 → 2) or (1 → 0) need not 
@@ -295,145 +279,152 @@ A `ComposedEstimand` with causal or statistical components.
 If `nothing`, causal estimands are generated.
 - `outcome_extra_covariates=()`: The generated components will inherit these `outcome_extra_covariates`.
 - `positivity_constraint=nothing`: Only components that pass the positivity constraint are added to the `ComposedEstimand`
+- `verbosity=1`: Verbosity level.
 """
 
 """
-    factorialATE(
-        treatments_levels::NamedTuple{names}, outcome; 
+    factorialEstimand(
+        constructor::Union{typeof(ATE), typeof(IATE)},
+        treatments_levels::NamedTuple{names}, 
+        outcome; 
         confounders=nothing, 
         outcome_extra_covariates=(),
         freq_table=nothing,
-        positivity_constraint=nothing
-    ) where names
+        positivity_constraint=nothing,
+        verbosity=1
+        ) where names
 
-Generate a `ComposedEstimand` of ATEs from the `treatments_levels`. $GENERATE_DOCSTRING
+Generate a `ComposedEstimand` from `treatments_levels`. $FACTORIAL_DOCSTRING
 
-# Example:
+# Examples:
 
-To generate a causal composed estimand with 3 components:
-
-```@example
-factorialATE((T₁ = (0, 1), T₂=(0, 1, 2)), :Y₁)
-```
-
-To generate a statistical composed estimand with 9 components:
+Average Treatment Effects:
 
 ```@example
-factorialATE((T₁ = (0, 1, 2), T₂=(0, 1, 2)), :Y₁, confounders=[:W₁, :W₂])
+factorialEstimand(ATE, (T₁ = (0, 1), T₂=(0, 1, 2)), :Y₁)
 ```
+
+```@example
+factorial(ATE, (T₁ = (0, 1, 2), T₂=(0, 1, 2)), :Y₁, confounders=[:W₁, :W₂])
+```
+
+Interactions:
+
+```@example
+factorialEstimand(IATE, (T₁ = (0, 1), T₂=(0, 1, 2)), :Y₁)
+```
+
+```@example
+factorialEstimand(IATE, (T₁ = (0, 1, 2), T₂=(0, 1, 2)), :Y₁, confounders=[:W₁, :W₂])
 """
-function factorialATE(
-    treatments_levels::NamedTuple{names}, outcome; 
+function factorialEstimand(
+    constructor::Union{typeof(CM), typeof(ATE), typeof(IATE)},
+    treatments_levels::NamedTuple{names}, 
+    outcome; 
     confounders=nothing, 
     outcome_extra_covariates=(),
     freq_table=nothing,
-    positivity_constraint=nothing
+    positivity_constraint=nothing,
+    verbosity=1
     ) where names
-    return generateFactorialEstimandFromContrasts(
-        ATE,
-        treatments_levels, 
-        outcome; 
-        confounders=confounders, 
-        outcome_extra_covariates=outcome_extra_covariates,
-        freq_table=freq_table,
-        positivity_constraint=positivity_constraint
-    )
+    treatments_settings = get_treatment_settings(constructor, treatments_levels)
+    components = []
+    for combo ∈ Iterators.product(treatments_settings...)
+        Ψ = constructor(
+            outcome=outcome,
+            treatment_values=NamedTuple{names}(get_treatment_setting(combo)),
+            treatment_confounders = confounders,
+            outcome_extra_covariates=outcome_extra_covariates
+        )
+        if satisfies_positivity(Ψ, freq_table; positivity_constraint=positivity_constraint)
+            push!(components, Ψ)
+        else
+            verbosity > 0 && @warn("Sub estimand", Ψ, " did not pass the positivity constraint, skipped.")
+        end
+    end
+    return ComposedEstimand(joint_estimand, Tuple(components))
 end
 
 """
-    factorialATE(dataset, treatments, outcome; 
-        confounders=nothing, 
-        outcome_extra_covariates=(),
-        positivity_constraint=nothing
-    )
-
-Find all unique values for each treatment variable in the dataset and generate all possible ATEs from these values.
-"""
-function factorialATE(dataset, treatments, outcome; 
+factorialEstimand(
+    constructor::Union{typeof(ATE), typeof(IATE)},
+    dataset, treatments, outcome; 
     confounders=nothing, 
     outcome_extra_covariates=(),
-    positivity_constraint=nothing
+    positivity_constraint=nothing,
+    verbosity=1
+    )
+
+Identifies `treatment_levels` from `dataset` and construct the 
+factorialEstimand from it.
+"""
+function factorialEstimand(
+    constructor::Union{typeof(CM), typeof(ATE), typeof(IATE)},
+    dataset, treatments, outcome; 
+    confounders=nothing, 
+    outcome_extra_covariates=(),
+    positivity_constraint=nothing,
+    verbosity=1
     )
     treatments_levels = unique_treatment_values(dataset, treatments)
     freq_table = positivity_constraint !== nothing ? frequency_table(dataset, keys(treatments_levels)) : nothing
-    return factorialATE(
+    return factorialEstimand(
+        constructor,
         treatments_levels, 
         outcome; 
         confounders=confounders, 
         outcome_extra_covariates=outcome_extra_covariates, 
         freq_table=freq_table,
-        positivity_constraint=positivity_constraint
+        positivity_constraint=positivity_constraint,
+        verbosity=verbosity
     )
 end
 
 """
-    factorialIATE(
-        treatments_levels::NamedTuple{names}, outcome; 
-        confounders=nothing, 
-        outcome_extra_covariates=(),
-        freq_table=nothing,
-        positivity_constraint=nothing
-    ) where names
-
-Generates a `ComposedEstimand` of IATE from `treatments_levels`. $GENERATE_DOCSTRING
-
-# Example:
-
-To generate a causal composed estimand with 3 components:
-
-```@example
-factorialIATE((T₁ = (0, 1), T₂=(0, 1, 2)), :Y₁)
-```
-
-To generate a statistical composed estimand with 9 components:
-
-```@example
-factorialIATE((T₁ = (0, 1, 2), T₂=(0, 1, 2)), :Y₁, confounders=[:W₁, :W₂])
-```
-"""
-function factorialIATE(
-    treatments_levels::NamedTuple{names}, outcome; 
+factorialEstimands(
+    constructor::Union{typeof(ATE), typeof(IATE)},
+    dataset, treatments, outcomes; 
     confounders=nothing, 
     outcome_extra_covariates=(),
-    freq_table=nothing,
-    positivity_constraint=nothing
-    ) where names
-    return generateFactorialEstimandFromContrasts(
-        IATE,
-        treatments_levels, 
-        outcome; 
-        confounders=confounders, 
-        outcome_extra_covariates=outcome_extra_covariates,
-        freq_table=freq_table,
-        positivity_constraint=positivity_constraint
-    )
-end
-
-"""
-    factorialIATE(dataset, treatments, outcome; 
-        confounders=nothing, 
-        outcome_extra_covariates=(),
-        positivity_constraint=nothing
+    positivity_constraint=nothing,
+    verbosity=1
     )
 
-Finds treatments levels from the dataset and generates a `ComposedEstimand` of IATE from them 
-(see [`factorialIATE(treatments_levels, outcome; confounders=nothing, outcome_extra_covariates=())`](@ref)).
+Identifies `treatment_levels` from `dataset` and a factorialEstimand 
+for each outcome in `outcomes`.
 """
-function factorialIATE(dataset, treatments, outcome; 
+function factorialEstimands(
+    constructor::Union{typeof(CM), typeof(ATE), typeof(IATE)},
+    dataset, treatments, outcomes; 
     confounders=nothing, 
     outcome_extra_covariates=(),
-    positivity_constraint=nothing
+    positivity_constraint=nothing,
+    verbosity=1
     )
+    estimands = []
     treatments_levels = unique_treatment_values(dataset, treatments)
     freq_table = positivity_constraint !== nothing ? frequency_table(dataset, keys(treatments_levels)) : nothing
-    return factorialIATE(
-        treatments_levels, 
-        outcome; 
-        confounders=confounders, 
-        outcome_extra_covariates=outcome_extra_covariates, 
-        freq_table=freq_table,
-        positivity_constraint=positivity_constraint
-    )
+    for outcome in outcomes
+        Ψ = factorialEstimand(
+            constructor,
+            treatments_levels, 
+            outcome; 
+            confounders=confounders, 
+            outcome_extra_covariates=outcome_extra_covariates, 
+            freq_table=freq_table,
+            positivity_constraint=positivity_constraint,
+            verbosity=verbosity-1
+        )
+        if length(Ψ.args) > 0
+            push!(estimands, Ψ)
+        else
+            verbosity > 0 && @warn(string(
+                "ATE for outcome, ", outcome, 
+                " has no component passing the positivity constraint, skipped."
+            ))
+        end
+    end
+    return estimands
 end
 
 joint_levels(Ψ::StatisticalIATE) = Iterators.product(values(Ψ.treatment_values)...)
