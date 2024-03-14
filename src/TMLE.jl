@@ -28,7 +28,7 @@ using SplitApplyCombine
 export SCM, StaticSCM, add_equations!, add_equation!, parents, vertices
 export CM, ATE, IATE
 export AVAILABLE_ESTIMANDS
-export factorialATE, factorialIATE
+export factorialEstimand, factorialEstimands
 export TMLEE, OSE, NAIVE
 export ComposedEstimand
 export var, estimate, pvalue, confint, emptyIC
