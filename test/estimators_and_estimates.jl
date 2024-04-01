@@ -20,16 +20,16 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
     estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
     # Fitting with no cache
     cache = Dict()
-    estimate = @test_logs (:info, fit_log) estimator(estimand, dataset; cache=cache, verbosity=verbosity)
+    conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, dataset; cache=cache, verbosity=verbosity)
     expected_features = collect(estimand.parents)
-    @test estimate isa TMLE.MLConditionalDistribution
-    @test fitted_params(estimate.machine).features == expected_features
-    ŷ = predict(estimate, dataset)
-    mach_ŷ = predict(estimate.machine, dataset[!, expected_features])
+    @test conditional_density_estimate isa TMLE.MLConditionalDistribution
+    @test fitted_params(conditional_density_estimate.machine).features == expected_features
+    ŷ = predict(conditional_density_estimate, dataset)
+    mach_ŷ = predict(conditional_density_estimate.machine, dataset[!, expected_features])
     @test all(ŷ[i].prob_given_ref == mach_ŷ[i].prob_given_ref for i in eachindex(ŷ))
-    μ̂ = TMLE.expected_value(estimate, dataset)
+    μ̂ = TMLE.expected_value(conditional_density_estimate, dataset)
     @test μ̂ == [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)]
-    @test all(0. <= x <= 1. for x in TMLE.likelihood(estimate, dataset)) # The pdf is not necessarily between 0 and 1
+    @test all(0. <= x <= 1. for x in TMLE.likelihood(conditional_density_estimate, dataset)) # The pdf is not necessarily between 0 and 1
     # Uses the cache instead of fitting
     new_estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
     @test TMLE.key(new_estimator) == TMLE.key(estimator)
@@ -49,21 +49,21 @@ end
         train_validation_indices
     )
     cache = Dict()
-    estimate = @test_logs (:info, fit_log) estimator(estimand, dataset;cache=cache, verbosity=verbosity)
-    @test estimate isa TMLE.SampleSplitMLConditionalDistribution
+    conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, dataset;cache=cache, verbosity=verbosity)
+    @test conditional_density_estimate isa TMLE.SampleSplitMLConditionalDistribution
     expected_features = collect(estimand.parents)
-    @test all(fitted_params(mach).features == expected_features for mach in estimate.machines)
-    ŷ = predict(estimate, dataset)
-    μ̂ = TMLE.expected_value(estimate, dataset)
+    @test all(fitted_params(mach).features == expected_features for mach in conditional_density_estimate.machines)
+    ŷ = predict(conditional_density_estimate, dataset)
+    μ̂ = TMLE.expected_value(conditional_density_estimate, dataset)
     for foldid in 1:nfolds
         train, val = train_validation_indices[foldid]
         # The predictions on validation samples are made from
         # the machine trained on the train sample
-        ŷfold = predict(estimate.machines[foldid], dataset[val, expected_features])
+        ŷfold = predict(conditional_density_estimate.machines[foldid], dataset[val, expected_features])
         @test [ŷᵢ.prob_given_ref for ŷᵢ ∈ ŷ[val]] == [ŷᵢ.prob_given_ref for ŷᵢ ∈ ŷfold]
         @test μ̂[val] == [ŷᵢ.prob_given_ref[2] for ŷᵢ ∈ ŷfold]
     end
-    @test all(0. <= x <= 1. for x in TMLE.likelihood(estimate, dataset))
+    @test all(0. <= x <= 1. for x in TMLE.likelihood(conditional_density_estimate, dataset))
     # Uses the cache instead of fitting
     new_estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
         LinearBinaryClassifier(),
@@ -98,33 +98,33 @@ end
     μYcat = mean(float(dataset.Ycat))
     # The model is probabilistic continuous, the offset is the mean of 
     # the conditional distribution
-    distr_estimate = TMLE.MLConditionalDistributionEstimator(ConstantRegressor())(
+    conditional_density_estimate = TMLE.MLConditionalDistributionEstimator(ConstantRegressor())(
         TMLE.ConditionalDistribution(:Ycont, [:W, :T]),
         dataset,
         verbosity=0
     )
-    offset = TMLE.compute_offset(distr_estimate, dataset)
-    @test offset == mean.(predict(distr_estimate, dataset))
+    offset = TMLE.compute_offset(conditional_density_estimate, dataset)
+    @test offset == mean.(predict(conditional_density_estimate, dataset))
     @test offset == repeat([μYcont], 7)
     # The model is deterministic, the offset is simply the output 
     # of the predict function which is assumed to correspond to the mean
     # if the squared loss was optimized for by the underlying model
-    distr_estimate = TMLE.MLConditionalDistributionEstimator(DeterministicConstantRegressor())(
+    conditional_density_estimate = TMLE.MLConditionalDistributionEstimator(DeterministicConstantRegressor())(
         TMLE.ConditionalDistribution(:Ycont, [:W, :T]),
         dataset,
         verbosity=0
     )
-    offset = TMLE.compute_offset(distr_estimate, dataset)
-    @test offset == predict(distr_estimate, dataset)
+    offset = TMLE.compute_offset(conditional_density_estimate, dataset)
+    @test offset == predict(conditional_density_estimate, dataset)
     @test offset == repeat([μYcont], 7)
     # The model is probabilistic binary, the offset is the logit
     # of the mean of the conditional distribution
-    distr_estimate = TMLE.MLConditionalDistributionEstimator(ConstantClassifier())(
+    conditional_density_estimate = TMLE.MLConditionalDistributionEstimator(ConstantClassifier())(
         TMLE.ConditionalDistribution(:Ycat, [:W, :T]),
         dataset,
         verbosity=0
     )
-    offset = TMLE.compute_offset(distr_estimate, dataset)
+    offset = TMLE.compute_offset(conditional_density_estimate, dataset)
     @test offset == repeat([logit(μYcat)], 7)
 end
 

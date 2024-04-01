@@ -37,10 +37,8 @@ function binary_outcome_binary_treatment_pb(;n=100)
 
     # Respect the Tables.jl interface and convert types
     W = float(W)
-    T₁ = categorical(T₁)
-    T₂ = categorical(T₂)
-    Y = categorical(y)
-    dataset = (T₁=T₁, T₂=T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], Y=Y)
+    dataset = (T₁=T₁, T₂=T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], Y=y)
+    dataset = coerce(dataset, autotype(dataset))
     # Compute the theoretical IATE
     Wcomb = [1 1 1;
             1 1 0;
@@ -181,8 +179,8 @@ end
     # When Q is misspecified but G is well specified
     models = (
         Y = with_encoder(ConstantClassifier()),
-        T₁ = LogisticClassifier(lambda=0),
-        T₂ = LogisticClassifier(lambda=0),
+        T₁ = with_encoder(LogisticClassifier(lambda=0)),
+        T₂ = with_encoder(LogisticClassifier(lambda=0)),
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -196,8 +194,8 @@ end
     # When Q is well specified  but G is misspecified
     models = (
         Y = with_encoder(LogisticClassifier(lambda=0)),
-        T₁ = ConstantClassifier(),
-        T₂ = ConstantClassifier(),
+        T₁ = with_encoder(ConstantClassifier()),
+        T₂ = with_encoder(ConstantClassifier()),
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -225,8 +223,8 @@ end
     # When Q is misspecified but G is well specified
     models = (
         Y = with_encoder(MLJModels.DeterministicConstantRegressor()),
-        T₁ = LogisticClassifier(lambda=0),
-        T₂ = LogisticClassifier(lambda=0),
+        T₁ = with_encoder(LogisticClassifier(lambda=0)),
+        T₂ = with_encoder(LogisticClassifier(lambda=0)),
     )
 
     dr_estimators = double_robust_estimators(models)
@@ -241,8 +239,8 @@ end
     # When Q is well specified  but G is misspecified
     models = (
         Y = with_encoder(cont_interacter),
-        T₁ = ConstantClassifier(),
-        T₂ = ConstantClassifier(),
+        T₁ = with_encoder(ConstantClassifier()),
+        T₂ = with_encoder(ConstantClassifier()),
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -266,8 +264,8 @@ end
     # When Q is misspecified but G is well specified
     models = (
         Y = with_encoder(ConstantClassifier()),
-        T₁ = LogisticClassifier(lambda=0),
-        T₂ = LogisticClassifier(lambda=0)
+        T₁ = with_encoder(LogisticClassifier(lambda=0)),
+        T₂ = with_encoder(LogisticClassifier(lambda=0))
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -282,8 +280,8 @@ end
     # When Q is well specified but G is misspecified
     models = (
         Y = with_encoder(cat_interacter),
-        T₁ = ConstantClassifier(),
-        T₂ = ConstantClassifier(),
+        T₁ = with_encoder(ConstantClassifier()),
+        T₂ = with_encoder(ConstantClassifier()),
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)

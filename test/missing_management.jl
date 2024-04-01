@@ -8,7 +8,11 @@ using TMLE
 using CategoricalArrays
 using DataFrames
 
-include("helper_fns.jl")
+PKG_DIR = pkgdir(TMLE)
+
+TEST_DIR = joinpath(PKG_DIR, "test")
+
+include(joinpath(TEST_DIR, "helper_fns.jl"))
 
 function dataset_with_missing_and_ordered_treatment(;n=1000)
     rng = StableRNG(123)

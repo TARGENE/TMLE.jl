@@ -46,7 +46,7 @@ function indicator_values(indicators, T)
     return indic
 end
 
-expected_value(ŷ::UnivariateFiniteVector{Multiclass{2}}) = pdf.(ŷ, levels(first(ŷ))[2])
+expected_value(ŷ::UnivariateFiniteVector{<:Union{OrderedFactor{2}, Multiclass{2}}}) = pdf.(ŷ, levels(first(ŷ))[2])
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
@@ -71,7 +71,7 @@ end
 default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier(), encoder=encoder()) = (
     Q_binary_default = with_encoder(Q_binary, encoder=encoder),
     Q_continuous_default = with_encoder(Q_continuous, encoder=encoder),
-    G_default = G
+    G_default = with_encoder(G)
 )
 
 is_binary(dataset, columnname) = Set(skipmissing(Tables.getcolumn(dataset, columnname))) == Set([0, 1])
