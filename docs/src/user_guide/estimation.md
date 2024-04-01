@@ -66,12 +66,7 @@ Drawing from the example dataset and `SCM` from the Walk Through section, we can
     treatment_confounders=(T₁=[:W₁₁, :W₁₂],),
     outcome_extra_covariates=[:C]
 )
-models = (
-    Y=with_encoder(LinearRegressor()), 
-    T₁=LogisticClassifier(),
-    T₂=LogisticClassifier(),
-)
-tmle = TMLEE(models=models)
+tmle = TMLEE()
 result₁, cache = tmle(Ψ₁, dataset);
 result₁
 nothing # hide

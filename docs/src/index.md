@@ -67,8 +67,7 @@ The Average Treatment Effect of ``T`` on ``Y`` confounded by ``W`` is defined as
 3. An estimator: here a Targeted Maximum Likelihood Estimator (TMLE).
 
 ```@example quick-start
-models = (Y=with_encoder(LinearRegressor()), T = LogisticClassifier())
-tmle = TMLEE(models=models)
+tmle = TMLEE()
 result, _ = tmle(Ψ, dataset, verbosity=0);
 result
 ```
