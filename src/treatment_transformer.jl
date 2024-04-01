@@ -13,7 +13,10 @@ Treatments in TMLE are represented by `CategoricalArrays`. If a treatment column
 has type `OrderedFactor`, then its integer representation is used, make sure that 
 the levels correspond to your expectations. All other columns are one-hot encoded.
 """
-TreatmentTransformer(;encoder=encoder()) = TreatmentTransformer(encoder)
+function TreatmentTransformer(;encoder=encoder())
+    Base.depwarn("The TreatmentTransformer is deprecated and will be removed in future version, it has been replaced by MLJModels.ContinuousEncoder.", :TreatmentTransformer, force=true)
+    TreatmentTransformer(encoder)
+end
 
 MLJBase.fit(model::TreatmentTransformer, verbosity::Int, X) =
     MLJBase.fit(model.encoder, verbosity, X)
@@ -43,4 +46,4 @@ function MLJBase.transform(model::TreatmentTransformer, fitresult, Xnew)
     return merge(Tables.columntable(Xt), ordered_factors)
 end
 
-with_encoder(model; encoder=encoder()) = Pipeline(TreatmentTransformer(;encoder=encoder),  model)
+with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)

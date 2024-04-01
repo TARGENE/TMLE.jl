@@ -46,7 +46,7 @@ function indicator_values(indicators, T)
     return indic
 end
 
-expected_value(ŷ::UnivariateFiniteVector{Multiclass{2}}) = pdf.(ŷ, levels(first(ŷ))[2])
+expected_value(ŷ::UnivariateFiniteVector{<:Union{OrderedFactor{2}, Multiclass{2}}}) = pdf.(ŷ, levels(first(ŷ))[2])
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
@@ -68,10 +68,34 @@ function last_fluctuation_epsilon(cache)
     return fp.coef
 end
 
-default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier(), encoder=encoder()) = (
-    Q_binary_default = with_encoder(Q_binary, encoder=encoder),
-    Q_continuous_default = with_encoder(Q_continuous, encoder=encoder),
-    G_default = G
+"""
+    default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier()) = (
+
+Create a NamedTuple containing default models to be used by downstream estimators. 
+Each provided model is prepended (in a `MLJ.Pipeline`) with an `MLJ.ContinuousEncoder`.
+
+By default:
+    - Q_binary is a LinearBinaryClassifier
+    - Q_continuous is a LinearRegressor
+    - G is a LinearBinaryClassifier
+
+# Example
+
+The following changes the default `Q_binary` to a `LogisticClassifier` and provides a `RidgeRegressor` for `special_y`. 
+
+```julia
+using MLJLinearModels
+models = (
+    special_y = RidgeRegressor(), 
+    default_models(Q_binary=LogisticClassifier())...
+)
+```
+
+"""
+default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier()) = (
+    Q_binary_default = with_encoder(Q_binary),
+    Q_continuous_default = with_encoder(Q_continuous),
+    G_default = with_encoder(G)
 )
 
 is_binary(dataset, columnname) = Set(skipmissing(Tables.getcolumn(dataset, columnname))) == Set([0, 1])

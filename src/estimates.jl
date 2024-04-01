@@ -76,7 +76,7 @@ function likelihood(estimate::ConditionalDistributionEstimate, dataset)
     return pdf.(ŷ, y)
 end
 
-function compute_offset(ŷ::UnivariateFiniteVector{Multiclass{2}})
+function compute_offset(ŷ::UnivariateFiniteVector{<:Union{OrderedFactor{2}, Multiclass{2}}})
     μy = expected_value(ŷ)
     logit!(μy)
     return μy

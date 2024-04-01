@@ -34,7 +34,7 @@ export ComposedEstimand
 export var, estimate, pvalue, confint, emptyIC
 export significance_test, OneSampleTTest, OneSampleZTest, OneSampleHotellingT2Test
 export compose
-export TreatmentTransformer, with_encoder, encoder
+export default_models, TreatmentTransformer, with_encoder, encoder
 export BackdoorAdjustment, identify
 export last_fluctuation_epsilon
 export Configuration
