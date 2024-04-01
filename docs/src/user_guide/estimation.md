@@ -101,7 +101,7 @@ We could now get an interest in the Average Treatment Effect of `T₂` that we w
     treatment_confounders=(T₂=[:W₂₁, :W₂₂],),
     outcome_extra_covariates=[:C]
 )
-ose = OSE(models=models)
+ose = OSE()
 result₂, cache = ose(Ψ₂, dataset;cache=cache);
 result₂
 nothing # hide
@@ -116,14 +116,14 @@ Both TMLE and OSE can be used with sample-splitting, which, for an additional co
 To leverage sample-splitting, simply specify a `resampling` strategy when building an estimator:
 
 ```@example estimation
-cvtmle = TMLEE(models=models, resampling=CV())
+cvtmle = TMLEE(resampling=CV())
 cvresult₁, _ = cvtmle(Ψ₁, dataset);
 ```
 
 Similarly, one could build CV-OSE:
 
 ```julia
-cvose = OSE(models=models, resampling=CV(nfolds=3))
+cvose = OSE(resampling=CV(nfolds=3))
 ```
 
 ## Caching model fits

@@ -148,7 +148,7 @@ result
 Statistical Estimands can be estimated without a ``SCM``, let's use the One-Step estimator:
 
 ```@example walk-through
-ose = OSE(models=models)
+ose = OSE()
 result, cache = ose(statistical_iate, dataset)
 result
 ```
