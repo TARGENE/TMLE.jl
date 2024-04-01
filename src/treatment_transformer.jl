@@ -46,4 +46,4 @@ function MLJBase.transform(model::TreatmentTransformer, fitresult, Xnew)
     return merge(Tables.columntable(Xt), ordered_factors)
 end
 
-with_encoder(model; encoder=ContinuousEncoder()) = Pipeline(encoder,  model)
+with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)
