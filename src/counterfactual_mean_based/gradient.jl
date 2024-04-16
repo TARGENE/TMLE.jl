@@ -26,6 +26,9 @@ end
 
 compute_estimate(ctf_aggregate, ::Nothing) = mean(ctf_aggregate)
 
+"""
+Accounting for possibly slitghly different folds' sizes.
+"""
 compute_estimate(ctf_aggregate, train_validation_indices) =
     mean(compute_estimate(ctf_aggregate[val_indices], nothing) for (_, val_indices) in train_validation_indices)
 

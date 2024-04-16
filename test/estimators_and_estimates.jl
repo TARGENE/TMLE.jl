@@ -7,11 +7,16 @@ using DataFrames
 using MLJGLMInterface
 using MLJModels
 using LogExpFunctions
+using Distributions
 
 verbosity = 1
 n = 100
 X, y = make_moons(n)
 dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
+
+X, y = make_regression(n)
+continuous_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
+
 estimand = TMLE.ConditionalDistribution(:Y, [:X₁, :X₂])
 fit_log = string("Estimating: ", TMLE.string_repr(estimand))
 reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
@@ -42,7 +47,7 @@ end
 
 @testset "Test SampleSplitMLConditionalDistributionEstimator" begin
     nfolds = 3
-    train_validation_indices = Tuple(MLJBase.train_test_pairs(CV(nfolds=nfolds), 1:n, dataset))
+    train_validation_indices = Tuple(MLJBase.train_test_pairs(StratifiedCV(nfolds=nfolds), 1:n, dataset, dataset.Y))
     model = LinearBinaryClassifier()
     estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
         model,
@@ -54,6 +59,7 @@ end
     expected_features = collect(estimand.parents)
     @test all(fitted_params(mach).features == expected_features for mach in conditional_density_estimate.machines)
     ŷ = predict(conditional_density_estimate, dataset)
+    @test ŷ isa UnivariateFiniteVector
     μ̂ = TMLE.expected_value(conditional_density_estimate, dataset)
     for foldid in 1:nfolds
         train, val = train_validation_indices[foldid]
@@ -85,6 +91,21 @@ end
         train_validation_indices
     )
     @test_logs (:info, fit_log) new_estimator(estimand, dataset; cache=cache, verbosity=verbosity)
+end
+
+@testset "Test SampleSplitMLConditionalDistributionEstimator: Continuous outcome" begin
+    nfolds = 3
+    train_validation_indices = Tuple(MLJBase.train_test_pairs(CV(nfolds=nfolds), 1:n, continuous_dataset))
+    model = MLJGLMInterface.LinearRegressor()
+    estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
+        model,
+        train_validation_indices
+    )
+    conditional_density_estimate = estimator(estimand, continuous_dataset; verbosity=verbosity)
+    ŷ = predict(conditional_density_estimate, continuous_dataset)
+    @test ŷ isa Vector{Distributions.Normal{Float64}}
+    μ̂ = TMLE.expected_value(conditional_density_estimate, continuous_dataset)
+    @test μ̂ isa Vector{Float64}
 end
 
 @testset "Test compute_offset MLConditionalDistributionEstimator" begin

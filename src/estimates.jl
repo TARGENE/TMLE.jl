@@ -50,14 +50,52 @@ string_repr(estimate::SampleSplitMLConditionalDistribution) =
     Base.typename(typeof(first(estimate.machines).model)).wrapper
 )
 
+function fold_prediction(estimate::SampleSplitMLConditionalDistribution, X, val_idx, fold)
+    Xval = selectrows(X, val_idx)
+    return predict(estimate.machines[fold], Xval)
+end
+
+"""
+Default unoptimized method
+"""
+function cv_predict(target_scitype::Type{<:Any}, estimate, X)
+    fold_to_val_idx = [(fold, val_idx) for (fold, (_, val_idx)) in enumerate(estimate.train_validation_indices)]
+    first_fold, first_val_idx = first(fold_to_val_idx)
+    first_preds = fold_prediction(estimate, X, first_val_idx, first_fold)
+
+    ŷ = Vector{eltype(first_preds)}(undef, nrows(X))
+    ŷ[first_val_idx] = first_preds
+    for (fold, val_idx) in fold_to_val_idx[2:end]
+        preds = fold_prediction(estimate, X, val_idx, fold)
+        ŷ[val_idx] = preds
+    end
+    return ŷ
+end
+
+function update_probs!(probs, prob_given_ref, first_val_idx)
+    for (key, vals) in prob_given_ref
+        probs[first_val_idx, key] = vals
+    end
+end
+
+function cv_predict(target_scitype::Type{<:AbstractVector{<:Finite}}, estimate, X)
+    fold_to_val_idx = [(fold, val_idx) for (fold, (_, val_idx)) in enumerate(estimate.train_validation_indices)]
+    first_fold, first_val_idx = first(fold_to_val_idx)
+    first_preds = fold_prediction(estimate, X, first_val_idx, first_fold)
+    probs = Matrix{Float64}(undef, nrows(X), length(first_preds.prob_given_ref))
+    update_probs!(probs, first_preds.prob_given_ref, first_val_idx)
+    for (fold, val_idx) in fold_to_val_idx[2:end]
+        preds = fold_prediction(estimate, X, val_idx, fold)
+        update_probs!(probs, preds.prob_given_ref, val_idx)
+    end
+    return UnivariateFinite(support(first_preds), probs)
+end
+
+
 function MLJBase.predict(estimate::SampleSplitMLConditionalDistribution, dataset)
     X = selectcols(dataset, estimate.estimand.parents)
-    ŷs = []
-    for (fold, (_, validation_indices)) in enumerate(estimate.train_validation_indices)
-        Xval = selectrows(X, validation_indices)
-        push!(ŷs, predict(estimate.machines[fold], Xval))
-    end
-    return vcat(ŷs...)
+    target_scitype = MLJBase.target_scitype(first(estimate.machines).model)
+    return cv_predict(target_scitype, estimate, X)
 end
 
 #####################################################################
@@ -76,7 +114,7 @@ function likelihood(estimate::ConditionalDistributionEstimate, dataset)
     return pdf.(ŷ, y)
 end
 
-function compute_offset(ŷ::UnivariateFiniteVector{<:Union{OrderedFactor{2}, Multiclass{2}}})
+function compute_offset(ŷ::AbstractVector{<:UnivariateFinite{<:Union{OrderedFactor{2}, Multiclass{2}}}})
     μy = expected_value(ŷ)
     logit!(μy)
     return μy
@@ -84,7 +122,7 @@ end
 
 compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
 
-compute_offset(ŷ::AbstractVector{<:Real}) = expected_value(ŷ)
+compute_offset(ŷ::AbstractVector{T}) where T<:Real = expected_value(ŷ)
 
 function compute_offset(estimate::ConditionalDistributionEstimate, X)
     ŷ = predict(estimate, X)

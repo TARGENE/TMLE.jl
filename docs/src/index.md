@@ -20,7 +20,7 @@ Pkg> add TMLE
 
 To run an estimation procedure, we need 3 ingredients:
 
-1. A dataset: here a simulation dataset.
+### 1. A dataset: here a simulation dataset
 
 For illustration, assume we know the actual data generating process is as follows:
 
@@ -52,7 +52,7 @@ dataset = (Y=Y, T=categorical(T), W=W)
 nothing # hide
 ```
 
-2. A quantity of interest: here the Average Treatment Effect (ATE).
+### 2. A quantity of interest: here the Average Treatment Effect (ATE)
 
 The Average Treatment Effect of ``T`` on ``Y`` confounded by ``W`` is defined as:
 
@@ -64,7 +64,7 @@ The Average Treatment Effect of ``T`` on ``Y`` confounded by ``W`` is defined as
 )
 ```
 
-3. An estimator: here a Targeted Maximum Likelihood Estimator (TMLE).
+### 3. An estimator: here a Targeted Maximum Likelihood Estimator (TMLE)
 
 ```@example quick-start
 tmle = TMLEE()
@@ -79,3 +79,34 @@ using Test # hide
 @test pvalue(OneSampleTTest(result, 2.5)) > 0.05 # hide
 nothing # hide
 ```
+
+## Scope and Distinguishing Features
+
+The goal of this package is to provide an entry point for semi-parametric asymptotic unbiased and efficient estimation in Julia. The two main general estimators that are known to achieve these properties are the One-Step estimator and the Targeted Maximum-Likelihood estimator. Most of the current effort as been centered around estimands that are composite of the counterfactual mean.
+
+Distinguishing Features:
+
+- Estimands: Counterfactual Mean, Average Treatment Effect, Interactions, Any composition thereof
+- Estimators: TMLE, One-Step
+- Machine-Learning: Any [MLJ](https://alan-turing-institute.github.io/MLJ.jl/stable/) compatible model
+- Treatments Variables:
+  - Multiple treatment variables (with their own set of confounders)
+  - Categorical treatment variables (factorial analysis)
+
+## Citing TMLE.jl
+
+If you use TMLE.jl for your own work and would like to cite us, here are the BibTeX and APA formats:
+
+- BibTeX
+
+```bibtex
+@software{Labayle_TMLE_jl,
+    author = {Labayle, Olivier and Beentjes, Sjoerd and Khamseh, Ava and Ponting, Chris},
+    title = {{TMLE.jl}},
+    url = {https://github.com/olivierlabayle/TMLE.jl}
+}
+```
+
+- APA
+
+Labayle, O., Beentjes, S., Khamseh, A., & Ponting, C. TMLE.jl [Computer software]. https://github.com/olivierlabayle/TMLE.jl

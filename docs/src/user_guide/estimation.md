@@ -111,20 +111,63 @@ Again, required nuisance functions are fitted and stored in the cache.
 
 ## CV-Estimation
 
-Both TMLE and OSE can be used with sample-splitting, which, for an additional computational cost, further reduces the assumptions we need to make regarding our data generating process ([see here](https://arxiv.org/abs/2203.06469)). Note that this sample-splitting procedure should not be confused with the sample-splitting happening in Super Learning. Using both CV-TMLE and Super-Learning will result in two nested sample-splitting loops.
+When performing "vanilla" semi-parametric estimation, we are essentially using the dataset twice, once for the estimation of the nuisance functions and once for the estimation of the parameter of interest. This means that there is a risk of over-fitting and residual bias ([see here](https://arxiv.org/abs/2203.06469) for some discussion). One way to address this limitation is to use a technique called sample-splitting / cross-validating.
 
-To leverage sample-splitting, simply specify a `resampling` strategy when building an estimator:
+### Usage
+
+To create a cross-validated estimator simply specify the `resampling` keyword argument:
 
 ```@example estimation
-cvtmle = TMLEE(resampling=CV())
-cvresult₁, _ = cvtmle(Ψ₁, dataset);
+TMLEE(resampling=StratifiedCV());
 ```
 
-Similarly, one could build CV-OSE:
+or
 
 ```julia
-cvose = OSE(resampling=CV(nfolds=3))
+OSE(resampling=StratifiedCV(nfolds=3));
 ```
+
+We further explain below the procedure for both Targeted Maximum-Likelihood estimation and One-Step estimation and provide some considerations when using sample-splitting.
+
+### Preliminaries
+
+Even though the idea behind cross-validated estimators is simple, the procedure may seem obscure at first. The purpose of this subsection is to explain how it works, and it will be useful to introduce some notation. Let `resampling` be a `MLJ.ResamplingStrategy` partitioning the dataset into K folds. According to this `resampling` method, each sample ``i`` in the dataset belongs to a specific (validation) fold ``k``:
+
+- ``k(i)`` denotes the (validation) fold sample ``i`` belongs to ``k(i) \in [1, K]``.
+- ``-k(i)`` denotes the remaining (training) folds.
+
+```@raw html
+<div style="text-align:center">
+<img src="../assets/sample_splitting.png" style="width:500px;"/>
+</div>
+```
+
+The estimators we are considering are asymptotically linear. This means they can be written as an average over their influence function. If we denote by ``\phi`` this influence function, which itself depends on nuisance functions (e.g. outcome mean, propensity score...), then ``i \mapsto \hat{\phi}^{-k(i)}(i)`` is a cross-validated estimator of this influence function. The notation means that the nuisance functions learnt on all folds but the one containing sample ``i`` are used to make the prediction for sample ``i``. Here, we loosely refer to ``i`` as a sample (e.g. ``(Y, T, W)_i``), regardless of the actual data structure.
+
+We are now ready to define the cross-validated One-Step and Targeted Maximum-Likelihood estimators.
+
+### CV-OSE
+
+The cross-validated One-Step estimator is the average of the cross-validated influence function, it can be compactly written as:
+
+```math
+\hat{\Psi}_{CV} = \frac{1}{n} \sum_{i=1}^n \hat{\phi}^{-k(i)}(i)
+```
+
+And the associated variance estimator:
+
+```math
+\hat{V}_{\Psi, CV} = \frac{1}{n-1} \sum_{i=1}^n (\hat{\phi}^{-k(i)}(i) - \hat{\Psi}_{CV})^2
+```
+
+### CV-TMLE
+
+
+### Further Considerations
+
+- Choice of `resampling` Strategy: The theory behind sample-splitting requires the nuisance functions to be sufficiently well estimated on **each and every** fold. A practical aspect of it is that each fold should contain a sample representative of the dataset. In particular, when the treatment and outcome variables are categorical it is important to make sure the proportions are preserved. This is typically done using `StratifiedCV`.
+- Computational Complexity: Sample-splitting results in ``K`` fits of the nuisance functions, drastically increasing computational complexity. In particular, if the nuisance functions are estimated using (P-fold) Super-Learning, this will result in two nested cross-validation loops and ``K \times P`` fits.
+- Caching of Nuisance Functions: Because the `resampling` strategy typically needs to preserve the outcome and treatment proportions, very little reuse of cached models is possible (see below).
 
 ## Caching model fits
 
