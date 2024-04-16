@@ -8,6 +8,7 @@ using MLJGLMInterface
 using MLJModels
 using LogExpFunctions
 using Distributions
+using MLJLinearModels
 
 verbosity = 1
 n = 100
@@ -45,7 +46,7 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
     @test_logs (:info, fit_log) new_estimator(estimand, dataset; cache=cache, verbosity=verbosity)
 end
 
-@testset "Test SampleSplitMLConditionalDistributionEstimator" begin
+@testset "Test SampleSplitMLConditionalDistributionEstimator: Binary outcome" begin
     nfolds = 3
     train_validation_indices = Tuple(MLJBase.train_test_pairs(StratifiedCV(nfolds=nfolds), 1:n, dataset, dataset.Y))
     model = LinearBinaryClassifier()
@@ -96,6 +97,7 @@ end
 @testset "Test SampleSplitMLConditionalDistributionEstimator: Continuous outcome" begin
     nfolds = 3
     train_validation_indices = Tuple(MLJBase.train_test_pairs(CV(nfolds=nfolds), 1:n, continuous_dataset))
+    # Probabilistic Model
     model = MLJGLMInterface.LinearRegressor()
     estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
         model,
@@ -104,6 +106,17 @@ end
     conditional_density_estimate = estimator(estimand, continuous_dataset; verbosity=verbosity)
     ŷ = predict(conditional_density_estimate, continuous_dataset)
     @test ŷ isa Vector{Distributions.Normal{Float64}}
+    μ̂ = TMLE.expected_value(conditional_density_estimate, continuous_dataset)
+    @test μ̂ isa Vector{Float64}
+    # Deterministic Model
+    model = MLJLinearModels.LinearRegressor()
+    estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
+        model,
+        train_validation_indices
+    )
+    conditional_density_estimate = estimator(estimand, continuous_dataset; verbosity=verbosity)
+    ŷ = predict(conditional_density_estimate, continuous_dataset)
+    @test ŷ isa Vector{Float64}
     μ̂ = TMLE.expected_value(conditional_density_estimate, continuous_dataset)
     @test μ̂ isa Vector{Float64}
 end

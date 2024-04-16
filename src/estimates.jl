@@ -50,52 +50,70 @@ string_repr(estimate::SampleSplitMLConditionalDistribution) =
     Base.typename(typeof(first(estimate.machines).model)).wrapper
 )
 
-function fold_prediction(estimate::SampleSplitMLConditionalDistribution, X, val_idx, fold)
-    Xval = selectrows(X, val_idx)
+"""
+Prediction for the subset of X identified by idx and fold.
+"""
+function fold_prediction(estimate::SampleSplitMLConditionalDistribution, X, idx, fold)
+    Xval = selectrows(X, idx)
     return predict(estimate.machines[fold], Xval)
 end
 
 """
-Default unoptimized method
+In the case where newpreds is a UnivariateFiniteVector, we update the probability matrix.
 """
-function cv_predict(target_scitype::Type{<:Any}, estimate, X)
+function update_preds!(probs::Matrix, newpreds::UnivariateFiniteVector, idx)
+    for (key, vals) in newpreds.prob_given_ref
+        probs[idx, key] = vals
+    end
+end
+
+update_preds!(ŷ, preds, idx) = ŷ[idx] = preds
+
+"""
+In the case where predictions are a UnivariateFiniteVector, we store a Matrix of probabilities.
+"""
+initialize_cv_preds(first_preds::UnivariateFiniteVector, n) = 
+    Matrix{Float64}(undef, n, length(first_preds.prob_given_ref))
+
+"""
+As a default, we initialize predictions with a Vector of the type corresponding to the
+predictions from the first machine.
+"""
+initialize_cv_preds(first_preds, n) = 
+    Vector{eltype(first_preds)}(undef, n)
+    
+"""
+In the case where predictions are a UnivariateFiniteVector, we create a special 
+UnivariateFinite vector for downstream optimizaton.
+"""
+finalize_cv_preds(probs, first_preds::UnivariateFiniteVector) = UnivariateFinite(support(first_preds), probs)
+
+"""
+As a default we simply return the vector
+"""
+finalize_cv_preds(ŷ, first_preds) = ŷ
+
+"""
+Out of fold prediction, predictions for fold k are made from machines trained on fold k̄.
+We distinguish the case where preidctions are a UnivariateFiniteVector that requires specific attention.
+"""
+function cv_predict(estimate, X)
     fold_to_val_idx = [(fold, val_idx) for (fold, (_, val_idx)) in enumerate(estimate.train_validation_indices)]
     first_fold, first_val_idx = first(fold_to_val_idx)
     first_preds = fold_prediction(estimate, X, first_val_idx, first_fold)
 
-    ŷ = Vector{eltype(first_preds)}(undef, nrows(X))
-    ŷ[first_val_idx] = first_preds
+    ŷ = initialize_cv_preds(first_preds, nrows(X))
+    update_preds!(ŷ, first_preds, first_val_idx)
     for (fold, val_idx) in fold_to_val_idx[2:end]
         preds = fold_prediction(estimate, X, val_idx, fold)
-        ŷ[val_idx] = preds
+        update_preds!(ŷ, preds, val_idx)
     end
-    return ŷ
+    return finalize_cv_preds(ŷ, first_preds)
 end
-
-function update_probs!(probs, prob_given_ref, first_val_idx)
-    for (key, vals) in prob_given_ref
-        probs[first_val_idx, key] = vals
-    end
-end
-
-function cv_predict(target_scitype::Type{<:AbstractVector{<:Finite}}, estimate, X)
-    fold_to_val_idx = [(fold, val_idx) for (fold, (_, val_idx)) in enumerate(estimate.train_validation_indices)]
-    first_fold, first_val_idx = first(fold_to_val_idx)
-    first_preds = fold_prediction(estimate, X, first_val_idx, first_fold)
-    probs = Matrix{Float64}(undef, nrows(X), length(first_preds.prob_given_ref))
-    update_probs!(probs, first_preds.prob_given_ref, first_val_idx)
-    for (fold, val_idx) in fold_to_val_idx[2:end]
-        preds = fold_prediction(estimate, X, val_idx, fold)
-        update_probs!(probs, preds.prob_given_ref, val_idx)
-    end
-    return UnivariateFinite(support(first_preds), probs)
-end
-
 
 function MLJBase.predict(estimate::SampleSplitMLConditionalDistribution, dataset)
     X = selectcols(dataset, estimate.estimand.parents)
-    target_scitype = MLJBase.target_scitype(first(estimate.machines).model)
-    return cv_predict(target_scitype, estimate, X)
+    return cv_predict(estimate, X)
 end
 
 #####################################################################
