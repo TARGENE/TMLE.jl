@@ -24,7 +24,7 @@ function one_treatment_dataset(;n=100)
     )
 end
 
-@testset "Test gradient_and_estimate" begin
+@testset "Test gradient_and_plugin_estimate" begin
     ps_lowerbound = 1e-8
     Ψ = ATE(
         outcome = :Y, 
@@ -60,8 +60,8 @@ end
     expectedΨ̂ = mean(ctf_agg)
     ∇W = TMLE.∇W(ctf_agg, expectedΨ̂)
     @test ∇W == ctf_agg .- expectedΨ̂
-    # gradient_and_estimate
-    IC, Ψ̂ = TMLE.gradient_and_estimate(Ψ, η̂ₙ, dataset; ps_lowerbound=ps_lowerbound)
+    # gradient_and_plugin_estimate
+    IC, Ψ̂ = TMLE.gradient_and_plugin_estimate(Ψ, η̂ₙ, dataset; ps_lowerbound=ps_lowerbound)
     @test expectedΨ̂ == Ψ̂
     @test IC == ∇YX .+ ∇W
 end
