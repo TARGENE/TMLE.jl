@@ -34,6 +34,7 @@ makedocs(;
             joinpath("examples", "super_learning.md"),
             joinpath("examples", "double_robustness.md")
             ],
+        "Estimators' Cheat Sheet" => "estimators_cheatsheet.md",
         "Resources" => "resources.md",
         "API Reference" => "api.md"
     ],

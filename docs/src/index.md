@@ -6,7 +6,7 @@ CurrentModule = TMLE
 
 ## Overview
 
-TMLE.jl is a Julia implementation of the Targeted Minimum Loss-Based Estimation ([TMLE](https://link.springer.com/book/10.1007/978-1-4419-9782-1)) framework. If you are interested in efficient and unbiased estimation of causal effects, you are in the right place. Since TMLE uses machine-learning methods to estimate nuisance estimands, the present package is based upon [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/).
+TMLE.jl is a Julia implementation of the Targeted Minimum Loss-Based Estimation ([TMLE](https://link.springer.com/book/10.1007/978-1-4419-9782-1)) framework. If you are interested in leveraging the power of modern machine-learning methods while preserving interpretability and statistical inference guarantees, you are in the right place. TMLE.jl is compatible with any [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/) compliant algorithm and any dataset respecting the [Tables](https://tables.juliadata.org/stable/) interface.
 
 ## Installation
 
@@ -89,9 +89,10 @@ Distinguishing Features:
 - Estimands: Counterfactual Mean, Average Treatment Effect, Interactions, Any composition thereof
 - Estimators: TMLE, One-Step
 - Machine-Learning: Any [MLJ](https://alan-turing-institute.github.io/MLJ.jl/stable/) compatible model
-- Treatments Variables:
-  - Multiple treatment variables (with their own set of confounders)
-  - Categorical treatment variables (factorial analysis)
+- Dataset: Any dataset respecting the [Tables](https://tables.juliadata.org/stable/) interface (e.g. [DataFrames.jl](https://dataframes.juliadata.org/stable/))
+- Factorial Treatment Variables:
+  - Multiple treatments
+  - Categorical treatment values
 
 ## Citing TMLE.jl
 

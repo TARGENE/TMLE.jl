@@ -6,9 +6,6 @@ One major difficulty I personally faced when entering the field, was the overwhe
 
 Finally, if you find inconsistencies or imprecision, please report it, so we can keep improving!
 
-!!! note
-    This page is still under construction and more content will be added in the coming months.
-
 ## Where it all begins
 
 ### Notations
@@ -49,7 +46,7 @@ Q_W(W) &= \mathbb{P}(W)
 \end{aligned}
 ```
 
-So that ``\Psi(\mathbb{P}) = \Psi(Q_Y, Q_W)``, which makes explicit that we don't need to estimate ``\mathbb{P}`` but only the relevant factors ``(Q_Y, Q_W)`` to obtain a plugin estimate of ``\Psi(\mathbb{P})``. Finally, it will be useful to define an additional factor:
+So that ``\Psi(\mathbb{P}) = \Psi(Q_Y, Q_W)`` (the ``t`` subscript is dropped as it is unambiguous). This makes explicit that we don't need to estimate ``\mathbb{P}`` but only the relevant factors ``(Q_Y, Q_W)`` to obtain a plugin estimate of ``\Psi(\mathbb{P})``. Finally, it will be useful to define an additional factor:
 
 ```math
 g(W, T) = \mathbb{P}(T | W) 
@@ -69,7 +66,7 @@ They are simple linear combinations of counterfactual means and so is their grad
 
 #### Average Treatment Effect
 
-For two values of ``T: t_{control} \rightarrow t_{case}``, the Average Treatment Effect (ATE) is defined by:
+In all generality, for two values of a categorical treatment variable ``T: t_{control} \rightarrow t_{case}``, the Average Treatment Effect (ATE) is defined by:
 
 ```math
 ATE_{t_{case}, t_{control}}(\mathbb{P}) = CM_{t_{case}}(\mathbb{P}) - CM_{t_{control}}(\mathbb{P}) 
@@ -87,25 +84,25 @@ And it's associated gradient is:
 with:
 
 ```math
-\begin{equation}
+\begin{aligned}
   \begin{cases}
     H(W, T) &= \frac{(-\mathbb{1}(T \in (t_{case}, t_{control})))^{T=t_{control}}}{g(W, T)} \\
     C(W) &= (Q_Y(W, t_{case}) - Q_Y(W, t_{control}))
   \end{cases}
-\end{equation}
+\end{aligned}
 ```
 
 ``H`` is also known as the clever covariate in the Targeted Learning literature (see later).
 
 #### Average Interaction Effect
 
-For simplicity we only consider two treatments ``T_1: t_{1,control} \rightarrow t_{1,case}`` and ``T_2: t_{2,control} \rightarrow t_{2,case}``.
+For simplicity, we only consider two treatments ``T = (T_1, T_2)`` such that: ``T_1: t_{1,control} \rightarrow t_{1,case}`` and ``T_2: t_{2,control} \rightarrow t_{2,case}``. The Average Interaction Effect (AIE) of ``(T_1, T_2)`` is defined as:
 
 ```math
 AIE(\mathbb{P}) = CM_{t_{1, case}, t_{2, case}}(\mathbb{P}) - CM_{t_{1, case}, t_{2, control}}(\mathbb{P}) - CM_{t_{1, control}, t_{2, case}}(\mathbb{P}) + CM_{t_{1, control}, t_{2, control}}(\mathbb{P})
 ```
 
-The gradient is similarly given by:
+And its gradient is given by:
 
 ```math
 \begin{aligned}
@@ -117,17 +114,19 @@ The gradient is similarly given by:
 with:
 
 ```math
-\begin{equation}
+\begin{aligned}
   \begin{cases}
-    H(W, T) &= \frac{(-\mathbb{1}(T \in (t_{case}, t_{control})))^{T=t_{control}}}{g(W, T)} \\
-    C(W) &= (Q_Y(W, t_{case}) - Q_Y(W, t_{control}))
+    H(W, T) &= \frac{(-\mathbb{1}(T_1 \in (t_{1, case}, t_{1, control})))^{T_1=t_{1, control}}(-\mathbb{1}(T_2 \in (t_{2, case}, t_{2, control})))^{T_2=t_{2, control}}}{g(W, T)} \\
+    C(W) &= (Q_Y(W, t_{1, case}, t_{2, case}) - Q_Y(W, t_{1, case}, t_{2, control}) - Q_Y(W, t_{1, control}, t_{2, case}) + Q_Y(W, t_{1, control}, t_{2, control}))
   \end{cases}
-\end{equation}
+\end{aligned}
 ```
 
-## Motivation for the Estimators
+For higher-order interactions the two factors ``H`` and ``C`` can be similarly inferred.
 
-The theory is based on the following von Mises expansion (functional equivalent of Taylor's expansion) which reduces due to the fact that the gradient satisfies: ``\mathbb{E}_{\mathbb{P}}[\phi_{\mathbb{P}}(Z)] = 0``.
+## Asymptotic Analysis of Plugin Estimators
+
+The theory is based on the von Mises expansion (functional equivalent of Taylor's expansion) which reduces due to the fact that the gradient satisfies: ``\mathbb{E}_{\mathbb{P}}[\phi_{\mathbb{P}}(Z)] = 0``.
 
 ```math
 \begin{aligned}
@@ -142,7 +141,7 @@ This suggests that a plugin estimator, one that simply evaluates ``\Psi`` at an 
 \Psi(\hat{\mathbb{P}}) − \Psi(\mathbb{P}) = \mathbb{P}_n\phi_{\mathbb{P}}(Z) - \mathbb{P}_n\phi_{\mathbb{\hat{P}}}(Z) + (\mathbb{P}_n − \mathbb{P})(ϕ_{\mathbb{\hat{P}}}(Z) − \phi_{\mathbb{P}}(Z)) + R_2(\mathbb{\hat{P}}, \mathbb{P})
 ```
 
-- The asymptotically linear term:
+### 1. The Asymptotically Linear Term
 
 ```math
 \mathbb{P}_n\phi_{\mathbb{P}}(Z)
@@ -150,7 +149,7 @@ This suggests that a plugin estimator, one that simply evaluates ``\Psi`` at an 
 
 By the central limit theorem, it is asymptotically normal with variance ``Var[\phi]/n``, it is used to build confidence interval.
 
-- The bias term:
+### 2. The Bias Term
 
 ```math
 - \mathbb{P}_n\phi_{\mathbb{\hat{P}}}(Z)
@@ -158,43 +157,71 @@ By the central limit theorem, it is asymptotically normal with variance ``Var[\p
 
 This is the term both the One-Step estimator and the Targeted Maximum-Likelihood estimator deal with.
 
-- The empirical process term:
+### 3. The Empirical Process Term
 
 ```math
 (\mathbb{P}_n − \mathbb{P})(ϕ_{\mathbb{\hat{P}}}(Z) − \phi_{\mathbb{P}}(Z))
 ```
 
-This is usually negligible under minimal assumptions.
+This can be shown to be of order ``o_{\mathbb{P}}(\frac{1}{\sqrt{n}})`` if ``\phi_{\hat{\mathbb{P}}}`` converges to ``\phi_{\mathbb{P}}`` in ``L_2(\mathbb{P})`` norm, that is:
 
-- The second-order remainder term:
+```math
+\int (\phi_{\hat{\mathbb{P}}}(Z) - \phi_{\mathbb{P}}(Z) )^2 d\mathbb{P}(Z) = o_{\mathbb{P}}(\frac{1}{\sqrt{n}})
+```
+
+and, any of the following holds:
+
+- ``\phi`` (or equivalently its components) is [[Donsker](https://en.wikipedia.org/wiki/Donsker_classes)], i.e., not too complex.
+- The estimator is constructed using sample-splitting (see cross-validated estimators).
+
+### 4. The Second-Order Remainder Term
 
 ```math
 R_2(\mathbb{\hat{P}}, \mathbb{P})
 ```
 
-This is often negligible, but see the cross-validated estimators section.
-
-## Inference
-
-According to the previous section, the OSE and TMLE will be asymptotically linear with efficient influence curve the gradient ``\phi``. This means the central limit theorem applies and the variance of the estimators can be estimated by:
+This term is usually more complex to analyse. However, for the counterfactual mean, it can be shown that if ``g(W,T) \geq \frac{1}{\eta}`` (positivity constraint):
 
 ```math
-\begin{aligned}
-\hat{Var}(\hat{\Psi}_n) &= \frac{\hat{Var}(\hat{\phi}_n)}{n} \\
-&= \frac{1}{n(n-1)}\sum_{i=1}^n \hat{\phi}(W_i, T_i, Y_i)^2
-\end{aligned}
+|R_2(\mathbb{\hat{P}}, \mathbb{P})| \leq \eta ||\hat{Q}_{n, Y} - Q_{Y}|| \cdot ||\hat{g}_{n} - g||
 ```
 
-because the gradient has mean 0.
+and thus, if the estimators ``\hat{Q}_{n, Y}`` and ``\hat{g}_{n}`` converge at a rate ``o_{\mathbb{P}}(n^{-\frac{1}{4}})``, the second-order remainder will be ``o_{\mathbb{P}}(\frac{1}{\sqrt{n}})``. This is the case for many popular estimators like random forests, neural networks, etc...
+
+## Asymptotic Linearity and Inference
+
+According to the previous section, the OSE and TMLE will be asymptotically linear with efficient influence curve the gradient ``\phi``:
+
+```math
+\sqrt{n}(\hat{\Psi} - \Psi) = \frac{1}{\sqrt{n}} \sum_{i=1}^n \phi(Z_i) + o_{\mathbb{P}}(\frac{1}{\sqrt{n}})
+```
+
+By the [Central Limit Theorem](https://en.wikipedia.org/wiki/Central_limit_theorem) and [Slutsky's Theorem](https://en.wikipedia.org/wiki/Slutsky%27s_theorem) we have:
+
+```math
+\sqrt{n}(\hat{\Psi} - \Psi) \leadsto \mathcal{N}(0, Std(\phi))
+```
+
+Now, if we consider ``S_n = \hat{Std}(\phi_{\hat{\mathbb{P}}})`` as a consistent estimator for ``Std(\phi)``, we have by Slutsky's Theorem again, the following pivot:
+
+```math
+\frac{\sqrt{n}(\hat{\Psi} - \Psi)}{S_n} \leadsto \mathcal{N}(0, 1)
+```
+
+which can be used to build confidence intervals:
+
+```math
+\underset{n \to \infty}{\lim} P(\hat{\Psi}_n - \frac{S_n}{\sqrt{n}}z_{\alpha} \leq \Psi \leq \hat{\Psi}_n + \frac{S_n}{\sqrt{n}}z_{\alpha}) = 1 - 2\alpha
+```
 
 ## One-Step Estimator
 
 ### Canonical OSE
 
-The One-Step estimator is very intuitive, it simply corrects the initial plugin estimator by adding in the residual bias term. As such, it corrects for the bias in the estimand's space:
+The One-Step estimator is very intuitive, it simply corrects the initial plugin estimator by adding in the residual bias term. As such, it corrects for the bias in the estimand's space. Let ``\hat{P}= (\hat{Q}_{n,Y}, \hat{Q}_{n,W})`` be an estimator of the relevant factors of ``\mathbb{P}`` as well as ``\hat{g}_n`` an estimator of the nuisance function ``g``. The OSE is:
 
 ```math
-\hat{\Psi}_{n, OSE} = \Psi(\hat{P}) + P_n{\phi_{\hat{P}}(Z)}
+\hat{\Psi}_{n, OSE} = \Psi(\hat{P}) + P_n{\phi_{\hat{P}}}
 ```
 
 ### CV-OSE
@@ -212,21 +239,27 @@ The cross-validated One-Step estimator can be compactly written as an average ov
 
 The important thing to note is that for each sub one-step estimator, the sum runs over the validation samples while ``\hat{Q}_Y^{-k}`` and ``\hat{\phi}^{-k}`` are estimated using the training samples.
 
-## Targeted Maximum-Likelihood Estimation
+## Targeted Maximum-Likelihood Estimator
 
 Unlike the One-Step estimator, the Targeted Maximum-Likelihood Estimator corrects the bias term in distribution space. That is, it moves the initial estimate ``\hat{\mathbb{P}}^0=\hat{\mathbb{P}}`` to a corrected ``\hat{\mathbb{P}}^*`` (notice the new superscript notation). Then the plugin principle can be applied and the targeted estimator is simply ``\hat{\Psi}_{n, TMLE} = \Psi(\hat{\mathbb{P}}^*)``. This means TMLE always respects the natural range of the estimand, giving it an upper hand on the One-Step estimator.
 
 ### Canonical TMLE
 
-The way ``\hat{\mathbb{P}}`` is modified is by means of a parametric sub-model also known as a fluctuation. It can be shown that for the conditional mean, it is sufficient to fluctuate ``\hat{Q}_{n, Y}``. The fluctuations that are used in practice are:
+The way ``\hat{\mathbb{P}}`` is modified is by means of a parametric sub-model also known as a fluctuation. It can be shown that for the conditional mean, it is sufficient to fluctuate ``\hat{Q}_{n, Y}`` only once using the following fluctuations:
 
 - ``\hat{Q}_{Y, \epsilon}(W, T) = \hat{Q}_{n, Y}(T, W) + \epsilon \hat{H}(T, W)``, for continuous outcomes ``Y``.
-- ``\hat{Q}_{Y, \epsilon}(W, T) = expit(logit(\hat{Q}_{n, Y}(T, W)) + \epsilon \hat{H}(T, W))``, for binary outcomes ``Y``.
+- ``\hat{Q}_{Y, \epsilon}(W, T) = \frac{1}{1 + e^{-(logit(\hat{Q}_{n, Y}(T, W)) + \epsilon \hat{H}(T, W))}}``, for binary outcomes ``Y``.
 
 where ``\hat{H}(T, W) = \frac{1(T=t)}{\hat{g}_n(W)}`` is known as the clever covariate. The value of ``\epsilon`` is obtained by minimizing the loss ``L`` associated with ``Q_Y``, that is the mean-squared error for continuous outcomes and negative log-likelihood for binary outcomes. This can easily be done via linear and logistic regression respectively.
 
 !!! note
-    Just like the gradient is linear in ``\Psi``, the clever covariate used to fluctuate the initial ``\hat{Q}_Y`` is as presented in [Average Treatment Effect and Average Interaction Effect?](@ref)
+    For the ATE and AIE, just like the gradient is linear in ``\Psi``, the clever covariate used to fluctuate the initial ``\hat{Q}_{n, Y}`` is as presented in [Average Treatment Effect and Average Interaction Effect?](@ref)
+
+If we denote by ``\epsilon^*`` the value of ``\epsilon`` minimizing the loss, the TMLE is:
+
+```math
+\hat{\Psi}_{n, TMLE} = \Psi(\hat{Q}_{n, Y, \epsilon^*}, \hat{Q}_{n, W})
+```
 
 ### CV-TMLE
 
@@ -236,29 +269,30 @@ Using the same notation as the cross-validated One-Step estimator, the fluctuate
 \epsilon^* = \underset{\epsilon}{\arg \min} \frac{1}{n} \sum_{k=1}^K \sum_{\{i: k(i) = k\}} L(Y_i, \hat{Q}_{Y, \epsilon}^{-k}(W_i, T_i, Y_i))
 ```
 
-where ``\hat{Q}_{Y, \epsilon}`` and ``L`` are the respective fluctuations and loss for continuous and binary outcomes. This leads to a targeted ``\hat{Q}_Y^{*}`` such that:
+where ``\hat{Q}_{Y, \epsilon}`` and ``L`` are the respective fluctuations and loss for continuous and binary outcomes. This leads to a targeted ``\hat{Q}_{n,Y}^{*}`` such that:
 
 ```math
-\forall i, \hat{Q}_Y^{*}(W_i, T_i) = \hat{Q}_{Y, \epsilon^*}^{-k(i)}(W_i, T_i)
+\forall i \in \{1, ..., n\}, \hat{Q}_{n, Y}^{*}(W_i, T_i) = \hat{Q}_{Y, \epsilon^*}^{-k(i)}(W_i, T_i)
 ```
 
-That is, the predictions of ``\hat{Q}_Y^{*}`` for sample ``i`` are based on the
+That is, the predictions of ``\hat{Q}_{n, Y}^{*}`` for sample ``i`` are based on the out of fold predictions of ``\hat{Q}_{Y}^{-k(i)}`` and the "pooled" fluctuation given by ``\epsilon^*``.
 
 Then, the CV-TMLE is:
 
 ```math
 \begin{aligned}
-\hat{\Psi}_{n, CV-TMLE} &= \sum_{k=1}^K \frac{N_k}{n} \Psi(\hat{Q}_Y^{*}, \hat{Q}_W^{k}) \\
-&= \frac{1}{n} \sum_{k=1}^K \sum_{\{i: k(i) = k\}} \hat{Q}_Y^{*}(W_i)
+\hat{\Psi}_{n, CV-TMLE} &= \sum_{k=1}^K \frac{N_k}{n} \Psi(\hat{Q}_{n, Y}^{*}, \hat{Q}_W^{k}) \\
+&= \frac{1}{n} \sum_{k=1}^K \sum_{\{i: k(i) = k\}} \hat{Q}_{n, Y}^{*}(W_i, T_i)
 \end{aligned}
 ```
 
-Notice that while ``\hat{\Psi}_{n, CV-TMLE}`` is not a plugin estimator anymore, it still respects the natural range of the parameter because it is an average of plugin estimators. Also, because ``\hat{Q}_Y^{*,-k}`` is based both on training and validation samples, the elements of the sum are not truly independent.
+Notice that, while ``\hat{\Psi}_{n, CV-TMLE}`` is not a plugin estimator anymore, it still respects the natural range of the parameter because it is an average of plugin estimators. Also, because ``\hat{Q}_{n,Y}^*`` is based on the entire data, it seems this estimator is still somehow double-dipping.
 
-## Acknowledgements
+## References
 
-The content of this page was largely inspired from:
+The content of this page is largely inspired from:
 
 - [Semiparametric doubly robust targeted double machine learning: a review](https://arxiv.org/pdf/2203.06469.pdf).
 - [Introduction to Modern Causal Inference](https://alejandroschuler.github.io/mci/).
 - [Targeted Learning, Causal Inference for Observational and Experimental Data](https://link.springer.com/book/10.1007/978-1-4419-9782-1).
+- [STATS 361: Causal Inference](https://web.stanford.edu/~swager/stats361.pdf)
