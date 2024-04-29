@@ -37,7 +37,7 @@ end
         treatment_confounders = (T₁=[:W], T₂=[:W], T₃=[:W])
     )
     models = (
-        Y = TreatmentTransformer() |> InteractionTransformer(order=3) |> LinearRegressor(),
+        Y = with_encoder(InteractionTransformer(order=3) |> LinearRegressor()),
         T₁ = LogisticClassifier(lambda=0),
         T₂ = LogisticClassifier(lambda=0),
         T₃ = LogisticClassifier(lambda=0)

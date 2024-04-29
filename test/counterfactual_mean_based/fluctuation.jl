@@ -30,6 +30,7 @@ using DataFrames
     η̂ₙ = η̂(η, dataset, verbosity = 0) 
     X = dataset[!, collect(η̂ₙ.outcome_mean.estimand.parents)]
     y = dataset[!, η̂ₙ.outcome_mean.estimand.outcome]
+    mse_initial = sum((TMLE.expected_value(η̂ₙ.outcome_mean, X) .- y).^2)
 
     ps_lowerbound = 1e-8
     # Weighted fluctuation
@@ -42,6 +43,9 @@ using DataFrames
         cache=true    
     )
     fitresult, cache, report = MLJBase.fit(fluctuation, 0, X, y)
+    fluctuation_mean = TMLE.expected_value(MLJBase.predict(fluctuation, fitresult, X))
+    mse_fluct = sum((fluctuation_mean .- y).^2)
+    @test mse_fluct < mse_initial
     @test fitted_params(fitresult.one_dimensional_path).features == [:covariate]
     @test cache.weighted_covariate == expected_weights .* expected_covariate
     @test cache.training_expected_value isa AbstractVector

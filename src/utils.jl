@@ -9,7 +9,18 @@ key(estimand, estimator) = (key(estimand), key(estimator))
 
 unique_sorted_tuple(iter) = Tuple(sort(unique(Symbol(x) for x in iter)))
 
+"""
+For "vanilla" estimators, missingness management is deferred to the nuisance function estimators. 
+This is in order to maximize data usage.
+"""
 choose_initial_dataset(dataset, nomissing_dataset, resampling::Nothing) = dataset
+
+"""
+For cross-validated estimators, missing data are removed early on based on all columns relevant to the estimand. 
+This is to avoid the complications of:
+    - Equally distributing missing across folds
+    - Tracking sample_ids
+"""
 choose_initial_dataset(dataset, nomissing_dataset, resampling) = nomissing_dataset
 
 selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.columntable
@@ -46,7 +57,7 @@ function indicator_values(indicators, T)
     return indic
 end
 
-expected_value(ŷ::UnivariateFiniteVector{<:Union{OrderedFactor{2}, Multiclass{2}}}) = pdf.(ŷ, levels(first(ŷ))[2])
+expected_value(ŷ::AbstractArray{<:UnivariateFinite{<:Union{OrderedFactor{2}, Multiclass{2}}}}) = pdf.(ŷ, levels(first(ŷ))[2])
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 

@@ -24,10 +24,7 @@ function counterfactual_aggregate(Ψ::StatisticalCMCompositeEstimand, Q, dataset
     return ctf_agg
 end
 
-compute_estimate(ctf_aggregate, ::Nothing) = mean(ctf_aggregate)
-
-compute_estimate(ctf_aggregate, train_validation_indices) =
-    mean(compute_estimate(ctf_aggregate[val_indices], nothing) for (_, val_indices) in train_validation_indices)
+plugin_estimate(ctf_aggregate) = mean(ctf_aggregate)
 
 
 """
@@ -53,11 +50,11 @@ function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound=
 end
 
 
-function gradient_and_estimate(Ψ::StatisticalCMCompositeEstimand, factors, dataset; ps_lowerbound=1e-8)
+function gradient_and_plugin_estimate(Ψ::StatisticalCMCompositeEstimand, factors, dataset; ps_lowerbound=1e-8)
     Q = factors.outcome_mean
     G = factors.propensity_score
     ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
-    Ψ̂ = compute_estimate(ctf_agg, train_validation_indices_from_factors(factors))
+    Ψ̂ = plugin_estimate(ctf_agg)
     IC = ∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound) .+ ∇W(ctf_agg, Ψ̂)
     return IC, Ψ̂
 end

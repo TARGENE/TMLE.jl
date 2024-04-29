@@ -4,7 +4,7 @@ CurrentModule = TMLE
 
 # Estimation
 
-## Estimating a single Estimand
+## Constructing and Using Estimators
 
 ```@setup estimation
 using Random
@@ -51,11 +51,12 @@ scm = SCM([
 )
 ```
 
-Once a statistical estimand has been defined, we can proceed with estimation. At the moment, we provide 3 main types of estimators:
+Once a statistical estimand has been defined, we can proceed with estimation. There are two semi-parametric efficient estimators in TMLE.jl:
 
-- Targeted Maximum Likelihood Estimator (`TMLEE`)
-- One-Step Estimator (`OSE`)
-- Naive Plugin Estimator (`NAIVE`)
+- The Targeted Maximum-Likelihood Estimator (`TMLEE`)
+- The One-Step Estimator (`OSE`)
+
+While they have similar asymptotic properties, their finite sample performance may be different. They also have a very distinguishing feature, the TMLE is a plugin estimator, which means it respects the natural bounds of the estimand of interest. In contrast, the OSE may in theory report values outside these bounds. In practice, this is not often the case and the estimand of interest may not impose any restriction on its domain.
 
 Drawing from the example dataset and `SCM` from the Walk Through section, we can estimate the ATE for `T₁`. Let's use TMLE:
 
@@ -72,27 +73,25 @@ result₁
 nothing # hide
 ```
 
-We see that both models corresponding to variables `Y` and `T₁` were fitted in the process but that the model for `T₂` was not because it was not necessary to estimate this estimand.
-
-The `cache` contains estimates for the nuisance functions that were necessary to estimate the ATE. For instance, we can see what is the value of ``\epsilon`` corresponding to the clever covariate.
+The `cache` (see below) contains estimates for the nuisance functions that were necessary to estimate the ATE. For instance, we can see what is the value of ``\epsilon`` corresponding to the clever covariate.
 
 ```@example estimation
 ϵ = last_fluctuation_epsilon(cache)
 ```
 
-The `result₁` structure corresponds to the estimation result and should report 3 main elements:
+The `result₁` structure corresponds to the estimation result and will display the result of a T-Test including:
 
 - A point estimate.
 - A 95% confidence interval.
 - A p-value (Corresponding to the test that the estimand is different than 0).
 
-This is only summary statistics but since both the TMLE and OSE are asymptotically linear estimators, standard Z/T tests from [HypothesisTests.jl](https://juliastats.org/HypothesisTests.jl/stable/) can be performed.
+Both the TMLE and OSE are asymptotically linear estimators, standard Z/T tests from [HypothesisTests.jl](https://juliastats.org/HypothesisTests.jl/stable/) can be performed and `confint` and `pvalue` methods used.
 
 ```@example estimation
-tmle_test_result₁ = OneSampleTTest(result₁)
+tmle_test_result₁ = pvalue(OneSampleTTest(result₁))
 ```
 
-We could now get an interest in the Average Treatment Effect of `T₂` that we will estimate with an `OSE`:
+Let us now turn to the Average Treatment Effect of `T₂`, we will estimate it with a `OSE`:
 
 ```@example estimation
 Ψ₂ = ATE(
@@ -109,24 +108,73 @@ nothing # hide
 
 Again, required nuisance functions are fitted and stored in the cache.
 
-## CV-Estimation
+## Specifying Models
 
-Both TMLE and OSE can be used with sample-splitting, which, for an additional computational cost, further reduces the assumptions we need to make regarding our data generating process ([see here](https://arxiv.org/abs/2203.06469)). Note that this sample-splitting procedure should not be confused with the sample-splitting happening in Super Learning. Using both CV-TMLE and Super-Learning will result in two nested sample-splitting loops.
+By default, TMLE.jl uses generalized linear models for the estimation of relevant and nuisance factors such as the outcome mean and the propensity score. However, this is not the recommended usage since the estimators' performance is closely related to how well we can estimate these factors. More sophisticated models can be provided using the `models` keyword argument of each estimator which is essentially a `NamedTuple` mapping variables' names to their respective model.
 
-To leverage sample-splitting, simply specify a `resampling` strategy when building an estimator:
+Rather than specifying a specific model for each variable it may be easier to override the default models using the `default_models` function:
+
+For example one can override all default models with XGBoost models from `MLJXGBoostInterface`:
 
 ```@example estimation
-cvtmle = TMLEE(resampling=CV())
-cvresult₁, _ = cvtmle(Ψ₁, dataset);
+using MLJXGBoostInterface
+xgboost_regressor = XGBoostRegressor()
+xgboost_classifier = XGBoostClassifier()
+models = default_models(
+    Q_binary=xgboost_classifier,
+    Q_continuous=xgboost_regressor,
+    G=xgboost_classifier
+)
+tmle_gboost = TMLEE(models=models)
 ```
 
-Similarly, one could build CV-OSE:
+The advantage of using `default_models` is that it will automatically prepend each model with a [ContinuousEncoder](https://alan-turing-institute.github.io/MLJ.jl/dev/transformers/#MLJModels.ContinuousEncoder) to make sure the correct types are passed to the downstream models.
+
+Super Learning ([Stack](https://alan-turing-institute.github.io/MLJ.jl/dev/model_stacking/#Model-Stacking)) as well as variable specific models can be defined as well. Here is a more customized version:
+
+```@example estimation
+lr = LogisticClassifier(lambda=0.)
+stack_binary = Stack(
+    metalearner=lr,
+    xgboost=xgboost_classifier,
+    lr=lr
+)
+
+models = (
+    T₁ = with_encoder(xgboost_classifier), # T₁ with XGBoost prepended with a Continuous Encoder
+    default_models( # For all other variables use the following defaults
+        Q_binary=stack_binary, # A Super Learner
+        Q_continuous=xgboost_regressor, # An XGBoost
+        # Unspecified G defaults to Logistic Regression
+    )...
+)
+
+tmle_custom = TMLEE(models=models)
+```
+
+Notice that `with_encoder` is simply a shorthand to construct a pipeline with a `ContinuousEncoder` and that the resulting `models` is simply a `NamedTuple`.
+
+## CV-Estimation
+
+Canonical TMLE/OSE are essentially using the dataset twice, once for the estimation of the nuisance functions and once for the estimation of the parameter of interest. This means that there is a risk of over-fitting and residual bias ([see here](https://arxiv.org/abs/2203.06469) for some discussion). One way to address this limitation is to use a technique called sample-splitting / cross-validating. In order to activate the sample-splitting mode, simply provide a `MLJ.ResamplingStrategy` using the `resampling` keyword argument:
+
+```@example estimation
+TMLEE(resampling=StratifiedCV());
+```
+
+or
 
 ```julia
-cvose = OSE(resampling=CV(nfolds=3))
+OSE(resampling=StratifiedCV(nfolds=3));
 ```
 
-## Caching model fits
+There are some practical considerations
+
+- Choice of `resampling` Strategy: The theory behind sample-splitting requires the nuisance functions to be sufficiently well estimated on **each and every** fold. A practical aspect of it is that each fold should contain a sample representative of the dataset. In particular, when the treatment and outcome variables are categorical it is important to make sure the proportions are preserved. This is typically done using `StratifiedCV`.
+- Computational Complexity: Sample-splitting results in ``K`` fits of the nuisance functions, drastically increasing computational complexity. In particular, if the nuisance functions are estimated using (P-fold) Super-Learning, this will result in two nested cross-validation loops and ``K \times P`` fits.
+- Caching of Nuisance Functions: Because the `resampling` strategy typically needs to preserve the outcome and treatment proportions, very little reuse of cached models is possible (see [Caching Models](@ref)).
+
+## Caching Models
 
 Let's now see how the `cache` can be reused with a new estimand, say the Total Average Treatment Effect of both `T₁` and `T₂`.
 

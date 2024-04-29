@@ -221,13 +221,16 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
         machine_cache=tmle.machine_cache
         )
     # Estimation results after TMLE
-    IC, Ψ̂ = gradient_and_estimate(Ψ, targeted_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
+    IC, Ψ̂ = gradient_and_estimate(tmle, Ψ, targeted_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
     σ̂ = std(IC)
     n = size(IC, 1)
     verbosity >= 1 && @info "Done."
     # update!(cache, relevant_factors, targeted_factors_estimate)
     return TMLEstimate(Ψ, Ψ̂, σ̂, n, IC), cache
 end
+
+gradient_and_estimate(::TMLEE, Ψ, factors, dataset; ps_lowerbound=1e-8) = 
+    gradient_and_plugin_estimate(Ψ, factors, dataset; ps_lowerbound=ps_lowerbound)
 
 #####################################################################
 ###                            OSE                                ###
@@ -267,14 +270,14 @@ ose = OSE()
 OSE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false) = 
     OSE(models, resampling, ps_lowerbound, machine_cache)
 
-function (estimator::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+function (ose::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
     initial_factors = get_relevant_factors(Ψ)
     nomissing_dataset = nomissing(dataset, variables(initial_factors))
-    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, estimator.resampling)
-    initial_factors_estimator = CMRelevantFactorsEstimator(estimator.resampling, estimator.models)
+    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling)
+    initial_factors_estimator = CMRelevantFactorsEstimator(ose.resampling, ose.models)
     initial_factors_estimate = initial_factors_estimator(
         initial_factors, 
         initial_factors_dataset;
@@ -283,16 +286,21 @@ function (estimator::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dic
     )
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)
-    ps_lowerbound = ps_lower_bound(n, estimator.ps_lowerbound)
+    ps_lowerbound = ps_lower_bound(n, ose.ps_lowerbound)
 
     # Gradient and estimate
-    IC, Ψ̂ = gradient_and_estimate(Ψ, initial_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
-    IC_mean = mean(IC)
-    IC .-= IC_mean
+    IC, Ψ̂ = gradient_and_estimate(ose, Ψ, initial_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
     σ̂ = std(IC)
     n = size(IC, 1)
     verbosity >= 1 && @info "Done."
-    return OSEstimate(Ψ, Ψ̂ + IC_mean, σ̂, n, IC), cache
+    return OSEstimate(Ψ, Ψ̂, σ̂, n, IC), cache
+end
+
+function gradient_and_estimate(::OSE, Ψ, factors, dataset; ps_lowerbound=1e-8)
+    IC, Ψ̂ = gradient_and_plugin_estimate(Ψ, factors, dataset; ps_lowerbound=ps_lowerbound)
+    IC_mean = mean(IC)
+    IC .-= IC_mean
+    return IC, Ψ̂ + IC_mean
 end
 
 #####################################################################

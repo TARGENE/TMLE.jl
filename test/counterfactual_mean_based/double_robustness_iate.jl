@@ -182,7 +182,7 @@ end
         T₁ = with_encoder(LogisticClassifier(lambda=0)),
         T₂ = with_encoder(LogisticClassifier(lambda=0)),
     )
-    dr_estimators = double_robust_estimators(models)
+    dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-9)
@@ -197,7 +197,7 @@ end
         T₁ = with_encoder(ConstantClassifier()),
         T₂ = with_encoder(ConstantClassifier()),
     )
-    dr_estimators = double_robust_estimators(models)
+    dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-9)
@@ -267,7 +267,7 @@ end
         T₁ = with_encoder(LogisticClassifier(lambda=0)),
         T₂ = with_encoder(LogisticClassifier(lambda=0))
     )
-    dr_estimators = double_robust_estimators(models)
+    dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-5)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
@@ -283,7 +283,7 @@ end
         T₁ = with_encoder(ConstantClassifier()),
         T₂ = with_encoder(ConstantClassifier()),
     )
-    dr_estimators = double_robust_estimators(models)
+    dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-5)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
