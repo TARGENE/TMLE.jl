@@ -12,11 +12,11 @@ Finally, if you find inconsistencies or imprecision, please report it, so we can
 
 This is the notation we use throughout:
 
-- The observed data: We assume we observe the realization of a random vector ``\bold{Z}_n = (Z_1, ..., Z_n)``. The components of ``\bold{Z}`` are assumed independent and identically distributed according to ``\mathbb{P}``, i.e. ``\forall i \in \{1, ..., n\},Z_i \sim \mathbb{P}``. Note that each ``Z_i`` is usually a vector as well, for us: ``(W_i, T_i, Y_i)``.
+- The observed data: We assume we observe the realization of a random vector ``\bold{Z}_n = (Z_1, ..., Z_n)``. The components of ``\bold{Z}`` are assumed independent and identically distributed according to ``\mathbb{P}``, i.e. ``\forall i \in \{1, ..., n\},Z_i \sim \mathbb{P}``. Note that each ``Z_i`` is usually a vector as well, for us: ``Z_i = (W_i, T_i, Y_i)``.
 - The Empirical Distribution : ``\mathbb{P}_n(A) = \frac{1}{n}\sum_{i=1}^n 1_A(Z_i)``. For each set ``A``, it computes the mean number of points falling into ``A``.
-- Expected value of a function ``f`` with respect to a distribution ``\mathbb{P}``: ``\mathbb{E}_{\mathbb{P}} f = \mathbb{P}f``. Note that for the empirical distribution ``\mathbb{P}_n``, this is simply: ``\mathbb{P}_nf = \frac{1}{n}\sum_{i=1}^nf(Z_i)``, in other words, the sample mean.
+- Expected value of a function ``f`` of the data ``Z`` with respect to a distribution ``\mathbb{P}``: ``\mathbb{P}f \equiv \mathbb{E}_{\mathbb{P}}[f(Z)]``. Note that for the empirical distribution ``\mathbb{P}_n``, this is simply: ``\mathbb{P}_nf = \frac{1}{n}\sum_{i=1}^nf(Z_i)``, in other words, the sample mean.
 - The Estimand: The unknown finite dimensional quantity we are interested in. ``\Psi`` is defined as a functional, i.e. ``\mathbb{P} \mapsto \Psi(\mathbb{P}) \in \mathbb{R}^d``. In this document ``d=1``.
-- The Gradient of ``\Psi`` at the distribution ``\mathbb{P}`` : ``\phi_{\mathbb{P}}``, a function of the data, i.e. ``Z \mapsto \phi_{\mathbb{P}}(Z)``. The gradient satisfies: ``\mathbb{P}\phi_{\mathbb{P}} = 0`` and ``Var[\phi_{\mathbb{P}}] < \infty``.
+- The Gradient of ``\Psi`` at the distribution ``\mathbb{P}`` : ``\phi_{\mathbb{P}}``, a function of the data, i.e. ``Z \mapsto \phi_{\mathbb{P}}(Z)``. The gradient satisfies two properties: (i) ``\mathbb{P}\phi_{\mathbb{P}} = 0``, and (ii) ``Var[\phi_{\mathbb{P}}] < \infty``.
 - An estimator, is a function of the data ``\bold{Z}_n``, and thus a random variable, that seeks to approximate an unknown quantity. For instance, ``\hat{\Psi}_n`` denotes an estimator for ``\Psi``. Notice that the empirical distribution is an estimator for ``\mathbb{P}``, but the hat is omitted to distinguish it from other estimators that will be defined later on.
 
 ### The Counterfactual Mean
@@ -34,7 +34,7 @@ Y &= f_Y(T, W, U_Y)
 This is certainly the most common scenario in causal inference where ``Y`` is an outcome of interest, ``T`` a set of treatment variables and ``W`` a set of confounding variables. We are generally interested in the effect of ``T`` on ``Y``. In this document we will consider the counterfactual mean as a workhorse. We will show that the estimators for the Average Treatment Effect and Average Interaction Effect can easily be derived from it. Under usual conditions, the counterfactual mean identifies to the following statistical estimand:
 
 ```math
-CM_t(\mathbb{P}) = \Psi_t(\mathbb{P}) = \mathbb{E}_{\mathbb{P}}[\mathbb{E}_{\mathbb{P}}[Y | W, T = t]] = \int \mathbb{E}_{\mathbb{P}}[Y | W, T = t] d\mathbb{P}(w)
+CM_t(\mathbb{P}) = \Psi_t(\mathbb{P}) = \mathbb{E}_{\mathbb{P}}[\mathbb{E}_{\mathbb{P}}[Y | W, T = t]] = \int \mathbb{E}_{\mathbb{P}}[Y | W=w, T = t] d\mathbb{P}(w)
 ```
 
 From this definition, we can see that ``\Psi_t`` depends on ``\mathbb{P}`` only through two relevant factors:
@@ -52,7 +52,7 @@ So that ``\Psi(\mathbb{P}) = \Psi(Q_Y, Q_W)`` (the ``t`` subscript is dropped as
 g(W, T) = \mathbb{P}(T | W) 
 ```
 
-Since the gradient of ``\Psi``:
+This is because the gradient of ``\Psi``:
 
 ```math
 \phi_{CM_{t}, \mathbb{P}}(W, T, Y) = \frac{\mathbb{1}(T = t)}{g(W, t)}(Y − Q_Y(W, t)) + Q_Y(W, t) − \Psi(\mathbb{P}) 
@@ -60,23 +60,23 @@ Since the gradient of ``\Psi``:
 
 which is the foundation of semi-parametric estimation, depends on this so-called nuisance parameter.
 
-### Average Treatment Effect and Average Interaction Effect?
+### Average Treatment Effect and Average Interaction Effect
 
-They are simple linear combinations of counterfactual means and so is their gradients.
+They are simple linear combinations of counterfactual means and so are their gradients.
 
 #### Average Treatment Effect
 
 In all generality, for two values of a categorical treatment variable ``T: t_{control} \rightarrow t_{case}``, the Average Treatment Effect (ATE) is defined by:
 
 ```math
-ATE_{t_{case}, t_{control}}(\mathbb{P}) = CM_{t_{case}}(\mathbb{P}) - CM_{t_{control}}(\mathbb{P}) 
+ATE_{t_{case}, t_{control}}(\mathbb{P}) = (CM_{t_{case}} - CM_{t_{control}})(\mathbb{P}) 
 ```
 
 And it's associated gradient is:
 
 ```math
 \begin{aligned}
-\phi_{ATE}(W, T, Y) &= \phi_{CM_{t_{case}}}(W, T, Y) - \phi_{CM_{t_{control}}}(W, T, Y) \\
+\phi_{ATE}(W, T, Y) &= (\phi_{CM_{t_{case}}} - \phi_{CM_{t_{control}}})(W, T, Y) \\
 &=  H(W, T)(Y − Q_Y(W, T)) + C(W) − ATE_{t_{case}, t_{control}}(\mathbb{P})
 \end{aligned}
 ```
@@ -86,7 +86,7 @@ with:
 ```math
 \begin{aligned}
   \begin{cases}
-    H(W, T) &= \frac{(-\mathbb{1}(T \in (t_{case}, t_{control})))^{T=t_{control}}}{g(W, T)} \\
+    H(W, T) &= \frac{ \mathbb{1}(T = t_{case}) - \mathbb{1}(T = t_{control})}{g(W, T)} \\
     C(W) &= (Q_Y(W, t_{case}) - Q_Y(W, t_{control}))
   \end{cases}
 \end{aligned}
@@ -96,17 +96,21 @@ with:
 
 #### Average Interaction Effect
 
-For simplicity, we only consider two treatments ``T = (T_1, T_2)`` such that: ``T_1: t_{1,control} \rightarrow t_{1,case}`` and ``T_2: t_{2,control} \rightarrow t_{2,case}``. The Average Interaction Effect (AIE) of ``(T_1, T_2)`` is defined as:
+For simplicity, we only consider two treatments ``T = (T_1, T_2)`` such that ``T_1: t_{1,control} \rightarrow t_{1,case}`` and ``T_2: t_{2,control} \rightarrow t_{2,case}``. The Average Interaction Effect (AIE) of ``(T_1, T_2)`` is defined as:
 
 ```math
-AIE(\mathbb{P}) = CM_{t_{1, case}, t_{2, case}}(\mathbb{P}) - CM_{t_{1, case}, t_{2, control}}(\mathbb{P}) - CM_{t_{1, control}, t_{2, case}}(\mathbb{P}) + CM_{t_{1, control}, t_{2, control}}(\mathbb{P})
+\begin{aligned}
+AIE(\mathbb{P}) &= (CM_{t_{1, case}, t_{2, case}} - CM_{t_{1, case}, t_{2, control}} \\
+&- CM_{t_{1, control}, t_{2, case}} + CM_{t_{1, control}, t_{2, control}})(\mathbb{P})
+\end{aligned}
 ```
 
 And its gradient is given by:
 
 ```math
 \begin{aligned}
-\phi_{AIE, }(W, T, Y) &= \phi_{CM_{t_{1,case}, t_{2,case}}}(W, T, Y) - \phi_{CM_{t_{1,case}, t_{2,control}}}(W, T, Y) - \phi_{CM_{t_{1,control}, t_{2,case}}}(W, T, Y) + \phi_{CM_{t_{1,control}, t_{2,control}}}(W, T, Y) \\
+\phi_{AIE, }(W, T, Y) &= (\phi_{CM_{t_{1,case}, t_{2,case}}} - \phi_{CM_{t_{1,case}, t_{2,control}}} \\
+&- \phi_{CM_{t_{1,control}, t_{2,case}}} + \phi_{CM_{t_{1,control}, t_{2,control}}})(W, T, Y) \\
 &=  H(W, T)(Y − Q_Y(W, T)) + C(W) − ATE_{t_{case}, t_{control}}(\mathbb{P})
 \end{aligned}
 ```
@@ -116,7 +120,7 @@ with:
 ```math
 \begin{aligned}
   \begin{cases}
-    H(W, T) &= \frac{(-\mathbb{1}(T_1 \in (t_{1, case}, t_{1, control})))^{T_1=t_{1, control}}(-\mathbb{1}(T_2 \in (t_{2, case}, t_{2, control})))^{T_2=t_{2, control}}}{g(W, T)} \\
+    H(W, T) &= \frac{(\mathbb{1}(T_1 = t_{1, case}) - \mathbb{1}(T_1 = t_{1, control}))(\mathbb{1}(T_2 = t_{2, case}) - \mathbb{1}(T_2 = t_{2, control}))}{g(W, T)} \\
     C(W) &= (Q_Y(W, t_{1, case}, t_{2, case}) - Q_Y(W, t_{1, case}, t_{2, control}) - Q_Y(W, t_{1, control}, t_{2, case}) + Q_Y(W, t_{1, control}, t_{2, control}))
   \end{cases}
 \end{aligned}
@@ -147,9 +151,9 @@ This suggests that a plugin estimator, one that simply evaluates ``\Psi`` at an 
 \mathbb{P}_n\phi_{\mathbb{P}}(Z)
 ```
 
-By the central limit theorem, it is asymptotically normal with variance ``Var[\phi]/n``, it is used to build confidence interval.
+By the central limit theorem, it is asymptotically normal with variance ``Var[\phi]/n``, it will be used to construct a confidence interval for our final estimate.
 
-### 2. The Bias Term
+### 2. The First-Order Bias Term
 
 ```math
 - \mathbb{P}_n\phi_{\mathbb{\hat{P}}}(Z)
@@ -166,7 +170,7 @@ This is the term both the One-Step estimator and the Targeted Maximum-Likelihood
 This can be shown to be of order ``o_{\mathbb{P}}(\frac{1}{\sqrt{n}})`` if ``\phi_{\hat{\mathbb{P}}}`` converges to ``\phi_{\mathbb{P}}`` in ``L_2(\mathbb{P})`` norm, that is:
 
 ```math
-\int (\phi_{\hat{\mathbb{P}}}(Z) - \phi_{\mathbb{P}}(Z) )^2 d\mathbb{P}(Z) = o_{\mathbb{P}}(\frac{1}{\sqrt{n}})
+\int (\phi_{\hat{\mathbb{P}}}(Z) - \phi_{\mathbb{P}}(Z) )^2 d\mathbb{P}(Z) = o_{\mathbb{P}}\left(\frac{1}{\sqrt{n}}\right)
 ```
 
 and, any of the following holds:
@@ -174,13 +178,13 @@ and, any of the following holds:
 - ``\phi`` (or equivalently its components) is [[Donsker](https://en.wikipedia.org/wiki/Donsker_classes)], i.e., not too complex.
 - The estimator is constructed using sample-splitting (see cross-validated estimators).
 
-### 4. The Second-Order Remainder Term
+### 4. The Exact Second-Order Remainder Term
 
 ```math
 R_2(\mathbb{\hat{P}}, \mathbb{P})
 ```
 
-This term is usually more complex to analyse. However, for the counterfactual mean, it can be shown that if ``g(W,T) \geq \frac{1}{\eta}`` (positivity constraint):
+This term is usually more complex to analyse. Note however, that it is entirely defined by the von Mises expansion, and for the counterfactual mean, it can be shown that if ``g(W,T) \geq \frac{1}{\eta}`` (positivity constraint):
 
 ```math
 |R_2(\mathbb{\hat{P}}, \mathbb{P})| \leq \eta ||\hat{Q}_{n, Y} - Q_{Y}|| \cdot ||\hat{g}_{n} - g||
@@ -193,7 +197,7 @@ and thus, if the estimators ``\hat{Q}_{n, Y}`` and ``\hat{g}_{n}`` converge at a
 According to the previous section, the OSE and TMLE will be asymptotically linear with efficient influence curve the gradient ``\phi``:
 
 ```math
-\sqrt{n}(\hat{\Psi} - \Psi) = \frac{1}{\sqrt{n}} \sum_{i=1}^n \phi(Z_i) + o_{\mathbb{P}}(\frac{1}{\sqrt{n}})
+\sqrt{n}(\hat{\Psi} - \Psi) = \frac{1}{\sqrt{n}} \sum_{i=1}^n \phi(Z_i) + o_{\mathbb{P}}\left(\frac{1}{\sqrt{n}}\right)
 ```
 
 By the [Central Limit Theorem](https://en.wikipedia.org/wiki/Central_limit_theorem) and [Slutsky's Theorem](https://en.wikipedia.org/wiki/Slutsky%27s_theorem) we have:
@@ -214,6 +218,8 @@ which can be used to build confidence intervals:
 \underset{n \to \infty}{\lim} P(\hat{\Psi}_n - \frac{S_n}{\sqrt{n}}z_{\alpha} \leq \Psi \leq \hat{\Psi}_n + \frac{S_n}{\sqrt{n}}z_{\alpha}) = 1 - 2\alpha
 ```
 
+Here, ``z_{\alpha}`` denotes the ``\alpha``-quantile function of the standard normal distribution
+
 ## One-Step Estimator
 
 ### Canonical OSE
@@ -221,12 +227,12 @@ which can be used to build confidence intervals:
 The One-Step estimator is very intuitive, it simply corrects the initial plugin estimator by adding in the residual bias term. As such, it corrects for the bias in the estimand's space. Let ``\hat{P}= (\hat{Q}_{n,Y}, \hat{Q}_{n,W})`` be an estimator of the relevant factors of ``\mathbb{P}`` as well as ``\hat{g}_n`` an estimator of the nuisance function ``g``. The OSE is:
 
 ```math
-\hat{\Psi}_{n, OSE} = \Psi(\hat{P}) + P_n{\phi_{\hat{P}}}
+\hat{\Psi}_{n, OSE} = \Psi(\hat{P}) + \mathbb{P}_n{\phi_{\hat{P}}}
 ```
 
 ### CV-OSE
 
-Assume the realization of ``n`` random variables ``K_i`` assigning each sample to one of ``{1, ..., K}`` folds. For a given sample ``i``, we denote by ``k(i)`` the validation fold it belongs to and ``-k(i)`` the remaining training fold. Similarly, we denote by ``\hat{Q}^{k}`` an estimator for ``Q`` obtained from samples in the validation fold ``k`` and ``\hat{Q}^{-k}`` an estimator for ``Q`` obtained from samples in the (training) fold ``\{1, ..., K\}-\{k\}``.
+Instead of assuming Donsker conditions limiting the complexity of the algorithms used, we can use sample splitting techniques. For this, we split the data into K folds of (roughly) equal size. For a given sample i, we denote by ``k(i)`` the fold it belongs to (called validation fold/set) and by ``-k(i)`` the union of all remaining folds (called training set). Similarly, we denote by ``\hat{Q}^{k}`` an estimator for ``Q`` obtained from samples in the validation fold ``k`` and ``\hat{Q}^{-k}`` an estimator for ``Q`` obtained from samples in the (training) fold ``\{1, ..., K\}-\{k\}``.
 
 The cross-validated One-Step estimator can be compactly written as an average over the folds of sub one-step estimators:
 
@@ -237,7 +243,7 @@ The cross-validated One-Step estimator can be compactly written as an average ov
 \end{aligned}
 ```
 
-The important thing to note is that for each sub one-step estimator, the sum runs over the validation samples while ``\hat{Q}_Y^{-k}`` and ``\hat{\phi}^{-k}`` are estimated using the training samples.
+Where the first equation is the general form of the estimator while the second one corresponds to the counterfactual mean. The important thing to note is that for each sub one-step estimator, the sum runs over the validation samples while ``\hat{Q}_Y^{-k}`` and ``\hat{\phi}^{-k}`` are estimated using the training samples.
 
 ## Targeted Maximum-Likelihood Estimator
 
@@ -245,15 +251,15 @@ Unlike the One-Step estimator, the Targeted Maximum-Likelihood Estimator correct
 
 ### Canonical TMLE
 
-The way ``\hat{\mathbb{P}}`` is modified is by means of a parametric sub-model also known as a fluctuation. It can be shown that for the conditional mean, it is sufficient to fluctuate ``\hat{Q}_{n, Y}`` only once using the following fluctuations:
+The way ``\hat{\mathbb{P}}`` is modified is by means of a parametric sub-model also known as a fluctuation. The choice of fluctuation depends on the target parameter of interest. It can be shown that for the conditional mean, it is sufficient to fluctuate ``\hat{Q}_{n, Y}`` only once using the following fluctuations:
 
 - ``\hat{Q}_{Y, \epsilon}(W, T) = \hat{Q}_{n, Y}(T, W) + \epsilon \hat{H}(T, W)``, for continuous outcomes ``Y``.
 - ``\hat{Q}_{Y, \epsilon}(W, T) = \frac{1}{1 + e^{-(logit(\hat{Q}_{n, Y}(T, W)) + \epsilon \hat{H}(T, W))}}``, for binary outcomes ``Y``.
 
-where ``\hat{H}(T, W) = \frac{1(T=t)}{\hat{g}_n(W)}`` is known as the clever covariate. The value of ``\epsilon`` is obtained by minimizing the loss ``L`` associated with ``Q_Y``, that is the mean-squared error for continuous outcomes and negative log-likelihood for binary outcomes. This can easily be done via linear and logistic regression respectively.
+where ``\hat{H}(T, W) = \frac{1(T=t)}{\hat{g}_n(W)}`` is known as the clever covariate. The value of ``\epsilon`` is obtained by minimizing the loss ``L`` associated with ``Q_Y``, that is the mean-squared error for continuous outcomes and negative log-likelihood for binary outcomes. This can easily be done via linear and logistic regression respectively, using the initial fit as off-set.
 
 !!! note
-    For the ATE and AIE, just like the gradient is linear in ``\Psi``, the clever covariate used to fluctuate the initial ``\hat{Q}_{n, Y}`` is as presented in [Average Treatment Effect and Average Interaction Effect?](@ref)
+    For the ATE and AIE, just like the gradient is linear in ``\Psi``, the clever covariate used to fluctuate the initial ``\hat{Q}_{n, Y}`` is as presented in [Average Treatment Effect and Average Interaction Effect](@ref)
 
 If we denote by ``\epsilon^*`` the value of ``\epsilon`` minimizing the loss, the TMLE is:
 
@@ -286,7 +292,7 @@ Then, the CV-TMLE is:
 \end{aligned}
 ```
 
-Notice that, while ``\hat{\Psi}_{n, CV-TMLE}`` is not a plugin estimator anymore, it still respects the natural range of the parameter because it is an average of plugin estimators. Also, because ``\hat{Q}_{n,Y}^*`` is based on the entire data, it seems this estimator is still somehow double-dipping.
+Notice that, while ``\hat{\Psi}_{n, CV-TMLE}`` is not a plugin estimator anymore, it still respects the natural range of the parameter because it is an average of plugin estimators.
 
 ## References
 

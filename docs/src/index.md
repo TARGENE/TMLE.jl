@@ -82,12 +82,12 @@ nothing # hide
 
 ## Scope and Distinguishing Features
 
-The goal of this package is to provide an entry point for semi-parametric asymptotic unbiased and efficient estimation in Julia. The two main general estimators that are known to achieve these properties are the One-Step estimator and the Targeted Maximum-Likelihood estimator. Most of the current effort as been centered around estimands that are composite of the counterfactual mean.
+The goal of this package is to provide an entry point for semi-parametric asymptotic unbiased and efficient estimation in Julia. The two main general estimators that are known to achieve these properties are the One-Step estimator and the Targeted Maximum-Likelihood estimator. Most of the current effort has been centered around estimands that are composite of the counterfactual mean.
 
 Distinguishing Features:
 
 - Estimands: Counterfactual Mean, Average Treatment Effect, Interactions, Any composition thereof
-- Estimators: TMLE, One-Step
+- Estimators: TMLE, One-Step, in both canonical and cross-validated versions.
 - Machine-Learning: Any [MLJ](https://alan-turing-institute.github.io/MLJ.jl/stable/) compatible model
 - Dataset: Any dataset respecting the [Tables](https://tables.juliadata.org/stable/) interface (e.g. [DataFrames.jl](https://dataframes.juliadata.org/stable/))
 - Factorial Treatment Variables:
