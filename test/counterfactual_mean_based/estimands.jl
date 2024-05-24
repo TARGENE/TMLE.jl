@@ -254,20 +254,15 @@ end
         Y₁ = [1, 2, 3, 4],
         Y₂ = [1, 2, 3, 4]
     )
-    composedCM = factorialEstimand(CM, [:T₁], :Y₁, dataset=dataset, verbosity=0)
-    @test composedCM == TMLE.ComposedEstimand(
-        TMLE.joint_estimand,
-        (
+    jointCM = factorialEstimand(CM, [:T₁], :Y₁, dataset=dataset, verbosity=0)
+    @test jointCM == TMLE.JointEstimand(
             TMLE.CausalCM(:Y₁, (T₁ = 0,)),
             TMLE.CausalCM(:Y₁, (T₁ = 1,)),
             TMLE.CausalCM(:Y₁, (T₁ = 2,))
-        )
     )
 
-    composedCM = factorialEstimand(CM, [:T₁, :T₂], :Y₁, dataset=dataset, verbosity=0)
-    @test composedCM == TMLE.ComposedEstimand(
-        TMLE.joint_estimand,
-        (
+    jointCM = factorialEstimand(CM, [:T₁, :T₂], :Y₁, dataset=dataset, verbosity=0)
+    @test jointCM == TMLE.JointEstimand(
             TMLE.CausalCM(:Y₁, (T₁ = 0, T₂ = "AC")),
             TMLE.CausalCM(:Y₁, (T₁ = 1, T₂ = "AC")),
             TMLE.CausalCM(:Y₁, (T₁ = 2, T₂ = "AC")),
@@ -277,7 +272,6 @@ end
             TMLE.CausalCM(:Y₁, (T₁ = 0, T₂ = "AA")),
             TMLE.CausalCM(:Y₁, (T₁ = 1, T₂ = "AA")),
             TMLE.CausalCM(:Y₁, (T₁ = 2, T₂ = "AA"))
-        )
     )
 end
 
@@ -292,25 +286,20 @@ end
         Y₂ = [1, 2, 3, 4]
     )
     # No confounders, 1 treatment, no extra covariate: 3 causal ATEs
-    composedATE = factorialEstimand(ATE, [:T₁], :Y₁, dataset=dataset, verbosity=0)
-    @test composedATE == ComposedEstimand(
-        TMLE.joint_estimand,
-        (
-            TMLE.CausalATE(:Y₁, (T₁ = (case = 1, control = 0),)),
-            TMLE.CausalATE(:Y₁, (T₁ = (case = 2, control = 1),))
-        )
+    jointATE = factorialEstimand(ATE, [:T₁], :Y₁, dataset=dataset, verbosity=0)
+    @test jointATE == JointEstimand(
+        TMLE.CausalATE(:Y₁, (T₁ = (case = 1, control = 0),)),
+        TMLE.CausalATE(:Y₁, (T₁ = (case = 2, control = 1),))
     )
     # 2 treatments
-    composedATE = factorialEstimand(ATE, [:T₁, :T₂], :Y₁;
+    jointATE = factorialEstimand(ATE, [:T₁, :T₂], :Y₁;
         dataset=dataset, 
         confounders=[:W₁, :W₂],
         outcome_extra_covariates=[:C],
         verbosity=0
     )
     ## 4 expected different treatment settings
-    @test composedATE == ComposedEstimand(
-        TMLE.joint_estimand,
-        (
+    @test jointATE == JointEstimand(
             TMLE.StatisticalATE(
                 outcome = :Y₁, 
                 treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = "CC", control = "AC")),
@@ -335,17 +324,16 @@ end
                 treatment_confounders = (:W₁, :W₂),
                 outcome_extra_covariates=[:C]
             ),
-        )
     )
     # positivity constraint
-    composedATE = factorialEstimand(ATE, [:T₁, :T₂], :Y₁;
+    jointATE = factorialEstimand(ATE, [:T₁, :T₂], :Y₁;
         dataset=dataset,
         confounders=[:W₁, :W₂],
         outcome_extra_covariates=[:C],
         positivity_constraint=0.1,
         verbosity=0
     )
-    @test length(composedATE.args) == 1
+    @test length(jointATE.args) == 1
 end
 
 @testset "Test factorial IATE" begin
@@ -359,15 +347,13 @@ end
         Y₂ = [1, 2, 3, 4]
     )
     # From dataset
-    composedIATE = factorialEstimand(IATE, [:T₁, :T₂], :Y₁;
+    jointIATE = factorialEstimand(IATE, [:T₁, :T₂], :Y₁;
         dataset=dataset, 
         confounders=[:W₁], 
         outcome_extra_covariates=[:C],
         verbosity=0
     )
-    @test composedIATE == ComposedEstimand(
-        TMLE.joint_estimand,
-        (
+    @test jointIATE == JointEstimand(
             TMLE.StatisticalIATE(
                 outcome = :Y₁, 
                 treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = "CC", control = "AC")), 
@@ -392,13 +378,10 @@ end
                 treatment_confounders = (:W₁,), 
                 outcome_extra_covariates = (:C,)
             )
-        )
     )
     # From unique values
-    composedIATE = factorialEstimand(IATE, (T₁ = (0, 1), T₂=(0, 1, 2), T₃=(0, 1, 2)), :Y₁, verbosity=0)
-    @test composedIATE == ComposedEstimand(
-        TMLE.joint_estimand,
-        (
+    jointIATE = factorialEstimand(IATE, (T₁ = (0, 1), T₂=(0, 1, 2), T₃=(0, 1, 2)), :Y₁, verbosity=0)
+    @test jointIATE == JointEstimand(
             TMLE.CausalIATE(
                 outcome = :Y₁, 
                 treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = 1, control = 0), T₃ = (case = 1, control = 0))
@@ -415,18 +398,16 @@ end
                 outcome = :Y₁, 
                 treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = 2, control = 1), T₃ = (case = 2, control = 1))
             )
-        )
     )
 
     # positivity constraint
-    composedIATE = factorialEstimand(IATE, [:T₁, :T₂], :Y₁;
+    @test_throws ArgumentError("No component passed the positivity constraint.") factorialEstimand(IATE, [:T₁, :T₂], :Y₁;
         dataset=dataset,  
         confounders=[:W₁], 
         outcome_extra_covariates=[:C],
         positivity_constraint=0.1,
         verbosity=0
     )
-    @test length(composedIATE.args) == 0
 end
 
 @testset "Test factorialEstimands" begin
@@ -448,14 +429,13 @@ end
     )
     @test length(factorial_ates) == 2
     # Nothing passes the threshold
-    factorial_ates = factorialEstimands(ATE, [:T₁, :T₂], [:Y₁, :Y₂], 
+    @test_throws ArgumentError("No component passed the positivity constraint.") factorialEstimands(ATE, [:T₁, :T₂], [:Y₁, :Y₂], 
         dataset=dataset,
         confounders=[:W₁, :W₂], 
         outcome_extra_covariates=[:C],
         positivity_constraint=0.3,
         verbosity=0
     )
-    @test length(factorial_ates) == 0
 end
 end
 

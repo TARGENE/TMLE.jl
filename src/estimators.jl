@@ -87,21 +87,22 @@ ConditionalDistributionEstimator(train_validation_indices, model) =
     SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices)
 
 #####################################################################
-###                   ComposedEstimand Estimator                  ###
+###                   JointEstimand Estimator                  ###
 #####################################################################
 
 """
-    (estimator::Estimator)(Ψ::ComposedEstimand, dataset; cache=Dict(), verbosity=1)
+    (estimator::Estimator)(Ψ::JointEstimand, dataset; cache=Dict(), verbosity=1)
 
 Estimates all components of Ψ and then Ψ itself.
 """
-function (estimator::Estimator)(Ψ::ComposedEstimand, dataset; cache=Dict(), verbosity=1, backend=AD.ZygoteBackend())
+function (estimator::Estimator)(Ψ::JointEstimand, dataset; cache=Dict(), verbosity=1)
     estimates = map(Ψ.args) do estimand 
         estimate, _ = estimator(estimand, dataset; cache=cache, verbosity=verbosity)
         estimate
     end
-    f₀, σ₀, n = _compose(Ψ.f, estimates...; backend=backend)
-    return ComposedEstimate(Ψ, estimates, f₀, σ₀, n), cache
+    Σ = covariance_matrix(estimates...)
+    n = size(first(estimates).IC, 1)
+    return JointEstimate(Ψ, estimates, Σ, n), cache
 end
 
 """
@@ -157,10 +158,14 @@ f(x, y) = [x^2 - y, y - 3x]
 compose(f, res₁, res₂)
 ```
 """
-function compose(f, estimates...; backend=AD.ZygoteBackend())
-    f₀, σ₀, n = _compose(f, estimates...; backend=backend)
-    estimand = ComposedEstimand(f, Tuple(e.estimand for e in estimates))
-    return ComposedEstimate(estimand, estimates, f₀, σ₀, n)
+function compose(f, Ψ̂::JointEstimate; backend=AD.ZygoteBackend())
+    point_estimate = estimate(Ψ̂)
+    Σ = Ψ̂.cov
+    f₀, Js = AD.value_and_jacobian(backend, f, point_estimate...)
+    J = hcat(Js...)
+    σ₀ = J * Σ * J'
+    estimand = ComposedEstimand(f, Ψ̂.estimand)
+    return ComposedEstimate(estimand, f₀, σ₀, Ψ̂.n)
 end
 
 function _compose(f, estimates...; backend=AD.ZygoteBackend())

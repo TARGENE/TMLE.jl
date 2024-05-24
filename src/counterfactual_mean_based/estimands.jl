@@ -306,7 +306,10 @@ function _factorialEstimand(
             verbosity > 0 && @warn("Sub estimand", Ψ, " did not pass the positivity constraint, skipped.")
         end
     end
-    return ComposedEstimand(joint_estimand, Tuple(components))
+    if length(components) == 0
+        throw(ArgumentError("No component passed the positivity constraint."))
+    end
+    return JointEstimand(components...)
 end
 
 """
@@ -321,7 +324,7 @@ end
         verbosity=1
     )
 
-Generates a factorial `ComposedEstimand` with components of type `constructor` (CM, ATE, IATE). 
+Generates a factorial `JointEstimand` with components of type `constructor` (CM, ATE, IATE). 
 
 For the ATE and the IATE, the generated components are restricted to the Cartesian Product of single treatment levels transitions.
 For example, consider two treatment variables T₁ and T₂ each taking three possible values (0, 1, 2). 
@@ -335,7 +338,7 @@ Then, the Cartesian Product of these transitions is taken, resulting in a 2 x 2 
 
 # Return
 
-A `ComposedEstimand` with causal or statistical components.
+A `JointEstimand` with causal or statistical components.
 
 # Args
 
@@ -345,7 +348,7 @@ A `ComposedEstimand` with causal or statistical components.
 - `confounders=nothing`: The generated components will inherit these confounding variables. If `nothing`, causal estimands are generated.
 - `outcome_extra_covariates=()`: The generated components will inherit these `outcome_extra_covariates`.
 - `dataset`: An optional dataset to enforce a positivity constraint and infer treatment levels.
-- `positivity_constraint=nothing`: Only components that pass the positivity constraint are added to the `ComposedEstimand`. A `dataset` must then be provided.
+- `positivity_constraint=nothing`: Only components that pass the positivity constraint are added to the `JointEstimand`. A `dataset` must then be provided.
 - `freq_table`: This is only to be used by `factorialEstimands` to avoid unecessary computations.
 - `verbosity=1`: Verbosity level.
 
@@ -408,7 +411,7 @@ factorialEstimands(
     verbosity=1
     )
 
-Generates a `ComposedEstimand` for each outcome in `outcomes`. See `factorialEstimand`.
+Generates a `JointEstimand` for each outcome in `outcomes`. See `factorialEstimand`.
 """
 function factorialEstimands(
     constructor::Union{typeof(CM), typeof(ATE), typeof(IATE)},

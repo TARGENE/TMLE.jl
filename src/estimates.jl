@@ -148,13 +148,12 @@ function compute_offset(estimate::ConditionalDistributionEstimate, X)
 end
 
 #####################################################################
-###                       Composed Estimate                      ###
+###                       Joint Estimate                      ###
 #####################################################################
 
-struct ComposedEstimate{T<:AbstractFloat} <: Estimate
-    estimand::ComposedEstimand
+struct JointEstimate{T<:AbstractFloat} <: Estimate
+    estimand::JointEstimand
     estimates::Tuple
-    estimate::Array{T}
     cov::Matrix{T}
     n::Int
 end
@@ -162,84 +161,48 @@ end
 to_matrix(x::Matrix) = x
 to_matrix(x) = reduce(hcat, x)
 
-ComposedEstimate(;estimand, estimates, estimate, cov, n) =
-    ComposedEstimate(estimand, Tuple(estimates), collect(estimate), to_matrix(cov), n)
+JointEstimate(;estimand, estimates, cov, n) =
+    JointEstimate(estimand, Tuple(estimates), to_matrix(cov), n)
 
 """
-    Distributions.estimate(r::ComposedEstimate)
+    Distributions.estimate(r::JointEstimate)
 
 Retrieves the final estimate: after the TMLE step.
 """
-Distributions.estimate(est::ComposedEstimate) = 
-    length(est.estimate) == 1 ? est.estimate[1] : est.estimate
+Distributions.estimate(Ψ̂::JointEstimate) = [x.estimate for x in Ψ̂.estimates]
 
+Statistics.std(Ψ̂::JointEstimate) = sqrt(only(Ψ̂.cov))
 
-"""
-    var(r::ComposedEstimate)
-
-Computes the estimated variance associated with the estimate.
-"""
-Statistics.var(est::ComposedEstimate) = 
-    length(est.cov) == 1 ? est.cov[1] / est.n : est.cov ./ est.n
-
-"""
-    OneSampleTTest(r::ComposedEstimate, Ψ₀=0)
-
-Performs a T test on the ComposedEstimate.
-"""
-function HypothesisTests.OneSampleTTest(estimate::ComposedEstimate, Ψ₀=0) 
-    @assert length(estimate.estimate) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
-    return OneSampleTTest(estimate.estimate[1], sqrt(estimate.cov[1]), estimate.n, Ψ₀)
-end
-
-function HypothesisTests.OneSampleHotellingT2Test(estimate::ComposedEstimate, Ψ₀=zeros(size(estimate.estimate, 1)))
-    x̄ = estimate.estimate
-    S = estimate.cov
-    n, p = estimate.n, length(x̄)
-    p == length(Ψ₀) ||
-        throw(DimensionMismatch("Number of variables does not match number of means"))
-    n > 0 || throw(ArgumentError("The input must be non-empty"))
-    
-    T² = n * HypothesisTests.At_Binv_A(x̄ .- Ψ₀, S)
-    F = (n - p) * T² / (p * (n - 1))
-    return OneSampleHotellingT2Test(T², F, n, p, Ψ₀, x̄, S)
-end
-
-"""
-    OneSampleZTest(r::ComposedEstimate, Ψ₀=0)
-
-Performs a T test on the ComposedEstimate.
-"""
-function HypothesisTests.OneSampleZTest(estimate::ComposedEstimate, Ψ₀=0) 
-    @assert length(estimate.estimate) == 1 "OneSampleTTest is only implemeted for real-valued statistics."
-    return OneSampleZTest(estimate.estimate[1], sqrt(estimate.cov[1]), estimate.n, Ψ₀)
-end
-
-"""
-    significance_test(estimate::ComposedEstimate, Ψ₀=zeros(size(estimate.estimate, 1)))
-
-Performs a TTest if the estimate is one dimensional and a HotellingT2Test otherwise.
-"""
-function significance_test(estimate::ComposedEstimate, Ψ₀=zeros(size(estimate.estimate, 1)))
-    if length(estimate.estimate) == 1
-        Ψ₀ = Ψ₀ isa AbstractArray ? first(Ψ₀) : Ψ₀
-        return OneSampleTTest(estimate, Ψ₀)
-    else
-        return OneSampleHotellingT2Test(estimate, Ψ₀)
-    end
-end
-
-function emptyIC(estimate::ComposedEstimate, pval_threshold)
+function emptyIC(estimate::JointEstimate, pval_threshold)
     emptied_estimates = Tuple(emptyIC(e, pval_threshold) for e in estimate.estimates)
-    ComposedEstimate(estimate.estimand, emptied_estimates, estimate.estimate, estimate.cov, estimate.n)
+    JointEstimate(estimate.estimand, emptied_estimates, estimate.cov, estimate.n)
 end
 
-
-to_dict(estimate::ComposedEstimate) = Dict(
-    :type => string(ComposedEstimate),
+to_dict(estimate::JointEstimate) = Dict(
+    :type => string(JointEstimate),
     :estimand => to_dict(estimate.estimand),
     :estimates => [to_dict(e) for e in estimate.estimates],
-    :estimate => estimate.estimate,
     :cov => estimate.cov,
     :n => estimate.n
 )
+
+
+#####################################################################
+###                       Composed Estimate                       ###
+#####################################################################
+
+
+struct ComposedEstimate{T<:AbstractFloat} <: Estimate
+    estimand::ComposedEstimand
+    estimates::Vector{T}
+    cov::Matrix{T}
+    n::Int
+end
+
+ComposedEstimate(Ψ, estimate::Real, cov, n) = ComposedEstimate(Ψ, [estimate], cov, n)
+
+ComposedEstimate(;estimand, estimates, cov, n) = ComposedEstimate(estimand, estimates, cov, n)
+
+Distributions.estimate(Ψ̂::ComposedEstimate) = Ψ̂.estimates
+
+Statistics.std(Ψ̂::ComposedEstimate) = sqrt(only(Ψ̂.cov))

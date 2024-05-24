@@ -140,7 +140,7 @@ end
         treatment_values = (T=(case=2, control=1),),
         treatment_confounders = (T=[:W],)
     )
-    diff = ComposedEstimand(-, (ATE₁, ATE₂))
+    diff = JointEstimand(-, (ATE₁, ATE₂))
     estimands = [ATE₁, ATE₂, diff]
     jlsfile = mktemp()[1]
     serialize(jlsfile, estimands)

@@ -27,7 +27,7 @@ end
     @test TMLE.variables(η) == (:Y, :T, :W, :T₁, :W₁, :T₂, :W₂₁, :W₂₂)
 end
 
-@testset "Test ComposedEstimand" begin
+@testset "Test JointEstimand" begin
     ATE₁ = ATE(
         outcome=:Y,
         treatment_values = (T₁=(case=1, control=0), T₂=(case=1, control=0)),
@@ -38,10 +38,10 @@ end
         treatment_values = (T₁=(case=2, control=1), T₂=(case=2, control=1)),
         treatment_confounders = (T₁=[:W], T₂=[:W])
     )
-    diff = ComposedEstimand(-, (ATE₁, ATE₂))
+    joint = JointEstimand(ATE₁, ATE₂)
 
-    @test TMLE.propensity_score_key(diff) == ((:T₁, :W), (:T₂, :W))
-    @test TMLE.outcome_mean_key(diff) == ((:Y, :T₁, :T₂, :W),)
+    @test TMLE.propensity_score_key(joint) == ((:T₁, :W), (:T₂, :W))
+    @test TMLE.outcome_mean_key(joint) == ((:Y, :T₁, :T₂, :W),)
 end
 
 
