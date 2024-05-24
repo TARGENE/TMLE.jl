@@ -263,7 +263,7 @@ make_or_check_treatment_levels(treatments_levels::NamedTuple, dataset::Nothing) 
 If no dataset is provided, then a NamedTuple precising treatment levels is expected
 """
 make_or_check_treatment_levels(treatments, dataset::Nothing) = 
-    throw(ArgumenError("No dataset from which to infer treatment levels was provided. Either provide a `dataset` or a NamedTuple `treatments` e.g. (T=[0, 1, 2],)"))
+    throw(ArgumentError("No dataset from which to infer treatment levels was provided. Either provide a `dataset` or a NamedTuple `treatments` e.g. (T=[0, 1, 2],)"))
 
 """
 If a list of treatments is provided as well as a dataset then the treatment_levels are infered from it.

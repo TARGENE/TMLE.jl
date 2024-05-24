@@ -51,13 +51,20 @@ end
     @test !isordered(cfT.T₂)
 end
 
-@testset "Test positivity_constraint" begin
+@testset "Test positivity_constraint & get_frequency_table" begin
+    # get_frequency_table
+    ## When no positivity constraint is provided then get_frequency_table returns nothing
+    @test TMLE.get_frequency_table(nothing, nothing, [1, 2]) === nothing
+    @test TMLE.get_frequency_table(nothing, "toto", [1, 2]) === nothing
+    ## An error is thrown if no dataset is provided but a positivity constraint is given
+    @test_throws ArgumentError("A dataset should be provided to enforce a positivity constraint.") TMLE.get_frequency_table(0.1, nothing, [1, 2])
+    ## when both positivity constraint and datasets are provided
     dataset = (
         A = [1, 1, 0, 1, 0, 2, 2, 1],
         B = ["AC", "CC", "AA", "AA", "AA", "AA", "AA", "AA"]
     ) 
-    # One variable
-    frequency_table = TMLE.get_frequency_table(dataset, [:A])
+    ### One variable
+    frequency_table = TMLE.get_frequency_table(0.1, dataset, [:A])
     @test frequency_table[(0,)] == 0.25
     @test frequency_table[(1,)] == 0.5
     @test frequency_table[(2,)] == 0.25
@@ -80,8 +87,8 @@ end
     @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.2) == true
     @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.3) == false
 
-    # Two variables
-    ## Treatments are sorted: [:B, :A] -> [:A, :B]
+    ## Two variables
+    ### Treatments are sorted: [:B, :A] -> [:A, :B]
     frequency_table = TMLE.get_frequency_table(dataset, [:B, :A])
     @test frequency_table[(1, "CC")] == 0.125
     @test frequency_table[(1, "AA")] == 0.25

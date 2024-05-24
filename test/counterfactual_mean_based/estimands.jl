@@ -224,6 +224,26 @@ end
     )
 end
 
+@testset "factorialEstimand errors" begin
+    dataset = (
+        T₁ = [0, 1, 2, missing], 
+        T₂ = ["AC", "CC", missing, "AA"],
+    )
+    # Levels not in dataset
+    msg = "Not all levels provided for treatment T₁ were found in the dataset: [3]"
+    @test_throws ArgumentError(msg) factorialEstimand(
+        CM, (T₁=(0, 3),), :Y₁, 
+        dataset=dataset, 
+        verbosity=0
+    )
+    # No dataset and no levels
+    msg = "No dataset from which to infer treatment levels was provided. Either provide a `dataset` or a NamedTuple `treatments` e.g. (T=[0, 1, 2],)"
+    @test_throws ArgumentError(msg) factorialEstimand(
+        CM, (:T₁, :T₂), :Y₁, 
+        verbosity=0
+    )
+end
+
 @testset "Test factorial CM" begin
     dataset = (
         T₁ = [0, 1, 2, missing], 
