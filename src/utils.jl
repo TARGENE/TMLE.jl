@@ -122,7 +122,16 @@ end
 
 satisfies_positivity(Ψ, freq_table::Nothing; positivity_constraint=nothing) = true
 
-function frequency_table(dataset, colnames)
+get_frequency_table(positivity_constraint::Nothing, dataset::Nothing, colnames) = nothing
+
+get_frequency_table(positivity_constraint::Nothing, dataset, colnames) = nothing
+
+get_frequency_table(positivity_constraint, dataset::Nothing, colnames) = 
+    throw(ArgumentError("A dataset should be provided to enforce a positivity constraint."))
+
+get_frequency_table(positivity_constraint, dataset, colnames) = get_frequency_table(dataset, colnames)
+
+function get_frequency_table(dataset, colnames)
     iterator = zip((Tables.getcolumn(dataset, colname) for colname in sort(collect(colnames)))...)
     counts = groupcount(x -> x, iterator) 
     for key in keys(counts)

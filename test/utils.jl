@@ -57,7 +57,7 @@ end
         B = ["AC", "CC", "AA", "AA", "AA", "AA", "AA", "AA"]
     ) 
     # One variable
-    frequency_table = TMLE.frequency_table(dataset, [:A])
+    frequency_table = TMLE.get_frequency_table(dataset, [:A])
     @test frequency_table[(0,)] == 0.25
     @test frequency_table[(1,)] == 0.5
     @test frequency_table[(2,)] == 0.25
@@ -82,7 +82,7 @@ end
 
     # Two variables
     ## Treatments are sorted: [:B, :A] -> [:A, :B]
-    frequency_table = TMLE.frequency_table(dataset, [:B, :A])
+    frequency_table = TMLE.get_frequency_table(dataset, [:B, :A])
     @test frequency_table[(1, "CC")] == 0.125
     @test frequency_table[(1, "AA")] == 0.25
     @test frequency_table[(0, "AA")] == 0.25
