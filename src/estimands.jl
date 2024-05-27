@@ -103,44 +103,72 @@ a Conditional Distribution because they are estimated in the same way.
 const ExpectedValue = ConditionalDistribution
 
 #####################################################################
-###                      ComposedEstimand                         ###
+###                      JointEstimand                         ###
 #####################################################################
 
-struct ComposedEstimand <: Estimand
-    f::Function
+struct JointEstimand <: Estimand
     args::Tuple
+    JointEstimand(args...) = new(Tuple(args))
 end
 
-ComposedEstimand(f::String, args::AbstractVector) = ComposedEstimand(eval(Meta.parse(f)), Tuple(args))
+JointEstimand(;args) = JointEstimand(args...)
 
-ComposedEstimand(;f, args) = ComposedEstimand(f, args)
-
-function to_dict(Ψ::ComposedEstimand)
-    fname = string(nameof(Ψ.f))
-    startswith(fname, "#") && 
-        throw(ArgumentError("The function of a ComposedEstimand cannot be anonymous to be converted to a dictionary."))
+function to_dict(Ψ::JointEstimand)
     return Dict(
-    :type => string(ComposedEstimand),
-    :f => fname,
+    :type => string(JointEstimand),
     :args => [to_dict(x) for x in Ψ.args]
 )
 end
 
-propensity_score_key(Ψ::ComposedEstimand) = Tuple(unique(Iterators.flatten(propensity_score_key(arg) for arg in Ψ.args)))
-outcome_mean_key(Ψ::ComposedEstimand) = Tuple(unique(outcome_mean_key(arg) for arg in Ψ.args))
+propensity_score_key(Ψ::JointEstimand) = Tuple(unique(Iterators.flatten(propensity_score_key(arg) for arg in Ψ.args)))
+outcome_mean_key(Ψ::JointEstimand) = Tuple(unique(outcome_mean_key(arg) for arg in Ψ.args))
 
-n_uniques_nuisance_functions(Ψ::ComposedEstimand) = length(propensity_score_key(Ψ)) + length(outcome_mean_key(Ψ))
+n_uniques_nuisance_functions(Ψ::JointEstimand) = length(propensity_score_key(Ψ)) + length(outcome_mean_key(Ψ))
 
-nuisance_functions_iterator(Ψ::ComposedEstimand) =
+nuisance_functions_iterator(Ψ::JointEstimand) =
     Iterators.flatten(nuisance_functions_iterator(arg) for arg in Ψ.args)
 
-identify(method::AdjustmentMethod, Ψ::ComposedEstimand, scm) = 
-    ComposedEstimand(Ψ.f, Tuple(identify(method, arg, scm) for arg ∈ Ψ.args))
+identify(method::AdjustmentMethod, Ψ::JointEstimand, scm) = 
+    JointEstimand((identify(method, arg, scm) for arg ∈ Ψ.args)...)
 
-function string_repr(estimand::ComposedEstimand)
+function string_repr(estimand::JointEstimand)
     string(
-        "Composed Estimand applying function `", estimand.f, "` to: \n",
-        "-----------------\n- ",
+        "Joint Estimand:\n",
+        "--------------\n- ",
         join((string_repr(arg) for arg in estimand.args), "\n- ")
+    )
+end
+
+
+#####################################################################
+###                       Composed Estimand                       ###
+#####################################################################
+
+struct ComposedEstimand <: Estimand
+    f::Function
+    estimand::JointEstimand
+end
+
+ComposedEstimand(;f, estimand) = ComposedEstimand(f, estimand)
+
+ComposedEstimand(f::String, estimand) = ComposedEstimand(eval(Meta.parse(f)), estimand)
+
+function to_dict(Ψ::ComposedEstimand)
+    fname = string(parentmodule(Ψ.f), ".", nameof(Ψ.f))
+    occursin("#", fname,) && 
+        throw(ArgumentError("The function of a ComposedEstimand cannot be anonymous to be converted to a dictionary."))
+    return Dict(
+        :type => string(ComposedEstimand),
+        :f => fname,
+        :estimand => to_dict(Ψ.estimand)
+    )
+end
+
+function string_repr(Ψ::ComposedEstimand)
+    firstline = string("Composed Estimand applying function `", Ψ.f , "` to :\n")
+    string(
+        firstline,
+        repeat("-", length(firstline)-2), "\n- ",
+        join((string_repr(arg) for arg in Ψ.estimand.args), "\n- ")
     )
 end
