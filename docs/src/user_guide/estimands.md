@@ -200,7 +200,7 @@ joint_estimand = JointEstimand(ATE₁, ATE₂)
 
 You can easily generate joint estimands corresponding to Counterfactual Means, Average Treatment Effects or Average Interaction Effects by using the `factorialEstimand` function.
 
-To estimate a joint estimand you can use any of the estimators defined in this package exactly as you would do it for a one dimensional estimand, see [Estimation](@ref).
+To estimate a joint estimand you can use any of the estimators defined in this package exactly as you would do it for a one dimensional estimand.
 
 There are two main use cases for them that we now describe.
 
