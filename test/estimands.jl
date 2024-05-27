@@ -47,12 +47,17 @@ end
     joint_dict = TMLE.to_dict(joint)
     joint_from_dict = TMLE.from_dict!(joint_dict)
     @test joint_from_dict == joint
-    
+
     # ComposedEstimand
     composed = ComposedEstimand(-, joint)
     composed_dict = TMLE.to_dict(composed)
     composed_from_dict = TMLE.from_dict!(composed_dict)
     @test composed_from_dict == composed
+
+    # Anonymous function will raise
+    diff = ComposedEstimand((x,y) -> x - y, joint)
+    msg = "The function of a ComposedEstimand cannot be anonymous to be converted to a dictionary."
+    @test_throws ArgumentError(msg) TMLE.to_dict(diff)
 end
 
 

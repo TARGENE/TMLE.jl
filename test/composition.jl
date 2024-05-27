@@ -38,27 +38,6 @@ end
     @test Σ == cov(X) 
 end
 
-@testset "Test to_dict and from_dict! JointEstimand" begin
-    ATE₁ = ATE(
-        outcome=:Y,
-        treatment_values = (T=(case=1, control=0),),
-        treatment_confounders = (T=[:W],)
-    )
-    ATE₂ = ATE(
-        outcome=:Y,
-        treatment_values = (T=(case=2, control=1),),
-        treatment_confounders = (T=[:W],)
-    )
-    joint = JointEstimand(ATE₁, ATE₂)
-    d = TMLE.to_dict(joint)
-    joint_from_dict = TMLE.from_dict!(d)
-    @test joint_from_dict == joint
-
-    # Anonymous function will raise
-    diff = ComposedEstimand((x,y) -> x - y, joint)
-    msg = "The function of a ComposedEstimand cannot be anonymous to be converted to a dictionary."
-    @test_throws ArgumentError(msg) TMLE.to_dict(diff)
-end
 @testset "Test composition CM(1) - CM(0) = ATE(1,0)" begin
     dataset = make_dataset(;n=1000)
     CM₀ = CM(
