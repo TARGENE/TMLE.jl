@@ -151,6 +151,8 @@ end
 
 ComposedEstimand(;f, estimand) = ComposedEstimand(f, estimand)
 
+ComposedEstimand(f::String, estimand) = ComposedEstimand(eval(Meta.parse(f)), estimand)
+
 function to_dict(Ψ::ComposedEstimand)
     fname = string(nameof(Ψ.f))
     startswith(fname, "#") && 
@@ -160,4 +162,13 @@ function to_dict(Ψ::ComposedEstimand)
     :f => fname,
     :estimand => to_dict(Ψ.estimand)
 )
+end
+
+function string_repr(Ψ::ComposedEstimand)
+    firstline = string("Composed Estimand applying function `", Ψ.f , "` to :\n")
+    string(
+        firstline,
+        repeat("-", length(firstline)-2), "\n- ",
+        join((string_repr(arg) for arg in Ψ.estimand.args), "\n- ")
+    )
 end
