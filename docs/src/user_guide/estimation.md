@@ -269,7 +269,7 @@ Then we can formally test our hypothesis by leveraging the multivariate Central 
 composed_result = compose((x, y, z) -> x - y - z, joint_estimate)
 isapprox(
     estimate(result₄),
-    estimate(composed_result),
+    first(estimate(composed_result)),
     atol=0.1
 )
 ```
