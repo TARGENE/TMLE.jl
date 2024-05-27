@@ -49,7 +49,8 @@ end
     @test joint_from_dict == joint
 
     # ComposedEstimand
-    composed = ComposedEstimand(-, joint)
+    Main.eval(:(difference(x, y) = x - y))
+    composed = ComposedEstimand(Main.difference, joint)
     composed_dict = TMLE.to_dict(composed)
     composed_from_dict = TMLE.from_dict!(composed_dict)
     @test composed_from_dict == composed

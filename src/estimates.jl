@@ -190,8 +190,6 @@ to_dict(estimate::JointEstimate) = Dict(
 #####################################################################
 ###                       Composed Estimate                       ###
 #####################################################################
-
-
 struct ComposedEstimate{T<:AbstractFloat} <: Estimate
     estimand::ComposedEstimand
     estimates::Vector{T}
@@ -206,3 +204,13 @@ ComposedEstimate(;estimand, estimates, cov, n) = ComposedEstimate(estimand, esti
 Distributions.estimate(Ψ̂::ComposedEstimate) = Ψ̂.estimates
 
 Statistics.std(Ψ̂::ComposedEstimate) = sqrt(only(Ψ̂.cov))
+
+function to_dict(Ψ̂::ComposedEstimate)
+    Dict(
+    :type => string(ComposedEstimate),
+    :estimand => to_dict(Ψ̂.estimand),
+    :estimates => Ψ̂.estimates,
+    :cov => Ψ̂.cov,
+    :n => Ψ̂.n
+)
+end

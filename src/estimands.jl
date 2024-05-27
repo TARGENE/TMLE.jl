@@ -154,14 +154,14 @@ ComposedEstimand(;f, estimand) = ComposedEstimand(f, estimand)
 ComposedEstimand(f::String, estimand) = ComposedEstimand(eval(Meta.parse(f)), estimand)
 
 function to_dict(Ψ::ComposedEstimand)
-    fname = string(nameof(Ψ.f))
-    startswith(fname, "#") && 
+    fname = string(parentmodule(Ψ.f), ".", nameof(Ψ.f))
+    occursin("#", fname,) && 
         throw(ArgumentError("The function of a ComposedEstimand cannot be anonymous to be converted to a dictionary."))
     return Dict(
-    :type => string(ComposedEstimand),
-    :f => fname,
-    :estimand => to_dict(Ψ.estimand)
-)
+        :type => string(ComposedEstimand),
+        :f => fname,
+        :estimand => to_dict(Ψ.estimand)
+    )
 end
 
 function string_repr(Ψ::ComposedEstimand)

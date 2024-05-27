@@ -4,7 +4,6 @@ HypothesisTests.OneSampleTTest(Ψ̂, Ψ₀=0) = OneSampleTTest(single_dimensiona
 
 HypothesisTests.OneSampleZTest(Ψ̂, Ψ₀=0) = OneSampleZTest(single_dimensional_value(Ψ̂), std(Ψ̂), Ψ̂.n, Ψ₀)
 
-
 function HypothesisTests.OneSampleHotellingT2Test(Ψ̂, Ψ₀=zeros(size(Ψ̂.estimates, 1)))
     x̄ = estimate(Ψ̂)
     S = Ψ̂.cov

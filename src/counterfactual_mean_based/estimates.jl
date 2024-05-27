@@ -74,5 +74,5 @@ Distributions.estimate(Ψ̂::EICEstimate) = Ψ̂.estimate
 
 Statistics.std(Ψ̂::EICEstimate) = Ψ̂.std
 
-Base.show(io::IO, mime::MIME"text/plain", est::Union{EICEstimate, JointEstimate}) =
+Base.show(io::IO, mime::MIME"text/plain", est::Union{EICEstimate, JointEstimate, ComposedEstimate}) =
     show(io, mime, significance_test(est))

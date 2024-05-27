@@ -64,8 +64,10 @@ end
     # Via Composition
     joint_tmle, cache = tmle(jointestimand, dataset; cache=cache, verbosity=0)
     diff_tmle = compose(mydiff, joint_tmle)
+    @test significance_test(diff_tmle) isa TMLE.OneSampleTTest
     joint_ose, cache = ose(jointestimand, dataset; cache=cache, verbosity=0)
     diff_ose = compose(mydiff, joint_ose)
+    @test significance_test(diff_ose) isa TMLE.OneSampleTTest
 
     # Via ATE
     ATE₁₀ = ATE(
@@ -121,10 +123,21 @@ end
 
     joint_estimate, cache = tmle(joint, dataset; cache=cache, verbosity=0)
 
-    f(x, y) = [x^2 - y, 2x + 3y]
-    composed_estimate = compose(f, joint_estimate)
-    @test estimate(composed_estimate) == f(estimate(joint_estimate)...)
+    Main.eval(:(f(x, y) = [x^2 - y, 2x + 3y]))
+
+    composed_estimate = compose(Main.f, joint_estimate)
+    @test significance_test(composed_estimate) isa TMLE.OneSampleHotellingT2Test
+    @test estimate(composed_estimate) == Main.f(estimate(joint_estimate)...)
     @test size(composed_estimate.cov) == (2, 2)
+
+    composed_estimate_dict = TMLE.to_dict(composed_estimate)
+    println(composed_estimate_dict[:estimand])
+    @test composed_estimate_dict isa Dict
+    composed_estimate_from_dict = TMLE.from_dict!(composed_estimate_dict)
+    @test composed_estimate_from_dict.estimand == composed_estimate.estimand
+    @test composed_estimate_from_dict.estimates == composed_estimate.estimates
+    @test composed_estimate_from_dict.cov == composed_estimate.cov
+    @test composed_estimate_from_dict.n == composed_estimate.n
 end
 
 @testset "Test Joint Interaction" begin
