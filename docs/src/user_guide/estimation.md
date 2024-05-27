@@ -218,18 +218,20 @@ nothing # hide
 
 All nuisance functions have been reused, only the fluctuation is fitted!
 
-## Composing Estimands
+## Joint Estimands and Composition
 
-By leveraging the multivariate Central Limit Theorem and Julia's automatic differentiation facilities, we can estimate any estimand which is a function of already estimated estimands. By default, TMLE.jl will use [Zygote](https://fluxml.ai/Zygote.jl/latest/) but since we are using [AbstractDifferentiation.jl](https://github.com/JuliaDiff/AbstractDifferentiation.jl) you can change the backend to your favorite AD system.
+As explained in [Joint And Composed Estimands](@ref), a joint estimand is simply a collection of estimands. Here, we will illustrate that an Average Interaction Effect is also defined as a difference in partial Average Treatment Effects.
 
-For instance, by definition of the ``IATE``, we should be able to retrieve:
+More precisely, we would like to see if the left-hand side of this equation is equal to the right-hand side:
 
 ```math
 IATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} = ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} - ATE_{T_1=0, T_2=0 \rightarrow 1} - ATE_{T_1=0 \rightarrow 1, T_2=0}
 ```
 
+For that, we need to define a joint estimand of three components:
+
 ```@example estimation
-first_ate = ATE(
+ATE₁ = ATE(
     outcome=:Y, 
     treatment_values=(
         T₁=(case=true, control=false), 
@@ -239,9 +241,7 @@ first_ate = ATE(
         T₂=[:W₂₁, :W₂₂],
     ),
 )
-first_ate_result, cache = tmle(first_ate, dataset, cache=cache, verbosity=0);
-
-second_ate = ATE(
+ATE₂ = ATE(
     outcome=:Y, 
     treatment_values=(
         T₁=(case=false, control=false), 
@@ -251,15 +251,27 @@ second_ate = ATE(
         T₂=[:W₂₁, :W₂₂],
     ),
     )
-second_ate_result, cache = tmle(second_ate, dataset, cache=cache, verbosity=0);
+joint_estimand = JointEstimand(Ψ₃, ATE₁, ATE₂)
+```
 
-composed_iate_result = compose(
-    (x, y, z) -> x - y - z, 
-    result₃, first_ate_result, second_ate_result
-)
+where the interaction `Ψ₃` was defined earlier. This joint estimand can be estimated like any other estimand using our estimator of choice:
+
+```@example estimation
+joint_estimate, cache = tmle(joint_estimand, dataset, cache=cache, verbosity=0);
+joint_estimate
+```
+
+The printed output is the result of a Hotelling's T2 Test which is the multivariate counterpart of the Student's T Test. It tells us whether any of the component of this joint estimand is different from 0.
+
+Then we can formally test our hypothesis by leveraging the multivariate Central Limit Theorem and Julia's automatic differentiation.
+
+```@example estimation
+composed_result = compose((x, y, z) -> x - y - z, joint_estimate)
 isapprox(
     estimate(result₄),
-    estimate(composed_iate_result),
+    estimate(composed_result),
     atol=0.1
 )
 ```
+
+By default, TMLE.jl will use [Zygote](https://fluxml.ai/Zygote.jl/latest/) but since we are using [AbstractDifferentiation.jl](https://github.com/JuliaDiff/AbstractDifferentiation.jl) you can change the backend to your favorite AD system.

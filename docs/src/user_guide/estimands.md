@@ -119,10 +119,6 @@ statisticalΨ = ATE(
 )
 ```
 
-- Factorial Treatments
-
-It is possible to generate a `ComposedEstimand` containing all linearly independent IATEs from a set of treatment values or from a dataset. For that purpose, use the `factorialEstimand` function.
-
 ## The Interaction Average Treatment Effect
 
 - Causal Question:
@@ -182,13 +178,11 @@ statisticalΨ = IATE(
 
 - Factorial Treatments
 
-It is possible to generate a `ComposedEstimand` containing all linearly independent IATEs from a set of treatment values or from a dataset. For that purpose, use the `factorialEstimand` function.
+It is possible to generate a `JointEstimand` containing all linearly independent IATEs from a set of treatment values or from a dataset. For that purpose, use the `factorialEstimand` function.
 
-## Composed Estimands
+## Joint And Composed Estimands
 
-As a result of Julia's automatic differentiation facilities, given a set of predefined estimands ``(\Psi_1, ..., \Psi_k)``, we can automatically compute an estimator for $f(\Psi_1, ..., \Psi_k)$. This is done via the `ComposedEstimand` type.
-
-For example, the difference in ATE for a treatment with 3 levels (0, 1, 2) can be defined as follows:
+A `JointEstimand` is simply a list of one dimensional estimands that are grouped together. For instance for a treatment `T` taking three possible values ``(0, 1, 2)`` we can define the two following Average Treatment Effects and a corresponding `JointEstimand`:
 
 ```julia
 ATE₁ = ATE(
@@ -201,5 +195,23 @@ ATE₂ = ATE(
     treatment_values = (T = (control = 1, case = 2),),
     treatment_confounders = [:W]
     )
-ATEdiff = ComposedEstimand(-, (ATE₁, ATE₂))
+joint_estimand = JointEstimand(ATE₁, ATE₂)
+```
+
+You can easily generate joint estimands corresponding to Counterfactual Means, Average Treatment Effects or Average Interaction Effects by using the `factorialEstimand` function.
+
+To estimate a joint estimand you can use any of the estimators defined in this package exactly as you would do it for a one dimensional estimand, see [Estimation](@ref).
+
+There are two main use cases for them that we now describe.
+
+### Joint Testing
+
+In some cases, like in factorial analyses where multiple versions of a treatment are tested, it may be of interest to know if any version of the versions has had an effect. This can be done via a Hotelling's T2 Test, which is simply a multivariate generalisation of the Student's T test. This is the default returned by the `significance_test` function provided in TMLE.jl and the result of the test is also printed to the REPL for any joint estimate.
+
+### Composition
+
+Once you have estimated a `JointEstimand` and have a `JointEstimate`, you may be interested to ask further questions. For instance whether two treatment versions have the same effect. This question is typically answered by testing if the difference in Average Treatment Effect is 0. Using the Delta Method and Julia's automatic differentiation, you don't need to explicitly define a semi-parametric estimator for it. You can simply call `compose`:
+
+```julia
+ATEdiff = compose(-, joint_estimate)
 ```
