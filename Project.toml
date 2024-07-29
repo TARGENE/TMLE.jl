@@ -1,12 +1,12 @@
 name = "TMLE"
 uuid = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
 authors = ["Olivier Labayle"]
-version = "0.16.1"
+version = "0.16.2"
 
 [deps]
-AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
+DifferentiationInterface = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 GLM = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
@@ -35,9 +35,9 @@ JSONExt = "JSON"
 YAMLExt = "YAML"
 
 [compat]
-AbstractDifferentiation = "0.6.0"
 CategoricalArrays = "0.10"
 Combinatorics = "1.0.2"
+DifferentiationInterface = "0.5"
 Distributions = "0.25"
 GLM = "1.8.2"
 Graphs = "1.8"
