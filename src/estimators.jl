@@ -166,9 +166,7 @@ end
 function _compose(f, estimates...; backend=DI.AutoZygote())
     Σ = covariance_matrix(estimates...)
     point_estimates = [r.estimate for r in estimates]
-    f₀_and_Js = DI.value_and_jacobian.(Ref(f), Ref(backend), point_estimates)
-    f₀, Js = first.(f₀_and_Js), last.(f₀_and_Js)
-    J = hcat(Js...)
+    f₀, J = DI.value_and_jacobian(Base.splat(f), backend, point_estimates)
     n = size(first(estimates).IC, 1)
     σ₀ = J * Σ * J'
     return collect(f₀), σ₀, n
