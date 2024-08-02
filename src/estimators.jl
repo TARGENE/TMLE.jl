@@ -163,13 +163,16 @@ function compose(f, estimates...; backend=DI.AutoZygote())
     return ComposedEstimate(estimand, estimates, f₀, σ₀, n)
 end
 
+_make_vec(x::Number) = [x]
+_make_vec(x::AbstractVector) = x
+
 function _compose(f, estimates...; backend=DI.AutoZygote())
     Σ = covariance_matrix(estimates...)
     point_estimates = [r.estimate for r in estimates]
-    f₀, J = DI.value_and_jacobian(Base.splat(f), backend, point_estimates)
+    f₀, J = DI.value_and_jacobian(_make_vec ∘ Base.splat(f), backend, point_estimates)
     n = size(first(estimates).IC, 1)
     σ₀ = J * Σ * J'
-    return collect(f₀), σ₀, n
+    return f₀, σ₀, n
 end
 
 function covariance_matrix(estimates...)
