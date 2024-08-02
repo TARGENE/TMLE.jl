@@ -20,6 +20,8 @@ using Graphs
 using MetaGraphsNext
 using Combinatorics
 using SplitApplyCombine
+using OrderedCollections
+using AutoHashEquals
 
 # #############################################################################
 # EXPORTS

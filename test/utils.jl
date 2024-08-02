@@ -83,7 +83,7 @@ end
         treatment_values= (A = (case=1, control=0),), 
         treatment_confounders = (A=[],)
     )
-    @test collect(TMLE.joint_levels(Ψ)) == [(1,), (0,)]
+    @test collect(TMLE.joint_levels(Ψ)) == [(0,), (1,)]
     @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.2) == true
     @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.3) == false
 
@@ -110,7 +110,7 @@ end
         treatment_values = (B=(case="AA", control="AC"), A=(case=1, control=1),), 
         treatment_confounders = (B = (), A = (),)
     )
-    @test collect(TMLE.joint_levels(Ψ)) == [(1, "AA"), (1, "AC")]
+    @test collect(TMLE.joint_levels(Ψ)) == [(1, "AC"), (1, "AA")]
     @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.1) == true
     @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.2) == false
     
@@ -120,8 +120,8 @@ end
         treatment_confounders = (B=(), A=()), 
     )
     @test collect(TMLE.joint_levels(Ψ)) == [
-        (1, "AC")  (1, "AA")
-        (0, "AC")  (0, "AA")]
+        (0, "AA") (0, "AC")  
+        (1, "AA")  (1, "AC")]
     @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=1.) == false
     
     frequency_table = Dict(

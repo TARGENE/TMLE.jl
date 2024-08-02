@@ -23,10 +23,10 @@ using TMLE
         @test statistical_estimand.treatment_values == causal_estimand.treatment_values
         @test statistical_estimand.outcome_extra_covariates == (:C,)
     end
-    @test statistical_estimands[1].treatment_confounders == (T₁=(:W₁, :W₂),)
-    @test statistical_estimands[2].treatment_confounders == (T₁=(:W₁, :W₂),)
-    @test statistical_estimands[3].treatment_confounders == (T₁=(:W₁, :W₂), T₂=(:W₁, :W₂))
-    @test statistical_estimands[4].treatment_confounders == (T₁=(:W₁, :W₂), T₂=(:W₁, :W₂))
+    @test statistical_estimands[1].treatment_confounders == Dict(:T₁ => (:W₁, :W₂),)
+    @test statistical_estimands[2].treatment_confounders == Dict(:T₁ => (:W₁, :W₂),)
+    @test statistical_estimands[3].treatment_confounders == Dict(:T₁ => (:W₁, :W₂), :T₂ => (:W₁, :W₂))
+    @test statistical_estimands[4].treatment_confounders == Dict(:T₁ => (:W₁, :W₂), :T₂ => (:W₁, :W₂))
 end
 
 @testset "Test TMLE.to_dict" begin

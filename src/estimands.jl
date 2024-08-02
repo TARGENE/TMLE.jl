@@ -56,10 +56,10 @@ end
 Makes sure the defined treatment levels are present in the dataset.
 """
 function check_treatment_levels(Ψ::Estimand, dataset)
-    for treatment_name in treatments(Ψ)
-        treatment_levels = levels(Tables.getcolumn(dataset, treatment_name))
-        treatment_settings = getproperty(Ψ.treatment_values, treatment_name)
-        check_treatment_settings(treatment_settings, treatment_levels, treatment_name)
+    for T in treatments(Ψ)
+        treatment_levels = levels(Tables.getcolumn(dataset, T))
+        treatment_settings = Ψ.treatment_values[T]
+        check_treatment_settings(treatment_settings, treatment_levels, T)
     end
 end
 
@@ -106,7 +106,7 @@ const ExpectedValue = ConditionalDistribution
 ###                      JointEstimand                         ###
 #####################################################################
 
-struct JointEstimand <: Estimand
+@auto_hash_equals struct JointEstimand <: Estimand
     args::Tuple
     JointEstimand(args...) = new(Tuple(args))
 end
@@ -144,7 +144,7 @@ end
 ###                       Composed Estimand                       ###
 #####################################################################
 
-struct ComposedEstimand <: Estimand
+@auto_hash_equals struct ComposedEstimand <: Estimand
     f::Function
     estimand::JointEstimand
 end

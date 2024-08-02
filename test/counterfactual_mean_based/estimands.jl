@@ -2,6 +2,7 @@ module TestEstimands
 
 using Test
 using TMLE
+using OrderedCollections
 @testset "Test StatisticalCMCompositeEstimand" begin
     dataset = (
         W  = [1, 2, 3, 4, 5, 6, 7, 8],
@@ -13,8 +14,8 @@ using TMLE
     # Counterfactual Mean
     Ψ = CM(
         outcome=:Y, 
-        treatment_values=(T₁="A", T₂=1),
-        treatment_confounders=(T₁=[:W], T₂=[:W])
+        treatment_values=Dict("T₁" => "A", :T₂ => 1),
+        treatment_confounders=(T₁=[:W], T₂=["W"])
     )
     indicator_fns = TMLE.indicator_fns(Ψ)
     @test indicator_fns == Dict(("A", 1) => 1.)
@@ -39,11 +40,11 @@ using TMLE
     # 2-points IATE
     Ψ = IATE(
         outcome=:Y, 
-        treatment_values=(
-            T₁=(case="A", control="B"), 
-            T₂=(case=1, control=0)
+        treatment_values=Dict(
+            :T₁ => (case="A", control="B"), 
+            :T₂ => (case=1, control=0)
         ),
-        treatment_confounders=(T₁=[:W], T₂=[:W])
+        treatment_confounders=Dict(:T₁ => [:W], :T₂ => [:W])
     )
     indicator_fns = TMLE.indicator_fns(Ψ)
     @test indicator_fns == Dict(
@@ -92,17 +93,20 @@ end
     )
     Ψ₂ = ATE(
         outcome=:Y,
-        treatment_values = (T₁=(case=1, control=0), T₂=(case=0, control=1)),
-        treatment_confounders = (
-            T₁ = [:W₀],
-            T₂ = [:W₂, :W₁]
+        treatment_values = Dict("T₁"=>(case=1, control=0), "T₂"=>(case=0, control=1)),
+        treatment_confounders = Dict(
+            :T₁ => [:W₀],
+            :T₂ => [:W₂, :W₁]
             ),
         outcome_extra_covariates = [:A, :Z]
     )
     @test Ψ₁ == Ψ₂
     @test Ψ₁.outcome == :Y
-    @test Ψ₁.treatment_values == (T₁=(case=1, control=0), T₂=(case=0, control=1))
-    @test Ψ₁.treatment_confounders == (T₁ = (:W₀,), T₂ = (:W₁, :W₂))
+    @test Ψ₁.treatment_values == OrderedDict(
+        :T₁ => (control=0, case=1), 
+        :T₂ => (control=1, case=0)
+    )
+    @test Ψ₁.treatment_confounders == OrderedDict(:T₁ => (:W₀,), :T₂ => (:W₁, :W₂))
     @test Ψ₁.outcome_extra_covariates == (:A, :Z)
     
     # CM
@@ -118,8 +122,8 @@ end
     )
     @test Ψ₁ == Ψ₂
     @test Ψ₁.outcome == :Y
-    @test Ψ₁.treatment_values == (T₁=1, T₂=0)
-    @test Ψ₁.treatment_confounders == (T₁ = (:W₀,), T₂ = (:W₁, :W₂))
+    @test Ψ₁.treatment_values == OrderedDict(:T₁ => 1, :T₂ => 0)
+    @test Ψ₁.treatment_confounders == OrderedDict(:T₁ => (:W₀,), :T₂ => (:W₁, :W₂))
     @test Ψ₁.outcome_extra_covariates == ()
 end
 
@@ -138,7 +142,7 @@ end
     d = TMLE.to_dict(Ψ)
     @test d == Dict(
         :type             => "CM",
-        :treatment_values => Dict(:T₁=>1, :T₂=>"AC"),
+        :treatment_values => Dict(:T₁ => 1, :T₂ => "AC"),
         :outcome          => :y
     )
     Ψreconstructed = TMLE.from_dict!(d)
@@ -146,10 +150,10 @@ end
     # Causal ATE
     Ψ = ATE(
         outcome=:y, 
-        treatment_values=(
-            T₁=(case="A", control="B"), 
-            T₂=(case=1, control=0), 
-            T₃=(case="C", control="D")
+        treatment_values=Dict(
+            "T₁" => (case="A", control="B"), 
+            "T₂" => (case=1, control=0), 
+            "T₃" => (case="C", control="D")
         ),
     )
     d = TMLE.to_dict(Ψ)
@@ -203,13 +207,22 @@ end
 
 @testset "Test control_case_settings" begin
     treatments_unique_values = (T₁=(1, 0, 2),)
-    @test TMLE.get_treatment_settings(ATE, treatments_unique_values) == (T₁=[(1, 0), (0, 2)],)
-    @test TMLE.get_treatment_settings(IATE, treatments_unique_values) == (T₁=[(1, 0), (0, 2)],)
-    @test TMLE.get_treatment_settings(CM, treatments_unique_values) == (T₁=(1, 0, 2), )
-    treatments_unique_values = (T₁=(1, 0, 2), T₂=["AC", "CC"])
-    @test TMLE.get_treatment_settings(ATE, treatments_unique_values) == (T₁=[(1, 0), (0, 2)], T₂=[("AC", "CC")])
-    @test TMLE.get_treatment_settings(IATE, treatments_unique_values) == (T₁=[(1, 0), (0, 2)], T₂=[("AC", "CC")])
-    @test TMLE.get_treatment_settings(CM, treatments_unique_values) == (T₁=(1, 0, 2), T₂=["AC", "CC"])
+    @test TMLE.get_treatment_settings(ATE, treatments_unique_values) == OrderedDict(:T₁ => [(1, 0), (0, 2)],)
+    @test TMLE.get_treatment_settings(IATE, treatments_unique_values) == OrderedDict(:T₁ => [(1, 0), (0, 2)],)
+    @test TMLE.get_treatment_settings(CM, treatments_unique_values) == OrderedDict(:T₁ => (1, 0, 2), )
+    treatments_unique_values = Dict(:T₁ => (1, 0, 2), :T₂ => ["AC", "CC"])
+    @test TMLE.get_treatment_settings(ATE, treatments_unique_values) == OrderedDict(
+        :T₁ => [(1, 0), (0, 2)], 
+        :T₂ => [("AC", "CC")]
+    )
+    @test TMLE.get_treatment_settings(IATE, treatments_unique_values) == OrderedDict(
+        :T₁ => [(1, 0), (0, 2)], 
+        :T₂ => [("AC", "CC")]
+    )
+    @test TMLE.get_treatment_settings(CM, treatments_unique_values) == OrderedDict(
+        :T₁ => (1, 0, 2), 
+        :T₂ => ["AC", "CC"]
+    )
 end
 
 @testset "Test unique_treatment_values" begin
@@ -217,11 +230,13 @@ end
         T₁ = ["AC", missing, "AC", "CC", "CC", "AA", "CC"],
         T₂ = [1, missing, 1, 2, 2, 3, 2]
     )
-    # most frequent to least frequent
-    @test TMLE.unique_treatment_values(dataset, (:T₁, :T₂)) == (
-        T₁ = ["CC", "AC", "AA"],
-        T₂ = [2, 1, 3],
+    # most frequent to least frequent and sorted by keys
+    infered_values = TMLE.unique_treatment_values(dataset, (:T₂, :T₁))
+    @test infered_values == OrderedDict(
+        :T₁ => ["CC", "AC", "AA"],
+        :T₂ => [2, 1, 3],
     )
+    @test collect(keys(infered_values)) == [:T₁, :T₂]
 end
 
 @testset "factorialEstimand errors" begin
@@ -261,7 +276,7 @@ end
             TMLE.CausalCM(:Y₁, (T₁ = 2,))
     )
 
-    jointCM = factorialEstimand(CM, [:T₁, :T₂], :Y₁, dataset=dataset, verbosity=0)
+    jointCM = factorialEstimand(CM, (:T₁, :T₂), :Y₁, dataset=dataset, verbosity=0)
     @test jointCM == TMLE.JointEstimand(
             TMLE.CausalCM(:Y₁, (T₁ = 0, T₂ = "AC")),
             TMLE.CausalCM(:Y₁, (T₁ = 1, T₂ = "AC")),
@@ -380,23 +395,24 @@ end
             )
     )
     # From unique values
-    jointIATE = factorialEstimand(IATE, (T₁ = (0, 1), T₂=(0, 1, 2), T₃=(0, 1, 2)), :Y₁, verbosity=0)
-    @test jointIATE == JointEstimand(
+    jointIATE_from_dict = factorialEstimand(IATE, Dict(:T₁ => (0, 1), :T₂ => (0, 1, 2), :T₃ => (0, 1, 2)), :Y₁, verbosity=0)
+    jointIATE_from_nt = factorialEstimand(IATE, (T₁ = (0, 1), T₂ = (0, 1, 2), T₃ = (0, 1, 2)), :Y₁, verbosity=0)
+    @test jointIATE_from_dict == jointIATE_from_nt == JointEstimand(
             TMLE.CausalIATE(
                 outcome = :Y₁, 
-                treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = 1, control = 0), T₃ = (case = 1, control = 0))
+                treatment_values = (T₁ = (control = 0, case = 1), T₂ = (control = 0, case = 1), T₃ = (control = 0, case = 1))
             ),
             TMLE.CausalIATE(
                 outcome = :Y₁, 
-                treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = 2, control = 1), T₃ = (case = 1, control = 0))
+                treatment_values = (T₁ = (control = 0, case = 1), T₂ = (control = 1, case = 2), T₃ = (control = 0, case = 1))
             ),
             TMLE.CausalIATE(
                 outcome = :Y₁, 
-                treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = 1, control = 0), T₃ = (case = 2, control = 1))
+                treatment_values = (T₁ = (control = 0, case = 1), T₂ = (control = 0, case = 1), T₃ = (control = 1, case = 2))
             ),
             TMLE.CausalIATE(
                 outcome = :Y₁, 
-                treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = 2, control = 1), T₃ = (case = 2, control = 1))
+                treatment_values = (T₁ = (control = 0, case = 1), T₂ = (control = 1, case = 2), T₃ = (control = 1, case = 2))
             )
     )
 

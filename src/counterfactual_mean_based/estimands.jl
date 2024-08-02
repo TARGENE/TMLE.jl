@@ -41,9 +41,9 @@ for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
     statistical_estimand = Symbol(:Statistical, estimand)
     ex = quote
         # Causal Estimand
-        struct $(causal_estimand) <: Estimand
+        @auto_hash_equals struct $(causal_estimand) <: Estimand
             outcome::Symbol
-            treatment_values::NamedTuple
+            treatment_values::OrderedDict
 
             function $(causal_estimand)(outcome, treatment_values)
                 outcome = Symbol(outcome)
@@ -52,17 +52,16 @@ for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
             end
         end
         # Statistical Estimand
-        struct $(statistical_estimand) <: Estimand
+        @auto_hash_equals struct $(statistical_estimand) <: Estimand
             outcome::Symbol
-            treatment_values::NamedTuple
-            treatment_confounders::NamedTuple
+            treatment_values::OrderedDict
+            treatment_confounders::OrderedDict
             outcome_extra_covariates::Tuple{Vararg{Symbol}}
 
             function $(statistical_estimand)(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
                 outcome = Symbol(outcome)
                 treatment_values = get_treatment_specs(treatment_values)
-                treatment_variables = Tuple(keys(treatment_values))
-                treatment_confounders = NamedTuple{treatment_variables}([confounders_values(treatment_confounders, T) for T ∈ treatment_variables])
+                treatment_confounders = OrderedDict(T => confounders_values(treatment_confounders, T) for T ∈ (keys(treatment_values)))
                 outcome_extra_covariates = unique_sorted_tuple(outcome_extra_covariates)
                 return new(outcome, treatment_values, treatment_confounders, outcome_extra_covariates)
             end
@@ -96,30 +95,31 @@ StatisticalCMCompositeEstimand = Union{(eval(Symbol(:Statistical, x)) for x in k
 
 const AVAILABLE_ESTIMANDS = [x[1] for x ∈ ESTIMANDS_DOCS]
 
-indicator_fns(Ψ::StatisticalCM) = Dict(values(Ψ.treatment_values) => 1.)
+indicator_fns(Ψ::StatisticalCM) = Dict(Tuple(values(Ψ.treatment_values)) => 1.)
 
 function indicator_fns(Ψ::StatisticalATE)
     case = []
     control = []
-    for treatment in Ψ.treatment_values
+    for treatment in values(Ψ.treatment_values)
         push!(case, treatment.case)
         push!(control, treatment.control)
     end
     return Dict(Tuple(case) => 1., Tuple(control) => -1.)
 end
 
-ncases(value, Ψ::StatisticalIATE) = sum(value[i] == Ψ.treatment_values[i].case for i in eachindex(value))
+ncases(counterfactual_values, treatments_cases) = sum(counterfactual_values .== treatments_cases)
 
 function indicator_fns(Ψ::StatisticalIATE)
-    N = length(treatments(Ψ))
+    N = length(Ψ.treatment_values)
     key_vals = Pair[]
-    for cf in Iterators.product((values(Ψ.treatment_values[T]) for T in treatments(Ψ))...)
-        push!(key_vals, cf => float((-1)^(N - ncases(cf, Ψ))))
+    treatments_cases = Tuple(case_control.case for case_control ∈ values(Ψ.treatment_values))
+    for cf_values in Iterators.product((values(case_control_nt) for case_control_nt in values(Ψ.treatment_values))...)
+        push!(key_vals, cf_values => float((-1)^(N - ncases(cf_values, treatments_cases))))
     end
     return Dict(key_vals...)
 end
 
-outcome_mean(Ψ::StatisticalCMCompositeEstimand) = ExpectedValue(Ψ.outcome, Tuple(union(Ψ.outcome_extra_covariates, keys(Ψ.treatment_confounders), (Ψ.treatment_confounders)...)))
+outcome_mean(Ψ::StatisticalCMCompositeEstimand) = ExpectedValue(Ψ.outcome, Tuple(union(Ψ.outcome_extra_covariates, keys(Ψ.treatment_confounders), values(Ψ.treatment_confounders)...)))
 
 outcome_mean_key(Ψ::StatisticalCMCompositeEstimand) = variables(outcome_mean(Ψ))
 
@@ -148,36 +148,27 @@ function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: StatisticalCMCo
     println(io, param_string)
 end
 
-function treatment_specs_to_dict(treatment_values::NamedTuple{T, <:Tuple{Vararg{NamedTuple}}}) where T
-    Dict(key => Dict(pairs(vals)) for (key, vals) in pairs(treatment_values))
-end
+case_control_dict(case_control_nt::NamedTuple) = OrderedDict(pairs(case_control_nt))
+case_control_dict(value) = value
 
-treatment_specs_to_dict(treatment_values::NamedTuple) = Dict(pairs(treatment_values))
+treatment_specs_to_dict(treatment_values) = OrderedDict(key => case_control_dict(case_control_nt) for (key, case_control_nt) in treatment_values)
 
 treatment_values(d::AbstractDict) = (;d...)
 treatment_values(d) = d
 
-confounders_values(key_value_iterable::Union{NamedTuple, Dict}, T) = unique_sorted_tuple(key_value_iterable[T])
+confounders_values(key_value_iterable::Union{NamedTuple, AbstractDict}, key) = unique_sorted_tuple(key_value_iterable[key])
 
-confounders_values(iterable, T) = unique_sorted_tuple(iterable)
+confounders_values(iterable, key) = unique_sorted_tuple(iterable)
 
-get_treatment_specs(treatment_specs::NamedTuple{names, }) where names = 
-    NamedTuple{Tuple(sort(collect(names)))}(treatment_specs)
+confounders_to_dict(treatment_confounders) = Dict(key => collect(values) for (key, values) in treatment_confounders)
 
-function get_treatment_specs(treatment_specs::NamedTuple{names, <:Tuple{Vararg{NamedTuple}}}) where names
-    case_control = ((case=v[:case], control=v[:control]) for v in values(treatment_specs))
-    treatment_specs = (;zip(keys(treatment_specs), case_control)...)
-    sorted_names = Tuple(sort(collect(names)))
-    return NamedTuple{sorted_names}(treatment_specs)
-end
-    
-get_treatment_specs(treatment_specs::AbstractDict) = 
-    get_treatment_specs((;(key => treatment_values(val) for (key, val) in treatment_specs)...))
+case_control_to_nt(scalar) = scalar
+
+case_control_to_nt(case_control_iter::Union{NamedTuple, AbstractDict}) = (control=case_control_iter[:control], case=case_control_iter[:case])
+
+get_treatment_specs(key_value_iterable) = sort(OrderedDict(Symbol(key) => case_control_to_nt(case_control_iter) for (key, case_control_iter) ∈ pairs(key_value_iterable)))
 
 constructorname(T; prefix="TMLE.Causal") = replace(string(T), prefix => "")
-
-treatment_confounders_to_dict(treatment_confounders::NamedTuple) = 
-    Dict(key => collect(vals) for (key, vals) in pairs(treatment_confounders))
 
 """
     to_dict(Ψ::T) where T <: CausalCMCompositeEstimands
@@ -202,7 +193,7 @@ function to_dict(Ψ::T) where T <: StatisticalCMCompositeEstimand
         :type => constructorname(T; prefix="TMLE.Statistical"),
         :outcome => Ψ.outcome,
         :treatment_values => treatment_specs_to_dict(Ψ.treatment_values),
-        :treatment_confounders => treatment_confounders_to_dict(Ψ.treatment_confounders),
+        :treatment_confounders => confounders_to_dict(Ψ.treatment_confounders),
         :outcome_extra_covariates => collect(Ψ.outcome_extra_covariates)
         )
 end
@@ -211,13 +202,10 @@ identify(method, Ψ::StatisticalCMCompositeEstimand, scm) = Ψ
 
 function identify(method::BackdoorAdjustment, causal_estimand::T, scm::SCM) where T<:CausalCMCompositeEstimands
     # Treatment confounders
-    treatment_names = keys(causal_estimand.treatment_values)
+    treatment_names = collect(keys(causal_estimand.treatment_values))
     treatment_codes = [code_for(scm.graph, treatment) for treatment ∈ treatment_names]
     confounders_codes = scm.graph.graph.badjlist[treatment_codes]
-    treatment_confounders = NamedTuple{treatment_names}(
-        [[scm.graph.vertex_labels[w] for w in confounders_codes[i]] 
-        for i in eachindex(confounders_codes)]
-    )
+    treatment_confounders = Dict(treatment_names[i] => [scm.graph.vertex_labels[w] for w in confounders_codes[i]] for i in eachindex(confounders_codes))
 
     return statistical_type_from_causal_type(T)(;
         outcome=causal_estimand.outcome,
@@ -240,15 +228,15 @@ We ensure that the values are sorted by frequency to maximize
 the number of estimands passing the positivity constraint.
 """
 unique_treatment_values(dataset, colnames) =
-    (;(colname => get_treatment_values(dataset, colname) for colname in colnames)...)
+    sort(OrderedDict(colname => get_treatment_values(dataset, colname) for colname in colnames))
 
 """
 Generated from transitive treatment switches to create independent estimands.
 """
-get_treatment_settings(::Union{typeof(ATE), typeof(IATE)}, treatments_unique_values::NamedTuple{names}) where names =
-    NamedTuple{names}([collect(zip(vals[1:end-1], vals[2:end])) for vals in values(treatments_unique_values)])
+get_treatment_settings(::Union{typeof(ATE), typeof(IATE)}, treatments_unique_values)=
+    sort(OrderedDict(key => collect(zip(uniquevaluess[1:end-1], uniquevaluess[2:end])) for (key, uniquevaluess) in pairs(treatments_unique_values)))
 
-get_treatment_settings(::typeof(CM), treatments_unique_values) = treatments_unique_values
+get_treatment_settings(::typeof(CM), treatments_unique_values) = sort(OrderedDict(pairs(treatments_unique_values)))
 
 get_treatment_setting(combo::Tuple{Vararg{Tuple}}) = [NamedTuple{(:control, :case)}(treatment_control_case) for treatment_control_case ∈ combo]
 
@@ -257,7 +245,7 @@ get_treatment_setting(combo) = collect(combo)
 """
 If there is no dataset and the treatments_levels are a NamedTuple, then they are assumed correct.
 """
-make_or_check_treatment_levels(treatments_levels::NamedTuple, dataset::Nothing) = treatments_levels
+make_or_check_treatment_levels(treatments_levels::Union{AbstractDict, NamedTuple}, dataset::Nothing) = treatments_levels
 
 """
 If no dataset is provided, then a NamedTuple precising treatment levels is expected
@@ -273,7 +261,7 @@ make_or_check_treatment_levels(treatments, dataset) = unique_treatment_values(da
 """
 If a NamedTuple of treatments_levels is provided as well as a dataset then the treatment_levels are checked from the dataset.
 """
-function make_or_check_treatment_levels(treatments_levels::NamedTuple, dataset)
+function make_or_check_treatment_levels(treatments_levels::Union{AbstractDict, NamedTuple}, dataset)
     for (treatment, treatment_levels) in zip(keys(treatments_levels), values(treatments_levels))
         dataset_treatment_levels = Set(skipmissing(Tables.getcolumn(dataset, treatment)))
         missing_levels = setdiff(treatment_levels, dataset_treatment_levels)
@@ -285,18 +273,20 @@ end
 
 function _factorialEstimand(
     constructor, 
-    treatments_settings::NamedTuple{names}, outcome; 
+    treatments_settings, 
+    outcome; 
     confounders=nothing,
     outcome_extra_covariates=nothing,
     freq_table=nothing,
     positivity_constraint=nothing,
     verbosity=1
-    ) where names
+    )
+    names = keys(treatments_settings)
     components = []
     for combo ∈ Iterators.product(values(treatments_settings)...)
         Ψ = constructor(
             outcome=outcome,
-            treatment_values=NamedTuple{names}(get_treatment_setting(combo)),
+            treatment_values=OrderedDict(zip(names, get_treatment_setting(combo))),
             treatment_confounders = confounders,
             outcome_extra_covariates=outcome_extra_covariates
         )
@@ -343,7 +333,7 @@ A `JointEstimand` with causal or statistical components.
 # Args
 
 - `constructor`: CM, ATE or IATE.
-- `treatments`: A NamedTuple of treatment levels (e.g. `(T=(0, 1, 2),)`) or a treatment iterator, then a dataset must be provided to infer the levels from it.
+- `treatments`: An AbstractDictionary/NamedTuple of treatment levels (e.g. `(T=(0, 1, 2),)`) or a treatment iterator, then a dataset must be provided to infer the levels from it.
 - `outcome`: The outcome variable.
 - `confounders=nothing`: The generated components will inherit these confounding variables. If `nothing`, causal estimands are generated.
 - `outcome_extra_covariates=()`: The generated components will inherit these `outcome_extra_covariates`.
@@ -450,6 +440,6 @@ end
 joint_levels(Ψ::StatisticalIATE) = Iterators.product(values(Ψ.treatment_values)...)
 
 joint_levels(Ψ::StatisticalATE) =
-    (Tuple(Ψ.treatment_values[T][c] for T ∈ keys(Ψ.treatment_values)) for c in (:case, :control))
+    (Tuple(Ψ.treatment_values[T][c] for T ∈ keys(Ψ.treatment_values)) for c in (:control, :case))
 
-joint_levels(Ψ::StatisticalCM) = (values(Ψ.treatment_values),)
+joint_levels(Ψ::StatisticalCM) = (Tuple(values(Ψ.treatment_values)),)

@@ -66,7 +66,7 @@ end
     ## Deterministic Model
     model = MLJLinearModels.LinearRegressor()
     estimator = TMLE.MLConditionalDistributionEstimator(model)
-    conditional_density_estimate = estimator(estimand, continuous_dataset; cache=Dict(), verbosity=verbosity)
+    conditional_density_estimate = estimator(estimand, continuous_dataset; cache=Dict(), verbosity=0)
     ŷ = predict(conditional_density_estimate, continuous_dataset)
     @test ŷ isa Vector{Float64}
     μ̂ = TMLE.expected_value(conditional_density_estimate, continuous_dataset)
@@ -137,7 +137,7 @@ end
         model,
         train_validation_indices
     )
-    conditional_density_estimate = estimator(estimand, continuous_dataset; verbosity=verbosity)
+    conditional_density_estimate = estimator(estimand, continuous_dataset; verbosity=0)
     ŷ = predict(conditional_density_estimate, continuous_dataset)
     @test ŷ isa Vector{Distributions.Normal{Float64}}
     μ̂ = TMLE.expected_value(conditional_density_estimate, continuous_dataset)
@@ -152,7 +152,7 @@ end
         model,
         train_validation_indices
     )
-    conditional_density_estimate = estimator(estimand, continuous_dataset; verbosity=verbosity)
+    conditional_density_estimate = estimator(estimand, continuous_dataset; verbosity=0)
     ŷ = predict(conditional_density_estimate, continuous_dataset)
     @test ŷ isa Vector{Float64}
     μ̂ = TMLE.expected_value(conditional_density_estimate, continuous_dataset)

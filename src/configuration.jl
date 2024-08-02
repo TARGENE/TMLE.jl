@@ -35,11 +35,11 @@ from_dict!(x) = x
 from_dict!(v::AbstractVector) = [from_dict!(x) for x in v]
 
 """
-    from_dict!(d::Dict)
+    from_dict!(d::AbstractDict)
 
 Converts a dictionary to a TMLE struct.
 """
-function from_dict!(d::Dict{T, Any}) where T
+function from_dict!(d::AbstractDict{T, Any}) where T
     haskey(d, T(:type)) || return Dict(key => from_dict!(val) for (key, val) in d)
     constructor = eval(Meta.parse(pop!(d, :type)))
     return constructor(;(key => from_dict!(val) for (key, val) in d)...)
