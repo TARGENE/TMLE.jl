@@ -36,11 +36,11 @@ end
         ),
         treatment_confounders = (T₁=[:W], T₂=[:W], T₃=[:W])
     )
-    models = (
-        Y = with_encoder(InteractionTransformer(order=3) |> LinearRegressor()),
-        T₁ = LogisticClassifier(lambda=0),
-        T₂ = LogisticClassifier(lambda=0),
-        T₃ = LogisticClassifier(lambda=0)
+    models = Dict(
+        :Y  => with_encoder(InteractionTransformer(order=3) |> LinearRegressor()),
+        :T₁ => LogisticClassifier(lambda=0),
+        :T₂ => LogisticClassifier(lambda=0),
+        :T₃ => LogisticClassifier(lambda=0)
     )
 
     tmle = TMLEE(models=models, machine_cache=true)

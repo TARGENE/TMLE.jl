@@ -23,7 +23,7 @@ Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
 struct CMRelevantFactorsEstimator <: Estimator
     resampling::Union{Nothing, ResamplingStrategy}
-    models::NamedTuple
+    models::Dict
 end
 
 CMRelevantFactorsEstimator(;models, resampling=nothing) =
@@ -152,7 +152,7 @@ end
 #####################################################################
 
 mutable struct TMLEE <: Estimator
-    models::NamedTuple
+    models::Dict
     resampling::Union{Nothing, ResamplingStrategy}
     ps_lowerbound::Union{Float64, Nothing}
     weighted::Bool
@@ -168,7 +168,7 @@ function that can be applied to estimate estimands for a dataset.
 
 # Arguments
 
-- models: A NamedTuple{variables}(models) where the `variables` are the outcome variables modeled by the `models`.
+- models: A Dict(variable => model, ...) where the `variables` are the outcome variables modeled by the `models`.
 - resampling: Outer resampling strategy. Setting it to `nothing` (default) falls back to vanilla TMLE while 
 any valid `MLJ.ResamplingStrategy` will result in CV-TMLE.
 - ps_lowerbound: Lowerbound for the propensity score to avoid division by 0. The special value `nothing` will 
@@ -237,7 +237,7 @@ gradient_and_estimate(::TMLEE, Ψ, factors, dataset; ps_lowerbound=1e-8) =
 #####################################################################
 
 mutable struct OSE <: Estimator
-    models::NamedTuple
+    models::Dict
     resampling::Union{Nothing, ResamplingStrategy}
     ps_lowerbound::Union{Float64, Nothing}
     machine_cache::Bool
@@ -251,7 +251,7 @@ function that can be applied to estimate estimands for a dataset.
 
 # Arguments
 
-- models: A NamedTuple{variables}(models) where the `variables` are the outcome variables modeled by the `models`.
+- models: A Dict(variable => model, ...) where the `variables` are the outcome variables modeled by the `models`.
 - resampling: Outer resampling strategy. Setting it to `nothing` (default) falls back to vanilla estimation while 
 any valid `MLJ.ResamplingStrategy` will result in CV-OSE.
 - ps_lowerbound: Lowerbound for the propensity score to avoid division by 0. The special value `nothing` will 
@@ -262,7 +262,7 @@ result in a data adaptive definition as described in [here](https://pubmed.ncbi.
 
 ```julia
 using MLJLinearModels
-models = (Y = LinearRegressor(), T = LogisticClassifier())
+models = Dict(:Y => LinearRegressor(), :T => LogisticClassifier())
 ose = OSE()
 Ψ̂ₙ, cache = ose(Ψ, dataset)
 ```

@@ -25,7 +25,10 @@ using DataFrames
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
         nothing,
-        (Y=with_encoder(ConstantRegressor()), T = ConstantClassifier())
+        Dict(
+            :Y => with_encoder(ConstantRegressor()), 
+            :T => ConstantClassifier()
+        )
     )
     η̂ₙ = η̂(η, dataset, verbosity = 0) 
     X = dataset[!, collect(η̂ₙ.outcome_mean.estimand.parents)]
@@ -94,10 +97,10 @@ end
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
         nothing,
-        (
-            Y = with_encoder(ConstantClassifier()), 
-            T₁ = ConstantClassifier(),
-            T₂ = ConstantClassifier()
+        Dict(
+            :Y  => with_encoder(ConstantClassifier()), 
+            :T₁ => ConstantClassifier(),
+            :T₂ => ConstantClassifier()
         )
     )
     η̂ₙ = η̂(η, dataset, verbosity = 0)

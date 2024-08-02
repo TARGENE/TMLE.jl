@@ -113,9 +113,9 @@ end
     )
     
     # When Q is misspecified but G is well specified
-    models = (
-        Y = with_encoder(MLJModels.DeterministicConstantRegressor()),
-        T = with_encoder(LogisticClassifier(lambda=0))
+    models = Dict(
+        :Y => with_encoder(MLJModels.DeterministicConstantRegressor()),
+        :T => with_encoder(LogisticClassifier(lambda=0))
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -127,14 +127,14 @@ end
     @test emptyIC(results.tmle, pval_threshold=0.9pval).IC == []
     @test emptyIC(results.tmle, pval_threshold=1.1pval) === results.tmle
     # The initial estimate is far away
-    naive = NAIVE(models.Y)
+    naive = NAIVE(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
     
     # When Q is well specified but G is misspecified
-    models = (
-        Y = with_encoder(TreatmentTransformer() |> LinearRegressor()),
-        T = with_encoder(ConstantClassifier())
+    models = Dict(
+        :Y => with_encoder(TreatmentTransformer() |> LinearRegressor()),
+        :T => with_encoder(ConstantClassifier())
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -149,22 +149,22 @@ end
         treatment_confounders = (T=[:W],)
     )
     # When Q is misspecified but G is well specified
-    models = (
-        Y = with_encoder(ConstantClassifier()),
-        T = with_encoder(LogisticClassifier(lambda=0))
+    models = Dict(
+        :Y => with_encoder(ConstantClassifier()),
+        :T => with_encoder(LogisticClassifier(lambda=0))
     )
     dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-6)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-6)
     # The initial estimate is far away
-    naive = NAIVE(models.Y)
+    naive = NAIVE(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0) 
     @test naive_result == 0
     # When Q is well specified but G is misspecified
-    models = (
-        Y = with_encoder(LogisticClassifier(lambda=0)),
-        T = with_encoder(ConstantClassifier())
+    models = Dict(
+        :Y => with_encoder(LogisticClassifier(lambda=0)),
+        :T => with_encoder(ConstantClassifier())
     )
     dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -180,9 +180,9 @@ end
         treatment_confounders = (T=[:W₁, :W₂, :W₃],)
     )
     # When Q is misspecified but G is well specified
-    models = (
-        Y = with_encoder(MLJModels.DeterministicConstantRegressor()),
-        T = with_encoder(LogisticClassifier(lambda=0))
+    models = Dict(
+        :Y => with_encoder(MLJModels.DeterministicConstantRegressor()),
+        :T => with_encoder(LogisticClassifier(lambda=0))
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -190,14 +190,14 @@ end
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
     # The initial estimate is far away
-    naive = NAIVE(models.Y)
+    naive = NAIVE(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
 
     # When Q is well specified but G is misspecified
-    models = (
-        Y = with_encoder(LinearRegressor()),
-        T = with_encoder(ConstantClassifier())
+    models = Dict(
+        :Y => with_encoder(LinearRegressor()),
+        :T => with_encoder(ConstantClassifier())
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -219,20 +219,20 @@ end
         )
     )
     # When Q is misspecified but G is well specified
-    models = (
-        Y = with_encoder(MLJModels.DeterministicConstantRegressor()),
-        T₁ = with_encoder(LogisticClassifier(lambda=0)),
-        T₂ = with_encoder(LogisticClassifier(lambda=0))
+    models = Dict(
+        :Y  => with_encoder(MLJModels.DeterministicConstantRegressor()),
+        :T₁ => with_encoder(LogisticClassifier(lambda=0)),
+        :T₂ => with_encoder(LogisticClassifier(lambda=0))
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₁, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
     # When Q is well specified but G is misspecified
-    models = (
-        Y = with_encoder(LinearRegressor()),
-        T₁ = with_encoder(ConstantClassifier()),
-        T₂ = with_encoder(ConstantClassifier())
+    models = Dict(
+        :Y  => with_encoder(LinearRegressor()),
+        :T₁ => with_encoder(ConstantClassifier()),
+        :T₂ => with_encoder(ConstantClassifier())
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₁, dataset; verbosity=0)
@@ -256,10 +256,10 @@ end
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
 
     # When Q is well specified but G is misspecified
-    models = (
-        Y = with_encoder(MLJModels.DeterministicConstantRegressor()),
-        T₁ = with_encoder(LogisticClassifier(lambda=0)),
-        T₂ = with_encoder(LogisticClassifier(lambda=0)),
+    models = Dict(
+        :Y  => with_encoder(MLJModels.DeterministicConstantRegressor()),
+        :T₁ => with_encoder(LogisticClassifier(lambda=0)),
+        :T₂ => with_encoder(LogisticClassifier(lambda=0)),
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₀, dataset; verbosity=0)

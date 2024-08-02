@@ -110,7 +110,7 @@ Again, required nuisance functions are fitted and stored in the cache.
 
 ## Specifying Models
 
-By default, TMLE.jl uses generalized linear models for the estimation of relevant and nuisance factors such as the outcome mean and the propensity score. However, this is not the recommended usage since the estimators' performance is closely related to how well we can estimate these factors. More sophisticated models can be provided using the `models` keyword argument of each estimator which is essentially a `NamedTuple` mapping variables' names to their respective model.
+By default, TMLE.jl uses generalized linear models for the estimation of relevant and nuisance factors such as the outcome mean and the propensity score. However, this is not the recommended usage since the estimators' performance is closely related to how well we can estimate these factors. More sophisticated models can be provided using the `models` keyword argument of each estimator which is a `Dict{Symbol, Model}` mapping variables' names to their respective model.
 
 Rather than specifying a specific model for each variable it may be easier to override the default models using the `default_models` function:
 
@@ -121,9 +121,9 @@ using MLJXGBoostInterface
 xgboost_regressor = XGBoostRegressor()
 xgboost_classifier = XGBoostClassifier()
 models = default_models(
-    Q_binary=xgboost_classifier,
-    Q_continuous=xgboost_regressor,
-    G=xgboost_classifier
+    Q_binary     = xgboost_classifier,
+    Q_continuous = xgboost_regressor,
+    G            = xgboost_classifier
 )
 tmle_gboost = TMLEE(models=models)
 ```
@@ -140,19 +140,18 @@ stack_binary = Stack(
     lr=lr
 )
 
-models = (
-    T₁ = with_encoder(xgboost_classifier), # T₁ with XGBoost prepended with a Continuous Encoder
-    default_models( # For all other variables use the following defaults
-        Q_binary=stack_binary, # A Super Learner
-        Q_continuous=xgboost_regressor, # An XGBoost
+models = default_models( # For all non-specified variables use the following defaults
+        Q_binary     = stack_binary, # A Super Learner
+        Q_continuous = xgboost_regressor, # An XGBoost
+        # T₁ with XGBoost prepended with a Continuous Encoder
+        T₁           = xgboost_classifier
         # Unspecified G defaults to Logistic Regression
-    )...
 )
 
 tmle_custom = TMLEE(models=models)
 ```
 
-Notice that `with_encoder` is simply a shorthand to construct a pipeline with a `ContinuousEncoder` and that the resulting `models` is simply a `NamedTuple`.
+Notice that `with_encoder` is simply a shorthand to construct a pipeline with a `ContinuousEncoder` and that the resulting `models` is simply a `Dict`.
 
 ## CV-Estimation
 

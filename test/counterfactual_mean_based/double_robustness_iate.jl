@@ -177,32 +177,32 @@ end
         )
     )
     # When Q is misspecified but G is well specified
-    models = (
-        Y = with_encoder(ConstantClassifier()),
-        T₁ = with_encoder(LogisticClassifier(lambda=0)),
-        T₂ = with_encoder(LogisticClassifier(lambda=0)),
+    models = Dict(
+        :Y  => with_encoder(ConstantClassifier()),
+        :T₁ => with_encoder(LogisticClassifier(lambda=0)),
+        :T₂ => with_encoder(LogisticClassifier(lambda=0)),
     )
     dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-9)
     # The initial estimate is far away
-    naive = NAIVE(models.Y)
+    naive = NAIVE(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
 
     # When Q is well specified  but G is misspecified
-    models = (
-        Y = with_encoder(LogisticClassifier(lambda=0)),
-        T₁ = with_encoder(ConstantClassifier()),
-        T₂ = with_encoder(ConstantClassifier()),
+    models = Dict(
+        :Y  => with_encoder(LogisticClassifier(lambda=0)),
+        :T₁ => with_encoder(ConstantClassifier()),
+        :T₂ => with_encoder(ConstantClassifier()),
     )
     dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-9)
     # The initial estimate is far away
-    naive = NAIVE(models.Y)
+    naive = NAIVE(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result ≈ -0.0 atol=1e-1
 end
@@ -221,10 +221,10 @@ end
         )
     )
     # When Q is misspecified but G is well specified
-    models = (
-        Y = with_encoder(MLJModels.DeterministicConstantRegressor()),
-        T₁ = with_encoder(LogisticClassifier(lambda=0)),
-        T₂ = with_encoder(LogisticClassifier(lambda=0)),
+    models = Dict(
+        :Y  => with_encoder(MLJModels.DeterministicConstantRegressor()),
+        :T₁ => with_encoder(LogisticClassifier(lambda=0)),
+        :T₂ => with_encoder(LogisticClassifier(lambda=0)),
     )
 
     dr_estimators = double_robust_estimators(models)
@@ -232,15 +232,15 @@ end
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
     # The initial estimate is far away
-    naive = NAIVE(models.Y)
+    naive = NAIVE(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
 
     # When Q is well specified  but G is misspecified
-    models = (
-        Y = with_encoder(cont_interacter),
-        T₁ = with_encoder(ConstantClassifier()),
-        T₂ = with_encoder(ConstantClassifier()),
+    models = Dict(
+        :Y  => with_encoder(cont_interacter),
+        :T₁ => with_encoder(ConstantClassifier()),
+        :T₂ => with_encoder(ConstantClassifier()),
     )
     dr_estimators = double_robust_estimators(models)
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -262,10 +262,10 @@ end
         )
     )
     # When Q is misspecified but G is well specified
-    models = (
-        Y = with_encoder(ConstantClassifier()),
-        T₁ = with_encoder(LogisticClassifier(lambda=0)),
-        T₂ = with_encoder(LogisticClassifier(lambda=0))
+    models = Dict(
+        :Y  => with_encoder(ConstantClassifier()),
+        :T₁ => with_encoder(LogisticClassifier(lambda=0)),
+        :T₂ => with_encoder(LogisticClassifier(lambda=0))
     )
     dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -273,15 +273,15 @@ end
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
 
     # The initial estimate is far away
-    naive = NAIVE(models.Y)
+    naive = NAIVE(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
 
     # When Q is well specified but G is misspecified
-    models = (
-        Y = with_encoder(cat_interacter),
-        T₁ = with_encoder(ConstantClassifier()),
-        T₂ = with_encoder(ConstantClassifier()),
+    models = Dict(
+        :Y  => with_encoder(cat_interacter),
+        :T₁ => with_encoder(ConstantClassifier()),
+        :T₂ => with_encoder(ConstantClassifier()),
     )
     dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -289,7 +289,7 @@ end
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
 
     # The initial estimate is far away
-    naive = NAIVE(models.Y)
+    naive = NAIVE(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result ≈ -0.02 atol=1e-2
 end

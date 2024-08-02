@@ -53,9 +53,9 @@ end
     mydiff(x, y) = y - x
 
     jointestimand = JointEstimand(CM₀, CM₁)
-    models = (
-        Y = with_encoder(LinearRegressor()),
-        T = LogisticClassifier(lambda=0)
+    models = Dict(
+        :Y => with_encoder(LinearRegressor()),
+        :T => LogisticClassifier(lambda=0)
     )
     tmle = TMLEE(models=models)
     ose = OSE(models=models)
@@ -102,9 +102,9 @@ end
 
 @testset "Test compose multidimensional function" begin
     dataset = make_dataset(;n=1000)
-    models = (
-        Y = with_encoder(LinearRegressor()),
-        T = LogisticClassifier(lambda=0)
+    models = Dict(
+        :Y => with_encoder(LinearRegressor()),
+        :T => LogisticClassifier(lambda=0)
     )
     tmle = TMLEE(models=models)
     cache = Dict()

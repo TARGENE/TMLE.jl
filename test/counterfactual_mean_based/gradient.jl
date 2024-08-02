@@ -38,7 +38,9 @@ end
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
         nothing,
-        (Y=with_encoder(InteractionTransformer(order=2) |> LinearRegressor()), T = LogisticClassifier())
+        Dict(
+            :Y => with_encoder(InteractionTransformer(order=2) |> LinearRegressor()), 
+            :T => LogisticClassifier())
     )
     η̂ₙ = η̂(η, dataset, verbosity = 0)    
     # Retrieve conditional distributions and fitted_params
