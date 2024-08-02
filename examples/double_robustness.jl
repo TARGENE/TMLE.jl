@@ -157,9 +157,9 @@ function tmle_inference(data)
         treatment_values=(Tcat=(case=1.0, control=0.0),), 
         treatment_confounders=(Tcat=[:W],)
     )
-    models = (
-        Y = with_encoder(LinearRegressor()), 
-        Tcat = with_encoder(LinearBinaryClassifier())
+    models = Dict(
+        :Y    => with_encoder(LinearRegressor()), 
+        :Tcat => with_encoder(LinearBinaryClassifier())
     )
     tmle = TMLEE(models=models)
     result, _ = tmle(Ψ, data; verbosity=0)
