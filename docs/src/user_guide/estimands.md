@@ -119,7 +119,7 @@ statisticalΨ = ATE(
 )
 ```
 
-## The Interaction Average Treatment Effect
+## The Average Interaction Effect
 
 - Causal Question:
 
