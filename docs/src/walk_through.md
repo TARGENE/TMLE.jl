@@ -108,7 +108,7 @@ marginal_ate_t1 = ATE(
 )
 ```
 
-- The Interaction Average Treatment Effect:
+- The Average Interaction Effect:
 
 ```@example walk-through
 aie = AIE(
