@@ -160,3 +160,5 @@ Both TMLE and OSE asymptotically follow a Normal distribution. It means we can p
 ```@example walk-through
 OneSampleTTest(result)
 ```
+
+If the estimate is high-dimensional, a `OneSampleHotellingT2Test` should be performed instead. Alternatively, the `significance_test` function will automatically select the appropriate test for the estimate and return its result.
