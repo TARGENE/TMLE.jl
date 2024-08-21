@@ -37,8 +37,8 @@ using OrderedCollections
     )
     indic_values = TMLE.indicator_values(indicator_fns, TMLE.selectcols(dataset, TMLE.treatments(Ψ)))
     @test indic_values == [0.0, -1.0, 1.0, 0.0, 0.0, -1.0, 1.0, 0.0]
-    # 2-points IATE
-    Ψ = IATE(
+    # 2-points AIE
+    Ψ = AIE(
         outcome=:Y, 
         treatment_values=Dict(
             :T₁ => (case="A", control="B"), 
@@ -55,8 +55,8 @@ using OrderedCollections
     )
     indic_values = TMLE.indicator_values(indicator_fns, TMLE.selectcols(dataset, TMLE.treatments(Ψ)))
     @test indic_values == [-1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0]
-    # 3-points IATE
-    Ψ = IATE(
+    # 3-points AIE
+    Ψ = AIE(
         outcome=:Y, 
         treatment_values=(
             T₁=(case="A", control="B"), 
@@ -186,8 +186,8 @@ end
     Ψreconstructed = TMLE.from_dict!(d)
     @test Ψreconstructed == Ψ
 
-    # Statistical IATE
-    Ψ = IATE(
+    # Statistical AIE
+    Ψ = AIE(
         outcome=:y,
         treatment_values = (T₁=1, T₂="AC"),
         treatment_confounders = (T₁=[:W₁₁, :W₁₂], T₂=[:W₁₂, :W₂₂]),
@@ -196,7 +196,7 @@ end
     d = TMLE.to_dict(Ψ)
     @test d == Dict(
         :outcome_extra_covariates => [:C],
-        :type                     => "IATE",
+        :type                     => "AIE",
         :treatment_values         => Dict(:T₁=>1, :T₂=>"AC"),
         :outcome                  => :y,
         :treatment_confounders    => Dict(:T₁=>[:W₁₁, :W₁₂], :T₂=>[:W₁₂, :W₂₂])
@@ -208,14 +208,14 @@ end
 @testset "Test control_case_settings" begin
     treatments_unique_values = (T₁=(1, 0, 2),)
     @test TMLE.get_treatment_settings(ATE, treatments_unique_values) == OrderedDict(:T₁ => [(1, 0), (0, 2)],)
-    @test TMLE.get_treatment_settings(IATE, treatments_unique_values) == OrderedDict(:T₁ => [(1, 0), (0, 2)],)
+    @test TMLE.get_treatment_settings(AIE, treatments_unique_values) == OrderedDict(:T₁ => [(1, 0), (0, 2)],)
     @test TMLE.get_treatment_settings(CM, treatments_unique_values) == OrderedDict(:T₁ => (1, 0, 2), )
     treatments_unique_values = Dict(:T₁ => (1, 0, 2), :T₂ => ["AC", "CC"])
     @test TMLE.get_treatment_settings(ATE, treatments_unique_values) == OrderedDict(
         :T₁ => [(1, 0), (0, 2)], 
         :T₂ => [("AC", "CC")]
     )
-    @test TMLE.get_treatment_settings(IATE, treatments_unique_values) == OrderedDict(
+    @test TMLE.get_treatment_settings(AIE, treatments_unique_values) == OrderedDict(
         :T₁ => [(1, 0), (0, 2)], 
         :T₂ => [("AC", "CC")]
     )
@@ -351,7 +351,7 @@ end
     @test length(jointATE.args) == 1
 end
 
-@testset "Test factorial IATE" begin
+@testset "Test factorial AIE" begin
     dataset = (
         T₁ = [0, 1, 2, missing], 
         T₂ = ["AC", "CC", missing, "AA"],
@@ -362,32 +362,32 @@ end
         Y₂ = [1, 2, 3, 4]
     )
     # From dataset
-    jointIATE = factorialEstimand(IATE, [:T₁, :T₂], :Y₁;
+    jointAIE = factorialEstimand(AIE, [:T₁, :T₂], :Y₁;
         dataset=dataset, 
         confounders=[:W₁], 
         outcome_extra_covariates=[:C],
         verbosity=0
     )
-    @test jointIATE == JointEstimand(
-            TMLE.StatisticalIATE(
+    @test jointAIE == JointEstimand(
+            TMLE.StatisticalAIE(
                 outcome = :Y₁, 
                 treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = "CC", control = "AC")), 
                 treatment_confounders = (:W₁,), 
                 outcome_extra_covariates = (:C,)
             ),
-            TMLE.StatisticalIATE(
+            TMLE.StatisticalAIE(
                 outcome = :Y₁, 
                 treatment_values = (T₁ = (case = 2, control = 1), T₂ = (case = "CC", control = "AC")), 
                 treatment_confounders = (:W₁,), 
                 outcome_extra_covariates = (:C,)
             ),
-            TMLE.StatisticalIATE(
+            TMLE.StatisticalAIE(
                 outcome = :Y₁, 
                 treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = "AA", control = "CC")), 
                 treatment_confounders = (:W₁,), 
                 outcome_extra_covariates = (:C,)
             ),
-            TMLE.StatisticalIATE(
+            TMLE.StatisticalAIE(
                 outcome = :Y₁, 
                 treatment_values = (T₁ = (case = 2, control = 1), T₂ = (case = "AA", control = "CC")), 
                 treatment_confounders = (:W₁,), 
@@ -395,29 +395,29 @@ end
             )
     )
     # From unique values
-    jointIATE_from_dict = factorialEstimand(IATE, Dict(:T₁ => (0, 1), :T₂ => (0, 1, 2), :T₃ => (0, 1, 2)), :Y₁, verbosity=0)
-    jointIATE_from_nt = factorialEstimand(IATE, (T₁ = (0, 1), T₂ = (0, 1, 2), T₃ = (0, 1, 2)), :Y₁, verbosity=0)
-    @test jointIATE_from_dict == jointIATE_from_nt == JointEstimand(
-            TMLE.CausalIATE(
+    jointAIE_from_dict = factorialEstimand(AIE, Dict(:T₁ => (0, 1), :T₂ => (0, 1, 2), :T₃ => (0, 1, 2)), :Y₁, verbosity=0)
+    jointAIE_from_nt = factorialEstimand(AIE, (T₁ = (0, 1), T₂ = (0, 1, 2), T₃ = (0, 1, 2)), :Y₁, verbosity=0)
+    @test jointAIE_from_dict == jointAIE_from_nt == JointEstimand(
+            TMLE.CausalAIE(
                 outcome = :Y₁, 
                 treatment_values = (T₁ = (control = 0, case = 1), T₂ = (control = 0, case = 1), T₃ = (control = 0, case = 1))
             ),
-            TMLE.CausalIATE(
+            TMLE.CausalAIE(
                 outcome = :Y₁, 
                 treatment_values = (T₁ = (control = 0, case = 1), T₂ = (control = 1, case = 2), T₃ = (control = 0, case = 1))
             ),
-            TMLE.CausalIATE(
+            TMLE.CausalAIE(
                 outcome = :Y₁, 
                 treatment_values = (T₁ = (control = 0, case = 1), T₂ = (control = 0, case = 1), T₃ = (control = 1, case = 2))
             ),
-            TMLE.CausalIATE(
+            TMLE.CausalAIE(
                 outcome = :Y₁, 
                 treatment_values = (T₁ = (control = 0, case = 1), T₂ = (control = 1, case = 2), T₃ = (control = 1, case = 2))
             )
     )
 
     # positivity constraint
-    @test_throws ArgumentError("No component passed the positivity constraint.") factorialEstimand(IATE, [:T₁, :T₂], :Y₁;
+    @test_throws ArgumentError("No component passed the positivity constraint.") factorialEstimand(AIE, [:T₁, :T₂], :Y₁;
         dataset=dataset,  
         confounders=[:W₁], 
         outcome_extra_covariates=[:C],

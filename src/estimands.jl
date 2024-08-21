@@ -26,7 +26,7 @@ AbsentLevelError(treatment_name, val, levels) = ArgumentError(string(
 
 Checks the case/control values defining the treatment contrast are present in the dataset levels. 
 
-Note: This method is for estimands like the ATE or IATE that have case/control treatment settings represented as 
+Note: This method is for estimands like the ATE or AIE that have case/control treatment settings represented as 
 `NamedTuple`.
 """
 function check_treatment_settings(settings::NamedTuple, levels, treatment_name)

@@ -114,7 +114,7 @@ end
     @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.1) == true
     @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.2) == false
     
-    Ψ = IATE(
+    Ψ = AIE(
         outcome = :toto, 
         treatment_values = (B=(case="AC", control="AA"), A=(case=1, control=0),), 
         treatment_confounders = (B=(), A=()), 
@@ -135,7 +135,7 @@ end
     @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.3) == false
     @test TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=0.1) == true
 
-    Ψ = IATE(
+    Ψ = AIE(
         outcome = :toto, 
         treatment_values = (B=(case="AC", control="AA"), A=(case=1, control=0), C=(control=0, case=2)), 
         treatment_confounders = (B=(), A=(), C=())

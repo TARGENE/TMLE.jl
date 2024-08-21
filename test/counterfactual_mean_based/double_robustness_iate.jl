@@ -39,7 +39,7 @@ function binary_outcome_binary_treatment_pb(;n=100)
     W = float(W)
     dataset = (T₁=T₁, T₂=T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], Y=y)
     dataset = coerce(dataset, autotype(dataset))
-    # Compute the theoretical IATE
+    # Compute the theoretical AIE
     Wcomb = [1 1 1;
             1 1 0;
             1 0 0;
@@ -48,16 +48,16 @@ function binary_outcome_binary_treatment_pb(;n=100)
             0 0 0;
             0 0 1;
             0 1 1]
-    IATE = 0
+    AIE = 0
     for i in 1:8
         w = reshape(Wcomb[i, :], 1, 3)
         temp = μy_fn(w, [1], [1])[1]
         temp += μy_fn(w, [0], [0])[1]
         temp -= μy_fn(w, [1], [0])[1]
         temp -= μy_fn(w, [0], [1])[1]
-        IATE += temp*0.5*0.5*0.5
+        AIE += temp*0.5*0.5*0.5
     end
-    return dataset, IATE
+    return dataset, AIE
 end
 
 
@@ -94,7 +94,7 @@ function binary_outcome_categorical_treatment_pb(;n=100)
     μy = μy_fn(W, T, Hmach)
     y = [rand(rng, Bernoulli(μy[i])) for i in 1:n]
     dataset = (T₁=T.T₁, T₂=T.T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], Y=categorical(y))
-    # Compute the theoretical IATE for the query
+    # Compute the theoretical AIE for the query
     # (CC, AT) against (CG, AA)
     Wcomb = [1 1 1;
             1 1 0;
@@ -104,7 +104,7 @@ function binary_outcome_categorical_treatment_pb(;n=100)
             0 0 0;
             0 0 1;
             0 1 1]
-            IATE = 0
+            AIE = 0
     levels₁ = levels(T.T₁)
     levels₂ = levels(T.T₂)
     for i in 1:8
@@ -113,9 +113,9 @@ function binary_outcome_categorical_treatment_pb(;n=100)
         temp += μy_fn(w, (T₁=categorical(["CG"], levels=levels₁), T₂=categorical(["AA"], levels=levels₂)), Hmach)[1]
         temp -= μy_fn(w, (T₁=categorical(["CC"], levels=levels₁), T₂=categorical(["AA"], levels=levels₂)), Hmach)[1]
         temp -= μy_fn(w, (T₁=categorical(["CG"], levels=levels₁), T₂=categorical(["AT"], levels=levels₂)), Hmach)[1]
-        IATE += temp*0.5*0.5*0.5
+        AIE += temp*0.5*0.5*0.5
     end
-    return dataset, IATE
+    return dataset, AIE
 end
 
 
@@ -151,21 +151,21 @@ function continuous_outcome_binary_treatment_pb(;n=100)
             0 0 0;
             0 0 1;
             0 1 1]
-    IATE = 0
+    AIE = 0
     for i in 1:8
         w = reshape(Wcomb[i, :], 1, 3)
         temp = μy_fn(w, [1], [1])[1]
         temp += μy_fn(w, [0], [0])[1]
         temp -= μy_fn(w, [1], [0])[1]
         temp -= μy_fn(w, [0], [1])[1]
-        IATE += temp*0.5*0.5*0.5
+        AIE += temp*0.5*0.5*0.5
     end
-    return dataset, IATE
+    return dataset, AIE
 end
 
-@testset "Test Double Robustness IATE on binary_outcome_binary_treatment_pb" begin
+@testset "Test Double Robustness AIE on binary_outcome_binary_treatment_pb" begin
     dataset, Ψ₀ = binary_outcome_binary_treatment_pb(n=10_000)
-    Ψ = IATE(
+    Ψ = AIE(
         outcome=:Y,
         treatment_values = (
             T₁=(case=true, control=false), 
@@ -207,9 +207,9 @@ end
     @test naive_result ≈ -0.0 atol=1e-1
 end
 
-@testset "Test Double Robustness IATE on continuous_outcome_binary_treatment_pb" begin
+@testset "Test Double Robustness AIE on continuous_outcome_binary_treatment_pb" begin
     dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=10_000)
-    Ψ = IATE(
+    Ψ = AIE(
         outcome = :Y,
         treatment_values = (
             T₁=(case=true, control=false), 
@@ -248,9 +248,9 @@ end
 end
 
 
-@testset "Test Double Robustness IATE on binary_outcome_categorical_treatment_pb" begin
+@testset "Test Double Robustness AIE on binary_outcome_categorical_treatment_pb" begin
     dataset, Ψ₀ = binary_outcome_categorical_treatment_pb(n=30_000)
-    Ψ = IATE(
+    Ψ = AIE(
         outcome=:Y,
         treatment_values= (
             T₁=(case="CC", control="CG"), 

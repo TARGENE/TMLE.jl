@@ -195,10 +195,10 @@ result₃
 nothing # hide
 ```
 
-This time only the model for `Y` is fitted again while reusing the models for `T₁` and `T₂`. Finally, let's see what happens if we estimate the `IATE` between `T₁` and `T₂`.
+This time only the model for `Y` is fitted again while reusing the models for `T₁` and `T₂`. Finally, let's see what happens if we estimate the `AIE` between `T₁` and `T₂`.
 
 ```@example estimation
-Ψ₄ = IATE(
+Ψ₄ = AIE(
     outcome=:Y, 
     treatment_values=(
         T₁=(case=true, control=false), 
@@ -224,7 +224,7 @@ As explained in [Joint And Composed Estimands](@ref), a joint estimand is simply
 More precisely, we would like to see if the left-hand side of this equation is equal to the right-hand side:
 
 ```math
-IATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} = ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} - ATE_{T_1=0, T_2=0 \rightarrow 1} - ATE_{T_1=0 \rightarrow 1, T_2=0}
+AIE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} = ATE_{T_1=0 \rightarrow 1, T_2=0 \rightarrow 1} - ATE_{T_1=0, T_2=0 \rightarrow 1} - ATE_{T_1=0 \rightarrow 1, T_2=0}
 ```
 
 For that, we need to define a joint estimand of three components:

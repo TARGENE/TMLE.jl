@@ -111,7 +111,7 @@ marginal_ate_t1 = ATE(
 - The Interaction Average Treatment Effect:
 
 ```@example walk-through
-iate = IATE(
+aie = AIE(
     outcome = :Y,
     treatment_values = (
         T₁=(case=1, control=0), 
@@ -125,7 +125,7 @@ iate = IATE(
 Identification is the process by which a Causal Estimand is turned into a Statistical Estimand, that is, a quantity we may estimate from data. This is done via the `identify` function which also takes in the ``SCM``:
 
 ```@example walk-through
-statistical_iate = identify(iate, scm)
+statistical_aie = identify(aie, scm)
 ```
 
 Alternatively, you can also directly define the statistical parameters (see [Estimands](@ref)).
@@ -149,7 +149,7 @@ Statistical Estimands can be estimated without a ``SCM``, let's use the One-Step
 
 ```@example walk-through
 ose = OSE()
-result, cache = ose(statistical_iate, dataset)
+result, cache = ose(statistical_aie, dataset)
 result
 ```
 

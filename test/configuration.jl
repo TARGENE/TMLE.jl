@@ -22,7 +22,7 @@ end
     yamlfilename = mktemp()[1]
     jsonfilename = mktemp()[1]
     estimands = [
-        IATE(
+        AIE(
             outcome=:Y1, 
             treatment_values= (
                 T1 = (case = 1, control = 0), 
@@ -81,7 +81,7 @@ end
     jsonfilename = mktemp()[1]
     # With a StaticSCM, some Causal estimands and an Adjustment Method
     estimands = [
-        IATE(
+        AIE(
             outcome=:Y1, 
             treatment_values= (
                 T1 = (case = 1, control = 0), 

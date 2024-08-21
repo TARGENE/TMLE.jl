@@ -33,7 +33,7 @@ variables(estimand::CMRelevantFactors) =
 const ESTIMANDS_DOCS = Dict(
     :CM => (formula="``CM(Y, T=t) = E[Y|do(T=t)]``",),
     :ATE => (formula="``ATE(Y, T, case, control) = E[Y|do(T=case)] - E[Y|do(T=control)``",),
-    :IATE => (formula="``IATE = E[Y|do(T₁=1, T₂=1)] - E[Y|do(T₁=1, T₂=0)] - E[Y|do(T₁=0, T₂=1)] + E[Y|do(T₁=0, T₂=0)]``",)
+    :AIE => (formula="``AIE = E[Y|do(T₁=1, T₂=1)] - E[Y|do(T₁=1, T₂=0)] - E[Y|do(T₁=0, T₂=1)] + E[Y|do(T₁=0, T₂=0)]``",)
 )
 
 for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
@@ -89,6 +89,8 @@ for (estimand, (formula,)) ∈ ESTIMANDS_DOCS
     eval(ex)
 end
 
+const IATE = AIE
+
 CausalCMCompositeEstimands = Union{(eval(Symbol(:Causal, x)) for x in keys(ESTIMANDS_DOCS))...}
 
 StatisticalCMCompositeEstimand = Union{(eval(Symbol(:Statistical, x)) for x in keys(ESTIMANDS_DOCS))...}
@@ -109,7 +111,7 @@ end
 
 ncases(counterfactual_values, treatments_cases) = sum(counterfactual_values .== treatments_cases)
 
-function indicator_fns(Ψ::StatisticalIATE)
+function indicator_fns(Ψ::StatisticalAIE)
     N = length(Ψ.treatment_values)
     key_vals = Pair[]
     treatments_cases = Tuple(case_control.case for case_control ∈ values(Ψ.treatment_values))
@@ -233,7 +235,7 @@ unique_treatment_values(dataset, colnames) =
 """
 Generated from transitive treatment switches to create independent estimands.
 """
-get_treatment_settings(::Union{typeof(ATE), typeof(IATE)}, treatments_unique_values)=
+get_treatment_settings(::Union{typeof(ATE), typeof(AIE)}, treatments_unique_values)=
     sort(OrderedDict(key => collect(zip(uniquevaluess[1:end-1], uniquevaluess[2:end])) for (key, uniquevaluess) in pairs(treatments_unique_values)))
 
 get_treatment_settings(::typeof(CM), treatments_unique_values) = sort(OrderedDict(pairs(treatments_unique_values)))
@@ -304,7 +306,7 @@ end
 
 """
     factorialEstimand(
-        constructor::Union{typeof(CM), typeof(ATE), typeof(IATE)},
+        constructor::Union{typeof(CM), typeof(ATE), typeof(AIE)},
         treatments, outcome; 
         confounders=nothing,
         dataset=nothing, 
@@ -314,9 +316,9 @@ end
         verbosity=1
     )
 
-Generates a factorial `JointEstimand` with components of type `constructor` (CM, ATE, IATE). 
+Generates a factorial `JointEstimand` with components of type `constructor` (CM, ATE, AIE). 
 
-For the ATE and the IATE, the generated components are restricted to the Cartesian Product of single treatment levels transitions.
+For the ATE and the AIE, the generated components are restricted to the Cartesian Product of single treatment levels transitions.
 For example, consider two treatment variables T₁ and T₂ each taking three possible values (0, 1, 2). 
 For each treatment variable, the single treatment levels transitions are defined by (0 → 1, 1 → 2). 
 Then, the Cartesian Product of these transitions is taken, resulting in a 2 x 2 = 4 dimensional joint estimand:
@@ -332,7 +334,7 @@ A `JointEstimand` with causal or statistical components.
 
 # Args
 
-- `constructor`: CM, ATE or IATE.
+- `constructor`: CM, ATE or AIE.
 - `treatments`: An AbstractDictionary/NamedTuple of treatment levels (e.g. `(T=(0, 1, 2),)`) or a treatment iterator, then a dataset must be provided to infer the levels from it.
 - `outcome`: The outcome variable.
 - `confounders=nothing`: The generated components will inherit these confounding variables. If `nothing`, causal estimands are generated.
@@ -353,7 +355,7 @@ factorialEstimand(ATE, (T₁ = (0, 1), T₂=(0, 1, 2)), :Y₁)
 - An Average Interaction Effect with statistical components:
 
 ```@example
-factorial(IATE, (T₁ = (0, 1, 2), T₂=(0, 1, 2)), :Y₁, confounders=[:W₁, :W₂])
+factorial(AIE, (T₁ = (0, 1, 2), T₂=(0, 1, 2)), :Y₁, confounders=[:W₁, :W₂])
 ```
 
 - With a dataset, the treatment levels can be infered and a positivity constraint enforced:
@@ -369,7 +371,7 @@ factorialEstimand(ATE, [:T₁, :T₂], :Y₁,
 
 """
 function factorialEstimand(
-    constructor::Union{typeof(CM), typeof(ATE), typeof(IATE)},
+    constructor::Union{typeof(CM), typeof(ATE), typeof(AIE)},
     treatments, outcome; 
     confounders=nothing,
     dataset=nothing, 
@@ -393,7 +395,7 @@ end
 
 """
 factorialEstimands(
-    constructor::Union{typeof(ATE), typeof(IATE)},
+    constructor::Union{typeof(ATE), typeof(AIE)},
     dataset, treatments, outcomes; 
     confounders=nothing, 
     outcome_extra_covariates=(),
@@ -404,7 +406,7 @@ factorialEstimands(
 Generates a `JointEstimand` for each outcome in `outcomes`. See `factorialEstimand`.
 """
 function factorialEstimands(
-    constructor::Union{typeof(CM), typeof(ATE), typeof(IATE)},
+    constructor::Union{typeof(CM), typeof(ATE), typeof(AIE)},
     treatments, outcomes; 
     dataset=nothing,
     confounders=nothing, 
@@ -437,7 +439,7 @@ function factorialEstimands(
     return estimands
 end
 
-joint_levels(Ψ::StatisticalIATE) = Iterators.product(values(Ψ.treatment_values)...)
+joint_levels(Ψ::StatisticalAIE) = Iterators.product(values(Ψ.treatment_values)...)
 
 joint_levels(Ψ::StatisticalATE) =
     (Tuple(Ψ.treatment_values[T][c] for T ∈ keys(Ψ.treatment_values)) for c in (:control, :case))

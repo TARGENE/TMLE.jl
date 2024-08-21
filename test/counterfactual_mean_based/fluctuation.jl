@@ -69,7 +69,7 @@ using DataFrames
 end
 
 @testset "Test Fluctuation with 2 Treatments" begin
-    Ψ = IATE(
+    Ψ = AIE(
         outcome =:Y, 
         treatment_values=(
             T₁=(case=1, control=0), 

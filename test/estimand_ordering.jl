@@ -28,7 +28,7 @@ causal_estimands = [
         outcome=:Y₁, 
         treatment_values=(T₂=(case=1, control=0),)
     ),
-    IATE(
+    AIE(
         outcome=:Y₁, 
         treatment_values=(T₁=(case=2, control=0), T₂=(case=1, control=0))
     ),

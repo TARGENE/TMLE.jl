@@ -162,25 +162,25 @@ end
         T₂ = categorical(T₂),
         Y = Y
     )
-    IATE₁ = IATE(
+    AIE₁ = AIE(
         outcome = :Y,
         treatment_values = (T₁=(case=2, control=1), T₂=(case=2, control=1)),
         treatment_confounders = (T₁ = [:W], T₂ = [:W])
     )
-    IATE₂ = IATE(
+    AIE₂ = AIE(
         outcome = :Y,
         treatment_values = (T₁=(case=3, control=1), T₂=(case=3, control=1)),
         treatment_confounders = (T₁ = [:W], T₂ = [:W])
     )
-    IATE₃ = IATE(
+    AIE₃ = AIE(
         outcome = :Y,
         treatment_values = (T₁=(case=3, control=2), T₂=(case=3, control=2)),
         treatment_confounders = (T₁ = [:W], T₂ = [:W])
     )
-    jointIATE = JointEstimand(IATE₁, IATE₂, IATE₃)
+    jointAIE = JointEstimand(AIE₁, AIE₂, AIE₃)
 
     ose = OSE(models=TMLE.default_models(G=LogisticClassifier(), Q_continuous=LinearRegressor()))
-    jointEstimate, _ = ose(jointIATE, dataset, verbosity=0)
+    jointEstimate, _ = ose(jointAIE, dataset, verbosity=0)
 
     testres = significance_test(jointEstimate)
     @test testres.x̄ ≈ estimate(jointEstimate)

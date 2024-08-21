@@ -13,7 +13,7 @@ using TMLE
         CM(outcome=:Y₁, treatment_values=(T₁=1,)),
         ATE(outcome=:Y₁, treatment_values=(T₁=(case=1, control=0),)),
         ATE(outcome=:Y₁, treatment_values=(T₁=(case=1, control=0), T₂=(case=1, control=0))),
-        IATE(outcome=:Y₁, treatment_values=(T₁=(case=1, control=0), T₂=(case=1, control=0))),
+        AIE(outcome=:Y₁, treatment_values=(T₁=(case=1, control=0), T₂=(case=1, control=0))),
     ]
     method = BackdoorAdjustment(outcome_extra_covariates=[:C])
     statistical_estimands = [identify(method, estimand, scm) for estimand in causal_estimands]

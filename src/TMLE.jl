@@ -28,7 +28,7 @@ using AutoHashEquals
 # #############################################################################
 
 export SCM, StaticSCM, add_equations!, add_equation!, parents, vertices
-export CM, ATE, IATE
+export CM, ATE, AIE
 export AVAILABLE_ESTIMANDS
 export factorialEstimand, factorialEstimands
 export TMLEE, OSE, NAIVE

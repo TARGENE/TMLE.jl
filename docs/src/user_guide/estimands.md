@@ -132,14 +132,14 @@ For a general higher-order definition, please refer to [Higher-order interaction
 For two points interaction with both treatment and control levels ``0`` and ``1`` for ease of notation:
 
 ```math
-IATE_{0 \rightarrow 1, 0 \rightarrow 1}(P) = \mathbb{E}[Y|do(T_1=1, T_2=1)] - \mathbb{E}[Y|do(T_1=1, T_2=0)]  \\
+AIE_{0 \rightarrow 1, 0 \rightarrow 1}(P) = \mathbb{E}[Y|do(T_1=1, T_2=1)] - \mathbb{E}[Y|do(T_1=1, T_2=0)]  \\
 - \mathbb{E}[Y|do(T_1=0, T_2=1)] + \mathbb{E}[Y|do(T_1=0, T_2=0)] 
 ```
 
 - Statistical Estimand (via backdoor adjustment):
 
 ```math
-IATE_{0 \rightarrow 1, 0 \rightarrow 1}(P) = \mathbb{E}_{\textbf{W}}[\mathbb{E}[Y|T_1=1, T_2=1, \textbf{W}] - \mathbb{E}[Y|T_1=1, T_2=0, \textbf{W}]  \\
+AIE_{0 \rightarrow 1, 0 \rightarrow 1}(P) = \mathbb{E}_{\textbf{W}}[\mathbb{E}[Y|T_1=1, T_2=1, \textbf{W}] - \mathbb{E}[Y|T_1=1, T_2=0, \textbf{W}]  \\
 - \mathbb{E}[Y|T_1=0, T_2=1, \textbf{W}] + \mathbb{E}[Y|T_1=0, T_2=0, \textbf{W}]] 
 ```
 
@@ -148,7 +148,7 @@ IATE_{0 \rightarrow 1, 0 \rightarrow 1}(P) = \mathbb{E}_{\textbf{W}}[\mathbb{E}[
 A causal estimand is given by:
 
 ```@example estimands
-causalΨ = IATE(
+causalΨ = AIE(
     outcome=:Y, 
     treatment_values=(
         T₁=(case=1, control=0), 
@@ -166,7 +166,7 @@ statisticalΨ = identify(causalΨ, scm)
 or defined directly:
 
 ```@example estimands
-statisticalΨ = IATE(
+statisticalΨ = AIE(
     outcome=:Y, 
     treatment_values=(
         T₁=(case=1, control=0), 
@@ -178,7 +178,7 @@ statisticalΨ = IATE(
 
 - Factorial Treatments
 
-It is possible to generate a `JointEstimand` containing all linearly independent IATEs from a set of treatment values or from a dataset. For that purpose, use the `factorialEstimand` function.
+It is possible to generate a `JointEstimand` containing all linearly independent AIEs from a set of treatment values or from a dataset. For that purpose, use the `factorialEstimand` function.
 
 ## Joint And Composed Estimands
 
