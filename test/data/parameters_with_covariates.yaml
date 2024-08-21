@@ -11,7 +11,7 @@ Y:
   - Y1
 
 Estimands:
-  - name: IATE
+  - name: AIE
     T1:
       case: 2
       control: 1

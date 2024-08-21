@@ -41,7 +41,7 @@ Base.show(io::IO, ::MIME"text/plain", scm::SCM) =
     println(io, string_repr(scm))
 
 split_outcome_parent_pair(outcome_parents_pair::Pair) = outcome_parents_pair
-split_outcome_parent_pair(outcome_parents_pair::Dict{T, Any}) where T = outcome_parents_pair[T(:outcome)], outcome_parents_pair[T(:parents)] 
+split_outcome_parent_pair(outcome_parents_pair::AbstractDict{T, Any}) where T = outcome_parents_pair[T(:outcome)], outcome_parents_pair[T(:parents)] 
 
 function add_equations!(scm::SCM, equations...)
     for outcome_parents_pair in equations

@@ -82,7 +82,7 @@ end
 """
     default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier()) = (
 
-Create a NamedTuple containing default models to be used by downstream estimators. 
+Create a Dictionary containing default models to be used by downstream estimators. 
 Each provided model is prepended (in a `MLJ.Pipeline`) with an `MLJ.ContinuousEncoder`.
 
 By default:
@@ -96,17 +96,18 @@ The following changes the default `Q_binary` to a `LogisticClassifier` and provi
 
 ```julia
 using MLJLinearModels
-models = (
-    special_y = RidgeRegressor(), 
-    default_models(Q_binary=LogisticClassifier())...
+models = default_models(
+    Q_binary  = LogisticClassifier(),
+    special_y = RidgeRegressor()
 )
 ```
 
 """
-default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier()) = (
-    Q_binary_default = with_encoder(Q_binary),
-    Q_continuous_default = with_encoder(Q_continuous),
-    G_default = with_encoder(G)
+default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier(), kwargs...) = Dict(
+    :Q_binary_default     => with_encoder(Q_binary),
+    :Q_continuous_default => with_encoder(Q_continuous),
+    :G_default            => with_encoder(G),
+    (key => with_encoder(val) for (key, val) in kwargs)...
 )
 
 is_binary(dataset, columnname) = Set(skipmissing(Tables.getcolumn(dataset, columnname))) == Set([0, 1])
@@ -122,7 +123,16 @@ end
 
 satisfies_positivity(Ψ, freq_table::Nothing; positivity_constraint=nothing) = true
 
-function frequency_table(dataset, colnames)
+get_frequency_table(positivity_constraint::Nothing, dataset::Nothing, colnames) = nothing
+
+get_frequency_table(positivity_constraint::Nothing, dataset, colnames) = nothing
+
+get_frequency_table(positivity_constraint, dataset::Nothing, colnames) = 
+    throw(ArgumentError("A dataset should be provided to enforce a positivity constraint."))
+
+get_frequency_table(positivity_constraint, dataset, colnames) = get_frequency_table(dataset, colnames)
+
+function get_frequency_table(dataset, colnames)
     iterator = zip((Tables.getcolumn(dataset, colname) for colname in sort(collect(colnames)))...)
     counts = groupcount(x -> x, iterator) 
     for key in keys(counts)

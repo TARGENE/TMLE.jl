@@ -70,39 +70,9 @@ emptyIC(estimate; pval_threshold=nothing) = emptyIC(estimate, pval_threshold)
 
 Retrieves the final estimate: after the TMLE step.
 """
-Distributions.estimate(est::EICEstimate) = est.estimate
+Distributions.estimate(Ψ̂::EICEstimate) = Ψ̂.estimate
 
-"""
-    var(r::EICEstimate)
+Statistics.std(Ψ̂::EICEstimate) = Ψ̂.std
 
-Computes the estimated variance associated with the estimate.
-"""
-Statistics.var(est::EICEstimate) = 
-    var(est.IC)/size(est.IC, 1)
-
-
-"""
-    OneSampleZTest(r::EICEstimate, Ψ₀=0)
-
-Performs a Z test on the EICEstimate.
-"""
-HypothesisTests.OneSampleZTest(est::EICEstimate, Ψ₀=0) = 
-    OneSampleZTest(est.estimate, est.std, est.n, Ψ₀)
-
-"""
-    OneSampleTTest(r::EICEstimate, Ψ₀=0)
-
-Performs a T test on the EICEstimate.
-"""
-HypothesisTests.OneSampleTTest(est::EICEstimate, Ψ₀=0) = 
-    OneSampleTTest(est.estimate, est.std, est.n, Ψ₀)
-
-"""
-    significance_test(estimate::EICEstimate, Ψ₀=0)
-
-Performs a TTest
-"""
-significance_test(estimate::EICEstimate, Ψ₀=0) = OneSampleTTest(estimate, Ψ₀)
-
-Base.show(io::IO, mime::MIME"text/plain", est::Union{EICEstimate, ComposedEstimate}) =
+Base.show(io::IO, mime::MIME"text/plain", est::Union{EICEstimate, JointEstimate, ComposedEstimate}) =
     show(io, mime, significance_test(est))

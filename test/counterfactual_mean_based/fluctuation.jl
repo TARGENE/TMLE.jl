@@ -25,7 +25,10 @@ using DataFrames
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
         nothing,
-        (Y=with_encoder(ConstantRegressor()), T = ConstantClassifier())
+        Dict(
+            :Y => with_encoder(ConstantRegressor()), 
+            :T => ConstantClassifier()
+        )
     )
     η̂ₙ = η̂(η, dataset, verbosity = 0) 
     X = dataset[!, collect(η̂ₙ.outcome_mean.estimand.parents)]
@@ -66,7 +69,7 @@ using DataFrames
 end
 
 @testset "Test Fluctuation with 2 Treatments" begin
-    Ψ = IATE(
+    Ψ = AIE(
         outcome =:Y, 
         treatment_values=(
             T₁=(case=1, control=0), 
@@ -94,10 +97,10 @@ end
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
         nothing,
-        (
-            Y = with_encoder(ConstantClassifier()), 
-            T₁ = ConstantClassifier(),
-            T₂ = ConstantClassifier()
+        Dict(
+            :Y  => with_encoder(ConstantClassifier()), 
+            :T₁ => ConstantClassifier(),
+            :T₂ => ConstantClassifier()
         )
     )
     η̂ₙ = η̂(η, dataset, verbosity = 0)

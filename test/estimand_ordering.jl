@@ -28,7 +28,7 @@ causal_estimands = [
         outcome=:Y₁, 
         treatment_values=(T₂=(case=1, control=0),)
     ),
-    IATE(
+    AIE(
         outcome=:Y₁, 
         treatment_values=(T₁=(case=2, control=0), T₂=(case=1, control=0))
     ),
@@ -106,7 +106,7 @@ end
     @test TMLE.evaluate_proxy_costs(ordering_from_groups_with_brute_force, η_counts) == (3, 9)
 end
 
-@testset "Test ordering strategies with Composed Estimands" begin
+@testset "Test ordering strategies with Joint Estimands" begin
     ATE₁ = ATE(
         outcome=:Y₁, 
         treatment_values=(T₁=(case=1, control=0),)
@@ -115,12 +115,12 @@ end
         outcome=:Y₁, 
         treatment_values=(T₁=(case=2, control=1),)
     )
-    diff = ComposedEstimand(-, (ATE₁, ATE₂))
+    joint = JointEstimand(ATE₁, ATE₂)
     ATE₃ = ATE(
         outcome=:Y₁, 
         treatment_values=(T₂=(case=1, control=0),)
     )
-    estimands = [identify(x, scm) for x in [ATE₁, ATE₃, diff, ATE₂]]
+    estimands = [identify(x, scm) for x in [ATE₁, ATE₃, joint, ATE₂]]
     η_counts = TMLE.nuisance_function_counts(estimands)
     η_counts == Dict(
         TMLE.ConditionalDistribution(:Y₁, (:T₂, :W₂))      => 1,

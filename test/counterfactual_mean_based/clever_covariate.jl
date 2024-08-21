@@ -53,7 +53,7 @@ end
 end
 
 @testset "Test clever_covariate_and_weights: 2 treatments" begin
-    Ψ = IATE(
+    Ψ = AIE(
         outcome = :Y,
         treatment_values=(
             T₁=(case=1, control=0), 
@@ -90,7 +90,7 @@ end
 
 @testset "Test compute_offset, clever_covariate_and_weights: 3 treatments" begin
     ## Third case: 3 Treatment variables
-    Ψ = IATE(
+    Ψ = AIE(
         outcome =:Y, 
         treatment_values=(
             T₁=(case="a", control="b"), 

@@ -30,9 +30,9 @@ end
     G = (TMLE.ConditionalDistribution(:T₁, [:W]),)
     η = TMLE.CMRelevantFactors(outcome_mean=Q, propensity_score=G)
     # Estimator
-    models = (
-        Y = with_encoder(LinearRegressor()), 
-        T₁ = LogisticClassifier()
+    models = Dict(
+        :Y  => with_encoder(LinearRegressor()), 
+        :T₁ => LogisticClassifier()
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
     # Estimate
@@ -50,18 +50,18 @@ end
     @test fitted_params(η̂ₙ.propensity_score[1].machine) isa NamedTuple
 
     # Both models unchanged, η̂ₙ is fully reused
-    new_models = (
-        Y = with_encoder(LinearRegressor()), 
-        T₁ = LogisticClassifier()
+    new_models = Dict(
+        :Y  => with_encoder(LinearRegressor()), 
+        :T₁ => LogisticClassifier()
     )
     new_η̂ = TMLE.CMRelevantFactorsEstimator(models=new_models)
     @test TMLE.key(η, new_η̂) == TMLE.key(η, η̂)
     full_reuse_log = (:info, TMLE.reuse_string(η))
     @test_logs full_reuse_log new_η̂(η, dataset; cache=cache, verbosity=1)
     # Changing one model, only the other one is refitted
-    new_models = (
-        Y = with_encoder(LinearRegressor()), 
-        T₁ = LogisticClassifier(fit_intercept=false)
+    new_models = Dict(
+        :Y  => with_encoder(LinearRegressor()), 
+        :T₁ => LogisticClassifier(fit_intercept=false)
     )
     new_η̂ = TMLE.CMRelevantFactorsEstimator(models=new_models)
     @test TMLE.key(η, new_η̂) != TMLE.key(η, η̂)
@@ -88,9 +88,9 @@ end
     G = (TMLE.ConditionalDistribution(:T₁, [:W]),)
     η = TMLE.CMRelevantFactors(outcome_mean=Q, propensity_score=G)
     # Propensity score model is ill-defined
-    models = (
-        Y = with_encoder(LinearRegressor()), 
-        T₁ = LinearRegressor()
+    models = Dict(
+        :Y  => with_encoder(LinearRegressor()), 
+        :T₁ => LinearRegressor()
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
     try 
@@ -102,9 +102,9 @@ end
         @test e.msg == TMLE.propensity_score_fit_error_msg(G[1])
     end
     # Outcome Mean model is ill-defined
-    models = (
-        Y = LogisticClassifier(), 
-        T₁ = LogisticClassifier(fit_intercept=false)
+    models = Dict(
+        :Y  => LogisticClassifier(), 
+        :T₁ => LogisticClassifier(fit_intercept=false)
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
     try 

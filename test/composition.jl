@@ -38,63 +38,37 @@ end
     @test Σ == cov(X) 
 end
 
-@testset "Test to_dict and from_dict! ComposedEstimand" begin
-    ATE₁ = ATE(
-        outcome=:Y,
-        treatment_values = (T=(case=1, control=0),),
-        treatment_confounders = (T=[:W],)
-    )
-    ATE₂ = ATE(
-        outcome=:Y,
-        treatment_values = (T=(case=2, control=1),),
-        treatment_confounders = (T=[:W],)
-    )
-    diff = ComposedEstimand(-, (ATE₁, ATE₂))
-    d = TMLE.to_dict(diff)
-    diff_from_dict = TMLE.from_dict!(d)
-    @test diff_from_dict == diff
-
-    # Anonymous function will raise
-    anonymousdiff = ComposedEstimand((x,y) -> x - y, (ATE₁, ATE₂))
-    @test_throws ArgumentError TMLE.to_dict(anonymousdiff)
-end
 @testset "Test composition CM(1) - CM(0) = ATE(1,0)" begin
     dataset = make_dataset(;n=1000)
-    # Counterfactual Mean T = 1
-    CM₁ = CM(
-        outcome = :Y,
-        treatment_values = (T=1,),
-        treatment_confounders = (T=[:W],)
-    )
-    models = (
-        Y = with_encoder(LinearRegressor()),
-        T = LogisticClassifier(lambda=0)
-    )
-    tmle = TMLEE(models=models)
-    ose = OSE(models=models)
-    cache = Dict()
-
-    CM_tmle_result₁, cache = tmle(CM₁, dataset; cache=cache, verbosity=0)
-    CM_ose_result₁, cache = ose(CM₁, dataset; cache=cache, verbosity=0)
-    # Counterfactual Mean T = 0
     CM₀ = CM(
         outcome = :Y,
         treatment_values = (T=0,),
         treatment_confounders = (T=[:W],)
     )
-    # Estimate Individually
-    CM_tmle_result₀, cache = tmle(CM₀, dataset; cache=cache, verbosity=0)
-    CM_ose_result₀, cache = ose(CM₀, dataset; cache=cache, verbosity=0)
-    # Compose estimates
-    CM_result_composed_tmle = compose(-, CM_tmle_result₁, CM_tmle_result₀);
-    CM_result_composed_ose = compose(-, CM_ose_result₁, CM_ose_result₀);
-    # Estimate via ComposedEstimand
-    composed_estimand = ComposedEstimand(-, (CM₁, CM₀))
-    composed_estimate, cache = tmle(composed_estimand, dataset; cache=cache, verbosity=0)
-    @test composed_estimate.estimand == CM_result_composed_tmle.estimand
-    @test CM_result_composed_tmle.estimate == composed_estimate.estimate
-    @test CM_result_composed_tmle.cov == composed_estimate.cov
-    @test CM_result_composed_tmle.n == composed_estimate.n
+    CM₁ = CM(
+        outcome = :Y,
+        treatment_values = (T=1,),
+        treatment_confounders = (T=[:W],)
+    )
+    mydiff(x, y) = y - x
+
+    jointestimand = JointEstimand(CM₀, CM₁)
+    models = Dict(
+        :Y => with_encoder(LinearRegressor()),
+        :T => LogisticClassifier(lambda=0)
+    )
+    tmle = TMLEE(models=models)
+    ose = OSE(models=models)
+    cache = Dict()
+
+    # Via Composition
+    joint_tmle, cache = tmle(jointestimand, dataset; cache=cache, verbosity=0)
+    diff_tmle = compose(mydiff, joint_tmle)
+    @test significance_test(diff_tmle) isa TMLE.OneSampleTTest
+    joint_ose, cache = ose(jointestimand, dataset; cache=cache, verbosity=0)
+    diff_ose = compose(mydiff, joint_ose)
+    @test significance_test(diff_ose) isa TMLE.OneSampleTTest
+
     # Via ATE
     ATE₁₀ = ATE(
         outcome = :Y,
@@ -102,61 +76,68 @@ end
         treatment_confounders = (T=[:W],)
     )
     # Check composed TMLE
-    ATE_tmle_result₁₀, cache = tmle(ATE₁₀, dataset; cache=cache, verbosity=0)
-    @test estimate(ATE_tmle_result₁₀) ≈ estimate(CM_result_composed_tmle) atol = 1e-7
+    ATE_tmle, cache = tmle(ATE₁₀, dataset; cache=cache, verbosity=0)
+    @test estimate(ATE_tmle) ≈ first(estimate(diff_tmle)) atol = 1e-7
     # T Test
-    composed_confint = collect(confint(OneSampleTTest(CM_result_composed_tmle)))
-    tmle_confint = collect(confint(OneSampleTTest(ATE_tmle_result₁₀)))
-    @test tmle_confint ≈ composed_confint atol=1e-4
+    diff_confint = collect(confint(OneSampleTTest(diff_tmle)))
+    ATE_confint = collect(confint(OneSampleTTest(ATE_tmle)))
+    @test ATE_confint ≈ diff_confint atol=1e-4
     # Z Test
-    composed_confint = collect(confint(OneSampleZTest(CM_result_composed_tmle)))
-    tmle_confint = collect(confint(OneSampleZTest(ATE_tmle_result₁₀)))
-    @test tmle_confint ≈ composed_confint atol=1e-4
-    # Variance
-    @test var(ATE_tmle_result₁₀) ≈ var(CM_result_composed_tmle) atol = 1e-3
+    diff_confint = collect(confint(OneSampleZTest(diff_tmle)))
+    ATE_confint = collect(confint(OneSampleZTest(ATE_tmle)))
+    @test ATE_confint ≈ diff_confint atol=1e-4
 
     # Check composed OSE
-    ATE_ose_result₁₀, cache = ose(ATE₁₀, dataset; cache=cache, verbosity=0)
-    @test estimate(ATE_ose_result₁₀) ≈ estimate(CM_result_composed_ose) atol = 1e-7
+    ATE_ose, cache = ose(ATE₁₀, dataset; cache=cache, verbosity=0)
+    @test estimate(ATE_ose) ≈ only(estimate(diff_ose)) atol = 1e-7
     # T Test
-    composed_confint = collect(confint(OneSampleTTest(CM_result_composed_ose)))
-    ose_confint = collect(confint(OneSampleTTest(ATE_ose_result₁₀)))
-    @test ose_confint ≈ composed_confint atol=1e-4
+    diff_confint = collect(confint(OneSampleTTest(diff_ose)))
+    ATE_confint = collect(confint(OneSampleTTest(ATE_ose)))
+    @test ATE_confint ≈ diff_confint atol=1e-4
     # Z Test
-    composed_confint = collect(confint(OneSampleZTest(CM_result_composed_ose)))
-    ose_confint = collect(confint(OneSampleZTest(ATE_ose_result₁₀)))
-    @test ose_confint ≈ composed_confint atol=1e-4
-    # Variance
-    @test var(ATE_ose_result₁₀) ≈ var(CM_result_composed_ose) atol = 1e-3
+    diff_confint = collect(confint(OneSampleZTest(diff_ose)))
+    ATE_confint = collect(confint(OneSampleZTest(ATE_ose)))
+    @test ATE_confint ≈ diff_confint atol=1e-4
 end
 
 @testset "Test compose multidimensional function" begin
     dataset = make_dataset(;n=1000)
-    models = (
-        Y = with_encoder(LinearRegressor()),
-        T = LogisticClassifier(lambda=0)
+    models = Dict(
+        :Y => with_encoder(LinearRegressor()),
+        :T => LogisticClassifier(lambda=0)
     )
     tmle = TMLEE(models=models)
     cache = Dict()
     
-    CM₁ = CM(
+    joint = JointEstimand(
+        CM(
         outcome = :Y,
         treatment_values = (T=1,),
         treatment_confounders = (T=[:W],)
-    )
-    CM_result₁, cache = tmle(CM₁, dataset; cache=cache, verbosity=0)
-
-    CM₀ = CM(
+        ),
+        CM(
         outcome = :Y,
         treatment_values = (T=0,),
-        treatment_confounders = (T=[:W],)
+        treatment_confounders = (T=[:W],))
     )
-    CM_result₀, cache = tmle(CM₀, dataset; cache=cache, verbosity=0)
-    f(x, y) = [x^2 - y, x/y, 2x + 3y]
-    CM_result_composed = compose(f, CM_result₁, CM_result₀)
 
-    @test estimate(CM_result_composed) == f(estimate(CM_result₁), TMLE.estimate(CM_result₀))
-    @test size(var(CM_result_composed)) == (3, 3)
+    joint_estimate, cache = tmle(joint, dataset; cache=cache, verbosity=0)
+
+    Main.eval(:(f(x, y) = [x^2 - y, 2x + 3y]))
+
+    composed_estimate = compose(Main.f, joint_estimate)
+    @test significance_test(composed_estimate) isa TMLE.OneSampleHotellingT2Test
+    @test estimate(composed_estimate) == Main.f(estimate(joint_estimate)...)
+    @test size(composed_estimate.cov) == (2, 2)
+
+    composed_estimate_dict = TMLE.to_dict(composed_estimate)
+    println(composed_estimate_dict[:estimand])
+    @test composed_estimate_dict isa Dict
+    composed_estimate_from_dict = TMLE.from_dict!(composed_estimate_dict)
+    @test composed_estimate_from_dict.estimand == composed_estimate.estimand
+    @test composed_estimate_from_dict.estimates == composed_estimate.estimates
+    @test composed_estimate_from_dict.cov == composed_estimate.cov
+    @test composed_estimate_from_dict.n == composed_estimate.n
 end
 
 @testset "Test Joint Interaction" begin
@@ -181,27 +162,28 @@ end
         T₂ = categorical(T₂),
         Y = Y
     )
-    IATE₁ = IATE(
+    AIE₁ = AIE(
         outcome = :Y,
         treatment_values = (T₁=(case=2, control=1), T₂=(case=2, control=1)),
         treatment_confounders = (T₁ = [:W], T₂ = [:W])
     )
-    IATE₂ = IATE(
+    AIE₂ = AIE(
         outcome = :Y,
         treatment_values = (T₁=(case=3, control=1), T₂=(case=3, control=1)),
         treatment_confounders = (T₁ = [:W], T₂ = [:W])
     )
-    IATE₃ = IATE(
+    AIE₃ = AIE(
         outcome = :Y,
         treatment_values = (T₁=(case=3, control=2), T₂=(case=3, control=2)),
         treatment_confounders = (T₁ = [:W], T₂ = [:W])
     )
-    jointIATE = ComposedEstimand(TMLE.joint_estimand, (IATE₁, IATE₂, IATE₃))
+    jointAIE = JointEstimand(AIE₁, AIE₂, AIE₃)
+
     ose = OSE(models=TMLE.default_models(G=LogisticClassifier(), Q_continuous=LinearRegressor()))
-    jointEstimate, _ = ose(jointIATE, dataset, verbosity=0)
+    jointEstimate, _ = ose(jointAIE, dataset, verbosity=0)
 
     testres = significance_test(jointEstimate)
-    @test testres.x̄ ≈ jointEstimate.estimate
+    @test testres.x̄ ≈ estimate(jointEstimate)
     @test pvalue(testres) < 1e-10
 
     emptied_estimate = TMLE.emptyIC(jointEstimate)
@@ -229,7 +211,7 @@ end
 
     @test jointEstimate.estimand == jointEstimate_fromdict.estimand
     @test jointEstimate.cov == jointEstimate_fromdict.cov
-    @test jointEstimate.estimate == jointEstimate_fromdict.estimate
+    @test estimate(jointEstimate) == estimate(jointEstimate_fromdict)
     @test jointEstimate.n == jointEstimate_fromdict.n
     @test length(jointEstimate_fromdict.estimates) == 3
 
@@ -240,7 +222,7 @@ end
         from_json = TMLE.read_json(filename, use_mmap=false)
         @test jointEstimate.estimand == from_json.estimand
         @test jointEstimate.cov == from_json.cov
-        @test jointEstimate.estimate == from_json.estimate
+        @test estimate(jointEstimate) == estimate(from_json)
         @test jointEstimate.n == from_json.n
         @test length(jointEstimate_fromdict.estimates) == 3
     end
