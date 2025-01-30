@@ -22,6 +22,7 @@ using Combinatorics
 using SplitApplyCombine
 using OrderedCollections
 using AutoHashEquals
+using CausalTables
 
 # #############################################################################
 # EXPORTS
@@ -64,5 +65,7 @@ include("counterfactual_mean_based/gradient.jl")
 
 include("configuration.jl")
 include("testing.jl")
+
+include("causaltables_interface.jl")
 
 end
