@@ -1,8 +1,8 @@
 module TestCausalTablesInterface
 
 using TMLE
-using Test
 using CausalTables
+using Test
 using Distributions
 
 @testset "Fit TMLE and OSE on CausalTable" begin
