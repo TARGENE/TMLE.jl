@@ -17,12 +17,12 @@ using Distributions
 
     # Test TMLEE
     estimator = TMLEE()
-    result, _ = estimator(Ψ, ct)
+    result, cache = estimator(Ψ, ct)
     @test result isa TMLE.TMLEstimate
 
     # Test OSE
     estimator = OSE()
-    result, _ = estimator(Ψ, ct)
+    result, _ = estimator(Ψ, ct, cache=cache)
     @test result isa TMLE.OSEstimate
 end
 
