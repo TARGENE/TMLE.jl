@@ -16,9 +16,9 @@ Estimating a causal quantity in this scenario is now simpler: one does not need 
 
 
 ```@example scm
+using TMLE
 using CausalTables
 using Distributions
-using TMLE
 # Sample a random dataset endowed with causal structure
 # using the CausalTables.jl package
 scm = StructuralCausalModel(@dgp(
