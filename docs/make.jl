@@ -29,7 +29,7 @@ makedocs(;
         "Home" => "index.md",
         "Walk Through" => "walk_through.md",
         "User Guide" => [joinpath("user_guide", f) for f in 
-            ("scm.md", "estimands.md", "estimation.md", "misc.md")],
+            ("scm.md", "estimands.md", "estimation.md", "misc.md", "causaltables.md")],
         "Examples" => [
             joinpath("examples", "super_learning.md"),
             joinpath("examples", "double_robustness.md")

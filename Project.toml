@@ -31,14 +31,18 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 [weakdeps]
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
+CausalTables = "6af48e0c-efc2-4bf7-a92f-a553ccf79fd6"
 
 [extensions]
 JSONExt = "JSON"
 YAMLExt = "YAML"
+CausalTablesExt = "CausalTables"
 
 [compat]
 AbstractDifferentiation = "0.6.0"
+AutoHashEquals = "2.1.0"
 CategoricalArrays = "0.10"
+CausalTables = "1.2.1"
 Combinatorics = "1.0.2"
 Distributions = "0.25"
 GLM = "1.8.2"
@@ -51,14 +55,13 @@ MLJGLMInterface = "0.3.4"
 MLJModels = "0.15, 0.16, 0.17"
 MetaGraphsNext = "0.7"
 Missings = "1.0"
+OrderedCollections = "1.6.3"
 PrecompileTools = "1.1.1"
 SplitApplyCombine = "1.2.2"
 TableOperations = "1.2"
 Tables = "1.6"
 YAML = "0.4.9"
 Zygote = "0.6.69"
-OrderedCollections = "1.6.3"
-AutoHashEquals = "2.1.0"
 julia = "1.10, 1"
 
 [extras]
