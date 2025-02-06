@@ -2,7 +2,7 @@
 CurrentModule = TMLE
 ```
 
-# Integrations
+# Integrations
 
 
 ## CausalTables.jl
