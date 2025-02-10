@@ -23,9 +23,7 @@ The GLM models require inputs of the same type
 fluctuation_input(covariate::AbstractVector{T1}, offset::AbstractVector{T2}) where {T1, T2} = 
     (covariate=covariate, offset=convert(Vector{T1}, offset))
 
-training_expected_value(Q::Machine{<:Fluctuation, }, dataset) = Q.cache.training_expected_value
-
-function clever_covariate_offset_and_weights(model::Fluctuation, X)
+function clever_covariate_offset_and_weights(model::Fluctuation, X) ## TODO: possibly drop or refactorize ?
     Q⁰ = model.initial_factors.outcome_mean
     G⁰ = model.initial_factors.propensity_score
     offset = compute_offset(MLJBase.predict(Q⁰, X))
@@ -76,7 +74,7 @@ function initialize_counterfactual_cache(Ψ, Q⁰, G⁰, X; ps_lowerbound=1e-8)
             sign
         )
         push!(
-            counterfactual_cache.signs, 
+            counterfactual_cache.covariates, 
             covariates_ct
         )
     end
@@ -97,6 +95,12 @@ function compute_counterfactual_aggregate!(counterfactual_cache, Qⁱ)
         ct_aggregate .+= sign .* expected_value(ct_Q̂ⁱ)
     end
     return ct_aggregate
+end
+
+function update_report!(report, Ψ̂, gradient, epsilon)
+    push!(report.estimates, Ψ̂)
+    push!(report.gradients, gradient)
+    push!(report.epsilons, epsilon)
 end
 
 """
@@ -133,11 +137,11 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
         ps_lowerbound=model.ps_lowerbound
     )
     Q̂ⁱ = MLJBase.predict(Qⁱ, X)
-    report = (epsilons=[], estimates=[], gradients=[])
+    report = (estimates = [], gradients = [], epsilons = [])
     machines = []
     for iter in 1:model.max_iter
         verbosity > 0 && @info(string("TMLE step: ", iter, "."))
-        # Fit new fluctuation using observeddata
+        # Fit new fluctuation using observed data
         offset = compute_offset(Q̂ⁱ)
         Xfluct = fluctuation_input(H, offset)
         Qⁱ = machine(
@@ -147,29 +151,25 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
             w,
             cache=model.cache
         )
-        fit!(Qⁱ, verbosity=verbosity)
+        fit!(Qⁱ, verbosity=verbosity-1)
         push!(machines, Qⁱ)
         Q̂ⁱ = MLJBase.predict(Qⁱ, Xfluct) # Maybe useless?
         Y = float(y)
         EY = expected_value(Q̂ⁱ)
         # Compute estimate, gradient and update counterfactual predictions
-        
         ct_aggregate = compute_counterfactual_aggregate!(counterfactual_cache, Qⁱ)
         Ψ̂ = plugin_estimate(ct_aggregate)
         gradient = ∇YX(H, Y, EY, w) .+ ∇W(ct_aggregate, Ψ̂)
+        update_report!(report, Ψ̂, gradient, fitted_params(Qⁱ).coef)
         if hasconverged(gradient, model.tol)
             verbosity > 0 && @info("Convergence criterion reached.")
-            break
+            fitresult = (machines = machines,)
+            return fitresult, nothing, report
         end
     end
-    fitresult = (
-        machines = machines,
-        )
-    cache = (
-        weighted_covariate = H .* w,
-        training_expected_value = expected_value(Q̂ⁱ)
-    )
-    return fitresult, cache, nothing
+    verbosity > 0 && @warn("Convergence criterion not reached, consider increasing max_iter.")
+    fitresult = (machines = machines,)
+    return fitresult, nothing, report
 end
 
 function MLJBase.predict(model::Fluctuation, fitresult, X) 

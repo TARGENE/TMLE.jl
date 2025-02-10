@@ -61,8 +61,6 @@ expected_value(ŷ::AbstractArray{<:UnivariateFinite{<:Union{OrderedFactor{2}, Mu
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
-training_expected_value(Q::Machine, dataset) = expected_value(predict(Q, dataset))
-
 function counterfactualTreatment(vals, T)
     Tnames = Tables.columnnames(T)
     n = nrows(T)

@@ -46,14 +46,29 @@ using DataFrames
         weighted=true,
         cache=true    
     )
+    ## First check the initialization of the counterfactual cache used to 
+    ## compute gradients and estimates
+    counterfactual_cache = TMLE.initialize_counterfactual_cache(Ψ, η̂ₙ.outcome_mean, η̂ₙ.propensity_score, X; ps_lowerbound=ps_lowerbound)
+    @test counterfactual_cache.predictions == [
+        [4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0],
+        [4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0]
+    ] # Constant predictions of the mean as per Q⁰
+    @test counterfactual_cache.signs == [1., -1.]
+    @test counterfactual_cache.covariates == [
+        [1.75, 1.75, 1.75, 1.75, 1.75, 1.75, 1.75],
+        [-3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
+    ] # Covariates include the weights since this is for evaluation, not training
     fitresult, cache, report = MLJBase.fit(fluctuation, 0, X, y)
+    report = only(report)
+    @test report.epsilon isa Vector{<:AbstractFloat}
+    @test report.gradient isa Vector{<:AbstractFloat}
+    @test length(report.gradient) == 7
+    @test report.estimate isa AbstractFloat
     fluctuation_mean = TMLE.expected_value(MLJBase.predict(fluctuation, fitresult, X))
     mse_fluct = sum((fluctuation_mean .- y).^2)
     @test mse_fluct < mse_initial
     mach = only(fitresult.machines)
     @test fitted_params(mach).features == [:covariate]
-    @test cache.weighted_covariate == expected_weights .* expected_covariate
-    @test cache.training_expected_value isa AbstractVector
     Xfluct, weights = TMLE.clever_covariate_offset_and_weights(fluctuation, X)
     @test weights == expected_weights
     @test mach.data[3] == expected_weights
@@ -119,7 +134,6 @@ end
         cache=true     
     )
     fitresult, cache, report = MLJBase.fit(fluctuation, 0, X, y)
-    @test cache.weighted_covariate ≈ [2.45, -3.27, -3.27, 2.45, 2.45, -6.13, 8.17] atol=0.01 
 end
 
 @testset "Test fluctuation_input" begin
