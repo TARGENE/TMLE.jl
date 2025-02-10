@@ -114,9 +114,10 @@ struct TargetedCMRelevantFactorsEstimator
     model::Fluctuation
 end
 
-TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate; tol=nothing, ps_lowerbound=1e-8, weighted=false, machine_cache=false) = 
+TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate; tol=nothing, max_iter=1, ps_lowerbound=1e-8, weighted=false, machine_cache=false) = 
     TargetedCMRelevantFactorsEstimator(Fluctuation(Ψ, initial_factors_estimate; 
-        tol=tol, 
+        tol=tol,
+        max_iter=max_iter, 
         ps_lowerbound=ps_lowerbound, 
         weighted=weighted,
         cache=machine_cache
@@ -157,6 +158,7 @@ mutable struct TMLEE <: Estimator
     ps_lowerbound::Union{Float64, Nothing}
     weighted::Bool
     tol::Union{Float64, Nothing}
+    max_iter::Int
     machine_cache::Bool
 end
 
@@ -168,15 +170,16 @@ function that can be applied to estimate estimands for a dataset.
 
 # Arguments
 
-- models: A Dict(variable => model, ...) where the `variables` are the outcome variables modeled by the `models`.
-- resampling: Outer resampling strategy. Setting it to `nothing` (default) falls back to vanilla TMLE while 
+- models (default: `default_models()`): A Dict(variable => model, ...) where the `variables` are the outcome variables modeled by the `models`.
+- resampling (default: nothing): Outer resampling strategy. Setting it to `nothing` (default) falls back to vanilla TMLE while 
 any valid `MLJ.ResamplingStrategy` will result in CV-TMLE.
-- ps_lowerbound: Lowerbound for the propensity score to avoid division by 0. The special value `nothing` will 
+- ps_lowerbound (default: 1e-8): Lowerbound for the propensity score to avoid division by 0. The special value `nothing` will 
 result in a data adaptive definition as described in [here](https://pubmed.ncbi.nlm.nih.gov/35512316/).
-- weighted: Whether the fluctuation model is a classig GLM or a weighted version. The weighted fluctuation has 
+- weighted (default: false): Whether the fluctuation model is a classig GLM or a weighted version. The weighted fluctuation has 
 been show to be more robust to positivity violation in practice.
-- tol: This is not used at the moment.
-- machine_cache: Whether MLJ.machine created during estimation should cache data.
+- tol (default: nothing): Convergence threshold for the TMLE algorithm iterations. If nothing (default), 1/(sample size) will be used. See also `max_iter`.
+- max_iter (default: 1): Maximum number of iterations for the TMLE algorithm.
+- machine_cache (default: false): Whether MLJ.machine created during estimation should cache data.
 
 # Example
 
@@ -186,8 +189,8 @@ tmle = TMLEE()
 Ψ̂ₙ, cache = tmle(Ψ, dataset)
 ```
 """
-TMLEE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing, machine_cache=false) = 
-    TMLEE(models, resampling, ps_lowerbound, weighted, tol, machine_cache)
+TMLEE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing, max_iter=1, machine_cache=false) = 
+    TMLEE(models, resampling, ps_lowerbound, weighted, tol, max_iter, machine_cache)
 
 function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
@@ -210,7 +213,8 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
     targeted_factors_estimator = TargetedCMRelevantFactorsEstimator(
         Ψ, 
         initial_factors_estimate; 
-        tol=tmle.tol, 
+        tol=tmle.tol,
+        max_iter=tmle.max_iter,
         ps_lowerbound=tmle.ps_lowerbound, 
         weighted=tmle.weighted,
         machine_cache=tmle.machine_cache

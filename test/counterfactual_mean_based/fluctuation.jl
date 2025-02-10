@@ -41,6 +41,7 @@ using DataFrames
     expected_covariate = [1., -1., 0.0, 1., 1., -1., 1.]
     fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ;
         tol=nothing,
+        max_iter=1,
         ps_lowerbound=ps_lowerbound,
         weighted=true,
         cache=true    
@@ -49,23 +50,26 @@ using DataFrames
     fluctuation_mean = TMLE.expected_value(MLJBase.predict(fluctuation, fitresult, X))
     mse_fluct = sum((fluctuation_mean .- y).^2)
     @test mse_fluct < mse_initial
-    @test fitted_params(fitresult.one_dimensional_path).features == [:covariate]
+    mach = only(fitresult.machines)
+    @test fitted_params(mach).features == [:covariate]
     @test cache.weighted_covariate == expected_weights .* expected_covariate
     @test cache.training_expected_value isa AbstractVector
     Xfluct, weights = TMLE.clever_covariate_offset_and_weights(fluctuation, X)
     @test weights == expected_weights
-    @test fitresult.one_dimensional_path.data[3] == expected_weights
-    @test fitresult.one_dimensional_path.data[1].covariate == expected_covariate
+    @test mach.data[3] == expected_weights
+    @test mach.data[1].covariate == expected_covariate
+
     # Unweighted fluctuation
     fluctuation.weighted = false
     expected_weights = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     expected_covariate = [1.75, -3.5, 0.0, 1.75, 1.75, -3.5, 1.75]
     fitresult, cache, report = MLJBase.fit(fluctuation, 0, X, y)
-    @test fitresult.one_dimensional_path.data[3] == expected_weights
+    mach = only(fitresult.machines)
+    @test mach.data[3] == expected_weights
     Xfluct, weights = TMLE.clever_covariate_offset_and_weights(fluctuation, X)
     @test weights == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     @test Xfluct.covariate == expected_covariate
-    @test fitresult.one_dimensional_path.data[1].covariate == expected_covariate
+    @test mach.data[1].covariate == expected_covariate
 end
 
 @testset "Test Fluctuation with 2 Treatments" begin
@@ -108,7 +112,8 @@ end
     y = dataset[!, η̂ₙ.outcome_mean.estimand.outcome]
 
     fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ;
-        tol=nothing, 
+        tol=nothing,
+        max_iter=1,
         ps_lowerbound=1e-8,
         weighted=false,   
         cache=true     
