@@ -121,7 +121,7 @@ where H(T, W) is the clever covariate.
 function MLJBase.fit(model::Fluctuation, verbosity, X, y)
     # Initialize factors 
     ## The covariate and weights are independent of the fluctuated factor
-    ## and can be computed only once
+    ## and can be computed only once, the offset will need to be updated
     Qⁱ = model.initial_factors.outcome_mean
     G⁰ = model.initial_factors.propensity_score
     H, w = clever_covariate_and_weights(
@@ -136,13 +136,13 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
         X; 
         ps_lowerbound=model.ps_lowerbound
     )
-    Q̂ⁱ = MLJBase.predict(Qⁱ, X)
+    ŷⁱ = MLJBase.predict(Qⁱ, X)
     report = (estimates = [], gradients = [], epsilons = [])
     machines = []
     for iter in 1:model.max_iter
         verbosity > 0 && @info(string("TMLE step: ", iter, "."))
         # Fit new fluctuation using observed data
-        offset = compute_offset(Q̂ⁱ)
+        offset = compute_offset(ŷⁱ)
         Xfluct = fluctuation_input(H, offset)
         Qⁱ = machine(
             one_dimensional_path(scitype(y)), 
@@ -153,33 +153,30 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
         )
         fit!(Qⁱ, verbosity=verbosity-1)
         push!(machines, Qⁱ)
-        Q̂ⁱ = MLJBase.predict(Qⁱ, Xfluct) # Maybe useless?
-        Y = float(y)
-        EY = expected_value(Q̂ⁱ)
+        ŷⁱ = MLJBase.predict(Qⁱ, Xfluct)
+        Ey = expected_value(ŷⁱ)
         # Compute estimate, gradient and update counterfactual predictions
         ct_aggregate = compute_counterfactual_aggregate!(counterfactual_cache, Qⁱ)
         Ψ̂ = plugin_estimate(ct_aggregate)
-        gradient = ∇YX(H, Y, EY, w) .+ ∇W(ct_aggregate, Ψ̂)
+        gradient = ∇YX(H, float(y), Ey, w) .+ ∇W(ct_aggregate, Ψ̂)
         update_report!(report, Ψ̂, gradient, fitted_params(Qⁱ).coef)
         if hasconverged(gradient, model.tol)
             verbosity > 0 && @info("Convergence criterion reached.")
-            fitresult = (machines = machines,)
-            return fitresult, nothing, report
+            return machines, nothing, report
         end
     end
     verbosity > 0 && @warn("Convergence criterion not reached, consider increasing max_iter.")
-    fitresult = (machines = machines,)
-    return fitresult, nothing, report
+    return machines, nothing, report
 end
 
-function MLJBase.predict(model::Fluctuation, fitresult, X) 
+function MLJBase.predict(model::Fluctuation, machines, X) 
     covariate, _ = clever_covariate_and_weights(
         model.Ψ, model.initial_factors.propensity_score, X;
         ps_lowerbound=model.ps_lowerbound,
         weighted_fluctuation=model.weighted
     )
     Q̂ⁱ = MLJBase.predict(model.initial_factors.outcome_mean, X)
-    for mach in fitresult.machines
+    for mach in machines
         offset = compute_offset(Q̂ⁱ)
         Xfluct = fluctuation_input(covariate, offset)
         Q̂ⁱ = MLJBase.predict(mach, Xfluct)

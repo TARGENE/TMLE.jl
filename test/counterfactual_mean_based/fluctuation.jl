@@ -58,16 +58,12 @@ using DataFrames
         [1.75, 1.75, 1.75, 1.75, 1.75, 1.75, 1.75],
         [-3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
     ] # Covariates include the weights since this is for evaluation, not training
-    fitresult, cache, report = MLJBase.fit(fluctuation, 0, X, y)
-    report = only(report)
-    @test report.epsilon isa Vector{<:AbstractFloat}
-    @test report.gradient isa Vector{<:AbstractFloat}
-    @test length(report.gradient) == 7
-    @test report.estimate isa AbstractFloat
-    fluctuation_mean = TMLE.expected_value(MLJBase.predict(fluctuation, fitresult, X))
+    machines, cache, report = MLJBase.fit(fluctuation, 0, X, y)
+    @test length(report.epsilons) == length(report.estimates) == length(report.gradients) == 1
+    fluctuation_mean = TMLE.expected_value(MLJBase.predict(fluctuation, machines, X))
     mse_fluct = sum((fluctuation_mean .- y).^2)
     @test mse_fluct < mse_initial
-    mach = only(fitresult.machines)
+    mach = only(machines)
     @test fitted_params(mach).features == [:covariate]
     Xfluct, weights = TMLE.clever_covariate_offset_and_weights(fluctuation, X)
     @test weights == expected_weights
@@ -78,8 +74,8 @@ using DataFrames
     fluctuation.weighted = false
     expected_weights = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     expected_covariate = [1.75, -3.5, 0.0, 1.75, 1.75, -3.5, 1.75]
-    fitresult, cache, report = MLJBase.fit(fluctuation, 0, X, y)
-    mach = only(fitresult.machines)
+    machines, cache, report = MLJBase.fit(fluctuation, 0, X, y)
+    mach = only(machines)
     @test mach.data[3] == expected_weights
     Xfluct, weights = TMLE.clever_covariate_offset_and_weights(fluctuation, X)
     @test weights == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
@@ -133,7 +129,7 @@ end
         weighted=false,   
         cache=true     
     )
-    fitresult, cache, report = MLJBase.fit(fluctuation, 0, X, y)
+    machines, cache, report = MLJBase.fit(fluctuation, 0, X, y)
 end
 
 @testset "Test fluctuation_input" begin
