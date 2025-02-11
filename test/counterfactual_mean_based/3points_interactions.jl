@@ -43,7 +43,7 @@ end
         :T₃ => LogisticClassifier(lambda=0)
     )
 
-    tmle = TMLEE(models=models, machine_cache=true)
+    tmle = TMLEE(models=models, machine_cache=true, max_iter=3, tol=0)
     result, cache = tmle(Ψ, dataset, verbosity=0);
     test_coverage(result, Ψ₀)
     test_fluct_decreases_risk(cache)
@@ -53,6 +53,12 @@ end
     result, cache = tmle(Ψ, dataset, verbosity=0)
     test_coverage(result, Ψ₀)
     test_mean_inf_curve_almost_zero(result; atol=1e-10)
+
+    # CHecking cache accessors
+    @test length(gradients(cache)) == 3
+    @test length(estimates(cache)) == 3
+    @test length(epsilons(cache)) == 3
+    @test report(cache) isa NamedTuple
 
 end 
 

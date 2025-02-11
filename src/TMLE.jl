@@ -40,7 +40,8 @@ export default_models, TreatmentTransformer, with_encoder, encoder
 export BackdoorAdjustment, identify
 export Configuration
 export brute_force_ordering, groups_ordering
-
+export gradients, epsilons, estimates
+ 
 # #############################################################################
 # INCLUDES
 # #############################################################################
@@ -63,5 +64,6 @@ include("counterfactual_mean_based/gradient.jl")
 
 include("configuration.jl")
 include("testing.jl")
+include("cache.jl")
 
 end

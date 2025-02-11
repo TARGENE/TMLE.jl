@@ -73,11 +73,7 @@ result₁
 nothing # hide
 ```
 
-The `cache` (see below) contains estimates for the nuisance functions that were necessary to estimate the ATE. For instance, we can see what is the value of ``\epsilon`` corresponding to the clever covariate.
-
-```@example estimation
-ϵ = last_fluctuation_epsilon(cache)
-```
+The `cache` (see below) contains estimates for the nuisance functions that were necessary to estimate the ATE.
 
 The `result₁` structure corresponds to the estimation result and will display the result of a T-Test including:
 

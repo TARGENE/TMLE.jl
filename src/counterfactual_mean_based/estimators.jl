@@ -143,20 +143,10 @@ function (estimator::TargetedCMRelevantFactorsEstimator)(estimand, dataset; cach
     # Build estimate
     estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score)
     # Update cache
-    cache[:last_fluctuation] = estimate
+    cache[:targeted_factors] = estimate
 
     return estimate
 end
-
-gradients(factors::MLCMRelevantFactors) = MLJBase.report(factors.outcome_mean.machine).gradients
-
-estimates(factors::MLCMRelevantFactors) = MLJBase.report(factors.outcome_mean.machine).estimates
-
-epsilons(factors::MLCMRelevantFactors) = MLJBase.report(factors.outcome_mean.machine).epsilons
-
-gradient(factors::MLCMRelevantFactors) = last(gradients(factors))
-
-Distributions.estimate(factors::MLCMRelevantFactors) = last(estimates(factors))
 
 #####################################################################
 ###                            TMLE                               ###
@@ -235,8 +225,10 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
         machine_cache=tmle.machine_cache
         )
     # Estimation results after TMLE
-    IC = gradient(targeted_factors_estimate)
-    Ψ̂ = estimate(targeted_factors_estimate)
+    estimation_report = report(targeted_factors_estimate)
+
+    IC = last(estimation_report.gradients)
+    Ψ̂ = last(estimation_report.estimates)
     σ̂ = std(IC)
     n = size(IC, 1)
     verbosity >= 1 && @info "Done."
