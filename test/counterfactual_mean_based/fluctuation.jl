@@ -44,9 +44,9 @@ using Distributions
     @test mean.(counterfactual_cache.predictions[1]) == mean.(counterfactual_cache.predictions[2]) == expected_value
     @test counterfactual_cache.signs == [1., -1.]
     @test counterfactual_cache.covariates == [
-        [1.75, 1.75, 1.75, 1.75, 1.75, 1.75, 1.75],
-        [-3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
-    ] # Covariates include the weights since this is for evaluation, not training
+        [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
+    ]
     observed_cache = TMLE.initialize_observed_cache(weighted_fluctuation, X, y)
     @test observed_cache[:ŷ] isa Vector{<:Normal}
     @test observed_cache[:H] == [1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0] # This is used to fit, so weight has been removed
@@ -85,7 +85,7 @@ using Distributions
     ### Loss has not decreased
     fluctuation_mean = TMLE.expected_value(MLJBase.predict(unweighted_fluctuation, uw_machines, X))
     mse_fluct = sum((fluctuation_mean .- y).^2)
-    @test_skip mse_fluct < mse_initial # Not sure why not
+    @test mse_fluct < mse_initial 
 end
 
 @testset "Test Fluctuation with 2 Treatments" begin

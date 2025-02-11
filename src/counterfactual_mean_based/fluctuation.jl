@@ -75,17 +75,17 @@ function initialize_counterfactual_cache(model, X)
     G⁰ = model.initial_factors.propensity_score
     Ψ = model.Ψ
 
-    counterfactual_cache = (predictions=[], signs=[], covariates=[])
+    counterfactual_cache = (predictions=[], signs=[], covariates=[], weights=[])
     X = Tables.columntable(X)
     Ttemplate = selectcols(X, treatments(Ψ))
     for (vals, sign) in indicator_fns(Ψ)
         T_ct = counterfactualTreatment(vals, Ttemplate)
         X_ct = merge(X, T_ct)
-        covariates_ct, _ = clever_covariate_and_weights(Ψ, 
+        covariates_ct, w_ct = clever_covariate_and_weights(Ψ, 
             G⁰,
             X_ct; 
             ps_lowerbound=model.ps_lowerbound, 
-            weighted_fluctuation=false # This is for evaluation, not fitting
+            weighted_fluctuation=model.weighted
         )
         predictions_ct = MLJBase.predict(Q⁰, X_ct)
         push!(
@@ -99,6 +99,10 @@ function initialize_counterfactual_cache(model, X)
         push!(
             counterfactual_cache.covariates, 
             covariates_ct
+        )
+        push!(
+            counterfactual_cache.weights, 
+            w_ct
         )
     end
     return counterfactual_cache

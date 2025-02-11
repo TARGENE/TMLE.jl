@@ -235,7 +235,6 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
         machine_cache=tmle.machine_cache
         )
     # Estimation results after TMLE
-    # IC, Ψ̂ = gradient_and_estimate(tmle, Ψ, targeted_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
     IC = gradient(targeted_factors_estimate)
     Ψ̂ = estimate(targeted_factors_estimate)
     σ̂ = std(IC)

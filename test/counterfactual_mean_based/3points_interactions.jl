@@ -21,8 +21,8 @@ function dataset_scm_and_truth(;n=1000)
 
     Y = 2 .- 2T₁.*T₂.*T₃.*(W .+ 10) + rand(rng, Normal(0, 0.03), n)
     dataset = (W=W, T₁=categorical(T₁), T₂=categorical(T₂), T₃=categorical(T₃), Y=Y)
-    truth = -21
-    return dataset, truth
+    Ψ₀ = -21
+    return dataset, Ψ₀
 end
 
 @testset "Test 3-points interactions" begin
