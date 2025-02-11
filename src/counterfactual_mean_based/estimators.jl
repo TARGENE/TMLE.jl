@@ -148,6 +148,16 @@ function (estimator::TargetedCMRelevantFactorsEstimator)(estimand, dataset; cach
     return estimate
 end
 
+gradients(factors::MLCMRelevantFactors) = MLJBase.report(factors.outcome_mean.machine).gradients
+
+estimates(factors::MLCMRelevantFactors) = MLJBase.report(factors.outcome_mean.machine).estimates
+
+epsilons(factors::MLCMRelevantFactors) = MLJBase.report(factors.outcome_mean.machine).epsilons
+
+gradient(factors::MLCMRelevantFactors) = last(gradients(factors))
+
+Distributions.estimate(factors::MLCMRelevantFactors) = last(estimates(factors))
+
 #####################################################################
 ###                            TMLE                               ###
 #####################################################################
@@ -225,11 +235,12 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
         machine_cache=tmle.machine_cache
         )
     # Estimation results after TMLE
-    IC, Ψ̂ = gradient_and_estimate(tmle, Ψ, targeted_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
+    # IC, Ψ̂ = gradient_and_estimate(tmle, Ψ, targeted_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
+    IC = gradient(targeted_factors_estimate)
+    Ψ̂ = estimate(targeted_factors_estimate)
     σ̂ = std(IC)
     n = size(IC, 1)
     verbosity >= 1 && @info "Done."
-    # update!(cache, relevant_factors, targeted_factors_estimate)
     return TMLEstimate(Ψ, Ψ̂, σ̂, n, IC), cache
 end
 
