@@ -11,6 +11,7 @@ TMLE.jl is a Julia implementation of the Targeted Minimum Loss-Based Estimation 
 The following plot illustrates the bias reduction achieved by TMLE over a mis-specified linear model in the presence of confounding. Note that in this case, TMLE also uses mis-specified models but still achieves a lower bias due to the atrgeting step.
 
 ```@eval
+using GLM
 using Distributions
 using Random
 using DataFrames
