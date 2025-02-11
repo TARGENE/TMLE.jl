@@ -10,7 +10,7 @@ TMLE.jl is a Julia implementation of the Targeted Minimum Loss-Based Estimation 
 
 The following plot illustrates the bias reduction achieved by TMLE over a mis-specified linear model in the presence of confounding. Note that in this case, TMLE also uses mis-specified models but still achieves a lower bias due to the atrgeting step.
 
-```@eval
+```@setup intro_setup
 using GLM
 using Distributions
 using Random
@@ -103,11 +103,10 @@ n = 1000
 ATE₀ = β + γ
 β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded = bootstrap_analysis(;B=B, α=α, β=β, γ=γ, n=n, ATE₀=ATE₀)
 fig = plot(β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded, β, ATE₀)
-nothing
 save("home_simulation.png", fig)
 ```
 
-[]("home_simulation.png")
+![Home Illustration]("home_simulation.png")
 
 ## Installation
 
