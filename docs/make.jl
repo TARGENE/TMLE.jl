@@ -29,15 +29,16 @@ makedocs(;
         "Home" => "index.md",
         "Walk Through" => "walk_through.md",
         "User Guide" => [joinpath("user_guide", f) for f in 
-            ("scm.md", "estimands.md", "estimation.md", "misc.md")],
+            ("scm.md", "estimands.md", "estimation.md")],
         "Examples" => [
             joinpath("examples", "super_learning.md"),
             joinpath("examples", "double_robustness.md")
             ],
-        "Estimators' Cheat Sheet" => "estimators_cheatsheet.md",
-        "Resources" => "resources.md",
-        "API Reference" => "api.md",
         "Integrations" => "integrations.md",
+        "Estimators' Cheat Sheet" => "estimators_cheatsheet.md",
+        "Learning Resources" => "resources.md",
+        "API Reference" => "api.md",
+        
     ],
     pagesonly=true,
     clean = true,
