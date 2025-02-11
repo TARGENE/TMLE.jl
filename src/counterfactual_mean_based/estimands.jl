@@ -18,8 +18,7 @@ CMRelevantFactors(;outcome_mean, propensity_score) =
     CMRelevantFactors(outcome_mean, propensity_score)
 
 string_repr(estimand::CMRelevantFactors) = 
-    string("Composite Factor: \n",
-           "----------------\n- ",
+    string("Relevant Factors: \n- ",
         string_repr(estimand.outcome_mean),"\n- ", 
         join((string_repr(f) for f in estimand.propensity_score), "\n- "))
 

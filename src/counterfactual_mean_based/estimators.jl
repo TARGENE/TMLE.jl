@@ -66,7 +66,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
             return estimate
         end
     end
-    verbosity > 0 && @info(fit_string(estimand))
+    verbosity > 0 && @info(string("Required ", string_repr(estimand)))
     models = estimator.models
     # Get train validation indices
     train_validation_indices = get_train_validation_indices(estimator.resampling, estimand, dataset)
@@ -225,7 +225,7 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
         initial_factors_estimate; 
         tol=tmle.tol,
         max_iter=tmle.max_iter,
-        ps_lowerbound=tmle.ps_lowerbound, 
+        ps_lowerbound=ps_lowerbound, 
         weighted=tmle.weighted,
         machine_cache=tmle.machine_cache
     )
