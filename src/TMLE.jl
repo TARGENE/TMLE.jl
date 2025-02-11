@@ -41,7 +41,7 @@ export BackdoorAdjustment, identify
 export Configuration
 export brute_force_ordering, groups_ordering
 export gradients, epsilons, estimates
- 
+
 # #############################################################################
 # INCLUDES
 # #############################################################################

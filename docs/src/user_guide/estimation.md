@@ -151,7 +151,7 @@ Notice that `with_encoder` is simply a shorthand to construct a pipeline with a 
 
 ## CV-Estimation
 
-Canonical TMLE/OSE are essentially using the dataset twice, once for the estimation of the nuisance functions and once for the estimation of the parameter of interest. This means that there is a risk of over-fitting and residual bias ([see here](https://arxiv.org/abs/2203.06469) for some discussion). One way to address this limitation is to use a technique called sample-splitting / cross-validating. In order to activate the sample-splitting mode, simply provide a `MLJ.ResamplingStrategy` using the `resampling` keyword argument:
+Canonical TMLE/OSE are essentially using the dataset twice, once for the estimation of the nuisance functions and once for the estimation of the parameter of interest. This means that there is a risk of over-fitting and residual bias ([see here](https://arxiv.org/abs/2203.06469) for some discussion). One way to address this limitation is to use a technique called sample-splitting / cross-validation. In order to activate the sample-splitting mode, simply provide a `MLJ.ResamplingStrategy` using the `resampling` keyword argument:
 
 ```@example estimation
 TMLEE(resampling=StratifiedCV());
@@ -169,9 +169,13 @@ There are some practical considerations
 - Computational Complexity: Sample-splitting results in ``K`` fits of the nuisance functions, drastically increasing computational complexity. In particular, if the nuisance functions are estimated using (P-fold) Super-Learning, this will result in two nested cross-validation loops and ``K \times P`` fits.
 - Caching of Nuisance Functions: Because the `resampling` strategy typically needs to preserve the outcome and treatment proportions, very little reuse of cached models is possible (see [Caching Models](@ref)).
 
-## Caching Models
+## Using the Cache
 
-Let's now see how the `cache` can be reused with a new estimand, say the Total Average Treatment Effect of both `T₁` and `T₂`.
+TMLE and OSE are expensive procedures, it may therefore be useful to store some information for further reuse. This is the purpose of the `cache` object, which is produced as a byproduct of the estimation process. 
+
+### Reusing Models
+
+The cache contains in particular the machine-learning models that were fitted in the process and which can sometimes be reused to estimate other quantities of interest. For example, say we are now interested in the Joint Average Treatment Effect of both `T₁` and `T₂`. We can provide the cache to the next round of estimation as follows.
 
 ```@example estimation
 Ψ₃ = ATE(
@@ -191,7 +195,7 @@ result₃
 nothing # hide
 ```
 
-This time only the model for `Y` is fitted again while reusing the models for `T₁` and `T₂`. Finally, let's see what happens if we estimate the `AIE` between `T₁` and `T₂`.
+Only the conditional distribution of `Y` given `T₁` and `T₂` is fitted as it is absent from the cache. However, the propensity scores corresponding to `T₁` and `T₂` have been reused. Finally, let's see what happens if we estimate the interaction effect between `T₁` and `T₂` on `Y`.
 
 ```@example estimation
 Ψ₄ = AIE(
@@ -212,6 +216,24 @@ nothing # hide
 ```
 
 All nuisance functions have been reused, only the fluctuation is fitted!
+
+## Accessing Fluctuations' Reports (Advanced)
+
+The cache also holds the last targeted factor that was estimated if TMLE was used. Some key information related to the targeting steps can be accessed, for example:
+
+```@example estimation
+gradients(cache);
+estimates(cache);
+epsilons(cache)
+```
+
+correspond to the gradients, point estimates and epsilons obtained after each targeting step which was performed (usually only one).
+
+One can for instance check that the mean of the gradient is close to zero.
+
+```@example estimation
+mean(last(gradients(cache)))
+```
 
 ## Joint Estimands and Composition
 
