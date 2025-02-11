@@ -50,7 +50,7 @@ function tmle_estimates(data)
         G=MLJLinearModels.LogisticClassifier()
     )
     Ψ̂ = TMLEE(models=models, weighted=true)
-    Ψ = TMLE.ATE(;
+    Ψ = ATE(;
         outcome=:Y, 
         treatment_values=(T=(case=true, control = false),),
         treatment_confounders=(:W,)
@@ -60,14 +60,13 @@ function tmle_estimates(data)
     return TMLE.estimate(Ψ̂ₙ)
 end
 
-function bootstrap_analysis(;B=100, α=0, β=1, γ=-1, n=100, ATE=α+γ)
+function bootstrap_analysis(;B=100, α=0, β=1, γ=-1, n=100, ATE₀=α+γ)
     Random.seed!(123)
     β̂s_confounded = Vector{Float64}(undef, B)
     tmles_confounded = Vector{Float64}(undef, B)
     β̂s_unconfounded = Vector{Float64}(undef, B)
     tmles_unconfounded = Vector{Float64}(undef, B)
     for b in 1:B
-        @info(string("Bootstrap iteration ", b))
         data_confounded = generate_confounded(;α=α, β=β, γ=γ, n=n)
         β̂s_confounded[b] = linear_model_coef(data_confounded)
         tmles_confounded[b] = tmle_estimates(data_confounded)
@@ -78,13 +77,13 @@ function bootstrap_analysis(;B=100, α=0, β=1, γ=-1, n=100, ATE=α+γ)
     return β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded
 end
 
-function plot(β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded, β, ATE)
+function plot(β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded, β, ATE₀)
     fig = Figure(size=(1000, 800))
     ax = Axis(fig[1, 1], title="Distribution of Linear Model's and TMLE's Estimates", yticks=(1:2, ["Confounded", "Unconfounded"]))
     labels = vcat(repeat(["Confounded"], length(β̂s_confounded)), repeat(["Unconfounded"], length(β̂s_unconfounded)))
     rainclouds!(ax, labels, vcat(β̂s_confounded, β̂s_unconfounded), orientation = :horizontal, color=(:blue, 0.5))
     rainclouds!(ax, labels, vcat(tmles_confounded, tmles_unconfounded), orientation = :horizontal, color=(:orange, 0.5))
-    vlines!(ax, ATE, label="ATE", color=:green)
+    vlines!(ax, ATE₀, label="ATE", color=:green)
     vlines!(ax, β, label="β", color=:red)
 
     Legend(fig[1, 2], 
@@ -101,10 +100,15 @@ n = 1000
 α = 0
 β = 1
 γ = -1
-ATE = β + γ
-β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded = bootstrap_analysis(;B=B, α=α, β=β, γ=γ, n=n, ATE=ATE)
-plot(β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded, β, ATE)
+ATE₀ = β + γ
+β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded = bootstrap_analysis(;B=B, α=α, β=β, γ=γ, n=n, ATE₀=ATE₀)
+fig = plot(β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded, β, ATE₀)
+nothing
+save("home_simulation.png", fig)
 ```
+
+[]("home_simulation.png")
+
 ## Installation
 
 TMLE.jl can be installed via the Package Manager and supports Julia `v1.10` and greater.
