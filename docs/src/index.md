@@ -107,7 +107,7 @@ plot(β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded,
 ```
 ## Installation
 
-TMLE.jl can be installed via the Package Manager and supports Julia `v1.6` and greater.
+TMLE.jl can be installed via the Package Manager and supports Julia `v1.10` and greater.
 
 ```Pkg
 Pkg> add TMLE
