@@ -8,9 +8,9 @@ CurrentModule = TMLE
 
 TMLE.jl is a Julia implementation of the Targeted Minimum Loss-Based Estimation ([TMLE](https://link.springer.com/book/10.1007/978-1-4419-9782-1)) framework. If you are interested in leveraging the power of modern machine-learning methods while preserving interpretability and statistical inference guarantees, you are in the right place. TMLE.jl is compatible with any [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/) compliant algorithm and any dataset respecting the [Tables](https://tables.juliadata.org/stable/) interface.
 
-The following plot illustrates the bias reduction achieved by TMLE over a mis-specified linear model in the presence of confounding. Note that in this case, TMLE also uses mis-specified models but still achieves a lower bias due to the atrgeting step.
+The following plot illustrates the bias reduction achieved by TMLE over a mis-specified linear model in the presence of confounding. Note that in this case, TMLE also uses mis-specified models but still achieves a lower bias due to the targeting step.
 
-```@setup intro_setup
+```@setup intro
 using GLM
 using Distributions
 using Random
@@ -103,10 +103,10 @@ n = 1000
 ATE₀ = β + γ
 β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded = bootstrap_analysis(;B=B, α=α, β=β, γ=γ, n=n, ATE₀=ATE₀)
 fig = plot(β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded, β, ATE₀)
-save("home_simulation.png", fig)
+save(joinpath("assets", "home_simulation.png"), fig)
 ```
 
-![Home Illustration]("home_simulation.png")
+![Home Illustration](assets/home_simulation.png)
 
 ## Installation
 
