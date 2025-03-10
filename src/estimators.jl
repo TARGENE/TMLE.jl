@@ -158,11 +158,10 @@ f(x, y) = [x^2 - y, y - 3x]
 compose(f, res₁, res₂)
 ```
 """
-function compose(f, Ψ̂::JointEstimate; backend=AD.ZygoteBackend())
+function compose(f, Ψ̂::JointEstimate; backend=AutoZygote())
     point_estimate = estimate(Ψ̂)
     Σ = Ψ̂.cov
-    f₀, Js = AD.value_and_jacobian(backend, f, point_estimate...)
-    J = hcat(Js...)
+    f₀, J = value_and_jacobian(f, backend, point_estimate)
     σ₀ = J * Σ * J'
     estimand = ComposedEstimand(f, Ψ̂.estimand)
     return ComposedEstimate(estimand, f₀, σ₀, Ψ̂.n)

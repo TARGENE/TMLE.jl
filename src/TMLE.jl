@@ -15,7 +15,7 @@ using Zygote
 using LogExpFunctions
 using PrecompileTools
 using Random
-import AbstractDifferentiation as AD
+using DifferentiationInterface
 using Graphs
 using MetaGraphsNext
 using Combinatorics
