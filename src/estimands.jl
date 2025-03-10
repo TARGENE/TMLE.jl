@@ -80,7 +80,7 @@ struct ConditionalDistribution <: Estimand
     function ConditionalDistribution(outcome, parents)
         outcome = Symbol(outcome)
         parents = unique_sorted_tuple(parents)
-        outcome ∉ parents || throw(SelfReferringEquationError(outcome))
+        outcome ∉ parents || throw(ArgumentError(string("The outcome variable of a conditional distribution (here ", outcome, ") cannot be in the parents set.")))
         # Maybe check variables are in the SCM?
         return new(outcome, parents)
     end
