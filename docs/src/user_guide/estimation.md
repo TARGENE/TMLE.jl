@@ -283,7 +283,7 @@ The printed output is the result of a Hotelling's T2 Test which is the multivari
 Then we can formally test our hypothesis by leveraging the multivariate Central Limit Theorem and Julia's automatic differentiation.
 
 ```@example estimation
-composed_result = compose((x, y, z) -> x - y - z, joint_estimate)
+composed_result = compose(x -> x[1] - x[2] - x[3], joint_estimate)
 isapprox(
     estimate(result₄),
     first(estimate(composed_result)),
@@ -291,4 +291,4 @@ isapprox(
 )
 ```
 
-By default, TMLE.jl will use [Zygote](https://fluxml.ai/Zygote.jl/latest/) but since we are using [AbstractDifferentiation.jl](https://github.com/JuliaDiff/AbstractDifferentiation.jl) you can change the backend to your favorite AD system.
+By default, TMLE.jl will use [Zygote](https://fluxml.ai/Zygote.jl/latest/) but since we are using [DifferentiationInterface.jl](https://juliadiff.org/DifferentiationInterface.jl/DifferentiationInterface/stable/) you can change the backend to your favorite AD system.
