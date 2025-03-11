@@ -30,9 +30,21 @@ plugin_estimate(ctf_aggregate) = mean(ctf_aggregate)
 """
     ∇W(ctf_agg, Ψ̂)
 
-∇_W = ctf_agg - Ψ̂
+Computes the projection of the gradient on the (W) space.
 """
 ∇W(ctf_agg, Ψ̂) = ctf_agg .- Ψ̂
+
+"""
+    ∇YX(H, y, Ey, w)
+
+Computes the projection of the gradient on the (Y | X) space.
+
+- H: Clever covariate
+- y: Outcome
+- Ey: Expected value of the outcome
+- w: Weights
+"""
+∇YX(H, y, Ey, w) = H .* w .* (y .- Ey)
 
 """
     gradient_Y_X(cache)
@@ -43,10 +55,10 @@ This part of the gradient is evaluated on the original dataset. All quantities h
 """
 function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound=1e-8)
     # Maybe can cache some results (H and E[Y|X]) to improve perf here
-    H, weights = clever_covariate_and_weights(Ψ, G, dataset; ps_lowerbound=ps_lowerbound)
+    H, w = clever_covariate_and_weights(Ψ, G, dataset; ps_lowerbound=ps_lowerbound)
     y = float(Tables.getcolumn(dataset, Q.estimand.outcome))
-    gradient_Y_X_fluct = H .* weights .* (y .- expected_value(Q, dataset))
-    return gradient_Y_X_fluct
+    Ey = expected_value(Q, dataset)
+    return ∇YX(H, y, Ey, w)
 end
 
 
@@ -58,7 +70,6 @@ function gradient_and_plugin_estimate(Ψ::StatisticalCMCompositeEstimand, factor
     IC = ∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound) .+ ∇W(ctf_agg, Ψ̂)
     return IC, Ψ̂
 end
-
 
 train_validation_indices_from_ps(::MLConditionalDistribution) = nothing
 train_validation_indices_from_ps(factor::SampleSplitMLConditionalDistribution) = factor.train_validation_indices

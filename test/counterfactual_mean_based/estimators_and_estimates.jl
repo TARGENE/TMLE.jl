@@ -37,7 +37,7 @@ end
     η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
     # Estimate
     fit_log = (
-        (:info, TMLE.fit_string(η)),
+        (:info, string("Required ", TMLE.string_repr(η))),
         (:info, TMLE.fit_string(G[1])),
         (:info, TMLE.fit_string(Q))
     )
@@ -66,7 +66,7 @@ end
     new_η̂ = TMLE.CMRelevantFactorsEstimator(models=new_models)
     @test TMLE.key(η, new_η̂) != TMLE.key(η, η̂)
     partial_reuse_log = (
-        (:info, TMLE.fit_string(η)),
+        (:info, string("Required ", TMLE.string_repr(η))),
         (:info, TMLE.fit_string(G[1])),
         (:info, TMLE.reuse_string(Q))
     )

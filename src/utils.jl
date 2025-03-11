@@ -61,22 +61,12 @@ expected_value(ŷ::AbstractArray{<:UnivariateFinite{<:Union{OrderedFactor{2}, Mu
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
-training_expected_value(Q::Machine, dataset) = expected_value(predict(Q, dataset))
-
 function counterfactualTreatment(vals, T)
     Tnames = Tables.columnnames(T)
     n = nrows(T)
     NamedTuple{Tnames}(
             [categorical(repeat([vals[i]], n), levels=levels(Tables.getcolumn(T, name)), ordered=isordered(Tables.getcolumn(T, name)))
                             for (i, name) in enumerate(Tnames)])
-end
-
-last_fluctuation(cache) = cache[:last_fluctuation]
-
-function last_fluctuation_epsilon(cache)
-    mach = last_fluctuation(cache).outcome_mean.machine
-    fp = fitted_params(fitted_params(mach).fitresult.one_dimensional_path)
-    return fp.coef
 end
 
 """

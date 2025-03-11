@@ -22,7 +22,7 @@ It seems that sometimes this is not entirely true in practice, so the test actua
 increase risk more than tol
 """
 function test_fluct_decreases_risk(cache; atol=1e-6)
-    fluctuated_mean_machine = cache[:last_fluctuation].outcome_mean.machine
+    fluctuated_mean_machine = cache[:targeted_factors].outcome_mean.machine
     initial_mean_machine = fluctuated_mean_machine.model.initial_factors.outcome_mean.machine
     y = fluctuated_mean_machine.data[2]
     initial_risk = risk(MLJBase.predict(initial_mean_machine), y)

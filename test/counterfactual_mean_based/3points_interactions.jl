@@ -21,8 +21,8 @@ function dataset_scm_and_truth(;n=1000)
 
     Y = 2 .- 2T₁.*T₂.*T₃.*(W .+ 10) + rand(rng, Normal(0, 0.03), n)
     dataset = (W=W, T₁=categorical(T₁), T₂=categorical(T₂), T₃=categorical(T₃), Y=Y)
-    truth = -21
-    return dataset, truth
+    Ψ₀ = -21
+    return dataset, Ψ₀
 end
 
 @testset "Test 3-points interactions" begin
@@ -43,7 +43,7 @@ end
         :T₃ => LogisticClassifier(lambda=0)
     )
 
-    tmle = TMLEE(models=models, machine_cache=true)
+    tmle = TMLEE(models=models, machine_cache=true, max_iter=3, tol=0)
     result, cache = tmle(Ψ, dataset, verbosity=0);
     test_coverage(result, Ψ₀)
     test_fluct_decreases_risk(cache)
@@ -53,6 +53,12 @@ end
     result, cache = tmle(Ψ, dataset, verbosity=0)
     test_coverage(result, Ψ₀)
     test_mean_inf_curve_almost_zero(result; atol=1e-10)
+
+    # CHecking cache accessors
+    @test length(gradients(cache)) == 3
+    @test length(estimates(cache)) == 3
+    @test length(epsilons(cache)) == 3
+    @test report(cache) isa NamedTuple
 
 end 
 

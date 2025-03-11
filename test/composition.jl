@@ -50,7 +50,7 @@ end
         treatment_values = (T=1,),
         treatment_confounders = (T=[:W],)
     )
-    mydiff(x, y) = y - x
+    mydiff(x) = x[2] - x[1]
 
     jointestimand = JointEstimand(CM₀, CM₁)
     models = Dict(
@@ -123,11 +123,11 @@ end
 
     joint_estimate, cache = tmle(joint, dataset; cache=cache, verbosity=0)
 
-    Main.eval(:(f(x, y) = [x^2 - y, 2x + 3y]))
+    Main.eval(:(f(x) = [x[1]^2 - x[2], 2x[1] + 3x[2]]))
 
     composed_estimate = compose(Main.f, joint_estimate)
     @test significance_test(composed_estimate) isa TMLE.OneSampleHotellingT2Test
-    @test estimate(composed_estimate) == Main.f(estimate(joint_estimate)...)
+    @test estimate(composed_estimate) == Main.f(estimate(joint_estimate))
     @test size(composed_estimate.cov) == (2, 2)
 
     composed_estimate_dict = TMLE.to_dict(composed_estimate)

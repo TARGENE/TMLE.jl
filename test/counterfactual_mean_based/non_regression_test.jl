@@ -42,9 +42,13 @@ end
     ps_lowerbound = 0.025 # Cutoff hardcoded in tmle3
     weighted = false # Unweighted fluctuation
     verbosity = 0 # No logs
+    max_iter = 1 # One iteration
+    tol = nothing # Default tolerance
     tmle = TMLEE(;
         resampling=resampling,
         ps_lowerbound=ps_lowerbound,
+        max_iter=max_iter,
+        tol=tol,
         weighted=weighted
     )
     

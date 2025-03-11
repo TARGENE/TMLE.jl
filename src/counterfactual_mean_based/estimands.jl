@@ -18,8 +18,7 @@ CMRelevantFactors(;outcome_mean, propensity_score) =
     CMRelevantFactors(outcome_mean, propensity_score)
 
 string_repr(estimand::CMRelevantFactors) = 
-    string("Composite Factor: \n",
-           "----------------\n- ",
+    string("Relevant Factors: \n- ",
         string_repr(estimand.outcome_mean),"\n- ", 
         join((string_repr(f) for f in estimand.propensity_score), "\n- "))
 
@@ -142,10 +141,10 @@ nuisance_functions_iterator(Ψ::StatisticalCMCompositeEstimand) =
 
 function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: StatisticalCMCompositeEstimand 
     param_string = string(
-        Base.typename(T).wrapper,
-        "\n-----",
-        "\nOutcome: ", Ψ.outcome,
-        "\nTreatment: ", Ψ.treatment_values
+        replace(string(Base.typename(T).wrapper), "TMLE." => ""),
+        "\n- Outcome: ", Ψ.outcome,
+        "\n- Treatment: ", 
+        join((string(key, " => ", val) for (key, val) in Ψ.treatment_values), " & ")
     )
     println(io, param_string)
 end
