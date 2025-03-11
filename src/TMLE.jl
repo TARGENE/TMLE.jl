@@ -22,6 +22,7 @@ using Combinatorics
 using SplitApplyCombine
 using OrderedCollections
 using AutoHashEquals
+using MLJTuning
 
 # #############################################################################
 # EXPORTS
@@ -55,6 +56,7 @@ include("estimators.jl")
 include("treatment_transformer.jl")
 include("estimand_ordering.jl")
 
+include("counterfactual_mean_based/targeting.jl")
 include("counterfactual_mean_based/estimands.jl")
 include("counterfactual_mean_based/estimates.jl")
 include("counterfactual_mean_based/fluctuation.jl")

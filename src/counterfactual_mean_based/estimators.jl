@@ -125,23 +125,10 @@ TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate; tol=nothing, ma
 
 function (estimator::TargetedCMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     model = estimator.model
-    outcome_mean = model.initial_factors.outcome_mean.estimand
-    # Fluctuate outcome model
-    fluctuated_estimator = MLConditionalDistributionEstimator(model)
-    fluctuated_outcome_mean = try
-        fluctuated_estimator(
-            outcome_mean,
-            dataset,
-            verbosity=verbosity,
-            machine_cache=machine_cache
-        )
-    catch e
-        throw(FitFailedError(outcome_mean, model, outcome_mean_fluctuation_fit_error_msg(outcome_mean), e))
-    end
-    # Do not fluctuate propensity score
-    fluctuated_propensity_score = model.initial_factors.propensity_score
+    # Fluctuate initial models
+    updated_ps, updated_outcome_mean = targeting(model, dataset; verbosity=verbosity, machine_cache=machine_cache)
     # Build estimate
-    estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score)
+    estimate = MLCMRelevantFactors(estimand, updated_outcome_mean, updated_ps)
     # Update cache
     cache[:targeted_factors] = estimate
 
