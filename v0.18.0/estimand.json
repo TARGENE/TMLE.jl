@@ -1,0 +1,10 @@
+{
+ "type": "ATE",
+ "treatment_values": {
+  "A": {
+   "control": 0,
+   "case": 1
+  }
+ },
+ "outcome": "Y"
+}
