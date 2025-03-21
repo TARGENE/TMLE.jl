@@ -24,6 +24,7 @@ makedocs(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://TARGENE.github.io/TMLE.jl",
         assets=String["assets/logo.ico"],
+        size_threshold=nothing
     ),
     pages=[
         "Home" => "index.md",
