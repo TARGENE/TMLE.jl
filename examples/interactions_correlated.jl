@@ -81,6 +81,7 @@ end
 
 dataset = generate_dataset()
 
+first(dataset, 5)
 #=
 Let's verify that each treatment level is sufficiently present in the dataset (≈positivity).
 =#
@@ -195,20 +196,18 @@ First, notice that only extreme correlations (>0.9) tend to blow up the size of 
 
 Furthermore, and perhaps unexpectedly, coverage decreases as sample size grows for larger correlations. Since we have used simple linear models until now, 
 this could be due to model misspecification. We can verify this by using a more flexible modelling strategy. Here we will use XGBoost 
-(with tree_method=`hist` to speed things up a little).
+(with tree_method=`hist` to speed things up a little). Because this model is prone to overfitting we will also use cross-validation.
 =#
 
 xgboost_estimator = TMLEE(
     models=default_models(G=XGBoostClassifier(tree_method="hist"), Q_continuous=XGBoostRegressor(tree_method="hist")),
-    weighted=true
+    weighted=true,
+    resampling=StratifiedCV(nfolds=3)
 )
 xgboost_results = estimate_across_sample_sizes_and_correlation_levels(ns, σs, estimator=xgboost_estimator)
 plot_across_sample_sizes_and_correlation_levels(xgboost_results, ns, σs; title="Estimation via TMLE (XGboost)")
 
 #=
 As expected, XGBoost improves estimation performance in the asymptotic regime, furthermore, 
-the correlation between `T1` and `T2` seems harmless (except when σ > 0.9 as before). 
-
-However, the performance is degraded for smaller sample sizes, likely due to overfitting. A more agressive strategy 
-relying on Super-Learning or cross-validation would probably be beneficial in this case.
+the correlation between `T1` and `T2` seems harmless (except when σ > 0.9 as before).
 =#
