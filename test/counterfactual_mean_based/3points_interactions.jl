@@ -36,13 +36,19 @@ end
         ),
         treatment_confounders = (T₁=[:W], T₂=[:W], T₃=[:W])
     )
+    ## Check propensity score is well formed
+    propensity_score = TMLE.propensity_score(Ψ)
+    @test propensity_score[1] == TMLE.ConditionalDistribution(:T₁, (:T₂, :T₃, :W))
+    @test propensity_score[2] == TMLE.ConditionalDistribution(:T₂, (:T₃, :W))
+    @test propensity_score[3] == TMLE.ConditionalDistribution(:T₃, (:W,))
+    ## Define models
     models = Dict(
         :Y  => with_encoder(InteractionTransformer(order=3) |> LinearRegressor()),
         :T₁ => LogisticClassifier(lambda=0),
         :T₂ => LogisticClassifier(lambda=0),
         :T₃ => LogisticClassifier(lambda=0)
     )
-
+    ## Estimate
     tmle = TMLEE(models=models, machine_cache=true, max_iter=3, tol=0)
     result, cache = tmle(Ψ, dataset, verbosity=0);
     test_coverage(result, Ψ₀)
@@ -54,7 +60,7 @@ end
     test_coverage(result, Ψ₀)
     test_mean_inf_curve_almost_zero(result; atol=1e-10)
 
-    # CHecking cache accessors
+    # Checking cache accessors
     @test length(gradients(cache)) == 3
     @test length(estimates(cache)) == 3
     @test length(epsilons(cache)) == 3

@@ -41,7 +41,7 @@ end
     # JointEstimand
     joint = JointEstimand(ATE₁, ATE₂)
 
-    @test TMLE.propensity_score_key(joint) == ((:T₁, :W), (:T₂, :W))
+    @test TMLE.propensity_score_key(joint) == ((:T₁, :T₂, :W), (:T₂, :W))
     @test TMLE.outcome_mean_key(joint) == ((:Y, :T₁, :T₂, :W),)
 
     joint_dict = TMLE.to_dict(joint)
