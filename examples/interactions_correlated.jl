@@ -17,7 +17,6 @@ using CategoricalArrays
 using TMLE
 using CairoMakie
 using MLJXGBoostInterface
-
 Random.seed!(123)
 
 μT(w) = [w, w]
@@ -117,7 +116,7 @@ Interactions are defined via the `AIE` function.
 )
 estimator = TMLEE(weighted=true)
 result, _ = estimator(Ψ, dataset; verbosity=0)
-@assert pvalue(significance_test(result)) > 0.05 #hide
+@assert pvalue(significance_test(result, -1.5)) > 0.05 #hide
 significance_test(result)
 
 #=
