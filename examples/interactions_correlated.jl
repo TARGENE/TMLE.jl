@@ -200,7 +200,7 @@ end
 
 ns = [100, 1000, 10_000, 100_000, 1_000_000]
 σs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.999]
-results = estimate_across_sample_sizes_and_correlation_levels(ns, σs)
+results = estimate_across_sample_sizes_and_correlation_levels(ns, σs; estimator=TMLEE(models=linear_models, weighted=true))
 plot_across_sample_sizes_and_correlation_levels(results, ns, σs; title="Estimation via TMLE (GLMs)")
 
 #=
