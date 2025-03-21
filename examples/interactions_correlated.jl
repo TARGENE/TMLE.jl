@@ -61,21 +61,21 @@ function generate_Y(T, W, n; σY=1)
 end
 
 #=
-Importantly, the average interaction effect between `T1` and `T2` is thus ``-3 \cdot \mathbb{E}[W] = -1.5``
+Importantly, the average interaction effect between `T1` and `T2` is thus ``-3 \mathbb{E}[W] = -1.5``
 
 We will generate a full dataset with the following function.
 =#
 
 function generate_dataset(;n=1000, σ=0.5, threshold=0., σY=1)
-    # Generate
+
     W = generate_W(n)
     T = generate_T(W, n; σ=σ, threshold=threshold)
     Y = generate_Y(T, W, n; σY=σY)
-    # Make categorical treatments
+
     T = permutedims(T)
     T1 = categorical(T[:, 1])
     T2 = categorical(T[:, 2])
-    # Make DataFrame
+
     return DataFrame(W=W, T1=T1, T2=T2, Y=Y)
 end
 
@@ -124,8 +124,8 @@ The true effect size is thus covered by the confidence interval.
 
 ## Varying levels of correlation
 
-We now vary the correlation level between T1 and T2 to observe how it affects the estimation results. 
-First, let's see how the parameter σ affects the correlation between T1 and T2.
+We now vary the correlation level between `T1` and `T2` to observe how it affects the estimation results. 
+First, let's see how the parameter σ affects the correlation between `T1` and `T2`.
 =#
 
 function plot_correlations(;σs = 0.1:0.1:1, n=1000, threshold=0., σY=1.)
@@ -143,7 +143,7 @@ end
 plot_correlations(;σs=σs, n=10_000)
 
 #=
-As expected, the correlation between T1 and T2 increases with σ. Let's see how this affects estimation, 
+As expected, the correlation between `T1` and `T2` increases with σ. Let's see how this affects estimation, 
 for this, we will vary both the dataset size and the correlation level.
 =#
 
@@ -195,7 +195,7 @@ First, notice that only extreme correlations (>0.9) tend to blow up the size of 
 
 Furthermore, and perhaps unexpectedly, coverage decreases as sample size grows for larger correlations. Since we have used simple linear models until now, 
 this could be due to model misspecification. We can verify this by using a more flexible modelling strategy. Here we will use XGBoost 
-(with tree_method="hist" to speed things up a little).
+(with tree_method=`hist` to speed things up a little).
 =#
 
 xgboost_estimator = TMLEE(
@@ -207,7 +207,7 @@ plot_across_sample_sizes_and_correlation_levels(xgboost_results, ns, σs; title=
 
 #=
 As expected, XGBoost improves estimation performance in the asymptotic regime, furthermore, 
-the correlation between T1 and T2 seems harmless (except when σ > 0.9 as before). 
+the correlation between `T1` and `T2` seems harmless (except when σ > 0.9 as before). 
 
 However, the performance is degraded for smaller sample sizes, likely due to overfitting. A more agressive strategy 
 relying on Super-Learning or cross-validation would probably be beneficial in this case.
