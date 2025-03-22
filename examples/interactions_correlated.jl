@@ -25,7 +25,7 @@ using CategoricalArrays
 using TMLE
 using CairoMakie
 using MLJXGBoostInterface
-using MLJBase
+using MLJ
 using MLJLinearModels
 Random.seed!(123)
 
