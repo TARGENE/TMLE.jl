@@ -8,7 +8,7 @@ treatment variables `T1` and `T2` on an outcome `Y`.
 
 Let's consider the following structural causal model where the shaded nodes represent the observed variables.
 
-![interaction-graph](assets/interaction_graph.png)
+![interaction-graph](../assets/interaction_graph.png)
 
 In other words, only one confounding variable is observed (`W1`). This would be a major problem if we wanted to estimate the 
 average treatment effect of `T1` or `T2` on `Y` separately. However, here, we are interested in interactions and thus `W1` is 
