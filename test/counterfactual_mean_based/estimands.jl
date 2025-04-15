@@ -3,6 +3,7 @@ module TestEstimands
 using Test
 using TMLE
 using OrderedCollections
+
 @testset "Test StatisticalCMCompositeEstimand" begin
     dataset = (
         W  = [1, 2, 3, 4, 5, 6, 7, 8],
@@ -21,6 +22,10 @@ using OrderedCollections
     @test indicator_fns == Dict(("A", 1) => 1.)
     indic_values = TMLE.indicator_values(indicator_fns, TMLE.selectcols(dataset, TMLE.treatments(Ψ)))
     @test indic_values == [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+    ## Check the propensity score does not assume an independent decomposition
+    propensity_score = TMLE.propensity_score(Ψ)
+    @test propensity_score[1].outcome == :T₁
+    @test propensity_score[1].parents == (:T₂, :W)
     # ATE
     Ψ = ATE(
         outcome=:Y, 

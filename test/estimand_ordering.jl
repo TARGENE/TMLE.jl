@@ -52,9 +52,9 @@ statistical_estimands = [identify(x, scm) for x in causal_estimands]
     groups = TMLE.groupby_by_propensity_score(statistical_estimands)
     @test groups[((:T₂, :W₂),)] == [statistical_estimands[4]]
     @test groups[((:T₃, :W₂, :W₃),)] == [statistical_estimands[7]]
-    @test groups[((:T₁, :W₁, :W₂), (:T₃, :W₂, :W₃))] == [statistical_estimands[end]]
+    @test groups[((:T₁, :T₃, :W₁, :W₂), (:T₃, :W₂, :W₃))] == [statistical_estimands[end]]
     @test Set(groups[((:T₁, :W₁, :W₂),)]) == Set([statistical_estimands[1], statistical_estimands[2], statistical_estimands[6]])
-    @test Set(groups[((:T₁, :W₁, :W₂), (:T₂, :W₂))]) == Set([statistical_estimands[3], statistical_estimands[5]])
+    @test Set(groups[((:T₁, :T₂, :W₁, :W₂), (:T₂, :W₂))]) == Set([statistical_estimands[3], statistical_estimands[5]])
     @test size(vcat(values(groups)...)) == size(statistical_estimands)
  
     # Test PS groups permutations
@@ -81,29 +81,31 @@ end
         TMLE.ConditionalDistribution(:Y₂, (:T₁, :W₁, :W₂))           => 1,
         TMLE.ConditionalDistribution(:Y₂, (:T₁, :T₃, :W₁, :W₂, :W₃)) => 1,
         TMLE.ConditionalDistribution(:Y₁, (:T₁, :T₂, :W₁, :W₂))      => 2,
-        TMLE.ConditionalDistribution(:T₁, (:W₁, :W₂))                => 6,
+        TMLE.ConditionalDistribution(:T₁, (:W₁, :W₂))                => 3,
+        TMLE.ConditionalDistribution(:T₁, (:T₃, :W₁, :W₂))           => 1,
+        TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂))           => 2,
         TMLE.ConditionalDistribution(:T₃, (:W₂, :W₃))                => 2,
         TMLE.ConditionalDistribution(:T₂, (:W₂,))                    => 3,
         TMLE.ConditionalDistribution(:Y₁, (:T₁, :W₁, :W₂))           => 2,
         TMLE.ConditionalDistribution(:Y₁, (:T₂, :W₂))                => 1,
         TMLE.ConditionalDistribution(:Y₂, (:T₃, :W₂, :W₃))           => 1
     )
-    @test TMLE.evaluate_proxy_costs(statistical_estimands, η_counts) == (4, 9)
+    @test TMLE.evaluate_proxy_costs(statistical_estimands, η_counts) == (5, 11)
     @test TMLE.get_min_maxmem_lowerbound(statistical_estimands) == 3
 
     # The brute force solution returns the optimal solution
     optimal_ordering = @test_logs (:info, "Lower bound reached, stopping.") brute_force_ordering(statistical_estimands, verbosity=1, rng=StableRNG(123))
-    @test TMLE.evaluate_proxy_costs(optimal_ordering, η_counts) == (3, 9)
+    @test TMLE.evaluate_proxy_costs(optimal_ordering, η_counts) == (3, 11)
     # Creating a bad ordering
     bad_ordering = statistical_estimands[[1, 7, 3, 6, 2, 5, 8, 4]]
-    @test TMLE.evaluate_proxy_costs(bad_ordering, η_counts) == (6, 9)
+    @test TMLE.evaluate_proxy_costs(bad_ordering, η_counts) == (7, 11)
     # Without the brute force on groups, the solution is not necessarily optimal
     # but still improved
     ordering_from_groups = groups_ordering(bad_ordering)
-    @test TMLE.evaluate_proxy_costs(ordering_from_groups, η_counts) == (4, 9)
+    @test TMLE.evaluate_proxy_costs(ordering_from_groups, η_counts) == (4, 11)
     # Adding a layer of brute forcing results in an optimal ordering
     ordering_from_groups_with_brute_force = groups_ordering(bad_ordering, brute_force=true)
-    @test TMLE.evaluate_proxy_costs(ordering_from_groups_with_brute_force, η_counts) == (3, 9)
+    @test TMLE.evaluate_proxy_costs(ordering_from_groups_with_brute_force, η_counts) == (3, 11)
 end
 
 @testset "Test ordering strategies with Joint Estimands" begin

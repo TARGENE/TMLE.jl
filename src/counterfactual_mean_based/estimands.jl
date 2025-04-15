@@ -124,7 +124,14 @@ outcome_mean(Ψ::StatisticalCMCompositeEstimand) = ExpectedValue(Ψ.outcome, Tup
 
 outcome_mean_key(Ψ::StatisticalCMCompositeEstimand) = variables(outcome_mean(Ψ))
 
-propensity_score(Ψ::StatisticalCMCompositeEstimand) = Tuple(ConditionalDistribution(T, Ψ.treatment_confounders[T]) for T in treatments(Ψ))
+function propensity_score(Ψ::StatisticalCMCompositeEstimand)
+    Ψtreatments = TMLE.treatments(Ψ)
+    return Tuple(map(eachindex(Ψtreatments)) do index
+        T = Ψtreatments[index]
+        confounders = (Ψ.treatment_confounders[T]..., Ψtreatments[index+1:end]...)
+        ConditionalDistribution(T, confounders)
+    end)
+end
 
 propensity_score_key(Ψ::StatisticalCMCompositeEstimand) = Tuple(variables(x) for x ∈ propensity_score(Ψ))
 

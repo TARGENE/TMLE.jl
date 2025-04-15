@@ -24,6 +24,7 @@ makedocs(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://TARGENE.github.io/TMLE.jl",
         assets=String["assets/logo.ico"],
+        size_threshold=nothing
     ),
     pages=[
         "Home" => "index.md",
@@ -32,7 +33,8 @@ makedocs(;
             ("scm.md", "estimands.md", "estimation.md")],
         "Examples" => [
             joinpath("examples", "super_learning.md"),
-            joinpath("examples", "double_robustness.md")
+            joinpath("examples", "double_robustness.md"),
+            joinpath("examples", "interactions_correlated.md"),
             ],
         "Integrations" => "integrations.md",
         "Estimators' Cheat Sheet" => "estimators_cheatsheet.md",
