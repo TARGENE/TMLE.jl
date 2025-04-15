@@ -11,12 +11,12 @@ using StatsBase
 using MLJModels
 using MLJLinearModels
 using LogExpFunctions
+using MLJXGBoostInterface
 
 include(joinpath(pkgdir(TMLE), "test", "helper_fns.jl"))
 
 cont_interacter = InteractionTransformer(order=2) |> LinearRegressor
 cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1.)
-
 
 function binary_outcome_binary_treatment_pb(;n=100)
     rng = StableRNG(123)
@@ -26,8 +26,8 @@ function binary_outcome_binary_treatment_pb(;n=100)
 
     # Sampling T₁, T₂ from W: Softmax
     θ = rand(rng, 3, 4)
-    softmax = exp.(W*θ) ./ sum(exp.(W*θ), dims=2)
-    T = [sample(rng, [1, 2, 3, 4], Weights(softmax[i, :])) for i in 1:n]
+    Tprobs = exp.(W*θ) ./ sum(exp.(W*θ), dims=2)
+    T = [sample(rng, [1, 2, 3, 4], Weights(Tprobs[i, :])) for i in 1:n]
     T₁ = [t in (1,2) ? true : false for t in T]
     T₂ = [t in (1,3) ? true : false for t in T]
 
@@ -37,8 +37,14 @@ function binary_outcome_binary_treatment_pb(;n=100)
 
     # Respect the Tables.jl interface and convert types
     W = float(W)
-    dataset = (T₁=T₁, T₂=T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], Y=y)
-    dataset = coerce(dataset, autotype(dataset))
+    dataset = (
+        T₁=categorical(T₁), 
+        T₂=categorical(T₂), 
+        W₁=W[:, 1], 
+        W₂=W[:, 2], 
+        W₃=W[:, 3], 
+        Y=categorical(y)
+    )
     # Compute the theoretical AIE
     Wcomb = [1 1 1;
             1 1 0;
@@ -82,9 +88,9 @@ function binary_outcome_categorical_treatment_pb(;n=100)
     # T₁, T₂ will have 3 categories each
     # This is embodied by a 9 dimensional full joint
     θ = rand(rng, 3, 9)
-    softmax = exp.(W*θ) ./ sum(exp.(W*θ), dims=2)
+    Tprobs = exp.(W*θ) ./ sum(exp.(W*θ), dims=2)
     encoding = collect(Iterators.product(["CC", "GG", "CG"], ["TT", "AA", "AT"]))
-    T = [sample(rng, encoding, Weights(softmax[i, :])) for i in 1:n]
+    T = [sample(rng, encoding, Weights(Tprobs[i, :])) for i in 1:n]
     T = (T₁=categorical([t[1] for t in T]), T₂=categorical([t[2] for t in T]))
 
     Hmach = machine(OneHotEncoder(drop_last=true), T)
@@ -127,8 +133,8 @@ function continuous_outcome_binary_treatment_pb(;n=100)
 
     # Sampling T₁, T₂ from W: Softmax
     θ = rand(rng, 3, 4)
-    softmax = exp.(W*θ) ./ sum(exp.(W*θ), dims=2)
-    T = [sample(rng, [1, 2, 3, 4], Weights(softmax[i, :])) for i in 1:n]
+    Tprobs = exp.(W*θ) ./ sum(exp.(W*θ), dims=2)
+    T = [sample(rng, [1, 2, 3, 4], Weights(Tprobs[i, :])) for i in 1:n]
     T₁ = [t in (1,2) ? true : false for t in T]
     T₂ = [t in (1,3) ? true : false for t in T]
 
@@ -177,10 +183,11 @@ end
         )
     )
     # When Q is misspecified but G is well specified
+    # Note that LogisticClassifiers are not enough to recapitulate the generative multinomial here
     models = Dict(
         :Y  => with_encoder(ConstantClassifier()),
-        :T₁ => with_encoder(LogisticClassifier(lambda=0)),
-        :T₂ => with_encoder(LogisticClassifier(lambda=0)),
+        :T₁ => with_encoder(XGBoostClassifier(;nthread=1)),
+        :T₂ => with_encoder(XGBoostClassifier(;nthread=1)),
     )
     dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -221,10 +228,11 @@ end
         )
     )
     # When Q is misspecified but G is well specified
+    # Note that LogisticClassifiers are not enough to recapitulate the generative multinomial here
     models = Dict(
         :Y  => with_encoder(MLJModels.DeterministicConstantRegressor()),
-        :T₁ => with_encoder(LogisticClassifier(lambda=0)),
-        :T₂ => with_encoder(LogisticClassifier(lambda=0)),
+        :T₁ => with_encoder(XGBoostClassifier(;nthread=1)),
+        :T₂ => with_encoder(XGBoostClassifier(;nthread=1)),
     )
 
     dr_estimators = double_robust_estimators(models)
@@ -262,10 +270,11 @@ end
         )
     )
     # When Q is misspecified but G is well specified
+    # Note that LogisticClassifiers are not enough to recapitulate the generative multinomial here
     models = Dict(
         :Y  => with_encoder(ConstantClassifier()),
-        :T₁ => with_encoder(LogisticClassifier(lambda=0)),
-        :T₂ => with_encoder(LogisticClassifier(lambda=0))
+        :T₁ => with_encoder(XGBoostClassifier(;nthread=1)),
+        :T₂ => with_encoder(XGBoostClassifier(;nthread=1))
     )
     dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
