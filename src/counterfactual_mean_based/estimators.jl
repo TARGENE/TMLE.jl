@@ -1,133 +1,39 @@
 #####################################################################
-###                  CMRelevantFactorsEstimator                   ###
-#####################################################################
-struct FitFailedError <: Exception
-    estimand::Estimand
-    model::MLJBase.Model
-    msg::String
-    origin::Exception
-end
-
-propensity_score_fit_error_msg(factor) = string("Could not fit the following propensity score model: ", string_repr(factor))
-outcome_mean_fit_error_msg(factor) = string(
-    "Could not fit the following Outcome mean model: ", 
-    string_repr(factor), 
-    ".\n Hint: don't forget to use `with_encoder` to encode categorical variables.")
-
-outcome_mean_fluctuation_fit_error_msg(factor) = string(
-    "Could not fluctuate the following Outcome mean: ", 
-    string_repr(factor), 
-    ".")
-
-Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
-
-struct CMRelevantFactorsEstimator <: Estimator
-    resampling::Union{Nothing, ResamplingStrategy}
-    models::Dict
-end
-
-CMRelevantFactorsEstimator(;models, resampling=nothing) =
-    CMRelevantFactorsEstimator(resampling, models)
-
-key(estimator::CMRelevantFactorsEstimator) = 
-    (CMRelevantFactorsEstimator, estimator.resampling, estimator.models)
-
-get_train_validation_indices(resampling::Nothing, factors, dataset) = nothing
-
-function get_train_validation_indices(resampling::ResamplingStrategy, factors, dataset)
-    relevant_columns = collect(variables(factors))
-    outcome_variable = factors.outcome_mean.outcome
-    feature_variables = filter(x -> x !== outcome_variable, relevant_columns)
-    return Tuple(MLJBase.train_test_pairs(
-        resampling,
-        1:nrows(dataset),
-        selectcols(dataset, feature_variables), 
-        Tables.getcolumn(dataset, outcome_variable)
-    ))
-end
-
-function acquire_model(models, key, dataset, is_propensity_score)
-    # If the model is in models return it
-    haskey(models, key) && return models[key]
-    # Otherwise, if the required model is for a propensity_score, return the default
-    model_default = :G_default
-    if !is_propensity_score
-        # Finally, if the required model is an outcome_mean, find the type from the data
-        model_default = is_binary(dataset, key) ? :Q_binary_default : :Q_continuous_default
-    end
-    return models[model_default]
-end
-
-function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
-    if haskey(cache, estimand)
-        old_estimator, estimate = cache[estimand]
-        if key(old_estimator) == key(estimator)
-            verbosity > 0 && @info(reuse_string(estimand))
-            return estimate
-        end
-    end
-    verbosity > 0 && @info(string("Required ", string_repr(estimand)))
-    models = estimator.models
-    # Get train validation indices
-    train_validation_indices = get_train_validation_indices(estimator.resampling, estimand, dataset)
-    # Fit propensity score
-    propensity_score_estimate = map(estimand.propensity_score) do factor
-        try
-            ps_estimator = ConditionalDistributionEstimator(train_validation_indices, acquire_model(models, factor.outcome, dataset, true))
-            ps_estimator(
-                factor,    
-                dataset;
-                cache=cache,
-                verbosity=verbosity,
-                machine_cache=machine_cache
-            )
-        catch e
-            model = acquire_model(models, factor.outcome, dataset, true)
-            throw(FitFailedError(factor, model, propensity_score_fit_error_msg(factor), e))
-        end
-    end
-    # Fit outcome mean
-    outcome_mean = estimand.outcome_mean
-    model = acquire_model(models, outcome_mean.outcome, dataset, false)
-    outcome_mean_estimator = ConditionalDistributionEstimator( 
-        train_validation_indices, 
-        model
-    )
-    outcome_mean_estimate = try
-        outcome_mean_estimator(outcome_mean, dataset; cache=cache, verbosity=verbosity, machine_cache=machine_cache)
-    catch e
-        throw(FitFailedError(outcome_mean, model, outcome_mean_fit_error_msg(outcome_mean), e))
-    end
-    # Build estimate
-    estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate)
-    # Update cache
-    cache[estimand] = estimator => estimate
-
-    return estimate
-end
-
-#####################################################################
 ###              TargetedCMRelevantFactorsEstimator               ###
 #####################################################################
 
-struct TargetedCMRelevantFactorsEstimator
-    model::Fluctuation
+struct TargetedCMRelevantFactorsEstimator{S <: Union{Nothing, CollaborativeStrategy}}
+    fluctuation::Fluctuation
+    collaborative_strategy::S
 end
 
-TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate; tol=nothing, max_iter=1, ps_lowerbound=1e-8, weighted=false, machine_cache=false) = 
-    TargetedCMRelevantFactorsEstimator(Fluctuation(Ψ, initial_factors_estimate; 
+function TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate; 
+    collaborative_strategy::S=nothing, 
+    tol=nothing, 
+    max_iter=1, 
+    ps_lowerbound=1e-8, 
+    weighted=false, 
+    machine_cache=false
+    ) where S <: Union{Nothing, CollaborativeStrategy}
+    fluctuation_model = Fluctuation(Ψ, initial_factors_estimate; 
         tol=tol,
         max_iter=max_iter, 
         ps_lowerbound=ps_lowerbound, 
         weighted=weighted,
         cache=machine_cache
-    ))
+    )
+    return TargetedCMRelevantFactorsEstimator{S}(fluctuation_model, collaborative_strategy)
+end
 
-function (estimator::TargetedCMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
-    model = estimator.model
-    outcome_mean = model.initial_factors.outcome_mean.estimand
+"""
+
+Targeted estimator in the absence of a collaborative strategy.
+"""
+function (estimator::TargetedCMRelevantFactorsEstimator{Nothing})(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
+    fluctuation_model = estimator.fluctuation
+    outcome_mean = fluctuation_model.initial_factors.outcome_mean.estimand
     # Fluctuate outcome model
-    fluctuated_estimator = MLConditionalDistributionEstimator(model)
+    fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model)
     fluctuated_outcome_mean = try
         fluctuated_estimator(
             outcome_mean,
@@ -136,13 +42,29 @@ function (estimator::TargetedCMRelevantFactorsEstimator)(estimand, dataset; cach
             machine_cache=machine_cache
         )
     catch e
-        throw(FitFailedError(outcome_mean, model, outcome_mean_fluctuation_fit_error_msg(outcome_mean), e))
+        throw(FitFailedError(outcome_mean, fluctuation_model, outcome_mean_fluctuation_fit_error_msg(outcome_mean), e))
     end
     # Do not fluctuate propensity score
-    fluctuated_propensity_score = model.initial_factors.propensity_score
+    fluctuated_propensity_score = fluctuation_model.initial_factors.propensity_score
     # Build estimate
     estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score)
     # Update cache
+    cache[:targeted_factors] = estimate
+
+    return estimate
+end
+
+"""
+
+Targeted estimator with a collaborative strategy.
+"""
+function (estimator::TargetedCMRelevantFactorsEstimator{CollaborativeStrategy})(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
+    fluctuation_model = estimator.fluctuation
+    outcome_mean = model.initial_factors.outcome_mean.estimand
+
+    Ψ = fluctuation_model.Ψ
+    confounders
+
     cache[:targeted_factors] = estimate
 
     return estimate
@@ -155,6 +77,7 @@ end
 mutable struct TMLEE <: Estimator
     models::Dict
     resampling::Union{Nothing, ResamplingStrategy}
+    collaborative_strategy::Union{Nothing, CollaborativeStrategy}
     ps_lowerbound::Union{Float64, Nothing}
     weighted::Bool
     tol::Union{Float64, Nothing}
@@ -189,8 +112,8 @@ tmle = TMLEE()
 Ψ̂ₙ, cache = tmle(Ψ, dataset)
 ```
 """
-TMLEE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing, max_iter=1, machine_cache=false) = 
-    TMLEE(models, resampling, ps_lowerbound, weighted, tol, max_iter, machine_cache)
+TMLEE(;models=default_models(), resampling=nothing, collaborative_strategy=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing, max_iter=1, machine_cache=false) = 
+    TMLEE(models, resampling, collaborative_strategy, ps_lowerbound, weighted, tol, max_iter, machine_cache)
 
 function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
@@ -199,7 +122,7 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
     relevant_factors = get_relevant_factors(Ψ)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, tmle.resampling)
-    initial_factors_estimator = CMRelevantFactorsEstimator(tmle.resampling, tmle.models)
+    initial_factors_estimator = CMRelevantFactorsEstimator(tmle.resampling, tmle.collaborative_strategy, tmle.models)
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
         verbosity=verbosity, 
@@ -212,10 +135,11 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
     verbosity >= 1 && @info "Performing TMLE..."
     targeted_factors_estimator = TargetedCMRelevantFactorsEstimator(
         Ψ, 
-        initial_factors_estimate; 
+        initial_factors_estimate;
+        collaborative_strategy=tmle.collaborative_strategy,
         tol=tmle.tol,
         max_iter=tmle.max_iter,
-        ps_lowerbound=ps_lowerbound, 
+        ps_lowerbound=ps_lowerbound,
         weighted=tmle.weighted,
         machine_cache=tmle.machine_cache
     )
@@ -245,6 +169,7 @@ gradient_and_estimate(::TMLEE, Ψ, factors, dataset; ps_lowerbound=1e-8) =
 mutable struct OSE <: Estimator
     models::Dict
     resampling::Union{Nothing, ResamplingStrategy}
+    collaborative_strategy::Union{Nothing, CollaborativeStrategy}
     ps_lowerbound::Union{Float64, Nothing}
     machine_cache::Bool
 end
@@ -273,8 +198,8 @@ ose = OSE()
 Ψ̂ₙ, cache = ose(Ψ, dataset)
 ```
 """
-OSE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false) = 
-    OSE(models, resampling, ps_lowerbound, machine_cache)
+OSE(;models=default_models(), resampling=nothing, collaborative_strategy=nothing, ps_lowerbound=1e-8, machine_cache=false) = 
+    OSE(models, resampling, collaborative_strategy, ps_lowerbound, machine_cache)
 
 function (ose::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
@@ -283,7 +208,7 @@ function (ose::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     initial_factors = get_relevant_factors(Ψ)
     nomissing_dataset = nomissing(dataset, variables(initial_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling)
-    initial_factors_estimator = CMRelevantFactorsEstimator(ose.resampling, ose.models)
+    initial_factors_estimator = CMRelevantFactorsEstimator(ose.resampling, ose.collaborative_strategy, ose.models)
     initial_factors_estimate = initial_factors_estimator(
         initial_factors, 
         initial_factors_dataset;

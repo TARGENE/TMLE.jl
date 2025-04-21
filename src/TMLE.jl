@@ -40,6 +40,7 @@ export BackdoorAdjustment, identify
 export Configuration
 export brute_force_ordering, groups_ordering
 export gradients, epsilons, estimates
+export GreedyCollaboration
 
 # #############################################################################
 # INCLUDES
@@ -53,10 +54,12 @@ include("estimates.jl")
 include("estimators.jl")
 include("treatment_transformer.jl")
 include("estimand_ordering.jl")
+include("collaborative.jl")
 
 include("counterfactual_mean_based/estimands.jl")
 include("counterfactual_mean_based/estimates.jl")
 include("counterfactual_mean_based/fluctuation.jl")
+include("counterfactual_mean_based/nuisance_estimators.jl")
 include("counterfactual_mean_based/estimators.jl")
 include("counterfactual_mean_based/clever_covariate.jl")
 include("counterfactual_mean_based/gradient.jl")

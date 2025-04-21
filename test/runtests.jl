@@ -25,7 +25,7 @@ TEST_DIR = joinpath(pkgdir(TMLE), "test")
     @test include(joinpath(TEST_DIR, "counterfactual_mean_based/estimators_and_estimates.jl"))
     @test include(joinpath(TEST_DIR, "counterfactual_mean_based/non_regression_test.jl"))
     @test include(joinpath(TEST_DIR, "counterfactual_mean_based/double_robustness_ate.jl"))
-    @test include(joinpath(TEST_DIR, "counterfactual_mean_based/double_robustness_iate.jl"))
+    @test include(joinpath(TEST_DIR, "counterfactual_mean_based/double_robustness_aie.jl"))
     @test include(joinpath(TEST_DIR, "counterfactual_mean_based/3points_interactions.jl"))
 
     @test include(joinpath(TEST_DIR, "causaltables_interface.jl"))
