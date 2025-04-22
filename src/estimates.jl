@@ -25,8 +25,19 @@ string_repr(estimate::MLConditionalDistribution) = string(
     Base.typename(typeof(estimate.machine.model)).wrapper
 )
 
+function maybe_with_intercept(dataset, parents)
+    dataset = if :COLLABORATIVE_INTERCEPT ∈ parents
+        merge(dataset, (;COLLABORATIVE_INTERCEPT=ones(nrows(dataset))))
+    else
+        dataset
+    end
+    return dataset
+end
+
 function MLJBase.predict(estimate::MLConditionalDistribution, dataset)
-    X = selectcols(dataset, estimate.estimand.parents)
+    parents = estimate.estimand.parents
+    dataset = maybe_with_intercept(dataset, parents) # TODO: Ugly hack here, can I do better?
+    X = selectcols(dataset, parents)
     return predict(estimate.machine, X)
 end
 
@@ -148,7 +159,16 @@ function compute_offset(estimate::ConditionalDistributionEstimate, X)
 end
 
 #####################################################################
-###                       Joint Estimate                      ###
+###            JointConditionalDistributionEstimate               ###
+#####################################################################
+
+struct JointConditionalDistributionEstimate{T, N} <: Estimate
+    estimand::Tuple{Vararg{ConditionalDistribution, N}}
+    components::Tuple{Vararg{T, N}}
+end
+
+#####################################################################
+###                        Joint Estimate                         ###
 #####################################################################
 
 struct JointEstimate{T<:AbstractFloat} <: Estimate
@@ -190,6 +210,7 @@ to_dict(estimate::JointEstimate) = Dict(
 #####################################################################
 ###                       Composed Estimate                       ###
 #####################################################################
+
 struct ComposedEstimate{T<:AbstractFloat} <: Estimate
     estimand::ComposedEstimand
     estimates::Vector{T}

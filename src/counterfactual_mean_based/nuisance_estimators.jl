@@ -1,15 +1,22 @@
+abstract type CollaborativeStrategy end
+
 #####################################################################
 ###                  CMRelevantFactorsEstimator                   ###
 #####################################################################
 
 struct FitFailedError <: Exception
     estimand::Estimand
-    model::MLJBase.Model
     msg::String
     origin::Exception
 end
 
+default_fit_error_msg(factor) = string(
+    "Could not fit the following model: ", 
+    string_repr(factor), 
+    ".\n Hint: don't forget to use `with_encoder` to encode categorical variables.")
+
 propensity_score_fit_error_msg(factor) = string("Could not fit the following propensity score model: ", string_repr(factor))
+
 outcome_mean_fit_error_msg(factor) = string(
     "Could not fit the following Outcome mean model: ", 
     string_repr(factor), 
@@ -67,6 +74,24 @@ function acquire_model(models, key, dataset, is_propensity_score)
     return models[model_default]
 end
 
+function build_propensity_score_estimator(propensity_score, models, dataset;
+    collaborative_strategy=nothing,
+    train_validation_indices=nothing,
+    confounders=Symbol[]
+    )
+    cd_estimators = Dict()
+    for conditional_distribution in propensity_score
+        outcome = conditional_distribution.outcome
+        model = acquire_model(models, outcome, dataset, true)
+        cd_estimators[outcome] = ConditionalDistributionEstimator(model, train_validation_indices)
+    end
+    return if collaborative_strategy === nothing
+        JointConditionalDistributionEstimator(cd_estimators)
+    else
+        CollaborativePSEstimator(collaborative_strategy, cd_estimators; confounders=confounders)
+    end
+end
+
 function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     if haskey(cache, estimand)
         old_estimator, estimate = cache[estimand]
@@ -84,7 +109,13 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
     # Get train validation indices
     train_validation_indices = get_train_validation_indices(resampling, collaborative_strategy, estimand, dataset)
     # Fit propensity score
-    propensity_score_estimator = JointConditionalDistributionEstimator(propensity_score, models, collaborative_strategy, train_validation_indices, dataset)
+    propensity_score_estimator = build_propensity_score_estimator(
+        propensity_score, 
+        models,  
+        dataset;
+        collaborative_strategy=collaborative_strategy, 
+        train_validation_indices=train_validation_indices,
+    )
     propensity_score_estimate = propensity_score_estimator(
         propensity_score, 
         dataset;
@@ -98,15 +129,67 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
         outcome_model,
         train_validation_indices, 
     )
-    outcome_mean_estimate = try
-        outcome_mean_estimator(outcome_mean, dataset; cache=cache, verbosity=verbosity, machine_cache=machine_cache)
-    catch e
-        throw(FitFailedError(outcome_mean, outcome_model, outcome_mean_fit_error_msg(outcome_mean), e))
-    end
+    outcome_mean_estimate = try_fit_ml_estimator(outcome_mean_estimator, outcome_mean, dataset;
+        error_fn=outcome_mean_fit_error_msg,
+        cache=cache,
+        verbosity=verbosity,
+        machine_cache=machine_cache
+    )
     # Build estimate
     estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate)
     # Update cache
     cache[estimand] = estimator => estimate
+
+    return estimate
+end
+
+#####################################################################
+###              TargetedCMRelevantFactorsEstimator               ###
+#####################################################################
+
+struct TargetedCMRelevantFactorsEstimator{S <: Union{Nothing, CollaborativeStrategy}}
+    fluctuation::Fluctuation
+    collaborative_strategy::S
+end
+
+function TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate; 
+    collaborative_strategy::S=nothing, 
+    tol=nothing, 
+    max_iter=1, 
+    ps_lowerbound=1e-8, 
+    weighted=false, 
+    machine_cache=false
+    ) where S <: Union{Nothing, CollaborativeStrategy}
+    fluctuation_model = Fluctuation(Ψ, initial_factors_estimate; 
+        tol=tol,
+        max_iter=max_iter, 
+        ps_lowerbound=ps_lowerbound, 
+        weighted=weighted,
+        cache=machine_cache
+    )
+    return TargetedCMRelevantFactorsEstimator{S}(fluctuation_model, collaborative_strategy)
+end
+
+"""
+
+Targeted estimator in the absence of a collaborative strategy.
+"""
+function (estimator::TargetedCMRelevantFactorsEstimator{Nothing})(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
+    fluctuation_model = estimator.fluctuation
+    outcome_mean = fluctuation_model.initial_factors.outcome_mean.estimand
+    # Fluctuate outcome model
+    fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model)
+    fluctuated_outcome_mean = try_fit_ml_estimator(fluctuated_estimator, outcome_mean, dataset;
+        error_fn=outcome_mean_fluctuation_fit_error_msg,
+        verbosity=verbosity,
+        machine_cache=machine_cache
+    )
+    # Do not fluctuate propensity score
+    fluctuated_propensity_score = fluctuation_model.initial_factors.propensity_score
+    # Build estimate
+    estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score)
+    # Update cache
+    cache[:targeted_factors] = estimate
 
     return estimate
 end

@@ -4,11 +4,11 @@ using Test
 using TMLE
 using MLJLinearModels
 
-TESTDIR = joinpath(pkgdir(TMLE), "test")
-include(joinpath(TESTDIR, "counterfactual_mean_based", "interactions_simulations.jl"))
+TEST_DIR = joinpath(pkgdir(TMLE), "test")
+include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulations.jl"))
 
-@testset "Integration Test GreedyCollaboration" begin
-    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=10_000)
+@testset "Integration Test AdaptiveCorrelationOrdering" begin
+    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=100_000)
     Ψ = AIE(
         outcome = :Y,
         treatment_values = (
@@ -22,30 +22,36 @@ include(joinpath(TESTDIR, "counterfactual_mean_based", "interactions_simulations
     )
     # Define the estimator
     cache = Dict()
-    verbosity = 2
-    tmle = TMLEE(;collaborative_strategy=GreedyCollaboration())
+    verbosity = 1
+    collaborative_strategy = AdaptiveCorrelationOrdering(resampling=StratifiedCV())
+    tmle = TMLEE(;collaborative_strategy=collaborative_strategy)
     # Initialize the relevant factors' estimates
-    relevant_factors = TMLE.get_relevant_factors(Ψ)
+    η = TMLE.get_relevant_factors(Ψ)
     initial_factors_estimator = TMLE.CMRelevantFactorsEstimator(tmle.resampling, tmle.collaborative_strategy, tmle.models)
-    initial_factors_estimate = initial_factors_estimator(relevant_factors, dataset; 
+    η̂ₙ = initial_factors_estimator(η, dataset; 
         cache=cache, 
         verbosity=verbosity, 
         machine_cache=tmle.machine_cache
     )
-    initial_factors_estimate.propensity_score[1] == TMLE.ConditionalDistribution(:T₁, (:T₂,))
-    initial_factors_estimate.propensity_score[2] == TMLE.ConditionalDistribution(:T₂, ())
-
-    propensity_score = TMLE.initialise_propensity_score(collaborative_strategy, Ψ)
-    @test propensity_score == (
-        TMLE.ConditionalDistribution(:T₁, (:T₂,)),
-        TMLE.ConditionalDistribution(:T₂, ())
+    
+    estimator = TMLE.TargetedCMRelevantFactorsEstimator(
+        Ψ, 
+        η̂ₙ;
+        collaborative_strategy=tmle.collaborative_strategy,
+        tol=tmle.tol,
+        max_iter=tmle.max_iter,
+        ps_lowerbound=tmle.ps_lowerbound,
+        weighted=tmle.weighted,
+        machine_cache=tmle.machine_cache
     )
 
-    model = LogisticClassifier()
-    ps_estimator = TMLE.initialise_propensity_score_estimator(collaborative_strategy, model)
-    @test ps_estimator == TMLE.MLConditionalDistributionEstimator(model)
+    candidates = estimator(η, dataset; 
+        cache=cache, 
+        verbosity=verbosity,
+        machine_cache=tmle.machine_cache
+    )
 
-
+    getfield.(candidates, :loss)
 
 end
 

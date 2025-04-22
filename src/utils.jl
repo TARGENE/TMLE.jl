@@ -130,3 +130,16 @@ function get_frequency_table(dataset, colnames)
     end
     return counts
 end
+
+function try_fit_ml_estimator(ml_estimator, conditional_distribution, dataset;
+    error_fn=outcome_mean_fit_error_msg,
+    cache=Dict(),
+    verbosity=1,
+    machine_cache=false
+    )
+    return try
+        ml_estimator(conditional_distribution, dataset; cache=cache, verbosity=verbosity, machine_cache=machine_cache)
+    catch e
+        throw(FitFailedError(conditional_distribution, error_fn(conditional_distribution), e))
+    end
+end

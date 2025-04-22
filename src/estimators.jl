@@ -95,45 +95,29 @@ struct JointConditionalDistributionEstimator <: Estimator
     cd_estimators::Dict{Symbol, Any}
 end
 
-function JointConditionalDistributionEstimator(propensity_score, models, collaborative_strategy, train_validation_indices, dataset)
-    cd_estimators = Dict()
-    for conditional_distribution in propensity_score
-        outcome = conditional_distribution.outcome
-        model = acquire_model(models, outcome, dataset, true)
-        cd_estimators[outcome] = ConditionalDistributionEstimator(model, train_validation_indices)
-    end
-    return collaborative_strategy === nothing ? JointConditionalDistributionEstimator(cd_estimators) : CollaborativePSEstimator(collaborative_strategy, cd_estimators)
-end
-
 function fit_conditional_distributions(cd_estimators, conditional_distributions, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     return map(conditional_distributions) do conditional_distribution
         cd_estimator = cd_estimators[conditional_distribution.outcome]
-        try
-            cd_estimator(
-                conditional_distribution,    
-                dataset;
-                cache=cache,
-                verbosity=verbosity,
-                machine_cache=machine_cache
-            )
-        catch e
-            model = cd_estimator.model
-            throw(FitFailedError(conditional_distribution, model, propensity_score_fit_error_msg(conditional_distribution), e))
-        end
+        try_fit_ml_estimator(cd_estimator, conditional_distribution, dataset;
+            error_fn=propensity_score_fit_error_msg,
+            cache=cache,
+            verbosity=verbosity,
+            machine_cache=machine_cache,
+        )
     end
 end
-
 
 function (estimator::JointConditionalDistributionEstimator)(conditional_distributions, dataset; 
     cache=Dict(), 
     verbosity=1, 
     machine_cache=false
     )
-    return fit_conditional_distributions(estimator.cd_estimators, conditional_distributions, dataset; 
+    estimates = fit_conditional_distributions(estimator.cd_estimators, conditional_distributions, dataset; 
         cache=cache, 
         verbosity=verbosity, 
         machine_cache=machine_cache
     )
+    return JointConditionalDistributionEstimate(conditional_distributions, estimates)
 end
 
 #####################################################################
