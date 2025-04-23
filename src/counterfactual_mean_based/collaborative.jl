@@ -58,39 +58,87 @@ end
 ###              Targeting AdaptiveCorrelationOrdering            ###
 #####################################################################
 
-function retrieve_propensity_score_models(estimator)
+function retrieve_models(estimator)
+    outcome_mean_estimate = estimator.fluctuation.initial_factors.outcome_mean
     propensity_score_estimate = estimator.fluctuation.initial_factors.propensity_score
-    return Dict(cd.outcome => cde.machine.model for (cd, cde) in zip(propensity_score_estimate.estimand, propensity_score_estimate.components))
+    models = Dict{Symbol, Any}(outcome_mean_estimate.estimand.outcome => outcome_mean_estimate.machine.model)
+    for (cd, cde) in zip(propensity_score_estimate.estimand, propensity_score_estimate.components)
+        models[cd.outcome] = cde.machine.model 
+    end
+    return models
 end
 
 function get_new_propensity_score(collaborative_strategy::AdaptiveCorrelationOrdering, Ψ, last_candidate, dataset)
     Q̂n = last_candidate.outcome_mean
-    residuals = compute_residuals(Q̂n, Ψ.outcome, dataset)
+    residuals = compute_residuals(Q̂n, dataset)
     update!(collaborative_strategy, dataset, residuals)
     return propensity_score(Ψ, collaborative_strategy)
 end
 
-function get_new_targeted_candidate(η, fluctuation_model, dataset;
-    propensity_score_estimate=fluctuation_model.initial_factors.propensity_score,
-    outcome_mean_estimate=fluctuation_model.initial_factors.outcome_mean,
+
+function initialise_candidates(η, targeted_η̂_template, dataset;
     verbosity=1,
+    cache=Dict(),
     machine_cache=false
     )
-    fluctuation_model = update_fluctuation_model(fluctuation_model; 
-        propensity_score_estimate=propensity_score_estimate,
-        outcome_mean_estimate=outcome_mean_estimate
+    targeted_η̂ = TMLE.TargetedCMRelevantFactorsEstimator(
+        targeted_η̂_template.fluctuation, 
+        nothing
     )
-    fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model)
-    fluctuated_outcome_mean = try_fit_ml_estimator(fluctuated_estimator, η.outcome_mean, dataset;
-        error_fn=outcome_mean_fluctuation_fit_error_msg,
+    targeted_η̂ₙ = targeted_η̂(η, dataset;
+        cache=cache,
         verbosity=verbosity,
         machine_cache=machine_cache
     )
-    candidate = MLCMRelevantFactors(η, fluctuated_outcome_mean, propensity_score_estimate)
-    loss = evaluate_candidate(candidate, η.outcome_mean.outcome, dataset)
-    return candidate, loss
+    loss = evaluate_candidate(targeted_η̂ₙ, dataset)
+    return [(estimates=targeted_η̂ₙ, loss=loss)]
 end
 
+
+function get_new_targeted_candidate(η, last_candidate, targeted_η̂_template, propensity_score_estimate, dataset;
+    use_fluct=false,
+    verbosity=1,
+    cache=Dict(),
+    machine_cache=false
+    )
+    # Define new nuisance factors estimate
+    Q̄ₙ = use_fluct ? last_candidate.outcome_mean : last_candidate.outcome_mean.machine.model.initial_factors.outcome_mean
+    η̂ₙ = TMLE.MLCMRelevantFactors(η, Q̄ₙ, propensity_score_estimate)
+    # Fluctuate
+    targeted_η̂ = TMLE.TargetedCMRelevantFactorsEstimator(
+            targeted_η̂_template.fluctuation.Ψ, 
+            η̂ₙ;
+            tol=targeted_η̂_template.fluctuation.tol,
+            max_iter=targeted_η̂_template.fluctuation.max_iter,
+            ps_lowerbound=targeted_η̂_template.fluctuation.ps_lowerbound,
+            weighted=targeted_η̂_template.fluctuation.weighted,
+            machine_cache=targeted_η̂_template.fluctuation.cache
+        )
+    targeted_η̂ₙ = targeted_η̂(η, dataset;
+        cache=cache,
+        verbosity=verbosity-1,
+        machine_cache=machine_cache
+    )
+    loss = evaluate_candidate(targeted_η̂ₙ, dataset)
+    return targeted_η̂ₙ, loss
+end
+
+
+function get_new_propensity_score_and_estimator(
+    collaborative_strategy::AdaptiveCorrelationOrdering, 
+    Ψ, 
+    last_candidate, 
+    dataset,
+    models)
+    propensity_score = TMLE.get_new_propensity_score(collaborative_strategy, Ψ, last_candidate, dataset)
+    propensity_score_estimator = TMLE.build_propensity_score_estimator(
+        propensity_score, 
+        models,  
+        dataset;
+        train_validation_indices=nothing,
+    )
+    return propensity_score, propensity_score_estimator
+end
 """
 
 Targeted estimator with a collaborative strategy.
@@ -105,56 +153,73 @@ function (estimator::TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrder
     collaborative_strategy = estimator.collaborative_strategy
     Ψ = estimator.fluctuation.Ψ
     fluctuation_model = estimator.fluctuation
-    propensity_score_models = retrieve_propensity_score_models(estimator)
+    
+    # Retrieve models
+    models = TMLE.retrieve_models(estimator)
+
     # Initialize the collaborative strategy
     TMLE.initialise!(estimator.collaborative_strategy, Ψ)
     
     # Initialize Candidates: the fluctuation is fitted through the initial outcome mean and propensity score
-    candidate, loss = TMLE.get_new_targeted_candidate(η, fluctuation_model, dataset;
+    candidates = TMLE.initialise_candidates(η, estimator, dataset;
+        verbosity=verbosity,
+        cache=cache,
+        machine_cache=machine_cache
+    )
+
+    # Initialise cross-validation loss
+    cv_candidates = TMLE.initialise_cv_candidates(η, dataset, estimator, models;
+        cache=Dict(),
         verbosity=verbosity-1,
         machine_cache=machine_cache
-        )
-    candidates = [(estimates=candidate, loss=loss)]
-    # Initialise cross-validation loss
-    # η̂_cv = CMRelevantFactorsEstimator(estimator.collaborative_strategy.resampling, estimator.models)
+    )
 
     # Collaborative Loop
     while length(collaborative_strategy.remaining_confounders) > 0
         # Find the confounder most correlated with the residuals
         last_candidate = last(candidates).estimates
-        propensity_score = TMLE.get_new_propensity_score(collaborative_strategy, Ψ, last_candidate, dataset)
-        verbosity > 0 && @info "The propensity score will use: $(propensity_score)"
-        # Estimate propensity score on full dataset
-        propensity_score_estimator = build_propensity_score_estimator(
-            propensity_score, 
-            propensity_score_models,  
-            dataset;
-            train_validation_indices=nothing,
+        propensity_score, propensity_score_estimator = TMLE.get_new_propensity_score_and_estimator(
+            collaborative_strategy, 
+            Ψ, 
+            last_candidate, 
+            dataset,
+            models
         )
+        verbosity > 0 && @info "The propensity score will use: $(propensity_score)"
         propensity_score_estimate = propensity_score_estimator(
-            propensity_score, 
+            propensity_score,
             dataset;
             cache=cache,
             verbosity=verbosity-1,
             machine_cache=machine_cache
         )
         # Fluctuate outcome model through the new propensity score
-        candidate, loss = get_new_targeted_candidate(η, fluctuation_model, dataset;
-            propensity_score_estimate=propensity_score_estimate,
-            verbosity=verbosity-1,
+        new_η = TMLE.CMRelevantFactors(η.outcome_mean, propensity_score)
+        use_fluct = false
+        candidate, loss = TMLE.get_new_targeted_candidate(new_η, last_candidate, estimator, propensity_score_estimate, dataset;
+            use_fluct=use_fluct,
+            verbosity=verbosity,
+            cache=cache,
             machine_cache=machine_cache
         )
         if loss > last(candidates).loss
-            # Fluctuate through Q̄* from the previous candidate
-            candidate, loss = get_new_targeted_candidate(η, fluctuation_model, dataset;
-                propensity_score_estimate=propensity_score_estimate,
-                outcome_mean_estimate=last_candidate.outcome_mean,
-                verbosity=verbosity-1,
+            use_fluct = true
+            # Fluctuate through Q̄* from the previous candidate's flutuated model
+            candidate, loss = TMLE.get_new_targeted_candidate(new_η, last_candidate, estimator, propensity_score_estimate, dataset;
+                use_fluct=true,
+                verbosity=verbosity,
+                cache=cache,
                 machine_cache=machine_cache
             )
         end
-
         push!(candidates, (estimates=candidate, loss=loss))
+        # Evaluate candidate
+        TMLE.evaluate_cv_candidate!(cv_candidates, new_η, targeted_η̂_template, propensity_score, propensity_score_estimator, dataset; 
+            use_fluct=use_fluct,
+            verbosity=verbosity,
+            cache=Dict(),
+            machine_cache=machine_cache
+        )
     end
     # Select the best candidate by penalized cross-validation
     
@@ -165,34 +230,88 @@ end
 ###                           Functions                           ###
 #####################################################################
 
-function cv_evaluate_candidate(candidate, propensity_score_estimator, η, dataset; 
-    resampling=StratifiedCV(),
+function initialise_cv_candidates(η, dataset, targeted_η̂_template, models;
     cache=Dict(),
     verbosity=1,
     machine_cache=false
     )
+    resampling = targeted_η̂_template.collaborative_strategy.resampling
     outcome = η.outcome_mean.outcome
     y = Tables.getcolumn(dataset, outcome)
+    val_loss = 0.
+    η̂ = TMLE.CMRelevantFactorsEstimator(;models=models)
+    cv_candidate = []
     for (train, val) in MLJBase.train_test_pairs(resampling, 1:nrows(dataset), dataset, y)
+        # Split dataset into training and validation sets
         dataset_train = selectrows(dataset, train)
         dataset_val = selectrows(dataset, val)
-        propensity_score_estimate = propensity_score_estimator(
-            η.propensity_score, 
-            dataset_train;
+        # Estimate initial factors
+        η̂ₙ_train = η̂(η, dataset_train;
             cache=cache,
             verbosity=verbosity-1,
             machine_cache=machine_cache
         )
-        candidate, loss = get_new_targeted_candidate(η, fluctuation_model, dataset_train;
-            propensity_score_estimate=propensity_score_estimate,
-            outcome_mean_estimate=#TODO,
+        # Target Q̄ estimator
+        targeted_η̂_train = TMLE.TargetedCMRelevantFactorsEstimator(
+            targeted_η̂_template.fluctuation.Ψ, 
+            η̂ₙ_train;
+            collaborative_strategy=nothing,
+            tol=targeted_η̂_template.fluctuation.tol,
+            max_iter=targeted_η̂_template.fluctuation.max_iter,
+            ps_lowerbound=targeted_η̂_template.fluctuation.ps_lowerbound,
+            weighted=targeted_η̂_template.fluctuation.weighted,
+            machine_cache=machine_cache
+        )
+        targeted_η̂ₙ_train = targeted_η̂_train(η, dataset_train;
+            cache=cache,
             verbosity=verbosity-1,
             machine_cache=machine_cache
         )
+        val_loss += evaluate_candidate(targeted_η̂ₙ_train, dataset_val)
+        push!(cv_candidate, targeted_η̂ₙ_train)
     end
+    return [(estimates=cv_candidate, loss=val_loss)]
 end
-evaluate_candidate(candidate, outcome, dataset) =
-    mean(TMLE.compute_residuals(candidate.outcome_mean, outcome, dataset))
+
+
+function evaluate_cv_candidate!(cv_candidates, η, targeted_η̂_template, propensity_score, propensity_score_estimator, dataset; 
+    use_fluct=false,
+    verbosity=1,
+    cache=Dict(),
+    machine_cache=false
+    )
+    resampling = targeted_η̂_template.collaborative_strategy.resampling
+    last_cv_candidate = last(cv_candidates).estimates
+    outcome = η.outcome_mean.outcome
+    y = Tables.getcolumn(dataset, outcome)
+    val_loss = 0.
+    for (index, (train, val)) in enumerate(MLJBase.train_test_pairs(resampling, 1:nrows(dataset), dataset, y))
+        # Split dataset into training and validation sets
+        dataset_train = selectrows(dataset, train)
+        dataset_val = selectrows(dataset, val)
+        # Update propensity score estimate
+        propensity_score_estimate = propensity_score_estimator(
+            propensity_score,
+            dataset_train;
+            cache=cache,
+            verbosity=verbosity,
+            machine_cache=machine_cache
+        )
+        # Target Q̄ estimator
+        targeted_η̂ₙ_train, _ = get_new_targeted_candidate(η, last_cv_candidate[index], targeted_η̂_template, propensity_score_estimate, dataset;
+            use_fluct=use_fluct,
+            verbosity=verbosity,
+            cache=cache,
+            machine_cache=machine_cache
+        )
+        val_loss += evaluate_candidate(targeted_η̂ₙ_train, dataset_val)
+    end
+    push!(cv_candidates, (estimates=cv_candidates, loss=val_loss))
+    return nothing
+end
+
+evaluate_candidate(candidate, dataset) =
+    sum(TMLE.compute_residuals(candidate.outcome_mean, dataset))
 
 function update_fluctuation_model(fluctuation_model;
     propensity_score_estimate=fluctuation_model.initial_factors.propensity_score, 
@@ -215,9 +334,9 @@ end
 adapt_and_getloss(ŷ::Vector{<:Real}) = ŷ, RootMeanSquaredError()
 adapt_and_getloss(ŷ::Vector{<:Distribution{Univariate, Distributions.Continuous}}) = TMLE.expected_value(ŷ), RootMeanSquaredError()
 
-function compute_residuals(conditional_density_estimate, outcome, dataset)
+function compute_residuals(conditional_density_estimate, dataset)
     ŷ = MLJBase.predict(conditional_density_estimate, dataset)
-    y = Tables.getcolumn(dataset, outcome)
+    y = Tables.getcolumn(dataset, conditional_density_estimate.estimand.outcome)
     ŷ, loss = TMLE.adapt_and_getloss(ŷ)
     return measurements(loss, ŷ, y)
 end

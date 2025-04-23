@@ -22,6 +22,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     )
     # Define the estimator
     cache = Dict()
+    resampling = StratifiedCV()
     machine_cache = false
     verbosity = 1
     collaborative_strategy = AdaptiveCorrelationOrdering(resampling=StratifiedCV())

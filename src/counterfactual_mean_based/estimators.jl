@@ -53,7 +53,7 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.resampling, tmle.models)
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
-        verbosity=verbosity, 
+        verbosity=verbosity,
         machine_cache=tmle.machine_cache
     )
     # Get propensity score truncation threshold
