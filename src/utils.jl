@@ -23,7 +23,19 @@ This is to avoid the complications of:
 """
 choose_initial_dataset(dataset, nomissing_dataset, resampling) = nomissing_dataset
 
-selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.columntable
+function maybe_with_intercept(dataset, parents)
+    dataset = if :COLLABORATIVE_INTERCEPT ∈ parents
+        merge(dataset, (;COLLABORATIVE_INTERCEPT=ones(nrows(dataset))))
+    else
+        dataset
+    end
+    return dataset
+end
+
+function selectcols(data, cols)
+    data = maybe_with_intercept(data, cols) # TODO: Ugly hack here, can I do better?
+    return data |> TableOperations.select(cols...) |> Tables.columntable
+end
 
 function logit!(v)
     for i in eachindex(v)

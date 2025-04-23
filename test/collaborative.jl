@@ -22,12 +22,15 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     )
     # Define the estimator
     cache = Dict()
+    machine_cache = false
     verbosity = 1
     collaborative_strategy = AdaptiveCorrelationOrdering(resampling=StratifiedCV())
     tmle = TMLEE(;collaborative_strategy=collaborative_strategy)
-    # Initialize the relevant factors' estimates
-    η = TMLE.get_relevant_factors(Ψ)
-    initial_factors_estimator = TMLE.CMRelevantFactorsEstimator(tmle.resampling, tmle.collaborative_strategy, tmle.models)
+    # Initialize the relevant factors, no confounder is present in the propensity score
+    η = TMLE.get_relevant_factors(Ψ, collaborative_strategy=collaborative_strategy)
+    @test η.propensity_score == (TMLE.ConditionalDistribution(:T₁, (:COLLABORATIVE_INTERCEPT, :T₂)), TMLE.ConditionalDistribution(:T₂, (:COLLABORATIVE_INTERCEPT,)))
+
+    initial_factors_estimator = TMLE.CMRelevantFactorsEstimator(tmle.resampling, tmle.models)
     η̂ₙ = initial_factors_estimator(η, dataset; 
         cache=cache, 
         verbosity=verbosity, 
@@ -49,7 +52,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
         cache=cache, 
         verbosity=verbosity,
         machine_cache=tmle.machine_cache
-    )
+    );
 
     getfield.(candidates, :loss)
 

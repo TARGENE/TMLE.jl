@@ -29,28 +29,19 @@ outcome_mean_fluctuation_fit_error_msg(factor) = string(
 
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
-struct CMRelevantFactorsEstimator{S <: Union{Nothing, CollaborativeStrategy}} <: Estimator
+struct CMRelevantFactorsEstimator <: Estimator
     resampling::Union{Nothing, ResamplingStrategy}
-    collaborative_strategy::S
     models::Dict
 end
 
-function CMRelevantFactorsEstimator(;
-    models, 
-    resampling=nothing, 
-    collaborative_strategy::S=nothing
-    ) where S <: Union{Nothing, CollaborativeStrategy}
-    return CMRelevantFactorsEstimator{S}(resampling, collaborative_strategy, models)
-end
+CMRelevantFactorsEstimator(;models, resampling=nothing) = CMRelevantFactorsEstimator(resampling, models)
 
 key(estimator::CMRelevantFactorsEstimator) = 
-    (CMRelevantFactorsEstimator, estimator.resampling, estimator.collaborative_strategy, estimator.models)
+    (CMRelevantFactorsEstimator, estimator.resampling, estimator.models)
 
-get_train_validation_indices(resampling, collaborative_strategy, factors, dataset) = nothing
+get_train_validation_indices(resampling, factors, dataset) = nothing
 
-get_train_validation_indices(resampling::ResamplingStrategy, collaborative_strategy::CollaborativeStrategy, factors, dataset) = nothing
-
-function get_train_validation_indices(resampling::ResamplingStrategy, collaborative_strategy::Nothing, factors, dataset)
+function get_train_validation_indices(resampling::ResamplingStrategy, factors, dataset)
     relevant_columns = collect(variables(factors))
     outcome_variable = factors.outcome_mean.outcome
     feature_variables = filter(x -> x !== outcome_variable, relevant_columns)
@@ -75,9 +66,7 @@ function acquire_model(models, key, dataset, is_propensity_score)
 end
 
 function build_propensity_score_estimator(propensity_score, models, dataset;
-    collaborative_strategy=nothing,
     train_validation_indices=nothing,
-    confounders=Symbol[]
     )
     cd_estimators = Dict()
     for conditional_distribution in propensity_score
@@ -85,15 +74,10 @@ function build_propensity_score_estimator(propensity_score, models, dataset;
         model = acquire_model(models, outcome, dataset, true)
         cd_estimators[outcome] = ConditionalDistributionEstimator(model, train_validation_indices)
     end
-    return if collaborative_strategy === nothing
-        JointConditionalDistributionEstimator(cd_estimators)
-    else
-        CollaborativePSEstimator(collaborative_strategy, cd_estimators; confounders=confounders)
-    end
+    return JointConditionalDistributionEstimator(cd_estimators)
 end
 
 function estimate_propensity_score(propensity_score, models, dataset;
-    collaborative_strategy=nothing,
     train_validation_indices=nothing,
     cache=Dict(),
     verbosity=1,
@@ -103,7 +87,6 @@ function estimate_propensity_score(propensity_score, models, dataset;
         propensity_score, 
         models,  
         dataset;
-        collaborative_strategy=collaborative_strategy, 
         train_validation_indices=train_validation_indices,
     )
     return propensity_score_estimator(
@@ -147,12 +130,10 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
     outcome_mean = estimand.outcome_mean
     propensity_score = estimand.propensity_score
     resampling = estimator.resampling
-    collaborative_strategy = estimator.collaborative_strategy
     # Get train validation indices
-    train_validation_indices = get_train_validation_indices(resampling, collaborative_strategy, estimand, dataset)
+    train_validation_indices = get_train_validation_indices(resampling, estimand, dataset)
     # Estimate propensity score
     propensity_score_estimate = estimate_propensity_score(propensity_score, models, dataset;
-        collaborative_strategy=collaborative_strategy,
         train_validation_indices=train_validation_indices,
         cache=cache,
         verbosity=verbosity,

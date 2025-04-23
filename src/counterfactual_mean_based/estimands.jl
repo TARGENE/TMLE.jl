@@ -124,7 +124,7 @@ outcome_mean(Ψ::StatisticalCMCompositeEstimand) = ExpectedValue(Ψ.outcome, Tup
 
 outcome_mean_key(Ψ::StatisticalCMCompositeEstimand) = variables(outcome_mean(Ψ))
 
-function propensity_score(Ψ::StatisticalCMCompositeEstimand)
+function propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_strategy=nothing)
     Ψtreatments = TMLE.treatments(Ψ)
     return Tuple(map(eachindex(Ψtreatments)) do index
         T = Ψtreatments[index]
@@ -135,9 +135,9 @@ end
 
 propensity_score_key(Ψ::StatisticalCMCompositeEstimand) = Tuple(variables(x) for x ∈ propensity_score(Ψ))
 
-function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand)
+function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand; collaborative_strategy=nothing)
     outcome_model = outcome_mean(Ψ)
-    treatment_factors = propensity_score(Ψ)
+    treatment_factors = propensity_score(Ψ, collaborative_strategy)
     return CMRelevantFactors(outcome_model, treatment_factors)
 end
 

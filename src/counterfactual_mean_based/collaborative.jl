@@ -9,57 +9,66 @@ This strategy can be used to adaptively select the best confounding variables fo
 """
 struct AdaptiveCorrelationOrdering <: CollaborativeStrategy 
     resampling::ResamplingStrategy
+    remaining_confounders::Set{Symbol}
+    current_confounders::Set{Symbol}
+    AdaptiveCorrelationOrdering(resampling) = new(resampling, Set{Symbol}(), Set{Symbol}())
 end
 
 AdaptiveCorrelationOrdering(;resampling=StratifiedCV()) = AdaptiveCorrelationOrdering(resampling)
 
-#####################################################################
-###           AdaptiveCorrelationOrderingPSEstimator              ###
-#####################################################################
-
-struct AdaptiveCorrelationOrderingPSEstimator <: Estimator
-    cd_estimators::Dict
-    confounders::Vector{Symbol}
+function initialise!(strategy::AdaptiveCorrelationOrdering, Ψ)
+    empty!(strategy.remaining_confounders)
+    union!(strategy.remaining_confounders, Set(Iterators.flatten(values(Ψ.treatment_confounders))))
+    empty!(strategy.current_confounders)
+    return nothing
 end
 
-CollaborativePSEstimator(collaborative_strategy::AdaptiveCorrelationOrdering, cd_estimators; confounders=Symbol[]) =
-    AdaptiveCorrelationOrderingPSEstimator(cd_estimators, confounders)
-
-function (estimator::AdaptiveCorrelationOrderingPSEstimator)(conditional_distributions, dataset; cache=Dict(), verbosity=1, machine_cache=false)
-    # Add Intercept to dataset
-    dataset = merge(dataset, (;COLLABORATIVE_INTERCEPT=ones(nrows(dataset))))
-
-    # Define the restricted conditional distributions
-    treatment_variables = outcome_set(conditional_distributions)
-
-    restricted_conditional_distributions = map(conditional_distributions) do conditional_distribution
-        # Only keep parents in the restricted set or being a treatment variable
-        new_parents = filter(x -> x ∈ union(estimator.confounders, treatment_variables), conditional_distribution.parents)
-        # Add the intercept
-        new_parents = (new_parents..., :COLLABORATIVE_INTERCEPT)
-        ConditionalDistribution(conditional_distribution.outcome, new_parents)
+function update!(strategy, dataset, residuals)
+    max_cor = 0.
+    best_confounder = :nothing
+    for confounder in strategy.remaining_confounders
+        σ = abs(cor(Tables.getcolumn(dataset, confounder), residuals))
+        if σ > max_cor
+            max_cor = σ
+            best_confounder = confounder
+        end
     end
-
-    estimates = fit_conditional_distributions(estimator.cd_estimators, restricted_conditional_distributions, dataset; 
-        cache=cache, 
-        verbosity=verbosity, 
-        machine_cache=machine_cache
-    )
-    return AdaptiveCorrelationOrderingPSEstimate(restricted_conditional_distributions, estimates)
+    delete!(strategy.remaining_confounders, best_confounder)
+    push!(strategy.current_confounders, best_confounder)
+    return nothing
 end
 
-#####################################################################
-###           AdaptiveCorrelationOrderingPSEstimate               ###
-#####################################################################
 
-struct AdaptiveCorrelationOrderingPSEstimate{T, N} <: Estimate
-    estimand::Tuple{Vararg{ConditionalDistribution, N}}
-    components::Tuple{Vararg{T, N}}
+function finalise!(strategy::AdaptiveCorrelationOrdering)
+    empty!(strategy.remaining_confounders)
+    empty!(strategy.current_confounders)
+    return nothing
+end
+
+function propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_strategy::AdaptiveCorrelationOrdering)
+    Ψtreatments = TMLE.treatments(Ψ)
+    return Tuple(map(eachindex(Ψtreatments)) do index
+        T = Ψtreatments[index]
+        confounders = (Ψtreatments[index+1:end]..., collaborative_strategy.current_confounders..., :COLLABORATIVE_INTERCEPT)
+        ConditionalDistribution(T, confounders)
+    end)
 end
 
 #####################################################################
 ###              Targeting AdaptiveCorrelationOrdering            ###
 #####################################################################
+
+function retrieve_propensity_score_models(estimator)
+    propensity_score_estimate = estimator.fluctuation.initial_factors.propensity_score
+    return Dict(cd.outcome => cde.machine.model for (cd, cde) in zip(propensity_score_estimate.estimand, propensity_score_estimate.components))
+end
+
+function get_new_propensity_score(collaborative_strategy::AdaptiveCorrelationOrdering, Ψ, last_candidate, dataset)
+    Q̂n = last_candidate.outcome_mean
+    residuals = compute_residuals(Q̂n, Ψ.outcome, dataset)
+    update!(collaborative_strategy, dataset, residuals)
+    return propensity_score(Ψ, collaborative_strategy)
+end
 
 function get_new_targeted_candidate(η, fluctuation_model, dataset;
     propensity_score_estimate=fluctuation_model.initial_factors.propensity_score,
@@ -93,41 +102,40 @@ function (estimator::TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrder
     verbosity=1, 
     machine_cache=false
     )
-    dataset = merge(dataset, (;COLLABORATIVE_INTERCEPT=ones(nrows(dataset))))
+    collaborative_strategy = estimator.collaborative_strategy
+    Ψ = estimator.fluctuation.Ψ
     fluctuation_model = estimator.fluctuation
-    outcome = η.outcome_mean.outcome
-    outcome_mean_estimate = estimator.fluctuation.initial_factors.outcome_mean
-    propensity_score_estimate = estimator.fluctuation.initial_factors.propensity_score
-    propensity_score_models = Dict(cd.outcome => cde.machine.model for (cd, cde) in zip(propensity_score_estimate.estimand, propensity_score_estimate.components))
-    treatment_variables = TMLE.outcome_set(η.propensity_score)
-    remaining_confounders = TMLE.get_confounders(η.propensity_score, treatment_variables)
+    propensity_score_models = retrieve_propensity_score_models(estimator)
+    # Initialize the collaborative strategy
+    TMLE.initialise!(estimator.collaborative_strategy, Ψ)
+    
     # Initialize Candidates: the fluctuation is fitted through the initial outcome mean and propensity score
     candidate, loss = TMLE.get_new_targeted_candidate(η, fluctuation_model, dataset;
         verbosity=verbosity-1,
         machine_cache=machine_cache
         )
     candidates = [(estimates=candidate, loss=loss)]
-    # Loop through variables
-    current_confounders = Symbol[]
-    while length(remaining_confounders) > 0
+    # Initialise cross-validation loss
+    # η̂_cv = CMRelevantFactorsEstimator(estimator.collaborative_strategy.resampling, estimator.models)
+
+    # Collaborative Loop
+    while length(collaborative_strategy.remaining_confounders) > 0
         # Find the confounder most correlated with the residuals
-        residuals_ = TMLE.compute_residuals(outcome_mean_estimate, outcome, dataset)
-        TMLE.update_with_most_correlated!(remaining_confounders, current_confounders, dataset, residuals_)
-        verbosity > 0 && @info "The propensity score will use: $(current_confounders)"
-        # Fit propensity score
-        propensity_score_estimator = TMLE.build_propensity_score_estimator(
-            η.propensity_score,
+        last_candidate = last(candidates).estimates
+        propensity_score = TMLE.get_new_propensity_score(collaborative_strategy, Ψ, last_candidate, dataset)
+        verbosity > 0 && @info "The propensity score will use: $(propensity_score)"
+        # Estimate propensity score on full dataset
+        propensity_score_estimator = build_propensity_score_estimator(
+            propensity_score, 
             propensity_score_models,  
             dataset;
-            collaborative_strategy=estimator.collaborative_strategy, 
             train_validation_indices=nothing,
-            confounders=current_confounders
         )
         propensity_score_estimate = propensity_score_estimator(
-            η.propensity_score, 
-            dataset; 
-            cache=cache, 
-            verbosity=verbosity-1, 
+            propensity_score, 
+            dataset;
+            cache=cache,
+            verbosity=verbosity-1,
             machine_cache=machine_cache
         )
         # Fluctuate outcome model through the new propensity score
@@ -140,19 +148,13 @@ function (estimator::TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrder
             # Fluctuate through Q̄* from the previous candidate
             candidate, loss = get_new_targeted_candidate(η, fluctuation_model, dataset;
                 propensity_score_estimate=propensity_score_estimate,
-                outcome_mean_estimate=last(candidates).estimates.outcome_mean,
+                outcome_mean_estimate=last_candidate.outcome_mean,
                 verbosity=verbosity-1,
                 machine_cache=machine_cache
             )
         end
-        push!(candidates, (estimates=candidate, loss=loss))
-    end
 
-    y = Tables.getcolumn(dataset, outcome)
-    for (train, val) in MLJBase.train_test_pairs(estimator.collaborative_strategy.resampling, 1:nrows(dataset), y)
-        for candidate in candidates
-            
-        end
+        push!(candidates, (estimates=candidate, loss=loss))
     end
     # Select the best candidate by penalized cross-validation
     
@@ -163,6 +165,32 @@ end
 ###                           Functions                           ###
 #####################################################################
 
+function cv_evaluate_candidate(candidate, propensity_score_estimator, η, dataset; 
+    resampling=StratifiedCV(),
+    cache=Dict(),
+    verbosity=1,
+    machine_cache=false
+    )
+    outcome = η.outcome_mean.outcome
+    y = Tables.getcolumn(dataset, outcome)
+    for (train, val) in MLJBase.train_test_pairs(resampling, 1:nrows(dataset), dataset, y)
+        dataset_train = selectrows(dataset, train)
+        dataset_val = selectrows(dataset, val)
+        propensity_score_estimate = propensity_score_estimator(
+            η.propensity_score, 
+            dataset_train;
+            cache=cache,
+            verbosity=verbosity-1,
+            machine_cache=machine_cache
+        )
+        candidate, loss = get_new_targeted_candidate(η, fluctuation_model, dataset_train;
+            propensity_score_estimate=propensity_score_estimate,
+            outcome_mean_estimate=#TODO,
+            verbosity=verbosity-1,
+            machine_cache=machine_cache
+        )
+    end
+end
 evaluate_candidate(candidate, outcome, dataset) =
     mean(TMLE.compute_residuals(candidate.outcome_mean, outcome, dataset))
 
@@ -200,19 +228,3 @@ get_confounders(conditional_distributions, treatments) = setdiff(
     union((cd.parents for cd in conditional_distributions)...),
     treatments
 )
-
-function update_with_most_correlated!(remaining_confounders, current_confounders, dataset, residuals)
-    max_cor = 0.
-    best_confounder = :nothing
-    best_index = 0
-    for (index, confounder) in enumerate(remaining_confounders)
-        σ = abs(cor(Tables.getcolumn(dataset, confounder), residuals))
-        if σ > max_cor
-            max_cor = σ
-            best_confounder = confounder
-            best_index = index
-        end
-    end
-    popat!(remaining_confounders, best_index)
-    push!(current_confounders, best_confounder)
-end

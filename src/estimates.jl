@@ -25,18 +25,8 @@ string_repr(estimate::MLConditionalDistribution) = string(
     Base.typename(typeof(estimate.machine.model)).wrapper
 )
 
-function maybe_with_intercept(dataset, parents)
-    dataset = if :COLLABORATIVE_INTERCEPT ∈ parents
-        merge(dataset, (;COLLABORATIVE_INTERCEPT=ones(nrows(dataset))))
-    else
-        dataset
-    end
-    return dataset
-end
-
 function MLJBase.predict(estimate::MLConditionalDistribution, dataset)
     parents = estimate.estimand.parents
-    dataset = maybe_with_intercept(dataset, parents) # TODO: Ugly hack here, can I do better?
     X = selectcols(dataset, parents)
     return predict(estimate.machine, X)
 end

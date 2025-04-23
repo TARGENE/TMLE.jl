@@ -47,10 +47,10 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
-    relevant_factors = get_relevant_factors(Ψ)
+    relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, tmle.resampling)
-    initial_factors_estimator = CMRelevantFactorsEstimator(tmle.resampling, tmle.collaborative_strategy, tmle.models)
+    initial_factors_estimator = CMRelevantFactorsEstimator(tmle.resampling, tmle.models)
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
         verbosity=verbosity, 
@@ -133,10 +133,10 @@ function (ose::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
-    initial_factors = get_relevant_factors(Ψ)
+    initial_factors = get_relevant_factors(Ψ, collaborative_strategy=ose.collaborative_strategy)
     nomissing_dataset = nomissing(dataset, variables(initial_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling)
-    initial_factors_estimator = CMRelevantFactorsEstimator(ose.resampling, ose.collaborative_strategy, ose.models)
+    initial_factors_estimator = CMRelevantFactorsEstimator(ose.resampling, ose.models)
     initial_factors_estimate = initial_factors_estimator(
         initial_factors, 
         initial_factors_dataset;
