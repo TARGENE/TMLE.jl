@@ -92,6 +92,48 @@ function build_propensity_score_estimator(propensity_score, models, dataset;
     end
 end
 
+function estimate_propensity_score(propensity_score, models, dataset;
+    collaborative_strategy=nothing,
+    train_validation_indices=nothing,
+    cache=Dict(),
+    verbosity=1,
+    machine_cache=false
+    )
+    propensity_score_estimator = build_propensity_score_estimator(
+        propensity_score, 
+        models,  
+        dataset;
+        collaborative_strategy=collaborative_strategy, 
+        train_validation_indices=train_validation_indices,
+    )
+    return propensity_score_estimator(
+        propensity_score, 
+        dataset;
+        cache=cache,
+        verbosity=verbosity,
+        machine_cache=machine_cache
+    )
+end
+
+function estimate_outcome_mean(outcome_mean, models, dataset;
+    train_validation_indices=nothing,
+    cache=Dict(),
+    verbosity=1,
+    machine_cache=false
+    )
+    outcome_model = acquire_model(models, outcome_mean.outcome, dataset, false)
+    outcome_mean_estimator = ConditionalDistributionEstimator(
+        outcome_model,
+        train_validation_indices, 
+    )
+    return try_fit_ml_estimator(outcome_mean_estimator, outcome_mean, dataset;
+        error_fn=outcome_mean_fit_error_msg,
+        cache=cache,
+        verbosity=verbosity,
+        machine_cache=machine_cache
+    )
+end
+
 function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     if haskey(cache, estimand)
         old_estimator, estimate = cache[estimand]
@@ -108,29 +150,17 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
     collaborative_strategy = estimator.collaborative_strategy
     # Get train validation indices
     train_validation_indices = get_train_validation_indices(resampling, collaborative_strategy, estimand, dataset)
-    # Fit propensity score
-    propensity_score_estimator = build_propensity_score_estimator(
-        propensity_score, 
-        models,  
-        dataset;
-        collaborative_strategy=collaborative_strategy, 
+    # Estimate propensity score
+    propensity_score_estimate = estimate_propensity_score(propensity_score, models, dataset;
+        collaborative_strategy=collaborative_strategy,
         train_validation_indices=train_validation_indices,
-    )
-    propensity_score_estimate = propensity_score_estimator(
-        propensity_score, 
-        dataset;
         cache=cache,
         verbosity=verbosity,
         machine_cache=machine_cache
     )
-    # Fit outcome mean
-    outcome_model = acquire_model(models, outcome_mean.outcome, dataset, false)
-    outcome_mean_estimator = ConditionalDistributionEstimator(
-        outcome_model,
-        train_validation_indices, 
-    )
-    outcome_mean_estimate = try_fit_ml_estimator(outcome_mean_estimator, outcome_mean, dataset;
-        error_fn=outcome_mean_fit_error_msg,
+    # Estimate outcome mean
+    outcome_mean_estimate = estimate_outcome_mean(outcome_mean, models, dataset;
+        train_validation_indices=train_validation_indices,
         cache=cache,
         verbosity=verbosity,
         machine_cache=machine_cache
