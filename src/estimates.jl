@@ -48,6 +48,8 @@ end
 
 """
 Holds a Sample Split Machine Learning estimate for a Conditional Distribution.
+Each machine in `machines` contains a ML model trained on a different training fold of the data.
+The predictions are made out of fold, i.e. for each fold k, the predictions are made using the machine trained on fold k̄.
 """
 struct SampleSplitMLConditionalDistribution <: Estimate
     estimand::ConditionalDistribution

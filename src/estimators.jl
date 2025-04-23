@@ -40,6 +40,9 @@ key(estimator::MLConditionalDistributionEstimator) =
 ###       SampleSplitMLConditionalDistributionEstimator           ###
 #####################################################################
 
+"""
+Estimates a conditional distribution (or regression) for each training set defined by `train_validation_indices`.
+"""
 struct SampleSplitMLConditionalDistributionEstimator <: Estimator
     model::MLJBase.Supervised
     train_validation_indices::Tuple
