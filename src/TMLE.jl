@@ -47,10 +47,10 @@ export AdaptiveCorrelationOrdering
 # INCLUDES
 # #############################################################################
 
-include("utils.jl")
 include("scm.jl")
 include("adjustment.jl")
 include("estimands.jl")
+include("utils.jl")
 include("estimates.jl")
 include("estimators.jl")
 include("treatment_transformer.jl")

@@ -1,7 +1,7 @@
 abstract type Estimator end
 
 #####################################################################
-###             MLFoldsConditionalDistributionEstimator            ###
+###            MLFoldsConditionalDistributionEstimator            ###
 #####################################################################
 
 """

@@ -168,3 +168,29 @@ function try_fit_ml_estimator(ml_estimator, conditional_distribution, dataset;
         throw(FitFailedError(conditional_distribution, error_fn(conditional_distribution), e))
     end
 end
+
+
+struct FitFailedError <: Exception
+    estimand::Estimand
+    msg::String
+    origin::Exception
+end
+
+default_fit_error_msg(factor) = string(
+    "Could not fit the following model: ", 
+    string_repr(factor), 
+    ".\n Hint: don't forget to use `with_encoder` to encode categorical variables.")
+
+propensity_score_fit_error_msg(factor) = string("Could not fit the following propensity score model: ", string_repr(factor))
+
+outcome_mean_fit_error_msg(factor) = string(
+    "Could not fit the following Outcome mean model: ", 
+    string_repr(factor), 
+    ".\n Hint: don't forget to use `with_encoder` to encode categorical variables.")
+
+outcome_mean_fluctuation_fit_error_msg(factor) = string(
+    "Could not fluctuate the following Outcome mean: ", 
+    string_repr(factor), 
+    ".")
+
+Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
