@@ -91,7 +91,7 @@ function initialise_candidates(η, targeted_η̂_template, dataset;
         machine_cache=machine_cache
     )
     loss = evaluate_candidate(targeted_η̂ₙ, dataset)
-    return [(estimates=targeted_η̂ₙ, loss=loss)]
+    return [(candidate=targeted_η̂ₙ, loss=loss)]
 end
 
 
@@ -177,7 +177,7 @@ function (estimator::TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrder
     # Collaborative Loop
     while length(collaborative_strategy.remaining_confounders) > 0
         # Find the confounder most correlated with the residuals
-        last_candidate = last(candidates).estimates
+        last_candidate = last(candidates).candidate
         propensity_score, propensity_score_estimator = TMLE.get_new_propensity_score_and_estimator(
             collaborative_strategy, 
             Ψ, 
@@ -212,7 +212,7 @@ function (estimator::TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrder
                 machine_cache=machine_cache
             )
         end
-        push!(candidates, (estimates=candidate, loss=loss))
+        push!(candidates, (candidate=candidate, loss=loss))
         # Evaluate candidate
         TMLE.evaluate_cv_candidate!(cv_candidates, new_η, targeted_η̂_template, propensity_score, propensity_score_estimator, dataset; 
             use_fluct=use_fluct,
@@ -270,7 +270,7 @@ function initialise_cv_candidates(η, dataset, targeted_η̂_template, models;
         val_loss += evaluate_candidate(targeted_η̂ₙ_train, dataset_val)
         push!(cv_candidate, targeted_η̂ₙ_train)
     end
-    return [(estimates=cv_candidate, loss=val_loss)]
+    return [(candidate=cv_candidate, loss=val_loss)]
 end
 
 
@@ -281,7 +281,7 @@ function evaluate_cv_candidate!(cv_candidates, η, targeted_η̂_template, prope
     machine_cache=false
     )
     resampling = targeted_η̂_template.collaborative_strategy.resampling
-    last_cv_candidate = last(cv_candidates).estimates
+    last_cv_candidate = last(cv_candidates).candidate
     outcome = η.outcome_mean.outcome
     y = Tables.getcolumn(dataset, outcome)
     val_loss = 0.
@@ -306,7 +306,7 @@ function evaluate_cv_candidate!(cv_candidates, η, targeted_η̂_template, prope
         )
         val_loss += evaluate_candidate(targeted_η̂ₙ_train, dataset_val)
     end
-    push!(cv_candidates, (estimates=cv_candidates, loss=val_loss))
+    push!(cv_candidates, (candidate=cv_candidates, loss=val_loss))
     return nothing
 end
 
