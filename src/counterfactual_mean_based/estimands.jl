@@ -6,7 +6,7 @@
 Defines relevant factors that need to be estimated in order to estimate any
 Counterfactual Mean composite estimand (see `StatisticalCMCompositeEstimand`).
 """
-struct CMRelevantFactors <: Estimand
+@auto_hash_equals struct CMRelevantFactors <: Estimand
     outcome_mean::ConditionalDistribution
     propensity_score::Tuple{Vararg{ConditionalDistribution}}
 end

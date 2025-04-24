@@ -1,4 +1,3 @@
-
 MLJBase.report(factors::MLCMRelevantFactors) = MLJBase.report(factors.outcome_mean.machine)
 
 MLJBase.report(cache) = MLJBase.report(cache[:targeted_factors])

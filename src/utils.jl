@@ -2,16 +2,17 @@
 ## General Utilities
 ###############################################################################
 
+function update_cache!(cache, estimand, estimator, estimate)
+    estimand_cache = get!(cache, estimand, Dict())
+    estimand_cache[estimator] = estimate
+end
 
 function estimate_from_cache(cache, estimand, estimator; verbosity=1)
-    if haskey(cache, estimand)
-        old_estimator, estimate = cache[estimand]
-        if key(old_estimator) == key(estimator)
-            verbosity > 0 && @info(reuse_string(estimand))
-            return estimate
-        end
-    end
-    return nothing
+    estimand_cache = get(cache, estimand, nothing)
+    estimand_cache === nothing && return nothing
+    estimate = get(estimand_cache, estimator, nothing)
+    verbosity > 0 && estimate !== nothing && @info(reuse_string(estimand))
+    return estimate
 end
 
 reuse_string(estimand) = string("Reusing estimate for: ", string_repr(estimand))

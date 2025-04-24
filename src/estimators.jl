@@ -1,22 +1,33 @@
 abstract type Estimator end
 
 #####################################################################
+###             MLFoldsConditionalDistributionEstimator            ###
+#####################################################################
+
+"""
+    MLFoldsConditionalDistributionEstimator
+
+Estimates  conditional distribution (or regression) for dataset's subset identified by `fold`.
+"""
+@auto_hash_equals struct MLFoldsConditionalDistributionEstimator{T} <: Estimator
+    model::MLJBase.Supervised
+    train_validation_indices::Tuple
+end
+
+
+#####################################################################
 ###               MLConditionalDistributionEstimator              ###
 #####################################################################
 
-struct MLConditionalDistributionEstimator <: Estimator
+@auto_hash_equals struct MLConditionalDistributionEstimator <: Estimator
     model::MLJBase.Supervised
 end
 
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     # Lookup in cache
-    if haskey(cache, estimand)
-        old_estimator, estimate = cache[estimand]
-        if key(old_estimator) == key(estimator)
-            verbosity > 0 && @info(reuse_string(estimand))
-            return estimate
-        end
-    end
+    estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
+    estimate !== nothing && return estimate
+
     verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
     # Otherwise estimate
     relevant_dataset = nomissing(dataset, variables(estimand))
@@ -28,7 +39,7 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cach
     # Build estimate
     estimate = MLConditionalDistribution(estimand, mach)
     # Update cache
-    cache[estimand] = estimator => estimate
+    update_cache!(cache, estimand, estimator, estimate)
 
     return estimate
 end
@@ -43,20 +54,16 @@ key(estimator::MLConditionalDistributionEstimator) =
 """
 Estimates a conditional distribution (or regression) for each training set defined by `train_validation_indices`.
 """
-struct SampleSplitMLConditionalDistributionEstimator <: Estimator
+@auto_hash_equals struct SampleSplitMLConditionalDistributionEstimator <: Estimator
     model::MLJBase.Supervised
     train_validation_indices::Tuple
 end
 
 function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     # Lookup in cache
-    if haskey(cache, estimand)
-        old_estimator, estimate = cache[estimand]
-        if key(old_estimator) == key(estimator)
-            verbosity > 0 && @info(reuse_string(estimand))
-            return estimate
-        end
-    end
+    estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
+    estimate !== nothing && return estimate
+
     # Otherwise estimate
     verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
     
@@ -75,7 +82,7 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     # Build estimate
     estimate = SampleSplitMLConditionalDistribution(estimand, estimator.train_validation_indices, machines)
     # Update cache
-    cache[estimand] = estimator => estimate
+    update_cache!(cache, estimand, estimator, estimate)
 
     return estimate
 end
@@ -94,7 +101,7 @@ ConditionalDistributionEstimator(model, train_validation_indices) =
 ###            JointConditionalDistributionEstimator              ###
 #####################################################################
 
-struct JointConditionalDistributionEstimator <: Estimator 
+@auto_hash_equals struct JointConditionalDistributionEstimator <: Estimator 
     cd_estimators::Dict{Symbol, Any}
 end
 

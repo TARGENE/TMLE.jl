@@ -42,7 +42,7 @@ end
             :Y => with_encoder(InteractionTransformer(order=2) |> LinearRegressor()), 
             :T => LogisticClassifier())
     )
-    η̂ₙ = η̂(η, dataset, verbosity = 0)    
+    η̂ₙ = η̂(η, dataset, verbosity = 0)
     # Retrieve conditional distributions and fitted_params
     Q = η̂ₙ.outcome_mean
     G = η̂ₙ.propensity_score
@@ -54,7 +54,8 @@ end
     expected_ctf_agg = (intercept .+ coefs[:T] .+ dataset.W.*coefs[:W] .+ dataset.W.*coefs[:T_W]) .- (intercept .+ dataset.W.*coefs[:W])
     @test ctf_agg ≈ expected_ctf_agg atol=1e-10
     # Gradient Y|X
-    H = 1 ./ pdf.(predict(G[1].machine), dataset.T) .* [t == 1 ? 1. : -1. for t in dataset.T]
+    ps_machine = only(G.components).machine
+    H = 1 ./ pdf.(predict(ps_machine), dataset.T) .* [t == 1 ? 1. : -1. for t in dataset.T]
     expected_∇YX = H .* (dataset.Y .- predict(Q.machine))
     ∇YX = TMLE.∇YX(Ψ, Q, G, dataset; ps_lowerbound=ps_lowerbound)
     @test expected_∇YX == ∇YX

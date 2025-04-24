@@ -29,7 +29,7 @@ outcome_mean_fluctuation_fit_error_msg(factor) = string(
 
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
-struct CMRelevantFactorsEstimator <: Estimator
+@auto_hash_equals struct CMRelevantFactorsEstimator <: Estimator
     resampling::Union{Nothing, ResamplingStrategy}
     models::Dict
 end
@@ -118,13 +118,11 @@ function estimate_outcome_mean(outcome_mean, models, dataset;
 end
 
 function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
-    if haskey(cache, estimand)
-        old_estimator, estimate = cache[estimand]
-        if key(old_estimator) == key(estimator)
-            verbosity > 0 && @info(reuse_string(estimand))
-            return estimate
-        end
-    end
+    # Lookup in cache
+    estimate = estimate_from_cache(cache, estimand, estimator; verbosity=1)
+    estimate !== nothing && return estimate
+
+    # Otherwise estimate
     verbosity > 0 && @info(string("Required ", string_repr(estimand)))
     models = estimator.models
     outcome_mean = estimand.outcome_mean
@@ -149,7 +147,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
     # Build estimate
     estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate)
     # Update cache
-    cache[estimand] = estimator => estimate
+    update_cache!(cache, estimand, estimator, estimate)
 
     return estimate
 end

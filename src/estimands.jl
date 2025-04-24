@@ -74,7 +74,7 @@ key(estimand::Estimand) = estimand
 """
 Defines a Conditional Distribution estimand ``(outcome, parents) → P(outcome|parents)``.
 """
-struct ConditionalDistribution <: Estimand
+@auto_hash_equals struct ConditionalDistribution <: Estimand
     outcome::Symbol
     parents::Tuple{Vararg{Symbol}}
     function ConditionalDistribution(outcome, parents)
