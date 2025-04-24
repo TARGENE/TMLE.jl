@@ -2,6 +2,18 @@
 ## General Utilities
 ###############################################################################
 
+
+function estimate_from_cache(cache, estimand, estimator; verbosity=1)
+    if haskey(cache, estimand)
+        old_estimator, estimate = cache[estimand]
+        if key(old_estimator) == key(estimator)
+            verbosity > 0 && @info(reuse_string(estimand))
+            return estimate
+        end
+    end
+    return nothing
+end
+
 reuse_string(estimand) = string("Reusing estimate for: ", string_repr(estimand))
 fit_string(estimand) = string("Estimating: ", string_repr(estimand))
 
