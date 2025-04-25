@@ -20,6 +20,15 @@ string_repr(estimate::MLCMRelevantFactors) = string(
 )
 
 #####################################################################
+###                       FoldsMLCMRelevantFactors                     ###
+#####################################################################
+
+struct FoldsMLCMRelevantFactors <: Estimate
+    estimand::CMRelevantFactors
+    estimates::Vector{MLCMRelevantFactors}
+end
+
+#####################################################################
 ###                   One Dimensional Estimates                   ###
 #####################################################################
 

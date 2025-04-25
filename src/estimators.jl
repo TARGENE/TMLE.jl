@@ -1,27 +1,16 @@
 abstract type Estimator end
 
 #####################################################################
-###            MLFoldsConditionalDistributionEstimator            ###
-#####################################################################
-
-"""
-    MLFoldsConditionalDistributionEstimator
-
-Estimates  conditional distribution (or regression) for dataset's subset identified by `fold`.
-"""
-@auto_hash_equals struct MLFoldsConditionalDistributionEstimator{T} <: Estimator
-    model::MLJBase.Supervised
-    train_validation_indices::Tuple
-end
-
-
-#####################################################################
 ###               MLConditionalDistributionEstimator              ###
 #####################################################################
 
 @auto_hash_equals struct MLConditionalDistributionEstimator <: Estimator
     model::MLJBase.Supervised
+    train_validation_indices
 end
+
+MLConditionalDistributionEstimator(models; train_validation_indices=nothing) = 
+    MLConditionalDistributionEstimator(models, train_validation_indices)
 
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     # Lookup in cache
@@ -31,6 +20,7 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cach
     verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
     # Otherwise estimate
     relevant_dataset = nomissing(dataset, variables(estimand))
+    relevant_dataset = training_rows(relevant_dataset, estimator.train_validation_indices)
     # Fit Conditional DIstribution using MLJ
     X = selectcols(relevant_dataset, estimand.parents)
     y = Tables.getcolumn(relevant_dataset, estimand.outcome)
@@ -44,6 +34,10 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cach
     return estimate
 end
 
+training_rows(dataset, train_validation_indices) = selectrows(dataset, train_validation_indices[1])
+
+training_rows(dataset, train_validation_indices::Nothing) = dataset
+
 key(estimator::MLConditionalDistributionEstimator) =
     (MLConditionalDistributionEstimator, estimator.model)
 
@@ -56,7 +50,7 @@ Estimates a conditional distribution (or regression) for each training set defin
 """
 @auto_hash_equals struct SampleSplitMLConditionalDistributionEstimator <: Estimator
     model::MLJBase.Supervised
-    train_validation_indices::Tuple
+    train_validation_indices
 end
 
 function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
@@ -90,10 +84,10 @@ end
 key(estimator::SampleSplitMLConditionalDistributionEstimator) =
     (MLConditionalDistributionEstimator, estimator.model, estimator.train_validation_indices)
 
-ConditionalDistributionEstimator(model, train_validation_indices::Nothing) =
-    MLConditionalDistributionEstimator(model)
+ConditionalDistributionEstimator(model, train_validation_indices::Union{Nothing,Tuple}) =
+    MLConditionalDistributionEstimator(model, train_validation_indices)
 
-ConditionalDistributionEstimator(model, train_validation_indices) =
+ConditionalDistributionEstimator(model, train_validation_indices::AbstractVector) =
     SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices)
 
     
@@ -131,7 +125,7 @@ function (estimator::JointConditionalDistributionEstimator)(conditional_distribu
 end
 
 #####################################################################
-###                   JointEstimand Estimator                  ###
+###                    JointEstimand Estimator                    ###
 #####################################################################
 
 """

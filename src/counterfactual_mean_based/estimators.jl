@@ -46,11 +46,13 @@ TMLEE(;models=default_models(), resampling=nothing, collaborative_strategy=nothi
 function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
+    # Make train-validation pairs
+    train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, tmle.resampling)
-    initial_factors_estimator = CMRelevantFactorsEstimator(tmle.resampling, tmle.models)
+    initial_factors_estimator = CMRelevantFactorsEstimator(train_validation_indices, tmle.models)
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
         verbosity=verbosity,
@@ -132,11 +134,13 @@ OSE(;models=default_models(), resampling=nothing, collaborative_strategy=nothing
 function (ose::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
+    # Make train-validation pairs
+    train_validation_indices = get_train_validation_indices(ose.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors
     initial_factors = get_relevant_factors(Ψ, collaborative_strategy=ose.collaborative_strategy)
     nomissing_dataset = nomissing(dataset, variables(initial_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling)
-    initial_factors_estimator = CMRelevantFactorsEstimator(ose.resampling, ose.models)
+    initial_factors_estimator = CMRelevantFactorsEstimator(train_validation_indices, ose.models)
     initial_factors_estimate = initial_factors_estimator(
         initial_factors, 
         initial_factors_dataset;

@@ -1,32 +1,55 @@
 abstract type CollaborativeStrategy end
 
+propensity_score(Ψ, collaborative_strategy::CollaborativeStrategy) = propensity_score(Ψ)
+
+#####################################################################
+###             FoldsCMRelevantFactorsEstimator                   ###
+#####################################################################
+
+@auto_hash_equals struct FoldsCMRelevantFactorsEstimator <: Estimator
+    models::Dict
+    train_validation_indices
+end
+
+FoldsCMRelevantFactorsEstimator(models; train_validation_indices=nothing) = 
+    FoldsCMRelevantFactorsEstimator(models, train_validation_indices)
+
+function (estimator::FoldsCMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
+    # Lookup in cache
+    estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
+    estimate !== nothing && return estimate
+
+    # Otherwise estimate
+    verbosity > 0 && @info(string("Required ", string_repr(estimand)))
+
+    estimates = []
+    for train_validation_indices in estimator.train_validation_indices
+        η̂ = CMRelevantFactorsEstimator(
+            train_validation_indices, 
+            estimator.models
+        )
+        η̂ₙ = η̂(estimand, dataset; cache=cache, verbosity=verbosity, machine_cache=machine_cache)
+        push!(estimates, η̂ₙ)
+    end
+
+    # Build estimate
+    estimate = FoldsMLCMRelevantFactors(estimand, estimates)
+    # Update cache
+    update_cache!(cache, estimand, estimator, estimate)
+
+    return estimate
+end
+
 #####################################################################
 ###                  CMRelevantFactorsEstimator                   ###
 #####################################################################
 
 @auto_hash_equals struct CMRelevantFactorsEstimator <: Estimator
-    resampling::Union{Nothing, ResamplingStrategy}
+    train_validation_indices
     models::Dict
 end
 
-CMRelevantFactorsEstimator(;models, resampling=nothing) = CMRelevantFactorsEstimator(resampling, models)
-
-key(estimator::CMRelevantFactorsEstimator) = 
-    (CMRelevantFactorsEstimator, estimator.resampling, estimator.models)
-
-get_train_validation_indices(resampling, factors, dataset) = nothing
-
-function get_train_validation_indices(resampling::ResamplingStrategy, factors, dataset)
-    relevant_columns = collect(variables(factors))
-    outcome_variable = factors.outcome_mean.outcome
-    feature_variables = filter(x -> x !== outcome_variable, relevant_columns)
-    return Tuple(MLJBase.train_test_pairs(
-        resampling,
-        1:nrows(dataset),
-        selectcols(dataset, feature_variables), 
-        Tables.getcolumn(dataset, outcome_variable)
-    ))
-end
+CMRelevantFactorsEstimator(;models, train_validation_indices=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models)
 
 function acquire_model(models, key, dataset, is_propensity_score)
     # If the model is in models return it
@@ -94,7 +117,7 @@ end
 
 function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     # Lookup in cache
-    estimate = estimate_from_cache(cache, estimand, estimator; verbosity=1)
+    estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
     estimate !== nothing && return estimate
 
     # Otherwise estimate
@@ -102,9 +125,8 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
     models = estimator.models
     outcome_mean = estimand.outcome_mean
     propensity_score = estimand.propensity_score
-    resampling = estimator.resampling
+    train_validation_indices = estimator.train_validation_indices
     # Get train validation indices
-    train_validation_indices = get_train_validation_indices(resampling, estimand, dataset)
     # Estimate propensity score
     propensity_score_estimate = estimate_propensity_score(propensity_score, models, dataset;
         train_validation_indices=train_validation_indices,
@@ -134,10 +156,12 @@ end
 struct TargetedCMRelevantFactorsEstimator{S <: Union{Nothing, CollaborativeStrategy}}
     fluctuation::Fluctuation
     collaborative_strategy::S
+    train_validation_indices
 end
 
 function TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate; 
-    collaborative_strategy::S=nothing, 
+    collaborative_strategy::S=nothing,
+    train_validation_indices=nothing,
     tol=nothing, 
     max_iter=1, 
     ps_lowerbound=1e-8, 
@@ -151,7 +175,7 @@ function TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate;
         weighted=weighted,
         cache=machine_cache
     )
-    return TargetedCMRelevantFactorsEstimator{S}(fluctuation_model, collaborative_strategy)
+    return TargetedCMRelevantFactorsEstimator{S}(fluctuation_model, collaborative_strategy, train_validation_indices)
 end
 
 """
@@ -162,7 +186,7 @@ function (estimator::TargetedCMRelevantFactorsEstimator{Nothing})(estimand, data
     fluctuation_model = estimator.fluctuation
     outcome_mean = fluctuation_model.initial_factors.outcome_mean.estimand
     # Fluctuate outcome model
-    fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model)
+    fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model, estimator.train_validation_indices)
     fluctuated_outcome_mean = try_fit_ml_estimator(fluctuated_estimator, outcome_mean, dataset;
         error_fn=outcome_mean_fluctuation_fit_error_msg,
         verbosity=verbosity,
@@ -176,4 +200,49 @@ function (estimator::TargetedCMRelevantFactorsEstimator{Nothing})(estimand, data
     cache[:targeted_factors] = estimate
 
     return estimate
+end
+
+#####################################################################
+###           FoldsTargetedCMRelevantFactorsEstimator             ###
+#####################################################################
+
+struct FoldsTargetedCMRelevantFactorsEstimator
+    estimators::Vector{TargetedCMRelevantFactorsEstimator}
+    train_validation_indices
+end
+
+function FoldsTargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate, train_validation_indices;
+    tol=nothing, 
+    max_iter=1, 
+    ps_lowerbound=1e-8, 
+    weighted=false, 
+    machine_cache=false
+    )
+    estimators = map(zip(initial_factors_estimate.estimates, train_validation_indices)) do (η̂ₙ, fold_train_val_indices)
+        TargetedCMRelevantFactorsEstimator(Ψ, η̂ₙ;
+            train_validation_indices=fold_train_val_indices,
+            tol=tol,
+            max_iter=max_iter, 
+            ps_lowerbound=ps_lowerbound, 
+            weighted=weighted,
+            machine_cache=machine_cache
+        )
+    end
+
+    return FoldsTargetedCMRelevantFactorsEstimator(estimators, train_validation_indices)
+end
+
+function (estimator::FoldsTargetedCMRelevantFactorsEstimator)(estimand, dataset; 
+    cache=Dict(), 
+    verbosity=1, 
+    machine_cache=false
+    )
+    estimates = [
+        fold_estimator(estimand, dataset; 
+            cache=cache, 
+            verbosity=verbosity, 
+            machine_cache=machine_cache
+        ) for fold_estimator in estimator.estimators]
+
+    return estimates
 end

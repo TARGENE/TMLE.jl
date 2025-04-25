@@ -43,7 +43,7 @@ The predictions are made out of fold, i.e. for each fold k, the predictions are 
 """
 struct SampleSplitMLConditionalDistribution <: Estimate
     estimand::ConditionalDistribution
-    train_validation_indices::Tuple
+    train_validation_indices
     machines::Vector{Machine}
 end
 

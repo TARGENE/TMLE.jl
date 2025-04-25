@@ -194,3 +194,16 @@ outcome_mean_fluctuation_fit_error_msg(factor) = string(
     ".")
 
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
+
+
+get_train_validation_indices(resampling, Ψ, dataset) = nothing
+
+function get_train_validation_indices(resampling::ResamplingStrategy, Ψ, dataset)
+    outcome_variable = Ψ.outcome
+    return collect(MLJBase.train_test_pairs(
+        resampling,
+        1:nrows(dataset),
+        dataset, 
+        Tables.getcolumn(dataset, outcome_variable)
+    ))
+end
