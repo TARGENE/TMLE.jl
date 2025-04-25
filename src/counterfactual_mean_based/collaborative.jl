@@ -179,10 +179,13 @@ function (estimator::TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrder
         machine_cache=machine_cache
     )
 
-    # Collaborative Loop
+    # Collaborative Loop to find the best candidate
+    candidate_id = 1
+    best_candidate = (candidate=only(candidates).candidate, cvloss=only(cv_candidates).loss, id=candidate_id)
     while length(collaborative_strategy.remaining_confounders) > 0
+        candidate_id += 1
         # Update the collaborative strategy's state
-        last_candidate = last(candidates).candidate
+        last_candidate, last_candidate_loss = last(candidates)
         update!(strategy, last_candidate, dataset)
 
         verbosity > 0 && @info "The propensity score will use: $(propensity_score)"
@@ -219,19 +222,25 @@ function (estimator::TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrder
         end
         push!(candidates, (candidate=candidate, loss=loss))
         # Evaluate candidate
-        TMLE.evaluate_cv_candidate!(cv_candidates, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+        last_cv_candidate, last_cv_loss = last(cv_candidates)
+        cv_candidate, cv_loss = TMLE.evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
             use_fluct=use_fluct,
             verbosity=verbosity,
             cache=cache,
             machine_cache=machine_cache
         )
-
+        push!(cv_candidates, (candidate=cv_candidate, loss=cv_loss))
+        # Update the best candidate or early stop
+        if cv_loss < last_cv_loss
+            best_candidate = (candidate=candidate, loss=cv_loss, id=candidate_id)
+        elseif candidate_id - best_candidate.id > estimator.patience
+            break
+        end
     end
-    # Select the best candidate by penalized cross-validation
     
     finalise!(collaborative_strategy)
 
-    return candidates
+    return best_candidate.candidate
 end
 
 #####################################################################
@@ -279,16 +288,15 @@ function compute_validation_loss(candidate, dataset, train_validation_indices)
     end
 end
 
-function evaluate_cv_candidate!(cv_candidates, fluctuation_model, propensity_score, models, dataset, train_validation_indices; 
+function evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, propensity_score, models, dataset, train_validation_indices; 
     use_fluct=false,
     verbosity=1,
     cache=Dict(),
     machine_cache=false
     )
-    last_cv_candidate = last(cv_candidates).candidate
     validation_loss = 0.
     fold_candidates = []
-    for (index, fold_train_val_indices) in enumerate(train_validation_indices)
+    for (fold_index, fold_train_val_indices) in enumerate(train_validation_indices)
         # Update propensity score estimate
         fold_propensity_score_estimator = build_propensity_score_estimator(
             propensity_score, 
@@ -304,7 +312,7 @@ function evaluate_cv_candidate!(cv_candidates, fluctuation_model, propensity_sco
             machine_cache=machine_cache
         )
         # Target Q̄ estimator
-        last_cv_fold_candidate = last_cv_candidate[index]
+        last_cv_fold_candidate = last_cv_candidate[fold_index]
         targeted_η̂ₙ_train, _ = get_new_targeted_candidate(
             last_cv_fold_candidate, 
             fold_propensity_score_estimate,
@@ -318,8 +326,7 @@ function evaluate_cv_candidate!(cv_candidates, fluctuation_model, propensity_sco
         validation_loss += loss_sum(targeted_η̂ₙ_train, selectrows(dataset, fold_train_val_indices[2]))
         push!(fold_candidates, targeted_η̂ₙ_train)
     end
-    push!(cv_candidates, (candidate=fold_candidates, loss=validation_loss))
-    return nothing
+    return fold_candidates, validation_loss
 end
 
 loss_sum(candidate, dataset) =

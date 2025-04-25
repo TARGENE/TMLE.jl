@@ -99,7 +99,6 @@ gradient_and_estimate(::TMLEE, Ψ, factors, dataset; ps_lowerbound=1e-8) =
 mutable struct OSE <: Estimator
     models::Dict
     resampling::Union{Nothing, ResamplingStrategy}
-    collaborative_strategy::Union{Nothing, CollaborativeStrategy}
     ps_lowerbound::Union{Float64, Nothing}
     machine_cache::Bool
 end
@@ -128,8 +127,8 @@ ose = OSE()
 Ψ̂ₙ, cache = ose(Ψ, dataset)
 ```
 """
-OSE(;models=default_models(), resampling=nothing, collaborative_strategy=nothing, ps_lowerbound=1e-8, machine_cache=false) = 
-    OSE(models, resampling, collaborative_strategy, ps_lowerbound, machine_cache)
+OSE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false) = 
+    OSE(models, resampling, ps_lowerbound, machine_cache)
 
 function (ose::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
@@ -137,7 +136,7 @@ function (ose::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     # Make train-validation pairs
     train_validation_indices = get_train_validation_indices(ose.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors
-    initial_factors = get_relevant_factors(Ψ, collaborative_strategy=ose.collaborative_strategy)
+    initial_factors = get_relevant_factors(Ψ)
     nomissing_dataset = nomissing(dataset, variables(initial_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling)
     initial_factors_estimator = CMRelevantFactorsEstimator(train_validation_indices, ose.models)

@@ -53,14 +53,9 @@ end
 
     # Both models unchanged, η̂ₙ is fully reused
     new_η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
-    @test TMLE.key(η, new_η̂) == TMLE.key(η, η̂)
     full_reuse_log = (:info, TMLE.reuse_string(η))
     @test_logs full_reuse_log new_η̂(η, dataset; cache=cache, verbosity=1)
     # Changing one model, only the other one is refitted
-    # new_models = Dict(
-    #     :Y  => with_encoder(LinearRegressor()), 
-    #     :T₁ => LogisticClassifier(fit_intercept=false)
-    # )
     models[:T₁] = LogisticClassifier(fit_intercept=false)
     new_η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
     partial_reuse_log = (
@@ -80,8 +75,8 @@ end
         (:warn, "f_tol is deprecated. Use f_abstol or f_reltol instead. The provided value (0.0001) will be used as f_reltol."),
         (:info, TMLE.fit_string(Q))
     )
-    resampled_η̂ = TMLE.CMRelevantFactorsEstimator(models=models, resampling=CV(nfolds=3))
-    @test TMLE.key(η, new_η̂) != TMLE.key(η, resampled_η̂)
+    train_validation_indices = MLJBase.train_test_pairs(CV(nfolds=3), 1:nrows(dataset), dataset)
+    resampled_η̂ = TMLE.CMRelevantFactorsEstimator(models=models, train_validation_indices=train_validation_indices)
     η̂ₙ = @test_logs cv_fit_log... resampled_η̂(η, dataset; cache=cache, verbosity=1)
     @test length(η̂ₙ.outcome_mean.machines) == 3
     ps_component = only(η̂ₙ.propensity_score.components)

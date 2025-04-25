@@ -15,7 +15,7 @@ using CategoricalArrays
 using TMLE
 using LogExpFunctions
 using MLJLinearModels
-using MLJ
+using MLJBase
 
 function make_dataset(;n=1000)
     rng = StableRNG(123)
