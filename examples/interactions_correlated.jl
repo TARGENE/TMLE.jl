@@ -27,6 +27,9 @@ using CairoMakie
 using MLJXGBoostInterface
 using MLJBase
 using MLJLinearModels
+using MLJTuning
+using StatisticalMeasures
+
 Random.seed!(123)
 
 μT(w) = [sum(w), sum(w)]
@@ -207,19 +210,52 @@ plot_across_sample_sizes_and_correlation_levels(results, ns, σs; title="Estimat
 First, notice that only extreme correlations (>0.9) tend to blow up the size of the confidence intervals. This implies that statistical power may be limited in such circumstances.
 
 Furthermore, and perhaps unexpectedly, coverage decreases as sample size grows for larger correlations. Since we have used simple linear models until now, 
-this could be due to model misspecification. We can verify this by using a more flexible modelling strategy. Here we will use XGBoost 
-(with tree_method=`hist` to speed things up a little). Because this model is prone to overfitting we will also use cross-validation (this will take a few minutes).
+this could be due to model misspecification bias. As sample size grows, the variance shrinks but the bias does not. We can verify this by using a more flexible modelling strategy, here we will use XGBoost.
 =#
 
 xgboost_estimator = TMLEE(
     models=default_models(G=XGBoostClassifier(tree_method="hist"), Q_continuous=XGBoostRegressor(tree_method="hist")),
     weighted=true,
-    resampling=StratifiedCV(nfolds=3)
 )
 xgboost_results = estimate_across_sample_sizes_and_correlation_levels(ns, σs, estimator=xgboost_estimator)
 plot_across_sample_sizes_and_correlation_levels(xgboost_results, ns, σs; title="Estimation via TMLE (XGboost)")
 
 #=
-As expected, XGBoost improves estimation performance in the asymptotic regime, furthermore, 
-the correlation between `T1` and `T2` seems harmless (except when σ > 0.9 as before).
+As expected, XGBoost improves estimation performance in the asymptotic regime, however, 
+the performance is the small sample size regime is deteriorated due to over-fitting. We can use a model selection (sometimes called discrete super learning) 
+approach to adaptively select the best model.
+=#
+
+lambdas = 10 .^ range(1, stop=-4, length=5)
+linear_regressors = [RidgeRegressor(lambda=λ) for λ in lambdas]
+logistic_classifiers = [LogisticClassifier(lambda=λ) for λ in lambdas]
+xgboost_classifiers = [XGBoostClassifier(tree_method="hist", lambda=λ, nthread=1) for λ in lambdas]
+xgboost_regressors = [XGBoostRegressor(tree_method="hist", lambda=λ, nthread=1) for λ in lambdas]
+
+sl_regressor = TunedModel(
+    models=vcat(linear_regressors, xgboost_regressors),
+    resampling=Holdout(),
+    measure=rmse,
+    check_measure=false
+)
+
+sl_classifier = TunedModel(
+    models=vcat(logistic_classifiers, xgboost_classifiers),
+    resampling=Holdout(),
+    measure=log_loss,
+    check_measure=false
+)
+
+
+sl_estimator = TMLEE(
+    models=default_models(G=sl_classifier, Q_continuous=sl_regressor),
+    weighted=true,
+)
+
+sl_results = estimate_across_sample_sizes_and_correlation_levels(ns, σs, estimator=sl_estimator)
+plot_across_sample_sizes_and_correlation_levels(sl_results, ns, σs; title="Estimation via TMLE (SL)")
+
+
+#=
+As we can see, the performance is now good across all sample sizes. Furthermore, the correlation between `T1` and `T2` seems harmless (except when σ > 0.9 as before).
 =#
