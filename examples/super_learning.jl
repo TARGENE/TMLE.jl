@@ -26,6 +26,11 @@ Let's consider the case where Y is categorical. In TMLE.jl, this could be useful
 We will use the following moons dataset:
 =#
 using MLJBase
+using MLJTuning
+using StatisticalMeasures
+using MLJXGBoostInterface
+using MLJLinearModels
+using NearestNeighborModels
 
 X, y = MLJ.make_moons(1000)
 nothing # hide
@@ -54,10 +59,6 @@ models(matching(X, y))
 
 Let's load a few packages providing models and build our first Stack:
 =#
-
-using MLJXGBoostInterface
-using MLJLinearModels
-using NearestNeighborModels
 
 resampling = StratifiedCV()
 metalearner = LogisticClassifier()
