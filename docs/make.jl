@@ -1,6 +1,9 @@
 using TMLE
 using Documenter
 using Literate
+using Logging
+
+Logging.disable_logging(Logging.Warn)
 
 DocMeta.setdocmeta!(TMLE, :DocTestSetup, :(using TMLE); recursive=true)
 
