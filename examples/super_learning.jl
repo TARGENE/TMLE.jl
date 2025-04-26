@@ -25,7 +25,7 @@ Let's consider the case where Y is categorical. In TMLE.jl, this could be useful
 
 We will use the following moons dataset:
 =#
-using MLJ
+using MLJBase
 
 X, y = MLJ.make_moons(1000)
 nothing # hide

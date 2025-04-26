@@ -18,7 +18,7 @@ Y \sim \mathcal{N}(e^{1 - 10 \cdot T + W}, 1)
 =#
 
 using TMLE
-using MLJ
+using MLJBase
 using Distributions
 using StableRNGs
 using LogExpFunctions
