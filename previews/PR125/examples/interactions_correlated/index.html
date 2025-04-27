@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Interaction Estimation · TMLE.jl</title><meta name="title" content="Interaction Estimation · TMLE.jl"/><meta property="og:title" content="Interaction Estimation · TMLE.jl"/><meta property="twitter:title" content="Interaction Estimation · TMLE.jl"/><meta name="description" content="Documentation for TMLE.jl."/><meta property="og:description" content="Documentation for TMLE.jl."/><meta property="twitter:description" content="Documentation for TMLE.jl."/><meta property="og:url" content="https://TARGENE.github.io/TMLE.jl/examples/interactions_correlated/"/><meta property="twitter:url" content="https://TARGENE.github.io/TMLE.jl/examples/interactions_correlated/"/><link rel="canonical" href="https://TARGENE.github.io/TMLE.jl/examples/interactions_correlated/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/logo.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="TMLE.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">TMLE.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../walk_through/">Walk Through</a></li><li><span class="tocitem">User Guide</span><ul><li><a class="tocitem" href="../../user_guide/scm/">Structural Causal Models</a></li><li><a class="tocitem" href="../../user_guide/estimands/">Estimands</a></li><li><a class="tocitem" href="../../user_guide/estimation/">Estimation</a></li></ul></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../super_learning/">Becoming a Super Learner</a></li><li><a class="tocitem" href="../double_robustness/">Model Misspecification &amp; Double Robustness</a></li><li class="is-active"><a class="tocitem" href>Interaction Estimation</a><ul class="internal"><li><a class="tocitem" href="#Data-Generating-Process"><span>Data Generating Process</span></a></li><li><a class="tocitem" href="#Estimation"><span>Estimation</span></a></li><li><a class="tocitem" href="#Varying-levels-of-correlation"><span>Varying levels of correlation</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../../integrations/">Integrations</a></li><li><a class="tocitem" href="../../estimators_cheatsheet/">Estimators&#39; Cheat Sheet</a></li><li><a class="tocitem" href="../../resources/">Learning Resources</a></li><li><a class="tocitem" href="../../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Interaction Estimation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Interaction Estimation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/TARGENE/TMLE.jl/blob/main/examples/interactions_correlated.jl#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Interaction-Estimation"><a class="docs-heading-anchor" href="#Interaction-Estimation">Interaction Estimation</a><a id="Interaction-Estimation-1"></a><a class="docs-heading-anchor-permalink" href="#Interaction-Estimation" title="Permalink"></a></h1><p>In this example we aim to estimate the average interaction effect of two, potentially correlated, treatment variables <code>T1</code> and <code>T2</code> on an outcome <code>Y</code>.</p><h2 id="Data-Generating-Process"><a class="docs-heading-anchor" href="#Data-Generating-Process">Data Generating Process</a><a id="Data-Generating-Process-1"></a><a class="docs-heading-anchor-permalink" href="#Data-Generating-Process" title="Permalink"></a></h2><p>Let&#39;s consider the following structural causal model where the shaded nodes represent the observed variables.</p><p><img src="../../assets/interaction_graph.png" alt="interaction-graph"/></p><p>In other words, only one confounding variable is observed (<code>W1</code>). This would be a major problem if we wanted to estimate the average treatment effect of <code>T1</code> or <code>T2</code> on <code>Y</code> separately. However, here, we are interested in interactions and thus <code>W1</code> is a sufficient adjustment set. This artificial situation is ubiquitous in genetics, where two main sources of confounding exist. Ancestry, can be estimated (here <code>W1</code>) and linkage disequilibrium is usually more challenging to address (here <code>W2</code>).</p><p>Let us first define some helper functions and import some libraries.</p><pre><code class="language-julia hljs">using Distributions
+using Random
+using DataFrames
+using Statistics
+using CategoricalArrays
+using TMLE
+using CairoMakie
+using MLJXGBoostInterface
+using MLJBase
+using MLJLinearModels
+using MLJTuning
+using StatisticalMeasures
+
+Random.seed!(123)
+
+μT(w) = [sum(w), sum(w)]
+
+μY(t, w) = 1 + 10t[1] - 3t[2] * t[1] * w</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">μY (generic function with 1 method)</code></pre><p>We assume that <code>W1</code> and <code>W2</code>, the confounding variables, follow a uniform distribution.</p><pre><code class="language-julia hljs">generate_W(n) = rand(Uniform(0, 1), 2, n)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">generate_W (generic function with 1 method)</code></pre><p><code>T1</code> and <code>T2</code> are generated via a copula method through a multivariate normal to induce some statistical dependence (via σ).</p><pre><code class="language-julia hljs">function generate_T(W, n; σ=0.5, threshold=0)
+    covariance = [
+        1. σ
+        σ 1.
+    ]
+    T = zeros(Bool, 2, n)
+    for i in 1:n
+        dTi = MultivariateNormal(μT(W[:, i]), covariance)
+        T[:, i] = rand(dTi) .&gt; threshold
+    end
+    return T
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">generate_T (generic function with 1 method)</code></pre><p>Finally, <code>Y</code> is generated through a simple linear model with an interaction term.</p><pre><code class="language-julia hljs">function generate_Y(T, W1, n; σY=1)
+    Y = zeros(Float64, n)
+    for i in 1:n
+        dY = Normal(μY(T[:, i], W1[i]), σY)
+        Y[i] = rand(dY)
+    end
+    return Y
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">generate_Y (generic function with 1 method)</code></pre><p>Importantly, the average interaction effect between <code>T1</code> and <code>T2</code> is thus <span>$-3 \mathbb{E}[W] = -1.5$</span>.</p><p>We will generate a full dataset with the following function.</p><pre><code class="language-julia hljs">function generate_dataset(;n=1000, σ=0.5, threshold=0., σY=1)
+
+    W = generate_W(n)
+    T = generate_T(W, n; σ=σ, threshold=threshold)
+
+    W = permutedims(W)
+    W1 = W[:, 1]
+    W2 = W[:, 2]
+
+    Y = generate_Y(T, W1, n; σY=σY)
+
+    T = permutedims(T)
+    T1 = categorical(T[:, 1])
+    T2 = categorical(T[:, 2])
+
+    return DataFrame(W1=W1, W2=W2, T1=T1, T2=T2, Y=Y)
+end
+
+dataset = generate_dataset()
+
+first(dataset, 5)</code></pre><div><div style = "float: left;"><span>5×5 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">W1</th><th style = "text-align: left;">W2</th><th style = "text-align: left;">T1</th><th style = "text-align: left;">T2</th><th style = "text-align: left;">Y</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "CategoricalArrays.CategoricalValue{Bool, UInt32}" style = "text-align: left;">Cat…</th><th title = "CategoricalArrays.CategoricalValue{Bool, UInt32}" style = "text-align: left;">Cat…</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: right;">0.9063</td><td style = "text-align: right;">0.443494</td><td style = "text-align: left;">true</td><td style = "text-align: left;">true</td><td style = "text-align: right;">7.34663</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: right;">0.745673</td><td style = "text-align: right;">0.512083</td><td style = "text-align: left;">true</td><td style = "text-align: left;">true</td><td style = "text-align: right;">6.30484</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: right;">0.253849</td><td style = "text-align: right;">0.334152</td><td style = "text-align: left;">true</td><td style = "text-align: left;">true</td><td style = "text-align: right;">9.73191</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: right;">0.427328</td><td style = "text-align: right;">0.867547</td><td style = "text-align: left;">true</td><td style = "text-align: left;">false</td><td style = "text-align: right;">9.49304</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: right;">0.0991336</td><td style = "text-align: right;">0.125287</td><td style = "text-align: left;">true</td><td style = "text-align: left;">true</td><td style = "text-align: right;">11.2495</td></tr></tbody></table></div><p>Let&#39;s verify that each treatment level is sufficiently present in the dataset (≈positivity).</p><pre><code class="language-julia hljs">combine(groupby(dataset, [:T1, :T2]), proprow =&gt; :JOINT_TREATMENT_FREQ)</code></pre><div><div style = "float: left;"><span>4×3 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">T1</th><th style = "text-align: left;">T2</th><th style = "text-align: left;">JOINT_TREATMENT_FREQ</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "CategoricalArrays.CategoricalValue{Bool, UInt32}" style = "text-align: left;">Cat…</th><th title = "CategoricalArrays.CategoricalValue{Bool, UInt32}" style = "text-align: left;">Cat…</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">false</td><td style = "text-align: left;">false</td><td style = "text-align: right;">0.073</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">false</td><td style = "text-align: left;">true</td><td style = "text-align: right;">0.098</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">true</td><td style = "text-align: left;">false</td><td style = "text-align: right;">0.107</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">true</td><td style = "text-align: left;">true</td><td style = "text-align: right;">0.722</td></tr></tbody></table></div><p>And that <code>T1</code> and <code>T2</code> are indeed correlated.</p><pre><code class="language-julia hljs">treatment_correlation(dataset) = cor(unwrap.(dataset.T1), unwrap.(dataset.T2))
+treatment_correlation(dataset)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.2918769031970086</code></pre><h2 id="Estimation"><a class="docs-heading-anchor" href="#Estimation">Estimation</a><a id="Estimation-1"></a><a class="docs-heading-anchor-permalink" href="#Estimation" title="Permalink"></a></h2><p>We can now proceed to estimation using TMLE and default (linear) models.</p><p>Interactions are defined via the <code>AIE</code> function (note that we only set <code>W1</code> as a confounder).</p><pre><code class="language-julia hljs">Ψ = AIE(
+    outcome=:Y,
+    treatment_values= (
+        T1=(case=1, control=0),
+        T2=(case=1, control=0)
+    ),
+    treatment_confounders = [:W1]
+)
+linear_models = default_models(G=LogisticClassifier(lambda=0), Q_continuous=LinearRegressor())
+estimator = TMLEE(models=linear_models, weighted=true)
+result, _ = estimator(Ψ, dataset; verbosity=0)
+significance_test(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">One sample t-test
+-----------------
+Population details:
+    parameter of interest:   Mean
+    value under h_0:         0
+    point estimate:          -1.61436
+    95% confidence interval: (-2.232, -0.997)
+
+Test summary:
+    outcome with 95% confidence: reject h_0
+    two-sided p-value:           &lt;1e-06
+
+Details:
+    number of observations:   1000
+    t-statistic:              -5.131324598616492
+    degrees of freedom:       999
+    empirical standard error: 0.3146097888636996
+</code></pre><p>The true effect size is thus covered by our confidence interval.</p><h2 id="Varying-levels-of-correlation"><a class="docs-heading-anchor" href="#Varying-levels-of-correlation">Varying levels of correlation</a><a id="Varying-levels-of-correlation-1"></a><a class="docs-heading-anchor-permalink" href="#Varying-levels-of-correlation" title="Permalink"></a></h2><p>We now vary the correlation level between <code>T1</code> and <code>T2</code> to observe how it affects the estimation results. First, let&#39;s see how the parameter σ affects the correlation between <code>T1</code> and <code>T2</code>.</p><pre><code class="language-julia hljs">function plot_correlations(;σs = 0.1:0.1:1, n=1000, threshold=0., σY=1.)
+    fig = Figure()
+    ax = Axis(fig[1, 1], xlabel=&quot;σ&quot;, ylabel=&quot;Correlation(T1, T2)&quot;)
+    correlations = map(σs) do σ
+        dataset = generate_dataset(;n=n, σ=σ, threshold=threshold, σY=σY)
+        return treatment_correlation(dataset)
+    end
+    scatter!(ax, σs, correlations, color=:blue)
+    return fig
+end
+
+σs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]
+plot_correlations(;σs=σs, n=10_000)</code></pre><img src="c84e9ca4.png" alt="Example block output"/><p>As expected, the correlation between <code>T1</code> and <code>T2</code> increases with σ. Let&#39;s see how this affects estimation, for this, we will vary both the dataset size and the correlation level.</p><pre><code class="language-julia hljs">function estimate_across_correlation_levels(σs; n=1000, estimator=TMLEE(weighted=true))
+    results = []
+    for σ in σs
+        dataset = generate_dataset(n=n, σ=σ)
+        result, _ = estimator(Ψ, dataset; verbosity=0)
+        push!(results, result)
+    end
+    Ψ̂s = TMLE.estimate.(results)
+    errors = last.(confint.(significance_test.(results))) .- Ψ̂s
+    return Ψ̂s, errors
+end
+
+function estimate_across_sample_sizes_and_correlation_levels(ns, σs; estimator=TMLEE(models=linear_models, weighted=true))
+    results = []
+    for n in ns
+        Ψ̂s, errors = estimate_across_correlation_levels(σs; n=n, estimator=estimator)
+        push!(results, (Ψ̂s, errors))
+    end
+    return results
+end
+
+function plot_across_sample_sizes_and_correlation_levels(results, ns, σs; title=&quot;Estimation via TMLE (GLMs)&quot;)
+    fig = Figure(size=(800, 800))
+    for (index, n) in enumerate(ns)
+        Ψ̂s, errors = results[index]
+        ax = if n == last(ns)
+            Axis(fig[index, 1], xlabel=&quot;σ&quot;, ylabel=&quot;AIE\n(n=$n)&quot;)
+        else
+            Axis(fig[index, 1], ylabel=&quot;AIE\n(n=$n)&quot;, xticklabelsvisible=false)
+        end
+        errorbars!(ax, σs, Ψ̂s, errors, color = :blue, whiskerwidth = 10)
+        scatter!(ax, σs, Ψ̂s, color=:red, markersize=10)
+        hlines!(ax, [-1.5], color=:green, linestyle=:dash)
+    end
+    Label(fig[0, :], title; tellwidth=false, fontsize=24)
+    return fig
+end
+
+ns = [100, 1000, 10_000, 100_000, 1_000_000]
+σs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.999]
+results = estimate_across_sample_sizes_and_correlation_levels(ns, σs; estimator=TMLEE(models=linear_models, weighted=true))
+plot_across_sample_sizes_and_correlation_levels(results, ns, σs; title=&quot;Estimation via TMLE (GLMs)&quot;)</code></pre><img src="27b971a8.png" alt="Example block output"/><p>First, notice that only extreme correlations (&gt;0.9) tend to blow up the size of the confidence intervals. This implies that statistical power may be limited in such circumstances.</p><p>Furthermore, and perhaps unexpectedly, coverage decreases as sample size grows for larger correlations. Since we have used simple linear models until now, this could be due to model misspecification bias. As sample size grows, the variance shrinks but the bias does not. We can verify this by using a more flexible modelling strategy, here we will use XGBoost.</p><pre><code class="language-julia hljs">xgboost_estimator = TMLEE(
+    models=default_models(G=XGBoostClassifier(tree_method=&quot;hist&quot;), Q_continuous=XGBoostRegressor(tree_method=&quot;hist&quot;)),
+    weighted=true,
+)
+xgboost_results = estimate_across_sample_sizes_and_correlation_levels(ns, σs, estimator=xgboost_estimator)
+plot_across_sample_sizes_and_correlation_levels(xgboost_results, ns, σs; title=&quot;Estimation via TMLE (XGboost)&quot;)</code></pre><img src="dbe31445.png" alt="Example block output"/><p>As expected, XGBoost improves estimation performance in the asymptotic regime, however, the performance is the small sample size regime is deteriorated due to over-fitting. We can use a model selection (sometimes called discrete super learning) approach to adaptively select the best model.</p><pre><code class="language-julia hljs">lambdas = 10 .^ range(1, stop=-4, length=5)
+linear_regressors = [RidgeRegressor(lambda=λ) for λ in lambdas]
+logistic_classifiers = [LogisticClassifier(lambda=λ) for λ in lambdas]
+xgboost_classifiers = [XGBoostClassifier(tree_method=&quot;hist&quot;, lambda=λ, nthread=1) for λ in lambdas]
+xgboost_regressors = [XGBoostRegressor(tree_method=&quot;hist&quot;, lambda=λ, nthread=1) for λ in lambdas]
+
+sl_regressor = TunedModel(
+    models=vcat(linear_regressors, xgboost_regressors),
+    resampling=Holdout(),
+    measure=rmse,
+    check_measure=false
+)
+
+sl_classifier = TunedModel(
+    models=vcat(logistic_classifiers, xgboost_classifiers),
+    resampling=Holdout(),
+    measure=log_loss,
+    check_measure=false
+)
+
+
+sl_estimator = TMLEE(
+    models=default_models(G=sl_classifier, Q_continuous=sl_regressor),
+    weighted=true,
+)
+
+sl_results = estimate_across_sample_sizes_and_correlation_levels(ns, σs, estimator=sl_estimator)
+plot_across_sample_sizes_and_correlation_levels(sl_results, ns, σs; title=&quot;Estimation via TMLE (SL)&quot;)</code></pre><img src="632708d6.png" alt="Example block output"/><p>As we can see, the performance is now good across all sample sizes. Furthermore, the correlation between <code>T1</code> and <code>T2</code> seems harmless (except when σ &gt; 0.9 as before).</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../double_robustness/">« Model Misspecification &amp; Double Robustness</a><a class="docs-footer-nextpage" href="../../integrations/">Integrations »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.10.2 on <span class="colophon-date" title="Sunday 27 April 2025 10:50">Sunday 27 April 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
