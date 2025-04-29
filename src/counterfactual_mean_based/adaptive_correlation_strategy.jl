@@ -36,7 +36,6 @@ function update!(strategy::AdaptiveCorrelationOrdering, last_candidate, dataset)
     return nothing
 end
 
-
 function finalise!(strategy::AdaptiveCorrelationOrdering)
     empty!(strategy.remaining_confounders)
     empty!(strategy.current_confounders)

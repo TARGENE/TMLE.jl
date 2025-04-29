@@ -8,6 +8,67 @@ using MLJBase
 TEST_DIR = joinpath(pkgdir(TMLE), "test")
 include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulations.jl"))
 
+@testset "Test Interface" begin
+    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=1_000)
+    Ψ = AIE(
+        outcome = :Y,
+        treatment_values = (
+            T₁=(case=true, control=false), 
+            T₂=(case=true, control=false)
+        ),
+        treatment_confounders = (
+            T₁=[:W₁, :W₂],
+            T₂=[:W₁, :W₂],
+        )
+    )
+    # Define the strategy
+    adaptive_strategy = AdaptiveCorrelationOrdering()
+    @test adaptive_strategy.patience == 10
+    @test adaptive_strategy.remaining_confounders == Set{Symbol}()
+    @test adaptive_strategy.current_confounders == Set{Symbol}()
+    ps = TMLE.propensity_score(Ψ, adaptive_strategy)
+    @test ps == (
+        TMLE.ConditionalDistribution(:T₁, (:COLLABORATIVE_INTERCEPT, :T₂)), 
+        TMLE.ConditionalDistribution(:T₂, (:COLLABORATIVE_INTERCEPT,))
+    )
+    # Initialisation
+    TMLE.initialise!(adaptive_strategy, Ψ)
+    @test adaptive_strategy.remaining_confounders == Set([:W₁, :W₂])
+    @test adaptive_strategy.current_confounders == Set()
+    # Updates
+    estimator = TMLE.MLConditionalDistributionEstimator(LinearRegressor(), nothing)
+    cde = estimator(
+        TMLE.ConditionalDistribution(:Y, (:COLLABORATIVE_INTERCEPT,)),
+        dataset,
+    )
+    last_candidate = (outcome_mean=cde,)
+    loss = TMLE.compute_loss(cde, dataset)
+    @test TMLE.exhausted(adaptive_strategy) == false
+    @test abs(cor(dataset.W₁, loss)) > abs(cor(dataset.W₂, loss))
+    TMLE.update!(adaptive_strategy, last_candidate, dataset)
+    @test adaptive_strategy.remaining_confounders == Set([:W₂])
+    @test adaptive_strategy.current_confounders == Set([:W₁])
+    @test TMLE.exhausted(adaptive_strategy) == false
+    ps = TMLE.propensity_score(Ψ, adaptive_strategy)
+    @test ps == (
+        TMLE.ConditionalDistribution(:T₁, (:COLLABORATIVE_INTERCEPT, :T₂, :W₁)), 
+        TMLE.ConditionalDistribution(:T₂, (:COLLABORATIVE_INTERCEPT, :W₁))
+    )
+    TMLE.update!(adaptive_strategy, last_candidate, dataset)
+    @test adaptive_strategy.remaining_confounders == Set()
+    @test adaptive_strategy.current_confounders == Set([:W₁, :W₂])
+    ps = TMLE.propensity_score(Ψ, adaptive_strategy)
+    @test ps == (
+        TMLE.ConditionalDistribution(:T₁, (:COLLABORATIVE_INTERCEPT, :T₂, :W₁, :W₂)), 
+        TMLE.ConditionalDistribution(:T₂, (:COLLABORATIVE_INTERCEPT, :W₁, :W₂))
+    )
+    @test TMLE.exhausted(adaptive_strategy) == true
+    # Finalisation
+    TMLE.finalise!(adaptive_strategy)
+    @test adaptive_strategy.remaining_confounders == Set{Symbol}()
+    @test adaptive_strategy.current_confounders == Set{Symbol}()
+end
+
 @testset "Integration Test AdaptiveCorrelationOrdering" begin
     dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=1_000)
     Ψ = AIE(
