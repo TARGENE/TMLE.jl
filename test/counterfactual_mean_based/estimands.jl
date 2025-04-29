@@ -354,6 +354,27 @@ end
         verbosity=0
     )
     @test length(jointATE.args) == 1
+    # Given treatment levels
+    ate = factorialEstimand(ATE, (T₁ = [0, 1], T₂ = ["AA", "AC", "CC"]), :Y₁;
+        dataset=dataset, 
+        confounders=[:W₁, :W₂],
+        outcome_extra_covariates=[:C],
+        verbosity=0
+    )
+    @test ate == JointEstimand(
+        TMLE.StatisticalATE(
+            outcome = :Y₁, 
+            treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = "AC", control = "AA")),
+            treatment_confounders = (:W₁, :W₂),
+            outcome_extra_covariates=[:C]
+        ),
+        TMLE.StatisticalATE(
+            outcome = :Y₁, 
+            treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = "CC", control = "AC")),
+            treatment_confounders = (:W₁, :W₂),
+            outcome_extra_covariates=[:C]
+        )
+    )
 end
 
 @testset "Test factorial AIE" begin
