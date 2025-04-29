@@ -128,7 +128,7 @@ end
         treatment_confounders = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
     )
     Q = TMLE.ConditionalDistribution(outcome, [treatment, :PC1, :PC2, :PC3, :PC4, :PC5, :PC6])
-    tmle = TMLEE(models=TMLE.default_models(Q_binary=LogisticClassifier(), G = LogisticClassifier()))
+    tmle = Tmle(models=TMLE.default_models(Q_binary=LogisticClassifier(), G = LogisticClassifier()))
     try 
         tmle(Ψ, pos_def_error_dataset)
         @test true === false
@@ -139,7 +139,7 @@ end
 end
 
 @testset "Test structs are concrete types" begin
-    for type in (OSE, TMLEE, NAIVE)
+    for type in (Ose, Tmle, Naive)
         @test isconcretetype(type)
     end
 end

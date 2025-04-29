@@ -51,10 +51,11 @@ The TMLE is supposed to solve the EIC score equation.
 test_mean_inf_curve_almost_zero(tmle_result::TMLE.EICEstimate; atol=1e-10) = @test mean(tmle_result.IC) ≈ 0.0 atol=atol
 
 double_robust_estimators(models; resampling=CV(nfolds=3)) = (
-    tmle = TMLEE(models=models, machine_cache=true),
-    ose = OSE(models=models, machine_cache=true),
-    cv_tmle = TMLEE(models=models, resampling=resampling, machine_cache=true),
-    cv_ose = TMLEE(models=models, resampling=resampling, machine_cache=true),
+    tmle = Tmle(models=models, machine_cache=true),
+    ose = Ose(models=models, machine_cache=true),
+    cv_tmle = Tmle(models=models, resampling=resampling, machine_cache=true),
+    cv_ose = Tmle(models=models, resampling=resampling, machine_cache=true),
+    # ctmle = Tmle(models=models, resampling=resampling, machine_cache=true, collaborative_strategy=AdaptiveCorrelationOrdering()),
 )
 
 function test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
@@ -64,7 +65,7 @@ function test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbos
         result, cache = estimator(Ψ, dataset, cache=cache, verbosity=verbosity)
         push!(results, result)
         test_coverage(result, Ψ₀)
-        if estimator isa TMLEE && estimator.resampling === nothing
+        if estimator isa Tmle && estimator.resampling === nothing
             test_fluct_decreases_risk(cache)
         end
     end

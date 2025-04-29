@@ -49,7 +49,7 @@ function tmle_estimates(data)
         Q_binary=MLJLinearModels.LogisticClassifier(),
         G=MLJLinearModels.LogisticClassifier()
     )
-    Ψ̂ = TMLEE(models=models, weighted=true)
+    Ψ̂ = Tmle(models=models, weighted=true)
     Ψ = ATE(;
         outcome=:Y, 
         treatment_values=(T=(case=true, control = false),),
@@ -167,7 +167,7 @@ The Average Treatment Effect of ``T`` on ``Y`` confounded by ``W`` is defined as
 ### 3. An estimator: here a Targeted Maximum Likelihood Estimator (TMLE)
 
 ```@example quick-start
-tmle = TMLEE()
+tmle = Tmle()
 result, _ = tmle(Ψ, dataset, verbosity=0);
 result
 ```

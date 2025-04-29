@@ -32,7 +32,7 @@ ct = rand(scm, 100)
 
 # Define a causal estimand and estimate it using TMLE
 Ψ = ATE(outcome = :Y, treatment_values = (A = (case = 1, control = 0),))
-estimator = TMLEE()
+estimator = Tmle()
 Ψ̂, cache = estimator(Ψ, ct; verbosity=0)
 ```
 

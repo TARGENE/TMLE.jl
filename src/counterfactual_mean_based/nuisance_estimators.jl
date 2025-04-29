@@ -51,6 +51,16 @@ end
 
 CMRelevantFactorsEstimator(;models, train_validation_indices=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models)
 
+"""
+If there is no collaborative strategy, we are in CV mode and `train_validation_indices` are used to build the initial estimator.
+"""
+CMRelevantFactorsEstimator(collaborative_strategy::Nothing; models, train_validation_indices=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models)
+
+"""
+If there is a collaborative strategy, `train_validation_indices` are ignored to build the initial estimator.
+"""
+CMRelevantFactorsEstimator(collaborative_strategy; models, train_validation_indices=nothing) = CMRelevantFactorsEstimator(nothing, models)
+
 function acquire_model(models, key, dataset, is_propensity_score)
     # If the model is in models return it
     haskey(models, key) && return models[key]
@@ -168,6 +178,8 @@ function TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate;
     weighted=false, 
     machine_cache=false
     ) where S <: Union{Nothing, CollaborativeStrategy}
+    # If there is no collaborative strategy, we are in CV mode, we do not pass on the `train_validation_indices`
+    train_validation_indices = collaborative_strategy === nothing ? nothing : train_validation_indices
     fluctuation_model = Fluctuation(Ψ, initial_factors_estimate; 
         tol=tol,
         max_iter=max_iter, 
@@ -189,6 +201,7 @@ function (estimator::TargetedCMRelevantFactorsEstimator{Nothing})(estimand, data
     fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model, estimator.train_validation_indices)
     fluctuated_outcome_mean = try_fit_ml_estimator(fluctuated_estimator, outcome_mean, dataset;
         error_fn=outcome_mean_fluctuation_fit_error_msg,
+        cache=cache,
         verbosity=verbosity,
         machine_cache=machine_cache
     )
@@ -219,14 +232,14 @@ function FoldsTargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate, t
     machine_cache=false
     )
     estimators = map(zip(initial_factors_estimate.estimates, train_validation_indices)) do (η̂ₙ, fold_train_val_indices)
-        TargetedCMRelevantFactorsEstimator(Ψ, η̂ₙ;
-            train_validation_indices=fold_train_val_indices,
+        fluctuation_model = Fluctuation(Ψ, η̂ₙ; 
             tol=tol,
             max_iter=max_iter, 
             ps_lowerbound=ps_lowerbound, 
             weighted=weighted,
-            machine_cache=machine_cache
+            cache=machine_cache
         )
+        TargetedCMRelevantFactorsEstimator(fluctuation_model, nothing, fold_train_val_indices)
     end
 
     return FoldsTargetedCMRelevantFactorsEstimator(estimators, train_validation_indices)

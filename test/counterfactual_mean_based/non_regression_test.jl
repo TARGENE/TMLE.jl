@@ -44,7 +44,7 @@ end
     verbosity = 0 # No logs
     max_iter = 1 # One iteration
     tol = nothing # Default tolerance
-    tmle = TMLEE(;
+    tmle = Tmle(;
         resampling=resampling,
         ps_lowerbound=ps_lowerbound,
         max_iter=max_iter,
@@ -66,7 +66,7 @@ end
         regression_tests(results_from_yaml[1])
     end
     # Naive
-    naive = NAIVE(with_encoder(LinearBinaryClassifier()))
+    naive = Naive(with_encoder(LinearBinaryClassifier()))
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=verbosity)
     @test naive_result ≈ -0.150078 atol = 1e-6
 end

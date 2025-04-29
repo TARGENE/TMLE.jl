@@ -26,20 +26,21 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     resampling = StratifiedCV()
     machine_cache = false
     verbosity = 1
-    collaborative_strategy = AdaptiveCorrelationOrdering(resampling=StratifiedCV())
-    train_validation_indices = MLJBase.train_test_pairs(resampling, 1:nrows(dataset), dataset, dataset.Y)
-    tmle = TMLEE(;
+    collaborative_strategy = AdaptiveCorrelationOrdering()
+    tmle = Tmle(;
         models = default_models(;
             Q_continuous = LinearRegressor(),
             G = LogisticClassifier(lambda=0.)
         ),
+        resampling=resampling,
         collaborative_strategy = collaborative_strategy
     )
     # Initialize the relevant factors: no confounder is present in the propensity score
     η = TMLE.get_relevant_factors(Ψ, collaborative_strategy=collaborative_strategy)
     @test η.propensity_score == (TMLE.ConditionalDistribution(:T₁, (:COLLABORATIVE_INTERCEPT, :T₂)), TMLE.ConditionalDistribution(:T₂, (:COLLABORATIVE_INTERCEPT,)))
     # Estimate the initial factors: check models have been fitted correctly anc cahche is updated
-    initial_factors_estimator = TMLE.CMRelevantFactorsEstimator(tmle.resampling, tmle.models)
+    train_validation_indices = MLJBase.train_test_pairs(resampling, 1:nrows(dataset), dataset, dataset.Y)
+    initial_factors_estimator = TMLE.CMRelevantFactorsEstimator(tmle.collaborative_strategy; train_validation_indices=train_validation_indices, models=tmle.models)
     η̂ₙ = initial_factors_estimator(η, dataset; 
         cache=cache, 
         verbosity=verbosity, 
@@ -98,11 +99,12 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     ## - The evaluation is made on the validation sets
     cv_candidates = TMLE.initialise_cv_candidates(η, dataset, fluctuation_model, train_validation_indices, models;
         cache=cache,
-        verbosity=verbosity,
+        verbosity=2,
         machine_cache=true
     );
     cv_candidate = only(cv_candidates)
     validation_losses = []
+    (fold_estimate, (train_indices, val_indices)) = first(zip(cv_candidate.candidate, train_validation_indices))
     for (fold_estimate, (train_indices, val_indices)) in zip(cv_candidate.candidate, train_validation_indices)
         # Check Fluctuation
         targeted_outcome_mean_estimate = fold_estimate.outcome_mean

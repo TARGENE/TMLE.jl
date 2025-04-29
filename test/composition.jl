@@ -57,8 +57,8 @@ end
         :Y => with_encoder(LinearRegressor()),
         :T => LogisticClassifier(lambda=0)
     )
-    tmle = TMLEE(models=models)
-    ose = OSE(models=models)
+    tmle = Tmle(models=models)
+    ose = Ose(models=models)
     cache = Dict()
 
     # Via Composition
@@ -106,7 +106,7 @@ end
         :Y => with_encoder(LinearRegressor()),
         :T => LogisticClassifier(lambda=0)
     )
-    tmle = TMLEE(models=models)
+    tmle = Tmle(models=models)
     cache = Dict()
     
     joint = JointEstimand(
@@ -179,7 +179,7 @@ end
     )
     jointAIE = JointEstimand(AIE₁, AIE₂, AIE₃)
 
-    ose = OSE(models=TMLE.default_models(G=LogisticClassifier(), Q_continuous=LinearRegressor()))
+    ose = Ose(models=TMLE.default_models(G=LogisticClassifier(), Q_continuous=LinearRegressor()))
     jointEstimate, _ = ose(jointAIE, dataset, verbosity=0)
 
     testres = significance_test(jointEstimate)

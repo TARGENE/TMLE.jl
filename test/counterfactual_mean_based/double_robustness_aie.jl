@@ -41,7 +41,7 @@ cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1.
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-9)
     # The initial estimate is far away
-    naive = NAIVE(models[:Y])
+    naive = Naive(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
 
@@ -56,7 +56,7 @@ cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1.
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-9)
     # The initial estimate is far away
-    naive = NAIVE(models[:Y])
+    naive = Naive(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result ≈ -0.0 atol=1e-1
 end
@@ -87,7 +87,7 @@ end
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
     # The initial estimate is far away
-    naive = NAIVE(models[:Y])
+    naive = Naive(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
 
@@ -129,7 +129,7 @@ end
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
 
     # The initial estimate is far away
-    naive = NAIVE(models[:Y])
+    naive = Naive(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
 
@@ -145,7 +145,7 @@ end
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
 
     # The initial estimate is far away
-    naive = NAIVE(models[:Y])
+    naive = Naive(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result ≈ -0.02 atol=1e-2
 end

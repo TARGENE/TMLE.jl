@@ -59,7 +59,7 @@ end
         treatment_values=(T=(case=1, control=0),),
         treatment_confounders=(T=[:W],))
     models = Dict(:Y => with_encoder(LinearRegressor()), :T => LogisticClassifier(lambda=0))
-    tmle = TMLEE(models=models, machine_cache=true)
+    tmle = Tmle(models=models, machine_cache=true)
     tmle_result, cache = tmle(Ψ, dataset; verbosity=0)
     test_coverage(tmle_result, 1)
     test_fluct_decreases_risk(cache)

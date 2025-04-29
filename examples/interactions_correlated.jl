@@ -170,7 +170,7 @@ First, let's define the effect of interest. Interactions are defined via the `AI
     treatment_confounders = [:W1]
 )
 linear_models = default_models(G=LogisticClassifier(lambda=0), Q_continuous=LinearRegressor())
-estimator = TMLEE(models=linear_models, weighted=true)
+estimator = Tmle(models=linear_models, weighted=true)
 result, _ = estimator(Ψ, dataset; verbosity=0)
 @assert pvalue(significance_test(result, -1.5)) > 0.05 #hide
 significance_test(result)
@@ -242,12 +242,12 @@ and estimate (this will take a little while).
 =#
 
 estimators = Dict(
-    "TMLE_GLM"  => TMLEE(models=linear_models, weighted=true),
-    "TMLE_XGBOOST" => TMLEE(
+    "TMLE_GLM"  => Tmle(models=linear_models, weighted=true),
+    "TMLE_XGBOOST" => Tmle(
         models=default_models(G=XGBoostClassifier(tree_method="hist", nthread=1), Q_continuous=XGBoostRegressor(tree_method="hist", nthread=1)),
         weighted=true,
     ),
-    "TMLE_SL" => TMLEE(
+    "TMLE_SL" => Tmle(
         models=default_models(G=sl_classifier, Q_continuous=sl_regressor),
         weighted=true,
     )

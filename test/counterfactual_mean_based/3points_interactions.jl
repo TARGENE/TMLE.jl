@@ -49,7 +49,7 @@ end
         :T₃ => LogisticClassifier(lambda=0)
     )
     ## Estimate
-    tmle = TMLEE(models=models, machine_cache=true, max_iter=3, tol=0)
+    tmle = Tmle(models=models, machine_cache=true, max_iter=3, tol=0)
     result, cache = tmle(Ψ, dataset, verbosity=0);
     test_coverage(result, Ψ₀)
     test_fluct_decreases_risk(cache)

@@ -8,13 +8,10 @@ This strategy can be used to adaptively select the best confounding variables fo
 3. The sequence of models is evaluated via penalized cross-validation.
 """
 struct AdaptiveCorrelationOrdering <: CollaborativeStrategy 
-    resampling::ResamplingStrategy
     remaining_confounders::Set{Symbol}
     current_confounders::Set{Symbol}
-    AdaptiveCorrelationOrdering(resampling) = new(resampling, Set{Symbol}(), Set{Symbol}())
+    AdaptiveCorrelationOrdering() = new(Set{Symbol}(), Set{Symbol}())
 end
-
-AdaptiveCorrelationOrdering(;resampling=StratifiedCV()) = AdaptiveCorrelationOrdering(resampling)
 
 function initialise!(strategy::AdaptiveCorrelationOrdering, Ψ)
     empty!(strategy.remaining_confounders)
@@ -74,7 +71,7 @@ function initialise_candidates(η, fluctuation_model, dataset;
     cache=Dict(),
     machine_cache=false
     )
-    targeted_η̂ = TMLE.TargetedCMRelevantFactorsEstimator(
+    targeted_η̂ = TargetedCMRelevantFactorsEstimator(
         fluctuation_model, 
         nothing,
         nothing
@@ -152,18 +149,13 @@ function (estimator::TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrder
     collaborative_strategy = estimator.collaborative_strategy
     Ψ = estimator.fluctuation.Ψ
     fluctuation_model = estimator.fluctuation
-    train_validation_indices = MLJBase.train_test_pairs(
-        estimator.collaborative_strategy.resampling, 
-        1:nrows(dataset), 
-        dataset, 
-        Tables.getcolumn(dataset, η.outcome_mean.outcome)
-    )
+    train_validation_indices = estimator.train_validation_indices
     
     # Retrieve models
     models = TMLE.retrieve_models(estimator)
 
     # Initialize the collaborative strategy
-    TMLE.initialise!(estimator.collaborative_strategy, Ψ)
+    TMLE.initialise!(collaborative_strategy, Ψ)
     
     # Initialize Candidates: the fluctuation is fitted through the initial outcome mean and propensity score
     candidates = TMLE.initialise_candidates(η, fluctuation_model, dataset;
@@ -186,7 +178,7 @@ function (estimator::TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrder
         candidate_id += 1
         # Update the collaborative strategy's state
         last_candidate, last_candidate_loss = last(candidates)
-        update!(strategy, last_candidate, dataset)
+        update!(collaborative_strategy, last_candidate, dataset)
 
         verbosity > 0 && @info "The propensity score will use: $(propensity_score)"
         new_propensity_score, new_propensity_score_estimator = TMLE.get_new_propensity_score_and_estimator(

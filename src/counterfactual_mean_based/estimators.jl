@@ -1,8 +1,12 @@
+default_resampling(collaborative_strategy::Nothing) = nothing
+
+default_resampling(collaborative_strategy) = StratifiedCV()
+
 #####################################################################
 ###                            TMLE                               ###
 #####################################################################
 
-mutable struct TMLEE <: Estimator
+mutable struct Tmle <: Estimator
     models::Dict
     resampling::Union{Nothing, ResamplingStrategy}
     collaborative_strategy::Union{Nothing, CollaborativeStrategy}
@@ -11,10 +15,34 @@ mutable struct TMLEE <: Estimator
     tol::Union{Float64, Nothing}
     max_iter::Int
     machine_cache::Bool
+    function Tmle(
+        models, 
+        resampling, 
+        collaborative_strategy, 
+        ps_lowerbound, 
+        weighted, 
+        tol, 
+        max_iter, 
+        machine_cache
+    )
+        if resampling === nothing && collaborative_strategy !== nothing
+            @warn("Collaborative TMLE requires a resampling strategy but none was provided. Using the default resampling strategy.")
+            resampling = default_resampling(collaborative_strategy)
+        end
+        return new(
+            models, 
+            resampling, 
+            collaborative_strategy, 
+            ps_lowerbound, 
+            weighted, tol, 
+            max_iter, 
+            machine_cache
+        )
+    end
 end
 
 """
-    TMLEE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing, machine_cache=false)
+    Tmle(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing, machine_cache=false)
 
 Defines a TMLE estimator using the specified models for estimation of the nuisance parameters. The estimator is a 
 function that can be applied to estimate estimands for a dataset.
@@ -36,14 +64,32 @@ been show to be more robust to positivity violation in practice.
 
 ```julia
 using MLJLinearModels
-tmle = TMLEE()
+tmle = Tmle()
 Ψ̂ₙ, cache = tmle(Ψ, dataset)
 ```
 """
-TMLEE(;models=default_models(), resampling=nothing, collaborative_strategy=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing, max_iter=1, machine_cache=false) = 
-    TMLEE(models, resampling, collaborative_strategy, ps_lowerbound, weighted, tol, max_iter, machine_cache)
+function Tmle(;
+    models=default_models(), 
+    collaborative_strategy=nothing,
+    resampling=default_resampling(collaborative_strategy), 
+    ps_lowerbound=1e-8, 
+    weighted=false, 
+    tol=nothing, 
+    max_iter=1, 
+    machine_cache=false
+    )
+    Tmle(
+        models, 
+        resampling, 
+        collaborative_strategy, 
+        ps_lowerbound, 
+        weighted, tol, 
+        max_iter, 
+        machine_cache
+    )
+end
 
-function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Make train-validation pairs
@@ -52,7 +98,10 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, tmle.resampling)
-    initial_factors_estimator = CMRelevantFactorsEstimator(train_validation_indices, tmle.models)
+    initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
+        train_validation_indices=train_validation_indices, 
+        models=tmle.models
+    )
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
         verbosity=verbosity,
@@ -67,6 +116,7 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
         Ψ, 
         initial_factors_estimate;
         collaborative_strategy=tmle.collaborative_strategy,
+        train_validation_indices=train_validation_indices,
         tol=tmle.tol,
         max_iter=tmle.max_iter,
         ps_lowerbound=ps_lowerbound,
@@ -89,14 +139,14 @@ function (tmle::TMLEE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict()
     return TMLEstimate(Ψ, Ψ̂, σ̂, n, IC), cache
 end
 
-gradient_and_estimate(::TMLEE, Ψ, factors, dataset; ps_lowerbound=1e-8) = 
+gradient_and_estimate(::Tmle, Ψ, factors, dataset; ps_lowerbound=1e-8) = 
     gradient_and_plugin_estimate(Ψ, factors, dataset; ps_lowerbound=ps_lowerbound)
 
 #####################################################################
 ###                            OSE                                ###
 #####################################################################
 
-mutable struct OSE <: Estimator
+mutable struct Ose <: Estimator
     models::Dict
     resampling::Union{Nothing, ResamplingStrategy}
     ps_lowerbound::Union{Float64, Nothing}
@@ -104,7 +154,7 @@ mutable struct OSE <: Estimator
 end
 
 """
-    OSE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false)
+    Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false)
 
 Defines a One Step Estimator using the specified models for estimation of the nuisance parameters. The estimator is a 
 function that can be applied to estimate estimands for a dataset.
@@ -123,14 +173,14 @@ result in a data adaptive definition as described in [here](https://pubmed.ncbi.
 ```julia
 using MLJLinearModels
 models = Dict(:Y => LinearRegressor(), :T => LogisticClassifier())
-ose = OSE()
+ose = Ose()
 Ψ̂ₙ, cache = ose(Ψ, dataset)
 ```
 """
-OSE(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false) = 
-    OSE(models, resampling, ps_lowerbound, machine_cache)
+Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false) = 
+    Ose(models, resampling, ps_lowerbound, machine_cache)
 
-function (ose::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Make train-validation pairs
@@ -158,7 +208,7 @@ function (ose::OSE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     return OSEstimate(Ψ, Ψ̂, σ̂, n, IC), cache
 end
 
-function gradient_and_estimate(::OSE, Ψ, factors, dataset; ps_lowerbound=1e-8)
+function gradient_and_estimate(::Ose, Ψ, factors, dataset; ps_lowerbound=1e-8)
     IC, Ψ̂ = gradient_and_plugin_estimate(Ψ, factors, dataset; ps_lowerbound=ps_lowerbound)
     IC_mean = mean(IC)
     IC .-= IC_mean
@@ -169,11 +219,11 @@ end
 ###                           NAIVE                               ###
 #####################################################################
 
-mutable struct NAIVE <: Estimator
+mutable struct Naive <: Estimator
     model::MLJBase.Supervised
 end
 
-function (estimator::NAIVE)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+function (estimator::Naive)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
@@ -194,7 +244,7 @@ end
 #####################################################################
 
 
-function (estimator::Union{NAIVE, OSE, TMLEE})(causalΨ::CausalCMCompositeEstimands, scm, dataset;
+function (estimator::Union{Naive, Ose, Tmle})(causalΨ::CausalCMCompositeEstimands, scm, dataset;
     identification_method=BackdoorAdjustment(),
     cache=Dict(), 
     verbosity=1

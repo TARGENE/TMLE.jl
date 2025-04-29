@@ -53,8 +53,8 @@ scm = SCM([
 
 Once a statistical estimand has been defined, we can proceed with estimation. There are two semi-parametric efficient estimators in TMLE.jl:
 
-- The Targeted Maximum-Likelihood Estimator (`TMLEE`)
-- The One-Step Estimator (`OSE`)
+- The Targeted Maximum-Likelihood Estimator (`Tmle`)
+- The One-Step Estimator (`Ose`)
 
 While they have similar asymptotic properties, their finite sample performance may be different. They also have a very distinguishing feature, the TMLE is a plugin estimator, which means it respects the natural bounds of the estimand of interest. In contrast, the OSE may in theory report values outside these bounds. In practice, this is not often the case and the estimand of interest may not impose any restriction on its domain.
 
@@ -67,7 +67,7 @@ Drawing from the example dataset and `SCM` from the Walk Through section, we can
     treatment_confounders=(T₁=[:W₁₁, :W₁₂],),
     outcome_extra_covariates=[:C]
 )
-tmle = TMLEE()
+tmle = Tmle()
 result₁, cache = tmle(Ψ₁, dataset);
 result₁
 nothing # hide
@@ -87,7 +87,7 @@ Both the TMLE and OSE are asymptotically linear estimators, standard Z/T tests f
 tmle_test_result₁ = pvalue(OneSampleTTest(result₁))
 ```
 
-Let us now turn to the Average Treatment Effect of `T₂`, we will estimate it with a `OSE`:
+Let us now turn to the Average Treatment Effect of `T₂`, we will estimate it with a `Ose`:
 
 ```@example estimation
 Ψ₂ = ATE(
@@ -96,7 +96,7 @@ Let us now turn to the Average Treatment Effect of `T₂`, we will estimate it w
     treatment_confounders=(T₂=[:W₂₁, :W₂₂],),
     outcome_extra_covariates=[:C]
 )
-ose = OSE()
+ose = Ose()
 result₂, cache = ose(Ψ₂, dataset;cache=cache);
 result₂
 nothing # hide
@@ -121,7 +121,7 @@ models = default_models(
     Q_continuous = xgboost_regressor,
     G            = xgboost_classifier
 )
-tmle_gboost = TMLEE(models=models)
+tmle_gboost = Tmle(models=models)
 ```
 
 The advantage of using `default_models` is that it will automatically prepend each model with a [ContinuousEncoder](https://alan-turing-institute.github.io/MLJ.jl/dev/transformers/#MLJModels.ContinuousEncoder) to make sure the correct types are passed to the downstream models.
@@ -144,7 +144,7 @@ models = default_models( # For all non-specified variables use the following def
         # Unspecified G defaults to Logistic Regression
 )
 
-tmle_custom = TMLEE(models=models)
+tmle_custom = Tmle(models=models)
 ```
 
 Notice that `with_encoder` is simply a shorthand to construct a pipeline with a `ContinuousEncoder` and that the resulting `models` is simply a `Dict`.
@@ -154,13 +154,13 @@ Notice that `with_encoder` is simply a shorthand to construct a pipeline with a 
 Canonical TMLE/OSE are essentially using the dataset twice, once for the estimation of the nuisance functions and once for the estimation of the parameter of interest. This means that there is a risk of over-fitting and residual bias ([see here](https://arxiv.org/abs/2203.06469) for some discussion). One way to address this limitation is to use a technique called sample-splitting / cross-validation. In order to activate the sample-splitting mode, simply provide a `MLJ.ResamplingStrategy` using the `resampling` keyword argument:
 
 ```@example estimation
-TMLEE(resampling=StratifiedCV());
+Tmle(resampling=StratifiedCV());
 ```
 
 or
 
 ```julia
-OSE(resampling=StratifiedCV(nfolds=3));
+Ose(resampling=StratifiedCV(nfolds=3));
 ```
 
 There are some practical considerations
