@@ -38,7 +38,7 @@ exhausted(strategy::CollaborativeStrategy) = error("Not Implemented Error.")
 
 Targeted estimator with a collaborative strategy.
 """
-function (estimator::TargetedCMRelevantFactorsEstimator{CollaborativeStrategy})(
+function (estimator::TargetedCMRelevantFactorsEstimator{<:CollaborativeStrategy})(
     η, 
     dataset; 
     cache=Dict(), 
