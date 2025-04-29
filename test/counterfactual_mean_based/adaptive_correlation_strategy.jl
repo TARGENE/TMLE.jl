@@ -181,7 +181,6 @@ end
     );
     cv_candidate, cv_loss = only(cv_candidates)
     validation_losses = []
-    (fold_estimate, (train_indices, val_indices)) = first(zip(cv_candidate, train_validation_indices))
     for (fold_estimate, (train_indices, val_indices)) in zip(cv_candidate, train_validation_indices)
         # Check the estimate is in the cache
         @test fold_estimate.outcome_mean.machine.model.initial_factors in values(cache[fold_estimate.estimand])
@@ -287,6 +286,25 @@ end
         @test fold_candidate.outcome_mean.machine.model.initial_factors.outcome_mean === cv_candidate[fold_id].outcome_mean.machine.model.initial_factors.outcome_mean
     end
     @test TMLE.compute_validation_loss(second_cv_candidate_bis, dataset, train_validation_indices) == second_cvloss_bis
+
+    # Check the full loop
+    best_candidate = TMLE.update_candidates!(
+        candidates, 
+        cv_candidates, 
+        collaborative_strategy, 
+        Ψ, 
+        dataset, 
+        fluctuation_model, 
+        train_validation_indices, 
+        models;
+        verbosity=0,
+        cache=Dict(),
+        machine_cache=false
+    )
+    best_loss, best_index = findmin(x -> x.loss, cv_candidates)
+    @test best_candidate.id == best_index
+    @test best_candidate.loss == best_loss
+    @test best_candidate.candidate == candidates[best_index].candidate
 end
 
 end
