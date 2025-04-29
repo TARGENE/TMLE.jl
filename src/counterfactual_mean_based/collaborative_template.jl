@@ -1,145 +1,44 @@
-"""
-    AdaptiveCorrelationOrdering()
-
-This strategy can be used to adaptively select the best confounding variables for the propensity score fit. It works as follows:
-
-1. The propensity score is fitted with no confounding variables
-2. Until convergence (or all confounding variables have been added): for each remaining confounding variable, a new propensity score is trained and an associated targeted estiamtor is built. The estimator with the lowest error is selected.
-3. The sequence of models is evaluated via penalized cross-validation.
-"""
-struct AdaptiveCorrelationOrdering <: CollaborativeStrategy 
-    remaining_confounders::Set{Symbol}
-    current_confounders::Set{Symbol}
-    AdaptiveCorrelationOrdering() = new(Set{Symbol}(), Set{Symbol}())
-end
-
-function initialise!(strategy::AdaptiveCorrelationOrdering, Ψ)
-    empty!(strategy.remaining_confounders)
-    union!(strategy.remaining_confounders, Set(Iterators.flatten(values(Ψ.treatment_confounders))))
-    empty!(strategy.current_confounders)
-    return nothing
-end
-
-function update!(strategy, last_candidate, dataset)
-    residuals = compute_loss(last_candidate.outcome_mean, dataset)
-    max_cor = 0.
-    best_confounder = :nothing
-    for confounder in strategy.remaining_confounders
-        σ = abs(cor(Tables.getcolumn(dataset, confounder), residuals))
-        if σ > max_cor
-            max_cor = σ
-            best_confounder = confounder
-        end
-    end
-    delete!(strategy.remaining_confounders, best_confounder)
-    push!(strategy.current_confounders, best_confounder)
-    return nothing
-end
-
-
-function finalise!(strategy::AdaptiveCorrelationOrdering)
-    empty!(strategy.remaining_confounders)
-    empty!(strategy.current_confounders)
-    return nothing
-end
-
-function propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_strategy::AdaptiveCorrelationOrdering)
-    Ψtreatments = TMLE.treatments(Ψ)
-    return Tuple(map(eachindex(Ψtreatments)) do index
-        T = Ψtreatments[index]
-        confounders = (Ψtreatments[index+1:end]..., collaborative_strategy.current_confounders..., :COLLABORATIVE_INTERCEPT)
-        ConditionalDistribution(T, confounders)
-    end)
-end
-
 #####################################################################
 ###              Targeting AdaptiveCorrelationOrdering            ###
 #####################################################################
 
-function retrieve_models(estimator)
-    outcome_mean_estimate = estimator.fluctuation.initial_factors.outcome_mean
-    propensity_score_estimate = estimator.fluctuation.initial_factors.propensity_score
-    models = Dict{Symbol, Any}(outcome_mean_estimate.estimand.outcome => outcome_mean_estimate.machine.model)
-    for (cd, cde) in zip(propensity_score_estimate.estimand, propensity_score_estimate.components)
-        models[cd.outcome] = cde.machine.model 
-    end
-    return models
-end
+"""
+    CollaborativeStrategy
 
-function initialise_candidates(η, fluctuation_model, dataset;
-    verbosity=1,
-    cache=Dict(),
-    machine_cache=false
-    )
-    targeted_η̂ = TargetedCMRelevantFactorsEstimator(
-        fluctuation_model, 
-        nothing,
-        nothing
-    )
-    targeted_η̂ₙ = targeted_η̂(η, dataset;
-        cache=cache,
-        verbosity=verbosity,
-        machine_cache=machine_cache
-    )
-    loss = loss_sum(targeted_η̂ₙ, dataset)
-    return [(candidate=targeted_η̂ₙ, loss=loss)]
-end
+A collaborative strategy must implement the interface
+"""
+abstract type CollaborativeStrategy end
 
+"""
+Create a propensity score `JointConditionalDistribution` given the current state of `collaborative_strategy`
+"""
+propensity_score(Ψ, collaborative_strategy::CollaborativeStrategy) = error("Not Implemented Error.")
 
-function get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
-    use_fluct=false,
-    verbosity=1,
-    cache=Dict(),
-    machine_cache=false
-    )
-    new_η = TMLE.CMRelevantFactors(last_candidate.estimand.outcome_mean, new_propensity_score_estimate.estimand)
-    # Define new nuisance factors estimate
-    η̂ₙ = TMLE.MLCMRelevantFactors(
-        new_η, 
-        use_fluct ? last_candidate.outcome_mean : last_candidate.outcome_mean.machine.model.initial_factors.outcome_mean, 
-        new_propensity_score_estimate
-    )
-    # Fluctuate
-    targeted_η̂ = TMLE.TargetedCMRelevantFactorsEstimator(
-            fluctuation_model.Ψ, 
-            η̂ₙ;
-            tol=fluctuation_model.tol,
-            max_iter=fluctuation_model.max_iter,
-            ps_lowerbound=fluctuation_model.ps_lowerbound,
-            weighted=fluctuation_model.weighted,
-            machine_cache=fluctuation_model.cache
-        )
-    targeted_η̂ₙ = targeted_η̂(new_η, dataset;
-        cache=cache,
-        verbosity=verbosity,
-        machine_cache=machine_cache
-    )
-    loss = loss_sum(targeted_η̂ₙ, dataset)
-    return targeted_η̂ₙ, loss
-end
+"""
+Initialises the collaborative strategy
+"""
+initialise!(strategy::CollaborativeStrategy, Ψ) = error("Not Implemented Error.")
 
-function get_new_propensity_score_and_estimator(
-    collaborative_strategy, 
-    Ψ, 
-    dataset,
-    models
-    )
-    new_propensity_score = propensity_score(Ψ, collaborative_strategy)
-    new_propensity_score_estimator = build_propensity_score_estimator(
-        new_propensity_score, 
-        models,  
-        dataset;
-        train_validation_indices=nothing,
-    )
-    return new_propensity_score, new_propensity_score_estimator
-end
+"""
+Updates the collaborative strategy with the last candidate
+"""
+update!(strategy::CollaborativeStrategy, last_candidate, dataset) = error("Not Implemented Error.")
 
+"""
+CLeans the collaborative strategy.
+"""
+finalise!(strategy::CollaborativeStrategy) = error("Not Implemented Error.")
+
+"""
+Returns `true` when there is no more propensity score candidate to explore.
+"""
+exhausted(strategy::CollaborativeStrategy) = error("Not Implemented Error.")
 
 """
 
 Targeted estimator with a collaborative strategy.
 """
-function (estimator::TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrdering})(
+function (estimator::TargetedCMRelevantFactorsEstimator{CollaborativeStrategy})(
     η, 
     dataset; 
     cache=Dict(), 
@@ -174,7 +73,7 @@ function (estimator::TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrder
     # Collaborative Loop to find the best candidate
     candidate_id = 1
     best_candidate = (candidate=only(candidates).candidate, cvloss=only(cv_candidates).loss, id=candidate_id)
-    while length(collaborative_strategy.remaining_confounders) > 0
+    while !exhausted(collaborative_strategy)
         candidate_id += 1
         # Update the collaborative strategy's state
         last_candidate, last_candidate_loss = last(candidates)
@@ -225,7 +124,7 @@ function (estimator::TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrder
         # Update the best candidate or early stop
         if cv_loss < last_cv_loss
             best_candidate = (candidate=candidate, loss=cv_loss, id=candidate_id)
-        elseif candidate_id - best_candidate.id > estimator.patience
+        elseif candidate_id - best_candidate.id > collaborative_strategy.patience
             break
         end
     end
@@ -238,6 +137,83 @@ end
 #####################################################################
 ###                           Functions                           ###
 #####################################################################
+
+function retrieve_models(estimator)
+    outcome_mean_estimate = estimator.fluctuation.initial_factors.outcome_mean
+    propensity_score_estimate = estimator.fluctuation.initial_factors.propensity_score
+    models = Dict{Symbol, Any}(outcome_mean_estimate.estimand.outcome => outcome_mean_estimate.machine.model)
+    for (cd, cde) in zip(propensity_score_estimate.estimand, propensity_score_estimate.components)
+        models[cd.outcome] = cde.machine.model 
+    end
+    return models
+end
+
+function initialise_candidates(η, fluctuation_model, dataset;
+    verbosity=1,
+    cache=Dict(),
+    machine_cache=false
+    )
+    targeted_η̂ = TargetedCMRelevantFactorsEstimator(
+        fluctuation_model, 
+        nothing,
+        nothing
+    )
+    targeted_η̂ₙ = targeted_η̂(η, dataset;
+        cache=cache,
+        verbosity=verbosity,
+        machine_cache=machine_cache
+    )
+    loss = loss_sum(targeted_η̂ₙ, dataset)
+    return [(candidate=targeted_η̂ₙ, loss=loss)]
+end
+
+function get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
+    use_fluct=false,
+    verbosity=1,
+    cache=Dict(),
+    machine_cache=false
+    )
+    new_η = TMLE.CMRelevantFactors(last_candidate.estimand.outcome_mean, new_propensity_score_estimate.estimand)
+    # Define new nuisance factors estimate
+    η̂ₙ = TMLE.MLCMRelevantFactors(
+        new_η, 
+        use_fluct ? last_candidate.outcome_mean : last_candidate.outcome_mean.machine.model.initial_factors.outcome_mean, 
+        new_propensity_score_estimate
+    )
+    # Fluctuate
+    targeted_η̂ = TMLE.TargetedCMRelevantFactorsEstimator(
+            fluctuation_model.Ψ, 
+            η̂ₙ;
+            tol=fluctuation_model.tol,
+            max_iter=fluctuation_model.max_iter,
+            ps_lowerbound=fluctuation_model.ps_lowerbound,
+            weighted=fluctuation_model.weighted,
+            machine_cache=fluctuation_model.cache
+        )
+    targeted_η̂ₙ = targeted_η̂(new_η, dataset;
+        cache=cache,
+        verbosity=verbosity,
+        machine_cache=machine_cache
+    )
+    loss = loss_sum(targeted_η̂ₙ, dataset)
+    return targeted_η̂ₙ, loss
+end
+
+function get_new_propensity_score_and_estimator(
+    collaborative_strategy, 
+    Ψ, 
+    dataset,
+    models
+    )
+    new_propensity_score = propensity_score(Ψ, collaborative_strategy)
+    new_propensity_score_estimator = build_propensity_score_estimator(
+        new_propensity_score, 
+        models,  
+        dataset;
+        train_validation_indices=nothing,
+    )
+    return new_propensity_score, new_propensity_score_estimator
+end
 
 function initialise_cv_candidates(η, dataset, fluctuation_model, train_validation_indices, models;
     cache=Dict(),
@@ -324,26 +300,11 @@ end
 loss_sum(candidate, dataset) =
     sum(compute_loss(candidate.outcome_mean, dataset))
 
-function update_fluctuation_model(fluctuation_model;
-    propensity_score_estimate=fluctuation_model.initial_factors.propensity_score, 
-    outcome_mean_estimate=fluctuation_model.initial_factors.outcome_mean
-    )
-    η̂ = TMLE.MLCMRelevantFactors(
-        fluctuation_model.initial_factors.estimand,
-        outcome_mean_estimate,
-        propensity_score_estimate
-    )
-    return Fluctuation(fluctuation_model.Ψ, η̂; 
-        tol=fluctuation_model.tol,
-        max_iter=fluctuation_model.max_iter, 
-        ps_lowerbound=fluctuation_model.ps_lowerbound, 
-        weighted=fluctuation_model.weighted,
-        cache=fluctuation_model.cache
-    )
-end
-
 adapt_and_getloss(ŷ::Vector{<:Real}) = ŷ, RootMeanSquaredError()
+
 adapt_and_getloss(ŷ::Vector{<:Distribution{Univariate, Distributions.Continuous}}) = TMLE.expected_value(ŷ), RootMeanSquaredError()
+
+adapt_and_getloss(ŷ::UnivariateFiniteVector) = ŷ, LogLoss()
 
 function compute_loss(conditional_density_estimate, dataset)
     ŷ = MLJBase.predict(conditional_density_estimate, dataset)
@@ -351,10 +312,3 @@ function compute_loss(conditional_density_estimate, dataset)
     ŷ, loss = TMLE.adapt_and_getloss(ŷ)
     return measurements(loss, ŷ, y)
 end
-
-outcome_set(conditional_distributions) = Set(cd.outcome for cd in conditional_distributions)
-
-get_confounders(conditional_distributions, treatments) = setdiff(
-    union((cd.parents for cd in conditional_distributions)...),
-    treatments
-)

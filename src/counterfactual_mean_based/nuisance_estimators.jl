@@ -1,7 +1,3 @@
-abstract type CollaborativeStrategy end
-
-propensity_score(Ψ, collaborative_strategy::CollaborativeStrategy) = propensity_score(Ψ)
-
 #####################################################################
 ###             FoldsCMRelevantFactorsEstimator                   ###
 #####################################################################
