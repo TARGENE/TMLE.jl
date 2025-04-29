@@ -43,7 +43,6 @@ end
 
 """
 From https://www.degruyter.com/document/doi/10.2202/1557-4679.1043/html
-The theoretical ATE is 1
 """
 function continuous_outcome_binary_treatment_pb(;n=100)
     # Dataset

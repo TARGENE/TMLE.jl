@@ -34,62 +34,6 @@ Returns `true` when there is no more propensity score candidate to explore.
 """
 exhausted(strategy::CollaborativeStrategy) = error("Not Implemented Error.")
 
-"""
-
-Targeted estimator with a collaborative strategy.
-"""
-function (estimator::TargetedCMRelevantFactorsEstimator{<:CollaborativeStrategy})(
-    η, 
-    dataset; 
-    cache=Dict(), 
-    verbosity=1, 
-    machine_cache=false
-    )
-    collaborative_strategy = estimator.collaborative_strategy
-    Ψ = estimator.fluctuation.Ψ
-    fluctuation_model = estimator.fluctuation
-    train_validation_indices = estimator.train_validation_indices
-    
-    # Retrieve models
-    models = TMLE.retrieve_models(estimator)
-
-    # Initialize the collaborative strategy
-    TMLE.initialise!(collaborative_strategy, Ψ)
-    
-    # Initialize Candidates: the fluctuation is fitted through the initial outcome mean and propensity score
-    candidates = TMLE.initialise_candidates(η, fluctuation_model, dataset;
-        verbosity=verbosity,
-        cache=cache,
-        machine_cache=machine_cache
-    )
-
-    # Initialise cross-validation loss
-    cv_candidates = TMLE.initialise_cv_candidates(η, dataset, fluctuation_model, train_validation_indices, models;
-        cache=cache,
-        verbosity=verbosity,
-        machine_cache=machine_cache
-    )
-
-    # Collaborative Loop to find the best candidate
-    best_candidate = TMLE.update_candidates!(
-        candidates, 
-        cv_candidates, 
-        collaborative_strategy, 
-        Ψ, 
-        dataset, 
-        fluctuation_model, 
-        train_validation_indices, 
-        models;
-        verbosity=verbosity,
-        cache=cache,
-        machine_cache=machine_cache
-    )
-    
-    finalise!(collaborative_strategy)
-
-    return best_candidate.candidate
-end
-
 #####################################################################
 ###                           Functions                           ###
 #####################################################################
