@@ -131,7 +131,6 @@ end
     @test size(composed_estimate.cov) == (2, 2)
 
     composed_estimate_dict = TMLE.to_dict(composed_estimate)
-    println(composed_estimate_dict[:estimand])
     @test composed_estimate_dict isa Dict
     composed_estimate_from_dict = TMLE.from_dict!(composed_estimate_dict)
     @test composed_estimate_from_dict.estimand == composed_estimate.estimand
