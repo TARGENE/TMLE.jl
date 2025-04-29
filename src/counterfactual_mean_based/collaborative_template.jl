@@ -71,21 +71,57 @@ function (estimator::TargetedCMRelevantFactorsEstimator{CollaborativeStrategy})(
     )
 
     # Collaborative Loop to find the best candidate
+    best_candidate = TMLE.update_candidates!(
+        candidates, 
+        cv_candidates, 
+        collaborative_strategy, 
+        Ψ, 
+        dataset, 
+        fluctuation_model, 
+        train_validation_indices, 
+        models;
+        verbosity=verbosity,
+        cache=cache,
+        machine_cache=machine_cache
+    )
+    
+    finalise!(collaborative_strategy)
+
+    return best_candidate.candidate
+end
+
+#####################################################################
+###                           Functions                           ###
+#####################################################################
+
+function update_candidates!(
+    candidates, 
+    cv_candidates, 
+    collaborative_strategy, 
+    Ψ, 
+    dataset, 
+    fluctuation_model, 
+    train_validation_indices, 
+    models;
+    verbosity=1,
+    cache=Dict(),
+    machine_cache=false
+    )
     candidate_id = 1
     best_candidate = (candidate=only(candidates).candidate, cvloss=only(cv_candidates).loss, id=candidate_id)
     while !exhausted(collaborative_strategy)
         candidate_id += 1
         # Update the collaborative strategy's state
-        last_candidate, last_candidate_loss = last(candidates)
+        last_candidate, last_loss = last(candidates)
         update!(collaborative_strategy, last_candidate, dataset)
-
-        verbosity > 0 && @info "The propensity score will use: $(propensity_score)"
-        new_propensity_score, new_propensity_score_estimator = TMLE.get_new_propensity_score_and_estimator(
+        # Get the new propensity score and associated estimator
+        new_propensity_score, new_propensity_score_estimator = get_new_propensity_score_and_estimator(
             collaborative_strategy, 
             Ψ, 
             dataset,
             models
         )
+        # Fit this new propensity score
         new_propensity_score_estimate = new_propensity_score_estimator(
             new_propensity_score,
             dataset;
@@ -93,18 +129,18 @@ function (estimator::TargetedCMRelevantFactorsEstimator{CollaborativeStrategy})(
             verbosity=verbosity,
             machine_cache=machine_cache
         )
-        # Fluctuate outcome model through the new propensity score
+        # Fluctuate outcome model through the new propensity score and Q̄k
         use_fluct = false
-        candidate, loss = TMLE.get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
+        candidate, loss = get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
             use_fluct=use_fluct,
             verbosity=verbosity,
             cache=cache,
             machine_cache=machine_cache
         )
-        if loss > last(candidates).loss
+        if loss > last_loss
             use_fluct = true
-            # Fluctuate through Q̄* from the previous candidate's flutuated model
-            candidate, loss = TMLE.get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
+            # Fluctuate through Q̄k,* from the previous candidate's flutuated model
+            candidate, loss = get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
                 use_fluct=use_fluct,
                 verbosity=verbosity,
                 cache=cache,
@@ -114,7 +150,7 @@ function (estimator::TargetedCMRelevantFactorsEstimator{CollaborativeStrategy})(
         push!(candidates, (candidate=candidate, loss=loss))
         # Evaluate candidate
         last_cv_candidate, last_cv_loss = last(cv_candidates)
-        cv_candidate, cv_loss = TMLE.evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+        cv_candidate, cv_loss = evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
             use_fluct=use_fluct,
             verbosity=verbosity,
             cache=cache,
@@ -128,15 +164,8 @@ function (estimator::TargetedCMRelevantFactorsEstimator{CollaborativeStrategy})(
             break
         end
     end
-    
-    finalise!(collaborative_strategy)
-
-    return best_candidate.candidate
+    return best_candidate
 end
-
-#####################################################################
-###                           Functions                           ###
-#####################################################################
 
 function retrieve_models(estimator)
     outcome_mean_estimate = estimator.fluctuation.initial_factors.outcome_mean
