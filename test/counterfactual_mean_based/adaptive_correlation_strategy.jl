@@ -90,6 +90,7 @@ end
     verbosity = 0
     collaborative_strategy = AdaptiveCorrelationOrdering()
     tmle = Tmle(;
+        weighted=false,
         models = default_models(;
             Q_continuous = LinearRegressor(),
             G = LogisticClassifier(lambda=0.)

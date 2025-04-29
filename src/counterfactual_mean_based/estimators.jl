@@ -73,7 +73,7 @@ function Tmle(;
     collaborative_strategy=nothing,
     resampling=default_resampling(collaborative_strategy), 
     ps_lowerbound=1e-8, 
-    weighted=false, 
+    weighted=true, 
     tol=nothing, 
     max_iter=1, 
     machine_cache=false

@@ -51,11 +51,11 @@ The TMLE is supposed to solve the EIC score equation.
 test_mean_inf_curve_almost_zero(tmle_result::TMLE.EICEstimate; atol=1e-10) = @test mean(tmle_result.IC) ≈ 0.0 atol=atol
 
 double_robust_estimators(models; resampling=CV(nfolds=3)) = (
-    tmle = Tmle(models=models, machine_cache=true),
+    tmle = Tmle(models=models, machine_cache=true, weighted=false),
     ose = Ose(models=models, machine_cache=true),
-    cv_tmle = Tmle(models=models, resampling=resampling, machine_cache=true),
+    cv_tmle = Tmle(models=models, resampling=resampling, machine_cache=true, weighted=false),
     cv_ose = Tmle(models=models, resampling=resampling, machine_cache=true),
-    ctmle = Tmle(models=models, resampling=resampling, machine_cache=true, collaborative_strategy=AdaptiveCorrelationOrdering()),
+    ctmle = Tmle(models=models, resampling=resampling, machine_cache=true, collaborative_strategy=AdaptiveCorrelationOrdering(), weighted=false),
 )
 
 function test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
