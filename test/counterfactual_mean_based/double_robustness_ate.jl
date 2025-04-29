@@ -172,7 +172,7 @@ end
 
 
 @testset "Test Double Robustness ATE on continuous_outcome_binary_treatment_pb" begin
-    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=10_000)
+    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=50_000)
     Ψ = ATE(
         outcome = :Y,
         treatment_values = (T=(case=true, control=false),),

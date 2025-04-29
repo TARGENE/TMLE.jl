@@ -55,7 +55,7 @@ double_robust_estimators(models; resampling=CV(nfolds=3)) = (
     ose = Ose(models=models, machine_cache=true),
     cv_tmle = Tmle(models=models, resampling=resampling, machine_cache=true),
     cv_ose = Tmle(models=models, resampling=resampling, machine_cache=true),
-    # ctmle = Tmle(models=models, resampling=resampling, machine_cache=true, collaborative_strategy=AdaptiveCorrelationOrdering()),
+    ctmle = Tmle(models=models, resampling=resampling, machine_cache=true, collaborative_strategy=AdaptiveCorrelationOrdering()),
 )
 
 function test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
