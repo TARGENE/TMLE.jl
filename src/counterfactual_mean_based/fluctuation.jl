@@ -181,7 +181,7 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
     report = (estimates = [], gradients = [], epsilons = [])
     machines = []
     for iter in 1:model.max_iter
-        verbosity >= 0 && @info(string("TMLE step: ", iter, "."))
+        verbosity > 0 && @info(string("TMLE step: ", iter, "."))
         # Fit new fluctuation using observed data
         Xfluct = fluctuation_input(observed_cache[:H], observed_cache[:ŷ])
         Q = machine(
@@ -202,11 +202,11 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
         )
         update_report!(report, Ψ̂, gradient, fitted_params(Q).coef)
         if hasconverged(gradient, model.tol)
-            verbosity >= 0 && @info("Convergence criterion reached.")
+            verbosity > 0 && @info("Convergence criterion reached.")
             return machines, nothing, report
         end
     end
-    verbosity >= 0 && @info("Convergence criterion not reached.")
+    verbosity > 0 && @info("Convergence criterion not reached.")
     return machines, nothing, report
 end
 
