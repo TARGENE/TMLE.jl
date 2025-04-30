@@ -77,3 +77,7 @@ function get_train_validation_indices(resampling::ResamplingStrategy, Ψ, datase
 end
 
 get_train_validation_indices(resampling::Nothing, Ψ, dataset) = nothing
+
+default_resampling(collaborative_strategy::Nothing) = nothing
+
+default_resampling(collaborative_strategy) = CausalStratifiedCV()

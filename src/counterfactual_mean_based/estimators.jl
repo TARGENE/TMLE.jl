@@ -1,7 +1,3 @@
-default_resampling(collaborative_strategy::Nothing) = nothing
-
-default_resampling(collaborative_strategy) = StratifiedCV()
-
 #####################################################################
 ###                            TMLE                               ###
 #####################################################################
