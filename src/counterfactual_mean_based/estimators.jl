@@ -90,6 +90,7 @@ function Tmle(;
 end
 
 function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+    dataset = DataFrame(dataset)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Make train-validation pairs
@@ -181,6 +182,7 @@ Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_ca
     Ose(models, resampling, ps_lowerbound, machine_cache)
 
 function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+    dataset = DataFrame(dataset)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Make train-validation pairs
@@ -224,6 +226,7 @@ mutable struct Naive <: Estimator
 end
 
 function (estimator::Naive)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+    dataset = DataFrame(dataset)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors

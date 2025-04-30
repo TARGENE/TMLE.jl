@@ -36,18 +36,26 @@ This is to avoid the complications of:
 """
 choose_initial_dataset(dataset, nomissing_dataset, resampling) = nomissing_dataset
 
-function maybe_with_intercept(dataset, parents)
-    dataset = if :COLLABORATIVE_INTERCEPT ∈ parents
-        merge(dataset, (;COLLABORATIVE_INTERCEPT=ones(nrows(dataset))))
+function selectcols_with_collaborative_intercept(dataset, colnames; copycols=false)
+    n_samples = nrows(dataset)
+    colnames = filter(x-> x ≠ :COLLABORATIVE_INTERCEPT,  colnames)
+    if length(colnames) == 0
+        return DataFrame(COLLABORATIVE_INTERCEPT = ones(n_samples))
     else
-        dataset
+        subdataset = DataFrames.select(dataset, colnames, copycols=copycols)
+        subdataset.COLLABORATIVE_INTERCEPT = ones(nrows(subdataset))
+        return subdataset
     end
-    return dataset
 end
 
-function selectcols(data, cols)
-    data = maybe_with_intercept(data, cols) # TODO: Ugly hack here, can I do better?
-    return data |> TableOperations.select(cols...) |> Tables.columntable
+function selectcols(dataset, colnames; copycols=false)
+    colnames = Symbol.(collect(colnames))
+    dataset_colnames = Symbol.(names(dataset))
+    return if :COLLABORATIVE_INTERCEPT ∈ colnames && :COLLABORATIVE_INTERCEPT ∉ dataset_colnames
+        selectcols_with_collaborative_intercept(dataset, colnames, copycols=copycols)
+    else
+        DataFrames.select(dataset, colnames, copycols=copycols)
+    end
 end
 
 function logit!(v)
@@ -56,22 +64,15 @@ function logit!(v)
     end
 end
 
-function nomissing(table)
-    sch = Tables.schema(table)
-    for type in sch.types
-        if nonmissingtype(type) != type
-            coltable = table |> 
-                       TableOperations.dropmissing |> 
-                       Tables.columntable
-            return NamedTuple{keys(coltable)}([disallowmissing(col) for col in coltable])
-        end
-    end
-    return table
-end
+ismissingtype(T) = nonmissingtype(T) !== T
 
-function nomissing(table, columns)
-    columns = selectcols(table, columns)
-    return nomissing(columns)
+function nomissing(dataset::DataFrame, colnames; disallowmissing=true, view=false, copycols=false)
+    subdataset = TMLE.selectcols(dataset, colnames, copycols=copycols)
+    return if all(!ismissingtype(eltype(c)) for c in eachcol(subdataset))
+        subdataset
+    else
+        dropmissing(subdataset, disallowmissing=disallowmissing, view=view)
+    end
 end
 
 function indicator_values(indicators, T)
@@ -86,12 +87,16 @@ expected_value(ŷ::AbstractArray{<:UnivariateFinite{<:Union{OrderedFactor{2}, Mu
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
-function counterfactualTreatment(vals, T)
-    Tnames = Tables.columnnames(T)
-    n = nrows(T)
-    NamedTuple{Tnames}(
-            [categorical(repeat([vals[i]], n), levels=levels(Tables.getcolumn(T, name)), ordered=isordered(Tables.getcolumn(T, name)))
-                            for (i, name) in enumerate(Tnames)])
+function counterfactualTreatment(vals, Ts)
+    n = nrows(Ts)
+    counterfactual_Ts = map(enumerate(names(Ts))) do (i, T_name)
+        T = Ts[!, T_name]
+        categorical(repeat([vals[i]], n), 
+            levels=levels(T), 
+            ordered=isordered(T)
+        )
+    end
+    return DataFrame(counterfactual_Ts, names(Ts))
 end
 
 """
@@ -125,7 +130,7 @@ default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(
     (key => with_encoder(val) for (key, val) in kwargs)...
 )
 
-is_binary(dataset, columnname) = Set(skipmissing(Tables.getcolumn(dataset, columnname))) == Set([0, 1])
+is_binary(dataset, columnname) = Set(skipmissing(dataset[!, columnname])) == Set([0, 1])
 
 function satisfies_positivity(Ψ, freq_table; positivity_constraint=0.01)
     for jointlevel in joint_levels(Ψ)
@@ -148,7 +153,7 @@ get_frequency_table(positivity_constraint, dataset::Nothing, colnames) =
 get_frequency_table(positivity_constraint, dataset, colnames) = get_frequency_table(dataset, colnames)
 
 function get_frequency_table(dataset, colnames)
-    iterator = zip((Tables.getcolumn(dataset, colname) for colname in sort(collect(colnames)))...)
+    iterator = zip((dataset[!, colname] for colname in sort(collect(colnames)))...)
     counts = groupcount(x -> x, iterator) 
     for key in keys(counts)
         counts[key] /= nrows(dataset)
@@ -196,7 +201,7 @@ outcome_mean_fluctuation_fit_error_msg(factor) = string(
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
 
-get_train_validation_indices(resampling, Ψ, dataset) = nothing
+get_train_validation_indices(resampling::Nothing, Ψ, dataset) = nothing
 
 function get_train_validation_indices(resampling::ResamplingStrategy, Ψ, dataset)
     outcome_variable = Ψ.outcome
@@ -204,6 +209,8 @@ function get_train_validation_indices(resampling::ResamplingStrategy, Ψ, datase
         resampling,
         1:nrows(dataset),
         dataset, 
-        Tables.getcolumn(dataset, outcome_variable)
+        dataset[!, outcome_variable]
     ))
 end
+
+with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)

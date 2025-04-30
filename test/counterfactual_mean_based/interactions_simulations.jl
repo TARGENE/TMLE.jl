@@ -4,6 +4,7 @@ using Distributions
 using StableRNGs
 using MLJBase
 using StatsBase
+using DataFrames
 
 function binary_outcome_binary_treatment_pb(;n=100)
     rng = StableRNG(123)
@@ -24,7 +25,7 @@ function binary_outcome_binary_treatment_pb(;n=100)
 
     # Respect the Tables.jl interface and convert types
     W = float(W)
-    dataset = (
+    dataset = DataFrame(
         T₁=categorical(T₁), 
         T₂=categorical(T₂), 
         W₁=W[:, 1], 
@@ -86,7 +87,7 @@ function binary_outcome_categorical_treatment_pb(;n=100)
     # Sampling y from T, W:
     μy = μy_fn(W, T, Hmach)
     y = [rand(rng, Bernoulli(μy[i])) for i in 1:n]
-    dataset = (T₁=T.T₁, T₂=T.T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], Y=categorical(y))
+    dataset = DataFrame(T₁=T.T₁, T₂=T.T₂, W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], Y=categorical(y))
     # Compute the theoretical AIE for the query
     # (CC, AT) against (CG, AA)
     Wcomb = [1 1 1;
@@ -134,7 +135,7 @@ function continuous_outcome_binary_treatment_pb(;n=100)
     T₁ = categorical(T₁)
     T₂ = categorical(T₂)
 
-    dataset = (T₁=T₁, T₂=T₂,  W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], Y=y)
+    dataset = DataFrame(T₁=T₁, T₂=T₂,  W₁=W[:, 1], W₂=W[:, 2], W₃=W[:, 3], Y=y)
     # Compute the theoretical ATE
     Wcomb = [1 1 1;
             1 1 0;

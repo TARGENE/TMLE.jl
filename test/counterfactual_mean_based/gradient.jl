@@ -8,6 +8,7 @@ using LogExpFunctions
 using Distributions
 using MLJLinearModels
 using MLJModels
+using DataFrames
 
 μY(T, W)  = 1 .+ 2T .- W.*T
 
@@ -17,7 +18,7 @@ function one_treatment_dataset(;n=100)
     μT  = logistic.(1 .- 3W)
     T   = rand(rng, n) .< μT
     Y   = μY(T, W) .+ rand(rng, Normal(0, 0.1), n)
-    return (
+    return DataFrame(
         T = categorical(T, ordered=true),
         Y = Y,
         W = W

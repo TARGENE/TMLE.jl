@@ -224,7 +224,7 @@ function identify(method::BackdoorAdjustment, causal_estimand::T, scm::SCM) wher
 end
 
 function get_treatment_values(dataset, colname)
-    counts = groupcount(skipmissing(Tables.getcolumn(dataset, colname)))
+    counts = groupcount(skipmissing(dataset[!, colname]))
     sorted_counts = sort(collect(pairs(counts)), by = x -> x.second, rev=true)
     return first.(sorted_counts)
 end
@@ -271,7 +271,7 @@ If a NamedTuple of treatments_levels is provided as well as a dataset then the t
 """
 function make_or_check_treatment_levels(treatments_levels::Union{AbstractDict, NamedTuple}, dataset)
     for (treatment, treatment_levels) in zip(keys(treatments_levels), values(treatments_levels))
-        dataset_treatment_levels = Set(skipmissing(Tables.getcolumn(dataset, treatment)))
+        dataset_treatment_levels = Set(skipmissing(dataset[!, treatment]))
         missing_levels = setdiff(treatment_levels, dataset_treatment_levels)
         length(missing_levels) == 0 || 
             throw(ArgumentError(string("Not all levels provided for treatment ", treatment, " were found in the dataset: ", missing_levels)))

@@ -22,6 +22,7 @@ using SplitApplyCombine
 using OrderedCollections
 using AutoHashEquals
 using StatisticalMeasures
+using DataFrames
 
 # #############################################################################
 # EXPORTS
@@ -36,7 +37,7 @@ export JointEstimand, ComposedEstimand
 export var, estimate, pvalue, confint, emptyIC
 export significance_test, OneSampleTTest, OneSampleZTest, OneSampleHotellingT2Test
 export compose
-export default_models, TreatmentTransformer, with_encoder, encoder
+export default_models, with_encoder
 export BackdoorAdjustment, identify
 export Configuration
 export brute_force_ordering, groups_ordering
@@ -53,7 +54,6 @@ include("estimands.jl")
 include("utils.jl")
 include("estimates.jl")
 include("estimators.jl")
-include("treatment_transformer.jl")
 include("estimand_ordering.jl")
 
 include("counterfactual_mean_based/estimands.jl")

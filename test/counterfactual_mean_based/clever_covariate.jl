@@ -4,6 +4,7 @@ using Test
 using TMLE
 using CategoricalArrays
 using MLJModels
+using DataFrames
 
 @testset "Test ps_lower_bound" begin
     n = 7
@@ -23,7 +24,7 @@ end
         treatment_values=(T=(case="a", control="b"),),
         treatment_confounders=(T=[:W],),
     )
-    dataset = (
+    dataset = DataFrame(
         T = categorical(["a", "b", "c", "a", "a", "b", "a"]),
         Y = [1., 2., 3, 4, 5, 6, 7],
         W = rand(7),
@@ -63,7 +64,7 @@ end
         ),
         treatment_confounders=(T₁=[:W], T₂=[:W])
     )
-    dataset = (
+    dataset = DataFrame(
         T₁ = categorical([1, 0, 0, 1, 1, 1, 0]),
         T₂ = categorical([1, 1, 1, 1, 1, 0, 0]),
         Y = categorical([1, 1, 1, 1, 0, 0, 0]),
@@ -106,7 +107,7 @@ end
             T₃=[:W]
         )
     )
-    dataset = (
+    dataset = DataFrame(
         T₁ = categorical(["a", "a", "b", "b", "c", "b", "b"]),
         T₂ = categorical([3, 2, 1, 1, 2, 2, 2], ordered=true),
         T₃ = categorical([true, false, true, false, false, false, false], ordered=true),

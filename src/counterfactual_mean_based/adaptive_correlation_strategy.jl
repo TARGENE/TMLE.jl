@@ -24,7 +24,7 @@ function update!(strategy::AdaptiveCorrelationOrdering, last_candidate, dataset)
     max_cor = 0.
     best_confounder = :nothing
     for confounder in strategy.remaining_confounders
-        confounder_col = unwrap.(Tables.getcolumn(dataset, confounder))
+        confounder_col = unwrap.(dataset[!, confounder])
         σ = abs(cor(confounder_col, residuals))
         if σ > max_cor
             max_cor = σ

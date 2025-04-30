@@ -197,7 +197,7 @@ end
         # Check propensity score
         for ps_component in fold_estimate.propensity_score.components
             _, y_train = ps_component.machine.data
-            @test y_train == dataset[ps_component.estimand.outcome][train_indices]
+            @test y_train == dataset[!, ps_component.estimand.outcome][train_indices]
             @test ps_component in values(cache[ps_component.estimand])
         end
         # validation loss

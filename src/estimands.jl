@@ -57,7 +57,7 @@ Makes sure the defined treatment levels are present in the dataset.
 """
 function check_treatment_levels(Ψ::Estimand, dataset)
     for T in treatments(Ψ)
-        treatment_levels = levels(Tables.getcolumn(dataset, T))
+        treatment_levels = levels(dataset[!, T])
         treatment_settings = Ψ.treatment_values[T]
         check_treatment_settings(treatment_settings, treatment_levels, T)
     end

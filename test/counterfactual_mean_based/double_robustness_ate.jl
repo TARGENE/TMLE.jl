@@ -10,6 +10,7 @@ using MLJModels
 using StableRNGs
 using StatsBase
 using LogExpFunctions
+using DataFrames
 
 include(joinpath(pkgdir(TMLE), "test", "helper_fns.jl"))
 
@@ -23,16 +24,11 @@ function binary_outcome_binary_treatment_pb(;n=100)
     py_given_aw(a, w) = 1 ./ (1 .+ exp.(2w .- 3a .+ 1))
     # Sample from dataset
     Unif = Uniform(0, 1)
-    w = rand(rng, Unif, n) .< p_w()
-    t = rand(rng, Unif, n) .< pa_given_w(w)
-    y = rand(rng, Unif, n) .< py_given_aw(t, w)
-    # Convert to dataframe to respect the Tables.jl
-    # and convert types
-    W = convert(Array{Float64}, w)
-    T = t
-    Y = y
-    dataset = (T=T, W=W, Y=Y)
-    dataset = coerce(dataset, autotype(dataset))
+    W = rand(rng, Unif, n) .< p_w()
+    T = rand(rng, Unif, n) .< pa_given_w(W)
+    Y = rand(rng, Unif, n) .< py_given_aw(T, W)
+    dataset = DataFrame(T=categorical(T), W=W, Y=categorical(Y))
+    
     # Compute the theoretical ATE
     ATE₁ = py_given_aw(1, 1)*p_w() + (1-p_w())*py_given_aw(1, 0)
     ATE₀ = py_given_aw(0, 1)*p_w() + (1-p_w())*py_given_aw(0, 0)
@@ -53,7 +49,7 @@ function continuous_outcome_binary_treatment_pb(;n=100)
     t = rand(rng, Unif, n) .< logistic.(0.5W₁ + 1.5W₂ - W₃)
     y = 4t + 25W₁ + 3W₂ - 4W₃ + rand(rng, Normal(0, 0.1), n)
     T = categorical(t)
-    dataset = (T = T, W₁ = W₁, W₂ = W₂, W₃ = W₃, Y = y)
+    dataset = DataFrame(T = T, W₁ = W₁, W₂ = W₂, W₃ = W₃, Y = y)
     # Theroretical ATE
     ATE = 4
     return dataset, ATE
@@ -70,7 +66,7 @@ function continuous_outcome_categorical_treatment_pb(;n=100, control="TT", case=
     softmax = exp.(W*θ) ./ sum(exp.(W*θ), dims=2)
     T = [sample(rng, ["TT", "AA", "AT"], Weights(softmax[i, :])) for i in 1:n]
     y = ft(T) + fw(W₁, W₂, W₃) + rand(rng, Normal(0,1), n)
-    dataset = (T = categorical(T),  W₁ = W₁, W₂ = W₂, W₃ = W₃, Y = y)
+    dataset = DataFrame(T = categorical(T),  W₁ = W₁, W₂ = W₂, W₃ = W₃, Y = y)
     # True ATE: Ew[E[Y|t,w]] = ∑ᵤ (ft(T) + fw(w))p(w) = ft(t) + 0.5
     ATE = (ft(case) + 0.5) -  (ft(control) + 0.5)
     return dataset, ATE
@@ -87,7 +83,7 @@ function dataset_2_treatments_pb(;rng = StableRNG(123), n=100)
     μT₂ = logistic.(-1.5W₁ + .5W₂ .+ 1)
     T₂ = float(rand(rng, Uniform(), n) .< μT₂)
     y = μY(W₁, W₂, T₁, T₂) .+ rand(rng, Normal(), n)
-    dataset = (
+    dataset = DataFrame(
         W₁ = W₁,
         W₂ = W₂,
         T₁ = categorical(T₁),
@@ -132,7 +128,7 @@ end
     
     # When Q is well specified but G is misspecified
     models = Dict(
-        :Y => with_encoder(TreatmentTransformer() |> LinearRegressor()),
+        :Y => with_encoder(LinearRegressor()),
         :T => with_encoder(ConstantClassifier())
     )
     dr_estimators = double_robust_estimators(models)

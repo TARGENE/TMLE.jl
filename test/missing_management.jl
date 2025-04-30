@@ -30,7 +30,6 @@ end
 @testset "Test nomissing" begin
     # If there is no missing data, this should be a no-op
     dataset = DataFrame(rand(10, 3), :auto)
-    @test TMLE.nomissing(dataset) === dataset
     filtered = TMLE.nomissing(dataset, [:x1, :x2])
     # The only cost to this operation is the creation of a new table but the columns are indistinguishable
     @test filtered.x1 === dataset.x1
@@ -45,11 +44,6 @@ end
     filtered = TMLE.nomissing(dataset, [:W, :T])
     @test filtered.W == dataset.W[11:end]
     @test filtered.T == dataset.T[11:end]
-    # filter all missing rows
-    filtered = TMLE.nomissing(dataset)
-    @test filtered.W == dataset.W[16:end]
-    @test filtered.T == dataset.T[16:end]
-    @test filtered.Y == dataset.Y[16:end]
 end
 
 @testset "Test estimation with missing values and ordered factor treatment" begin

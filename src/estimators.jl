@@ -22,8 +22,8 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cach
     relevant_dataset = nomissing(dataset, variables(estimand))
     relevant_dataset = training_rows(relevant_dataset, estimator.train_validation_indices)
     # Fit Conditional DIstribution using MLJ
-    X = selectcols(relevant_dataset, estimand.parents)
-    y = Tables.getcolumn(relevant_dataset, estimand.outcome)
+    X = TMLE.selectcols(relevant_dataset, estimand.parents)
+    y = relevant_dataset[!, estimand.outcome]
     mach = machine(estimator.model, X, y, cache=machine_cache)
     fit!(mach, verbosity=verbosity-1)
     # Build estimate
@@ -68,7 +68,7 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     for (index, (train_indices, _)) in enumerate(estimator.train_validation_indices)
         train_dataset = selectrows(relevant_dataset, train_indices)
         Xtrain = selectcols(train_dataset, estimand.parents)
-        ytrain = Tables.getcolumn(train_dataset, estimand.outcome)
+        ytrain = train_dataset[!, estimand.outcome]
         mach = machine(estimator.model, Xtrain, ytrain, cache=machine_cache)
         fit!(mach, verbosity=verbosity-1)
         machines[index] = mach

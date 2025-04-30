@@ -131,7 +131,7 @@ end
 
 function likelihood(estimate::ConditionalDistributionEstimate, dataset)
     ŷ = predict(estimate, dataset)
-    y = Tables.getcolumn(dataset, estimate.estimand.outcome)
+    y = dataset[!, estimate.estimand.outcome]
     return pdf.(ŷ, y)
 end
 

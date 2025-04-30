@@ -281,7 +281,7 @@ adapt_and_getloss(ŷ::UnivariateFiniteVector) = ŷ, LogLoss()
 
 function compute_loss(conditional_density_estimate, dataset)
     ŷ = MLJBase.predict(conditional_density_estimate, dataset)
-    y = Tables.getcolumn(dataset, conditional_density_estimate.estimand.outcome)
+    y = dataset[!, conditional_density_estimate.estimand.outcome]
     ŷ, loss = TMLE.adapt_and_getloss(ŷ)
     return measurements(loss, ŷ, y)
 end
