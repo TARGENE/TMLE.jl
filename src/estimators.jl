@@ -25,7 +25,7 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cach
     X = TMLE.selectcols(relevant_dataset, estimand.parents)
     y = relevant_dataset[!, estimand.outcome]
     mach = machine(estimator.model, X, y, cache=machine_cache)
-    fit!(mach, verbosity=verbosity-1)
+    MLJBase.fit!(mach, verbosity=verbosity-1)
     # Build estimate
     estimate = MLConditionalDistribution(estimand, mach)
     # Update cache
@@ -70,7 +70,7 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
         Xtrain = selectcols(train_dataset, estimand.parents)
         ytrain = train_dataset[!, estimand.outcome]
         mach = machine(estimator.model, Xtrain, ytrain, cache=machine_cache)
-        fit!(mach, verbosity=verbosity-1)
+        MLJBase.fit!(mach, verbosity=verbosity-1)
         machines[index] = mach
     end
     # Build estimate

@@ -191,7 +191,7 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
             observed_cache[:w],
             cache=model.cache
         )
-        fit!(Q, verbosity=verbosity-1)
+        MLJBase.fit!(Q, verbosity=verbosity-1)
         push!(machines, Q)
         # Compute the estimate, gradient and update caches
         gradient, Ψ̂ = compute_gradient_and_estimate_from_caches!(

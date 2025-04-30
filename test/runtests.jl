@@ -12,6 +12,7 @@ TEST_DIR = joinpath(pkgdir(TMLE), "test")
     @test include(joinpath(TEST_DIR, "estimators_and_estimates.jl"))
     @test include(joinpath(TEST_DIR, "missing_management.jl"))
     @test include(joinpath(TEST_DIR, "composition.jl"))
+    @test include(joinpath(TEST_DIR, "resampling.jl"))
     
     # Test Counterfactual Mean Based Estimation
     @test include(joinpath(TEST_DIR, "counterfactual_mean_based/estimands.jl"))

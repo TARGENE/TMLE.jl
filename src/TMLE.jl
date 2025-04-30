@@ -43,6 +43,7 @@ export Configuration
 export brute_force_ordering, groups_ordering
 export gradients, epsilons, estimates
 export AdaptiveCorrelationOrdering
+export CausalStratifiedCV
 
 # #############################################################################
 # INCLUDES
@@ -55,6 +56,7 @@ include("utils.jl")
 include("estimates.jl")
 include("estimators.jl")
 include("estimand_ordering.jl")
+include("resampling.jl")
 
 include("counterfactual_mean_based/estimands.jl")
 include("counterfactual_mean_based/estimates.jl")

@@ -200,17 +200,4 @@ outcome_mean_fluctuation_fit_error_msg(factor) = string(
 
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
-
-get_train_validation_indices(resampling::Nothing, Ψ, dataset) = nothing
-
-function get_train_validation_indices(resampling::ResamplingStrategy, Ψ, dataset)
-    outcome_variable = Ψ.outcome
-    return collect(MLJBase.train_test_pairs(
-        resampling,
-        1:nrows(dataset),
-        dataset, 
-        dataset[!, outcome_variable]
-    ))
-end
-
 with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)
