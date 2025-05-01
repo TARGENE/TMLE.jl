@@ -99,16 +99,16 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         train_validation_indices=train_validation_indices, 
         models=tmle.models
     )
+    verbosity >= 1 && @info "Estimating nuisance parameters."
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
-        verbosity=verbosity,
+        verbosity=verbosity-1,
         machine_cache=tmle.machine_cache
     )
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)
     ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
     # Fluctuation initial factors
-    verbosity >= 1 && @info "Performing TMLE..."
     targeted_factors_estimator = TargetedCMRelevantFactorsEstimator(
         Ψ, 
         initial_factors_estimate;

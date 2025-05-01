@@ -264,13 +264,14 @@ end
 
 Targeted estimator with a collaborative strategy.
 """
-function (estimator::TargetedCMRelevantFactorsEstimator{<:CollaborativeStrategy})(
+function (estimator::TargetedCMRelevantFactorsEstimator{T})(
     η, 
     dataset; 
     cache=Dict(), 
     verbosity=1, 
     machine_cache=false
-    )
+    ) where T <: CollaborativeStrategy
+    verbosity > 0 && @info "C-TMLE mode ($T)."
     collaborative_strategy = estimator.collaborative_strategy
     Ψ = estimator.fluctuation.Ψ
     fluctuation_model = estimator.fluctuation
@@ -284,7 +285,7 @@ function (estimator::TargetedCMRelevantFactorsEstimator{<:CollaborativeStrategy}
     
     # Initialize Candidates: the fluctuation is fitted through the initial outcome mean and propensity score
     candidates = TMLE.initialise_candidates(η, fluctuation_model, dataset;
-        verbosity=verbosity,
+        verbosity=verbosity-1,
         cache=cache,
         machine_cache=machine_cache
     )
@@ -292,10 +293,9 @@ function (estimator::TargetedCMRelevantFactorsEstimator{<:CollaborativeStrategy}
     # Initialise cross-validation loss
     cv_candidates = TMLE.initialise_cv_candidates(η, dataset, fluctuation_model, train_validation_indices, models;
         cache=cache,
-        verbosity=verbosity,
+        verbosity=verbosity-1,
         machine_cache=machine_cache
     )
-
     # Collaborative Loop to find the best candidate
     best_candidate = TMLE.update_candidates!(
         candidates, 

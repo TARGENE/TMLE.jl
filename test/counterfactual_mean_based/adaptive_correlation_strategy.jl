@@ -304,7 +304,7 @@ end
     )
     best_loss, best_index = findmin(x -> x.loss, cv_candidates)
     @test best_candidate.id == best_index
-    @test best_candidate.loss == best_loss
+    @test best_candidate.cvloss == best_loss
     @test best_candidate.candidate == candidates[best_index].candidate
 end
 

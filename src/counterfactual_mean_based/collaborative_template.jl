@@ -53,6 +53,7 @@ function update_candidates!(
     )
     candidate_id = 1
     best_candidate = (candidate=only(candidates).candidate, cvloss=only(cv_candidates).loss, id=candidate_id)
+    verbosity > 0 && @info "Initial candidate's CV loss: $(best_candidate.cvloss)"
     while !exhausted(collaborative_strategy)
         candidate_id += 1
         # Update the collaborative strategy's state
@@ -70,14 +71,14 @@ function update_candidates!(
             new_propensity_score,
             dataset;
             cache=cache,
-            verbosity=verbosity,
+            verbosity=verbosity-1,
             machine_cache=machine_cache
         )
         # Fluctuate outcome model through the new propensity score and Q̄k
         use_fluct = false
         candidate, loss = get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
             use_fluct=use_fluct,
-            verbosity=verbosity,
+            verbosity=verbosity-1,
             cache=cache,
             machine_cache=machine_cache
         )
@@ -86,7 +87,7 @@ function update_candidates!(
             # Fluctuate through Q̄k,* from the previous candidate's flutuated model
             candidate, loss = get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
                 use_fluct=use_fluct,
-                verbosity=verbosity,
+                verbosity=verbosity-1,
                 cache=cache,
                 machine_cache=machine_cache
             )
@@ -96,16 +97,20 @@ function update_candidates!(
         last_cv_candidate, last_cv_loss = last(cv_candidates)
         cv_candidate, cv_loss = evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
             use_fluct=use_fluct,
-            verbosity=verbosity,
+            verbosity=verbosity-1,
             cache=cache,
             machine_cache=machine_cache
         )
         push!(cv_candidates, (candidate=cv_candidate, loss=cv_loss))
         # Update the best candidate or early stop
-        if cv_loss < last_cv_loss
-            best_candidate = (candidate=candidate, loss=cv_loss, id=candidate_id)
+        if cv_loss < best_candidate.cvloss
+            verbosity > 0 && @info "New candidate's CV loss: $(cv_loss), updating best candidate."
+            best_candidate = (candidate=candidate, cvloss=cv_loss, id=candidate_id)
         elseif candidate_id - best_candidate.id > collaborative_strategy.patience
+            verbosity > 0 && @info "New candidate's CV loss: $(cv_loss), patience reached, terminating."
             break
+        else
+            verbosity > 0 && @info "New candidate's CV loss: $(cv_loss)."
         end
     end
     return best_candidate
