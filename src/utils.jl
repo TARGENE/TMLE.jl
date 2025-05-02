@@ -91,7 +91,7 @@ function counterfactualTreatment(vals, Ts)
     n = nrows(Ts)
     counterfactual_Ts = map(enumerate(names(Ts))) do (i, T_name)
         T = Ts[!, T_name]
-        categorical(repeat([vals[i]], n), 
+        categorical(fill(vals[i], n), 
             levels=levels(T), 
             ordered=isordered(T)
         )

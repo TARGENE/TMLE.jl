@@ -19,7 +19,7 @@ using DataFrames
     proba = mach.fitresult[2][2]
     ŷ = MLJBase.predict(mach)
     expectation = TMLE.expected_value(ŷ)
-    @test expectation == repeat([proba], n)
+    @test expectation == fill(proba, n)
 
     # Probabilistic Regressor
     y = rand(n)
@@ -27,7 +27,7 @@ using DataFrames
     fit!(mach; verbosity=0)
     ŷ = MLJBase.predict(mach)
     expectation = TMLE.expected_value(ŷ)
-    @test expectation ≈ repeat([mean(y)], n) atol=1e-10
+    @test expectation ≈ fill(mean(y), n) atol=1e-10
 
     # Deterministic Regressor
     mach = machine(LinearRegressor(), X, y)
