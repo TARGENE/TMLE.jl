@@ -22,8 +22,6 @@ end
 reuse_string(estimand) = string("Reusing estimate for: ", string_repr(estimand))
 fit_string(estimand) = string("Estimating: ", string_repr(estimand))
 
-key(estimand, estimator) = (key(estimand), key(estimator))
-
 unique_sorted_tuple(iter) = Tuple(sort(unique(Symbol(x) for x in iter)))
 
 """

@@ -38,9 +38,6 @@ training_rows(dataset, train_validation_indices) = selectrows(dataset, train_val
 
 training_rows(dataset, train_validation_indices::Nothing) = dataset
 
-key(estimator::MLConditionalDistributionEstimator) =
-    (MLConditionalDistributionEstimator, estimator.model)
-
 #####################################################################
 ###       SampleSplitMLConditionalDistributionEstimator           ###
 #####################################################################
@@ -80,9 +77,6 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
 
     return estimate
 end
-
-key(estimator::SampleSplitMLConditionalDistributionEstimator) =
-    (MLConditionalDistributionEstimator, estimator.model, estimator.train_validation_indices)
 
 ConditionalDistributionEstimator(model, train_validation_indices::Union{Nothing,Tuple}) =
     MLConditionalDistributionEstimator(model, train_validation_indices)

@@ -42,11 +42,9 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
     # Check cache management
     ## Uses the cache instead of fitting
     new_estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
-    @test TMLE.key(new_estimator) == TMLE.key(estimator)
     @test_logs (:info, reuse_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
     ## Changing the model leads to refit
     new_estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(fit_intercept=false))
-    @test TMLE.key(new_estimator) != TMLE.key(estimator)
     @test_logs (:info, fit_log) new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 end
 
@@ -109,7 +107,6 @@ end
         LinearBinaryClassifier(),
         train_validation_indices
     )
-    @test TMLE.key(new_estimator) == TMLE.key(estimator)
     @test_logs (:info, reuse_log) estimator(estimand, binary_dataset;cache=cache, verbosity=verbosity)
     ## Changing the model leads to refit
     new_model = LinearBinaryClassifier(fit_intercept=false)

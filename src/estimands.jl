@@ -63,11 +63,6 @@ function check_treatment_levels(Ψ::Estimand, dataset)
     end
 end
 
-"""
-Function used to sort estimands for optimal estimation ordering.
-"""
-key(estimand::Estimand) = estimand
-
 #####################################################################
 ###                   Conditional Distribution                    ###
 #####################################################################
