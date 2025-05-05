@@ -38,9 +38,8 @@ exhausted(strategy::CollaborativeStrategy) = error("Not Implemented Error.")
 ###                           Functions                           ###
 #####################################################################
 
-function update_candidates!(
-    candidates, 
-    cv_candidates, 
+function find_optimal_candidate(
+    last_candidate_info, 
     collaborative_strategy, 
     Ψ, 
     dataset, 
@@ -52,12 +51,12 @@ function update_candidates!(
     machine_cache=false
     )
     candidate_id = 1
-    best_candidate = (candidate=only(candidates).candidate, cvloss=only(cv_candidates).loss, id=candidate_id)
+    best_candidate = (candidate=last_candidate_info.candidate, cv_loss=last_candidate_info.cv_loss, id=candidate_id)
     verbosity > 0 && @info "Initial candidate's CV loss: $(best_candidate.cvloss)"
     while !exhausted(collaborative_strategy)
         candidate_id += 1
         # Update the collaborative strategy's state
-        last_candidate, last_loss = last(candidates)
+        last_candidate, last_loss, last_cv_candidate, last_cv_loss = last_candidate_info
         update!(collaborative_strategy, last_candidate, dataset)
         # Get the new propensity score and associated estimator
         new_propensity_score, new_propensity_score_estimator = get_new_propensity_score_and_estimator(
@@ -76,36 +75,36 @@ function update_candidates!(
         )
         # Fluctuate outcome model through the new propensity score and Q̄k
         use_fluct = false
-        candidate, loss = get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
+        new_candidate, new_loss = get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
             use_fluct=use_fluct,
             verbosity=verbosity-1,
             cache=cache,
             machine_cache=machine_cache
         )
-        if loss > last_loss
+        if new_loss > last_loss
             use_fluct = true
             # Fluctuate through Q̄k,* from the previous candidate's flutuated model
-            candidate, loss = get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
+            new_candidate, new_loss = get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
                 use_fluct=use_fluct,
                 verbosity=verbosity-1,
                 cache=cache,
                 machine_cache=machine_cache
             )
         end
-        push!(candidates, (candidate=candidate, loss=loss))
         # Evaluate candidate
-        last_cv_candidate, last_cv_loss = last(cv_candidates)
-        cv_candidate, cv_loss = evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+        new_cv_candidate, new_cv_loss = evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
             use_fluct=use_fluct,
             verbosity=verbosity-1,
             cache=cache,
             machine_cache=machine_cache
         )
-        push!(cv_candidates, (candidate=cv_candidate, loss=cv_loss))
+        # Update last candidate info
+        last_candidate_info = (candidate=new_candidate, loss=new_loss, cv_candidate=new_cv_candidate, cv_loss=new_cv_loss)
+
         # Update the best candidate or early stop
-        if cv_loss < best_candidate.cvloss
+        if new_cv_loss < best_candidate.cv_loss
             verbosity > 0 && @info "New candidate's CV loss: $(cv_loss), updating best candidate."
-            best_candidate = (candidate=candidate, cvloss=cv_loss, id=candidate_id)
+            best_candidate = (candidate=new_candidate, cv_loss=new_cv_loss, id=candidate_id)
         elseif candidate_id - best_candidate.id > collaborative_strategy.patience
             verbosity > 0 && @info "New candidate's CV loss: $(cv_loss), patience reached, terminating."
             break
@@ -116,7 +115,7 @@ function update_candidates!(
     return best_candidate
 end
 
-function initialise_candidates(η, fluctuation_model, dataset;
+function get_initial_candidate(η, fluctuation_model, dataset;
     verbosity=1,
     cache=Dict(),
     machine_cache=false
@@ -131,7 +130,7 @@ function initialise_candidates(η, fluctuation_model, dataset;
         machine_cache=machine_cache
     )
     loss = loss_sum(targeted_η̂ₙ, dataset)
-    return [(candidate=targeted_η̂ₙ, loss=loss)]
+    return (candidate=targeted_η̂ₙ, loss=loss)
 end
 
 function get_new_targeted_candidate(last_candidate, new_propensity_score_estimate, fluctuation_model, dataset;
@@ -181,7 +180,7 @@ function get_new_propensity_score_and_estimator(
     return new_propensity_score, new_propensity_score_estimator
 end
 
-function initialise_cv_candidates(η, dataset, fluctuation_model, train_validation_indices, models;
+function get_initial_cv_candidate(η, dataset, fluctuation_model, train_validation_indices, models;
     cache=Dict(),
     verbosity=1,
     machine_cache=false
@@ -212,7 +211,7 @@ function initialise_cv_candidates(η, dataset, fluctuation_model, train_validati
     # Evaluate candidate on validation fold
     validation_loss = compute_validation_loss(candidate, dataset, train_validation_indices)
 
-    return [(candidate=candidate, loss=validation_loss)]
+    return (candidate=candidate, loss=validation_loss)
 end
 
 function compute_validation_loss(candidate, dataset, train_validation_indices)

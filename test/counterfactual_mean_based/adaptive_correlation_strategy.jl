@@ -159,12 +159,11 @@ end
     ## - The fluctuation is fitted on the whole dataset
     ## - A vector of (candidate, loss) is returned
     ## - A candidate is a targeted estimate
-    candidates = TMLE.initialise_candidates(η, fluctuation_model, dataset;
+    candidate, loss = TMLE.get_initial_candidate(η, fluctuation_model, dataset;
         verbosity=verbosity,
         cache=cache,
         machine_cache=machine_cache
     )
-    candidate, loss = only(candidates)
     @test candidate isa TMLE.MLCMRelevantFactors
     @test candidate.outcome_mean.machine.model isa TMLE.Fluctuation
     @test nrows(candidate.outcome_mean.machine.data[1]) == n_samples
@@ -175,12 +174,11 @@ end
     ## - models are fitted on the training sets
     ## - The evaluation is made on the validation sets
     ## - The cache will contain all estimates to be reused
-    cv_candidates = TMLE.initialise_cv_candidates(η, dataset, fluctuation_model, train_validation_indices, models;
+    cv_candidate, cv_loss = TMLE.get_initial_cv_candidate(η, dataset, fluctuation_model, train_validation_indices, models;
         cache=cache,
         verbosity=0,
         machine_cache=machine_cache
     );
-    cv_candidate, cv_loss = only(cv_candidates)
     validation_losses = []
     for (fold_estimate, (train_indices, val_indices)) in zip(cv_candidate, train_validation_indices)
         # Check the estimate is in the cache
@@ -261,7 +259,7 @@ end
     @test new_loss_bis < new_loss
     
     # Evaluate the new candidate in CV passing through the fluctuated model
-    second_cv_candidate, second_cvloss = TMLE.evaluate_cv_candidate!(cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+    second_cv_candidate, new_cv_loss = TMLE.evaluate_cv_candidate!(cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
         use_fluct=true,
         verbosity=verbosity,
         cache=cache,
@@ -272,10 +270,10 @@ end
         @test fold_candidate.estimand.propensity_score === new_propensity_score
         @test fold_candidate.outcome_mean.machine.model.initial_factors.outcome_mean === cv_candidate[fold_id].outcome_mean
     end
-    @test TMLE.compute_validation_loss(second_cv_candidate, dataset, train_validation_indices) == second_cvloss
+    @test TMLE.compute_validation_loss(second_cv_candidate, dataset, train_validation_indices) == new_cv_loss
 
     # Evaluate the new candidate in CV NOT passing through the fluctuated model
-    second_cv_candidate_bis, second_cvloss_bis = TMLE.evaluate_cv_candidate!(cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+    second_cv_candidate_bis, new_cv_loss_bis = TMLE.evaluate_cv_candidate!(cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
         use_fluct=false,
         verbosity=verbosity,
         cache=cache,
@@ -286,12 +284,12 @@ end
         @test fold_candidate.estimand.propensity_score === new_propensity_score
         @test fold_candidate.outcome_mean.machine.model.initial_factors.outcome_mean === cv_candidate[fold_id].outcome_mean.machine.model.initial_factors.outcome_mean
     end
-    @test TMLE.compute_validation_loss(second_cv_candidate_bis, dataset, train_validation_indices) == second_cvloss_bis
+    @test TMLE.compute_validation_loss(second_cv_candidate_bis, dataset, train_validation_indices) == new_cv_loss_bis
 
     # Check the full loop
-    best_candidate = TMLE.update_candidates!(
-        candidates, 
-        cv_candidates, 
+    candidate_info = (candidate=candidate, loss=loss, cv_candidate=cv_candidate, cv_loss=cv_loss, id=1)
+    best_candidate = TMLE.find_optimal_candidate(
+        candidate_info, 
         collaborative_strategy, 
         Ψ, 
         dataset, 
@@ -302,10 +300,9 @@ end
         cache=Dict(),
         machine_cache=false
     )
-    best_loss, best_index = findmin(x -> x.loss, cv_candidates)
-    @test best_candidate.id == best_index
-    @test best_candidate.cvloss == best_loss
-    @test best_candidate.candidate == candidates[best_index].candidate
+    @test best_candidate.cv_loss <= new_cv_loss
+    @test best_candidate.cv_loss <= new_cv_loss_bis
+
 end
 
 end

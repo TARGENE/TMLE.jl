@@ -265,22 +265,22 @@ function (estimator::CMBasedCTMLE{S})(
     TMLE.initialise!(collaborative_strategy, Ψ)
     
     # Initialize Candidates: the fluctuation is fitted through the initial outcome mean and propensity score
-    candidates = TMLE.initialise_candidates(η, fluctuation_model, dataset;
+    candidate, loss = TMLE.get_initial_candidate(η, fluctuation_model, dataset;
         verbosity=verbosity-1,
         cache=cache,
         machine_cache=machine_cache
     )
 
     # Initialise cross-validation loss
-    cv_candidates = TMLE.initialise_cv_candidates(η, dataset, fluctuation_model, train_validation_indices, models;
+    cv_candidate, cv_loss = TMLE.get_initial_cv_candidate(η, dataset, fluctuation_model, train_validation_indices, models;
         cache=cache,
         verbosity=verbosity-1,
         machine_cache=machine_cache
     )
     # Collaborative Loop to find the best candidate
-    best_candidate = TMLE.update_candidates!(
-        candidates, 
-        cv_candidates, 
+    candidate_info = (candidate=candidate, loss=loss, cv_candidate=cv_candidate, cv_loss=cv_loss, id=1)
+    best_candidate = TMLE.find_optimal_candidate(
+        candidate_info, 
         collaborative_strategy, 
         Ψ, 
         dataset, 
