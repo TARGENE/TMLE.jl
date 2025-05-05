@@ -18,6 +18,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     cde = estimator(
         TMLE.ConditionalDistribution(:Y, (:W₁, :W₂)),
         dataset,
+        verbosity=0
     )
     loss = TMLE.compute_loss(cde, dataset)
     ŷ = TMLE.predict(cde, dataset)
@@ -27,6 +28,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     cde = estimator(
         TMLE.ConditionalDistribution(:Y, (:W₁, :W₂)),
         dataset,
+        verbosity=0
     )
     ŷ = TMLE.predict(cde, dataset)
     @test ŷ isa Vector{Normal{Float64}}
@@ -37,6 +39,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     cde = estimator(
         TMLE.ConditionalDistribution(:T₁, (:W₁, :W₂)),
         dataset,
+        verbosity=0
     )
     ŷ = TMLE.predict(cde, dataset)
     @test ŷ isa UnivariateFiniteVector

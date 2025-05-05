@@ -86,7 +86,6 @@ function Tmle(;
 end
 
 function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
-    dataset = DataFrame(dataset)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Make train-validation pairs
@@ -109,22 +108,23 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     n = nrows(nomissing_dataset)
     ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
     # Fluctuation initial factors
-    targeted_factors_estimator = TargetedCMRelevantFactorsEstimator(
+    targeted_factors_estimator = get_targeted_estimator(
         Ψ, 
+        tmle.collaborative_strategy, 
+        train_validation_indices,
         initial_factors_estimate;
-        collaborative_strategy=tmle.collaborative_strategy,
-        train_validation_indices=train_validation_indices,
         tol=tmle.tol,
         max_iter=tmle.max_iter,
         ps_lowerbound=ps_lowerbound,
         weighted=tmle.weighted,
-        machine_cache=tmle.machine_cache
+        machine_cache=tmle.machine_cache,
+        models=tmle.models
     )
     targeted_factors_estimate = targeted_factors_estimator(relevant_factors, nomissing_dataset; 
         cache=cache, 
         verbosity=verbosity,
         machine_cache=tmle.machine_cache
-        )
+    )
     # Estimation results after TMLE
     estimation_report = report(targeted_factors_estimate)
 
@@ -178,7 +178,6 @@ Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_ca
     Ose(models, resampling, ps_lowerbound, machine_cache)
 
 function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
-    dataset = DataFrame(dataset)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Make train-validation pairs
@@ -222,7 +221,6 @@ mutable struct Naive <: Estimator
 end
 
 function (estimator::Naive)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
-    dataset = DataFrame(dataset)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors

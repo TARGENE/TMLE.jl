@@ -28,18 +28,19 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     @test adaptive_strategy.current_confounders == Set{Symbol}()
     ps = TMLE.propensity_score(Ψ, adaptive_strategy)
     @test ps == (
-        TMLE.ConditionalDistribution(:T₁, (:COLLABORATIVE_INTERCEPT, :T₂)), 
-        TMLE.ConditionalDistribution(:T₂, (:COLLABORATIVE_INTERCEPT,))
+        TMLE.ConditionalDistribution(:T₁, (:T₂,)), 
+        TMLE.ConditionalDistribution(:T₂, ())
     )
     # Initialisation
     TMLE.initialise!(adaptive_strategy, Ψ)
     @test adaptive_strategy.remaining_confounders == Set([:W₁, :W₂])
     @test adaptive_strategy.current_confounders == Set()
     # Updates
-    estimator = TMLE.MLConditionalDistributionEstimator(LinearRegressor(), nothing)
+    estimator = TMLE.MLConditionalDistributionEstimator(with_encoder(LinearRegressor()), nothing)
     cde = estimator(
-        TMLE.ConditionalDistribution(:Y, (:COLLABORATIVE_INTERCEPT,)),
+        TMLE.ConditionalDistribution(:Y, (:T₁, :T₂, :W₁, :W₂)),
         dataset,
+        verbosity=0
     )
     last_candidate = (outcome_mean=cde,)
     loss = TMLE.compute_loss(cde, dataset)
@@ -51,16 +52,16 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     @test TMLE.exhausted(adaptive_strategy) == false
     ps = TMLE.propensity_score(Ψ, adaptive_strategy)
     @test ps == (
-        TMLE.ConditionalDistribution(:T₁, (:COLLABORATIVE_INTERCEPT, :T₂, :W₁)), 
-        TMLE.ConditionalDistribution(:T₂, (:COLLABORATIVE_INTERCEPT, :W₁))
+        TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁)), 
+        TMLE.ConditionalDistribution(:T₂, (:W₁,))
     )
     TMLE.update!(adaptive_strategy, last_candidate, dataset)
     @test adaptive_strategy.remaining_confounders == Set()
     @test adaptive_strategy.current_confounders == Set([:W₁, :W₂])
     ps = TMLE.propensity_score(Ψ, adaptive_strategy)
     @test ps == (
-        TMLE.ConditionalDistribution(:T₁, (:COLLABORATIVE_INTERCEPT, :T₂, :W₁, :W₂)), 
-        TMLE.ConditionalDistribution(:T₂, (:COLLABORATIVE_INTERCEPT, :W₁, :W₂))
+        TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂)), 
+        TMLE.ConditionalDistribution(:T₂, (:W₁, :W₂))
     )
     @test TMLE.exhausted(adaptive_strategy) == true
     # Finalisation
@@ -89,12 +90,13 @@ end
     machine_cache = true
     verbosity = 0
     collaborative_strategy = AdaptiveCorrelationOrdering()
+    models = default_models(;
+        Q_continuous = LinearRegressor(),
+        G = LogisticClassifier(lambda=0.)
+    )
     tmle = Tmle(;
         weighted=false,
-        models = default_models(;
-            Q_continuous = LinearRegressor(),
-            G = LogisticClassifier(lambda=0.)
-        ),
+        models=models,
         resampling=resampling,
         collaborative_strategy = collaborative_strategy,
         machine_cache=machine_cache,
@@ -102,8 +104,8 @@ end
     # Initialize the relevant factors: no confounder is present in the propensity score
     η = TMLE.get_relevant_factors(Ψ, collaborative_strategy=collaborative_strategy)
     @test η.propensity_score == (
-        TMLE.ConditionalDistribution(:T₁, (:COLLABORATIVE_INTERCEPT, :T₂)), 
-        TMLE.ConditionalDistribution(:T₂, (:COLLABORATIVE_INTERCEPT,))
+        TMLE.ConditionalDistribution(:T₁, (:T₂,)), 
+        TMLE.ConditionalDistribution(:T₂, ())
     )
     # Estimate the initial factors: check models have been fitted correctly and cahche is updated
     train_validation_indices = MLJBase.train_test_pairs(resampling, 1:nrows(dataset), dataset, dataset.Y)
@@ -116,40 +118,38 @@ end
         verbosity=verbosity, 
         machine_cache=tmle.machine_cache
     )
-    for ps_component in η̂ₙ.propensity_score.components
-        fp = fitted_params(ps_component.machine)
-        X, _ = ps_component.machine.data
-        @test nrows(X) == n_samples
-        fitted_variables = first.(fp.logistic_classifier.coefs)
-        @test issubset(fitted_variables, [:COLLABORATIVE_INTERCEPT, :T₂__false])
-    end
+    ps_T1_given_T2 = η̂ₙ.propensity_score.components[1]
+    fp = fitted_params(ps_T1_given_T2.machine)
+    X, _ = ps_T1_given_T2.machine.data
+    @test nrows(X) == n_samples
+    fitted_variables = first.(fp.logistic_classifier.coefs)
+    @test issubset(fitted_variables, [:T₂__false])
+    ps_T2 = η̂ₙ.propensity_score.components[2]
+    fp = fitted_params(ps_T2.machine)
+    @test haskey(fp, :target_distribution)
+    @test ps_T2.machine.data[1] == DataFrame(INTERCEPT=fill(1., n_samples))
+    
     ## One estimate for each estimand in the cache
     @test length(cache) == 4
     for estimand in (η, η.outcome_mean, η.propensity_score...)
         @test length(cache[estimand]) == 1
     end
     # Collaborative Targeted Estimation
-    estimator = TMLE.TargetedCMRelevantFactorsEstimator(
-        Ψ, 
+    estimator = TMLE.get_targeted_estimator(
+        Ψ,
+        tmle.collaborative_strategy,
+        train_validation_indices,
         η̂ₙ;
-        collaborative_strategy=tmle.collaborative_strategy,
-        train_validation_indices=train_validation_indices,
         tol=tmle.tol,
         max_iter=tmle.max_iter,
         ps_lowerbound=tmle.ps_lowerbound,
         weighted=tmle.weighted,
-        machine_cache=tmle.machine_cache
+        machine_cache=tmle.machine_cache,
+        models=tmle.models
     )
-    @test estimator isa TMLE.TargetedCMRelevantFactorsEstimator{AdaptiveCorrelationOrdering}
+    @test estimator isa TMLE.CMBasedCTMLE{TMLE.AdaptiveCorrelationOrdering}
     @test estimator.train_validation_indices == train_validation_indices
     fluctuation_model = estimator.fluctuation
-    ## Check models are correctly retrieved
-    models = TMLE.retrieve_models(estimator)
-    @test models == Dict(
-        :T₁ => tmle.models[:G_default],
-        :T₂ => tmle.models[:G_default],
-        :Y => tmle.models[:Q_continuous_default]
-    )
     ## Check initialisation of the collaborative strategy
     TMLE.initialise!(estimator.collaborative_strategy, Ψ)
     @test estimator.collaborative_strategy.remaining_confounders == Set([:W₁, :W₃, :W₂])
@@ -177,7 +177,7 @@ end
     ## - The cache will contain all estimates to be reused
     cv_candidates = TMLE.initialise_cv_candidates(η, dataset, fluctuation_model, train_validation_indices, models;
         cache=cache,
-        verbosity=2,
+        verbosity=0,
         machine_cache=machine_cache
     );
     cv_candidate, cv_loss = only(cv_candidates)

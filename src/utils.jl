@@ -38,26 +38,14 @@ This is to avoid the complications of:
 """
 choose_initial_dataset(dataset, nomissing_dataset, resampling) = nomissing_dataset
 
-function selectcols_with_collaborative_intercept(dataset, colnames; copycols=false)
-    n_samples = nrows(dataset)
-    colnames = filter(x-> x ≠ :COLLABORATIVE_INTERCEPT,  colnames)
-    if length(colnames) == 0
-        return DataFrame(COLLABORATIVE_INTERCEPT = ones(n_samples))
-    else
-        subdataset = DataFrames.select(dataset, colnames, copycols=copycols)
-        subdataset.COLLABORATIVE_INTERCEPT = ones(nrows(subdataset))
-        return subdataset
-    end
-end
-
+"""
+If no columns are provided, we return a single intercept column to accomodate marginal distribution fitting
+Otherwise we return the required columns avoiding copying by default.
+"""
 function selectcols(dataset, colnames; copycols=false)
-    colnames = Symbol.(collect(colnames))
-    dataset_colnames = Symbol.(names(dataset))
-    return if :COLLABORATIVE_INTERCEPT ∈ colnames && :COLLABORATIVE_INTERCEPT ∉ dataset_colnames
-        selectcols_with_collaborative_intercept(dataset, colnames, copycols=copycols)
-    else
-        DataFrames.select(dataset, colnames, copycols=copycols)
-    end
+    return isempty(colnames) ? 
+        DataFrame(INTERCEPT=ones(nrows(dataset))) : 
+        DataFrames.select(dataset, collect(colnames), copycols=copycols)
 end
 
 function logit!(v)

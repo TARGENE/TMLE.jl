@@ -12,6 +12,32 @@ end
 MLConditionalDistributionEstimator(models; train_validation_indices=nothing) = 
     MLConditionalDistributionEstimator(models, train_validation_indices)
 
+marginal_model(y::CategoricalVector) = ConstantClassifier()
+
+marginal_model(y::AbstractVector) = throw(ArgumentError(string("Marginal model not implemented for non categorical targets, type of the target: ", eltype(y))))
+
+"""
+    actual_model(model, parents, y)
+
+If there are no parents, we are trying to fit a marginal distribution, 
+then we return a constant classifier. Otherwise we return the user-specified model.
+
+This situation can arise in at least two cases for the propensity score:
+- Initialisation of some CTMLE strategies
+- There is actually no confounders
+
+Since there is no current understanding of when this could arise for a continuous outcome y, we throw an error if y is not categorical.
+"""
+actual_model(model, parents, y) =
+    isempty(parents) ? marginal_model(y) : model
+
+function fit_mlj_model(model, X, y; parents=names(X), cache=false, verbosity=1)
+    model = actual_model(model, parents, y)
+    mach = machine(model, X, y, cache=cache)
+    MLJBase.fit!(mach, verbosity=verbosity)
+    return mach
+end
+
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     # Lookup in cache
     estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
@@ -24,8 +50,11 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cach
     # Fit Conditional DIstribution using MLJ
     X = TMLE.selectcols(relevant_dataset, estimand.parents)
     y = relevant_dataset[!, estimand.outcome]
-    mach = machine(estimator.model, X, y, cache=machine_cache)
-    MLJBase.fit!(mach, verbosity=verbosity-1)
+    mach = fit_mlj_model(estimator.model, X, y; 
+        parents=estimand.parents, 
+        cache=machine_cache, 
+        verbosity=verbosity-1
+    )
     # Build estimate
     estimate = MLConditionalDistribution(estimand, mach)
     # Update cache
@@ -66,9 +95,11 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
         train_dataset = selectrows(relevant_dataset, train_indices)
         Xtrain = selectcols(train_dataset, estimand.parents)
         ytrain = train_dataset[!, estimand.outcome]
-        mach = machine(estimator.model, Xtrain, ytrain, cache=machine_cache)
-        MLJBase.fit!(mach, verbosity=verbosity-1)
-        machines[index] = mach
+        machines[index] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
+            parents=estimand.parents, 
+            cache=machine_cache, 
+            verbosity=verbosity-1
+        )
     end
     # Build estimate
     estimate = SampleSplitMLConditionalDistribution(estimand, estimator.train_validation_indices, machines)

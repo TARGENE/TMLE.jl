@@ -61,7 +61,7 @@ double_robust_estimators(models; resampling=CV(nfolds=3)) = (
 function test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
     cache = Dict()
     results = []
-    for estimator ∈ dr_estimators
+    for (estimator_name, estimator) ∈ zip(keys(dr_estimators), values(dr_estimators))
         result, cache = estimator(Ψ, dataset, cache=cache, verbosity=verbosity)
         push!(results, result)
         test_coverage(result, Ψ₀)

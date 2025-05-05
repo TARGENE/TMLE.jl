@@ -134,7 +134,6 @@ function initialise_candidates(η, fluctuation_model, dataset;
     targeted_η̂ = TargetedCMRelevantFactorsEstimator(
         fluctuation_model, 
         nothing,
-        nothing
     )
     targeted_η̂ₙ = targeted_η̂(η, dataset;
         cache=cache,
@@ -159,15 +158,14 @@ function get_new_targeted_candidate(last_candidate, new_propensity_score_estimat
         new_propensity_score_estimate
     )
     # Fluctuate
-    targeted_η̂ = TMLE.TargetedCMRelevantFactorsEstimator(
-            fluctuation_model.Ψ, 
-            η̂ₙ;
-            tol=fluctuation_model.tol,
-            max_iter=fluctuation_model.max_iter,
-            ps_lowerbound=fluctuation_model.ps_lowerbound,
-            weighted=fluctuation_model.weighted,
-            machine_cache=fluctuation_model.cache
-        )
+    new_fluctuation = Fluctuation(fluctuation_model.Ψ, η̂ₙ; 
+        tol=fluctuation_model.tol,
+        max_iter=fluctuation_model.max_iter, 
+        ps_lowerbound=fluctuation_model.ps_lowerbound, 
+        weighted=fluctuation_model.weighted,
+        cache=fluctuation_model.cache
+    )
+    targeted_η̂ = TMLE.TargetedCMRelevantFactorsEstimator(new_fluctuation, nothing)
     targeted_η̂ₙ = targeted_η̂(new_η, dataset;
         cache=cache,
         verbosity=verbosity,

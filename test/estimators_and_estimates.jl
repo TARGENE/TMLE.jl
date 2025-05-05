@@ -157,6 +157,21 @@ end
     offset = TMLE.compute_offset(conditional_density_estimate, continuous_dataset)
     @test offset == μ̂
 end
+
+@testset "Test Conditional Distribution with no parents fits a marginal" begin
+    binary_dataset = DataFrame(Y = categorical([1, 1, 0, 0, 0]))
+    estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
+    estimand = TMLE.ConditionalDistribution(:Y, ())
+    estimate = estimator(estimand, binary_dataset, verbosity=0)
+    @test estimate.machine.model isa ConstantClassifier
+    ŷ = predict(estimate, binary_dataset)
+    @test TMLE.expected_value(ŷ) == fill(0.4, 5)
+
+    continuous_dataset = DataFrame(Y = [1., 2., 3., 4., 5.])
+    @test_throws ArgumentError estimator(estimand, continuous_dataset,verbosity=0)
+
+end
+
 end
 
 true

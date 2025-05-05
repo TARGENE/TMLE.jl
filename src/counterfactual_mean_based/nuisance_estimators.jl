@@ -159,38 +159,12 @@ end
 ###              TargetedCMRelevantFactorsEstimator               ###
 #####################################################################
 
-struct TargetedCMRelevantFactorsEstimator{S <: Union{Nothing, CollaborativeStrategy}}
+struct TargetedCMRelevantFactorsEstimator{T<:Union{Nothing, Tuple}}
     fluctuation::Fluctuation
-    collaborative_strategy::S
-    train_validation_indices
+    train_validation_indices::T
 end
 
-function TargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate; 
-    collaborative_strategy::S=nothing,
-    train_validation_indices=nothing,
-    tol=nothing, 
-    max_iter=1, 
-    ps_lowerbound=1e-8, 
-    weighted=false, 
-    machine_cache=false
-    ) where S <: Union{Nothing, CollaborativeStrategy}
-    # If there is no collaborative strategy, we are in CV mode, we do not pass on the `train_validation_indices`
-    train_validation_indices = collaborative_strategy === nothing ? nothing : train_validation_indices
-    fluctuation_model = Fluctuation(Ψ, initial_factors_estimate; 
-        tol=tol,
-        max_iter=max_iter, 
-        ps_lowerbound=ps_lowerbound, 
-        weighted=weighted,
-        cache=machine_cache
-    )
-    return TargetedCMRelevantFactorsEstimator{S}(fluctuation_model, collaborative_strategy, train_validation_indices)
-end
-
-"""
-
-Targeted estimator in the absence of a collaborative strategy.
-"""
-function (estimator::TargetedCMRelevantFactorsEstimator{Nothing})(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
+function (estimator::TargetedCMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     fluctuation_model = estimator.fluctuation
     outcome_mean = fluctuation_model.initial_factors.outcome_mean.estimand
     # Fluctuate outcome model
@@ -235,7 +209,7 @@ function FoldsTargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate, t
             weighted=weighted,
             cache=machine_cache
         )
-        TargetedCMRelevantFactorsEstimator(fluctuation_model, nothing, fold_train_val_indices)
+        TargetedCMRelevantFactorsEstimator(fluctuation_model, fold_train_val_indices)
     end
 
     return FoldsTargetedCMRelevantFactorsEstimator(estimators, train_validation_indices)
@@ -257,28 +231,35 @@ function (estimator::FoldsTargetedCMRelevantFactorsEstimator)(estimand, dataset;
 end
 
 #####################################################################
-###  TargetedCMRelevantFactorsEstimator{<:CollaborativeStrategy}  ###
+###            CMBasedCTMLE{<:CollaborativeStrategy}              ###
 #####################################################################
+
+struct CMBasedCTMLE{S <: CollaborativeStrategy}
+    fluctuation::Fluctuation
+    collaborative_strategy::S
+    train_validation_indices::Vector{<:Tuple}
+    models::Dict
+end
 
 """
 
 Targeted estimator with a collaborative strategy.
 """
-function (estimator::TargetedCMRelevantFactorsEstimator{T})(
+function (estimator::CMBasedCTMLE{S})(
     η, 
     dataset; 
     cache=Dict(), 
-    verbosity=1, 
+    verbosity=1,
     machine_cache=false
-    ) where T <: CollaborativeStrategy
-    verbosity > 0 && @info "C-TMLE mode ($T)."
+    ) where S <: CollaborativeStrategy
+    verbosity > 0 && @info "C-TMLE mode ($S)."
     collaborative_strategy = estimator.collaborative_strategy
     Ψ = estimator.fluctuation.Ψ
     fluctuation_model = estimator.fluctuation
     train_validation_indices = estimator.train_validation_indices
     
     # Retrieve models
-    models = TMLE.retrieve_models(estimator)
+    models = estimator.models
 
     # Initialize the collaborative strategy
     TMLE.initialise!(collaborative_strategy, Ψ)
@@ -314,4 +295,31 @@ function (estimator::TargetedCMRelevantFactorsEstimator{T})(
     finalise!(collaborative_strategy)
 
     return best_candidate.candidate
+end
+
+
+function get_targeted_estimator(
+    Ψ, 
+    collaborative_strategy, 
+    train_validation_indices,
+    initial_factors_estimate;
+    tol=nothing,
+    max_iter=1,
+    ps_lowerbound=1e-8,
+    weighted=true,
+    machine_cache=false,
+    models=nothing
+    )
+    fluctuation_model = Fluctuation(Ψ, initial_factors_estimate; 
+        tol=tol,
+        max_iter=max_iter, 
+        ps_lowerbound=ps_lowerbound, 
+        weighted=weighted,
+        cache=machine_cache
+    )
+    if collaborative_strategy isa CollaborativeStrategy
+        return CMBasedCTMLE(fluctuation_model, collaborative_strategy, train_validation_indices, models)
+    else
+        return TargetedCMRelevantFactorsEstimator(fluctuation_model, nothing)
+    end
 end

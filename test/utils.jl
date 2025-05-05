@@ -171,7 +171,7 @@ end
 
     # No column results in empty dataframe
     selected_cols = TMLE.selectcols(dataset, [])
-    @test isempty(selected_cols)
+    @test selected_cols == DataFrame(INTERCEPT=[1, 1, 1, 1, 1, 1, 1, 1])
 end
 
 end;

@@ -46,7 +46,7 @@ function propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_stra
     Ψtreatments = TMLE.treatments(Ψ)
     return Tuple(map(eachindex(Ψtreatments)) do index
         T = Ψtreatments[index]
-        confounders = (Ψtreatments[index+1:end]..., collaborative_strategy.current_confounders..., :COLLABORATIVE_INTERCEPT)
+        confounders = (Ψtreatments[index+1:end]..., collaborative_strategy.current_confounders...)
         ConditionalDistribution(T, confounders)
     end)
 end

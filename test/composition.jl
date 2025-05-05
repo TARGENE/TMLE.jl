@@ -9,13 +9,14 @@ using TMLE
 using CategoricalArrays
 using LogExpFunctions
 using HypothesisTests
+using DataFrames
 
 function make_dataset(;n=100)
     rng = StableRNG(123)
     W = rand(rng, Uniform(), n)
     T = rand(rng, [0, 1], n)
     Y = 3W .+ T .+ T.*W + rand(rng, Normal(0, 0.05), n)
-    dataset =  (
+    dataset =  DataFrame(
         Y = Y,
         W = W,
         T = categorical(T)
@@ -155,7 +156,7 @@ end
     T₂ = [rand(rng, Categorical(collect(p))) for p in eachrow(pT₂)]
 
     Y = 1 .+ W .+ T₁ .- T₂ .- T₁.*T₂ .+ rand(rng, Normal())
-    dataset = (
+    dataset = DataFrame(
         W = W,
         T₁ = categorical(T₁),
         T₂ = categorical(T₂),
