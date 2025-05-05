@@ -153,6 +153,27 @@ end
     @test expected_joint_levels == Set(TMLE.joint_levels(Ψ))
 end
 
+@testset "Test selectcols" begin
+    dataset = DataFrame(
+        A = [1, 1, 0, 1, 0, 2, 2, 1],
+        B = ["AC", "CC", "AA", "AA", "AA", "AA", "AA", "AA"],
+        C = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    )
+    # Check columns are not copied
+    selected_cols = TMLE.selectcols(dataset, [:A, :B])
+    @test selected_cols.A === dataset.A
+    @test selected_cols.B === dataset.B
+
+    # Check columns are copied
+    selected_cols = TMLE.selectcols(dataset, (:A, ); copycols=true)
+    @test selected_cols.A !== dataset.A
+    @test selected_cols.A == dataset.A
+
+    # No column results in empty dataframe
+    selected_cols = TMLE.selectcols(dataset, [])
+    @test isempty(selected_cols)
+end
+
 end;
 
 true

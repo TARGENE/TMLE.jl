@@ -1,8 +1,12 @@
 ###############################################################################
 ## General Utilities
 ###############################################################################
+is_fluctuation_estimate(estimate::MLConditionalDistribution) = estimate.machine.model isa Fluctuation
+
+is_fluctuation_estimate(estimate) = false
 
 function update_cache!(cache, estimand, estimator, estimate)
+    is_fluctuation_estimate(estimate) && return
     estimand_cache = get!(cache, estimand, Dict())
     estimand_cache[estimator] = estimate
 end
@@ -96,6 +100,7 @@ function counterfactualTreatment(vals, Ts)
             ordered=isordered(T)
         )
     end
+    DataFrame(counterfactual_Ts, names(Ts))
     return DataFrame(counterfactual_Ts, names(Ts))
 end
 
