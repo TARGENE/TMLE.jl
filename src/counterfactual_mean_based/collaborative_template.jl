@@ -131,7 +131,7 @@ function initialise_candidates(η, fluctuation_model, dataset;
     cache=Dict(),
     machine_cache=false
     )
-    targeted_η̂ = TargetedCMRelevantFactorsEstimator(
+    targeted_η̂ = CMBasedTMLE(
         fluctuation_model, 
         nothing,
     )
@@ -165,7 +165,7 @@ function get_new_targeted_candidate(last_candidate, new_propensity_score_estimat
         weighted=fluctuation_model.weighted,
         cache=fluctuation_model.cache
     )
-    targeted_η̂ = TMLE.TargetedCMRelevantFactorsEstimator(new_fluctuation, nothing)
+    targeted_η̂ = TMLE.CMBasedTMLE(new_fluctuation, nothing)
     targeted_η̂ₙ = targeted_η̂(new_η, dataset;
         cache=cache,
         verbosity=verbosity,
@@ -204,7 +204,7 @@ function initialise_cv_candidates(η, dataset, fluctuation_model, train_validati
         machine_cache=machine_cache
     )
     # Target Nuisance parameters on each fold
-    targeted_η̂ = TMLE.FoldsTargetedCMRelevantFactorsEstimator(
+    targeted_η̂ = TMLE.CMBasedFoldsTMLE(
             fluctuation_model.Ψ, 
             η̂ₙ,
             train_validation_indices;

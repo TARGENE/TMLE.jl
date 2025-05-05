@@ -156,15 +156,15 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; cache=Dict()
 end
 
 #####################################################################
-###              TargetedCMRelevantFactorsEstimator               ###
+###                          CMBasedTMLE                          ###
 #####################################################################
 
-struct TargetedCMRelevantFactorsEstimator{T<:Union{Nothing, Tuple}}
+struct CMBasedTMLE{T<:Union{Nothing, Tuple}}
     fluctuation::Fluctuation
     train_validation_indices::T
 end
 
-function (estimator::TargetedCMRelevantFactorsEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
+function (estimator::CMBasedTMLE)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     fluctuation_model = estimator.fluctuation
     outcome_mean = fluctuation_model.initial_factors.outcome_mean.estimand
     # Fluctuate outcome model
@@ -186,15 +186,15 @@ function (estimator::TargetedCMRelevantFactorsEstimator)(estimand, dataset; cach
 end
 
 #####################################################################
-###           FoldsTargetedCMRelevantFactorsEstimator             ###
+###                       CMBasedFoldsTMLE                        ###
 #####################################################################
 
-struct FoldsTargetedCMRelevantFactorsEstimator
-    estimators::Vector{TargetedCMRelevantFactorsEstimator}
+struct CMBasedFoldsTMLE
+    estimators::Vector{CMBasedTMLE}
     train_validation_indices
 end
 
-function FoldsTargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate, train_validation_indices;
+function CMBasedFoldsTMLE(Ψ, initial_factors_estimate, train_validation_indices;
     tol=nothing, 
     max_iter=1, 
     ps_lowerbound=1e-8, 
@@ -209,13 +209,13 @@ function FoldsTargetedCMRelevantFactorsEstimator(Ψ, initial_factors_estimate, t
             weighted=weighted,
             cache=machine_cache
         )
-        TargetedCMRelevantFactorsEstimator(fluctuation_model, fold_train_val_indices)
+        CMBasedTMLE(fluctuation_model, fold_train_val_indices)
     end
 
-    return FoldsTargetedCMRelevantFactorsEstimator(estimators, train_validation_indices)
+    return CMBasedFoldsTMLE(estimators, train_validation_indices)
 end
 
-function (estimator::FoldsTargetedCMRelevantFactorsEstimator)(estimand, dataset; 
+function (estimator::CMBasedFoldsTMLE)(estimand, dataset; 
     cache=Dict(), 
     verbosity=1, 
     machine_cache=false
@@ -231,7 +231,7 @@ function (estimator::FoldsTargetedCMRelevantFactorsEstimator)(estimand, dataset;
 end
 
 #####################################################################
-###            CMBasedCTMLE{<:CollaborativeStrategy}              ###
+###                           CMBasedCTMLE                        ###
 #####################################################################
 
 struct CMBasedCTMLE{S <: CollaborativeStrategy}
@@ -320,6 +320,6 @@ function get_targeted_estimator(
     if collaborative_strategy isa CollaborativeStrategy
         return CMBasedCTMLE(fluctuation_model, collaborative_strategy, train_validation_indices, models)
     else
-        return TargetedCMRelevantFactorsEstimator(fluctuation_model, nothing)
+        return CMBasedTMLE(fluctuation_model, nothing)
     end
 end
