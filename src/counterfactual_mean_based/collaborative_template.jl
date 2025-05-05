@@ -116,16 +116,6 @@ function update_candidates!(
     return best_candidate
 end
 
-function retrieve_models(estimator)
-    outcome_mean_estimate = estimator.fluctuation.initial_factors.outcome_mean
-    propensity_score_estimate = estimator.fluctuation.initial_factors.propensity_score
-    models = Dict{Symbol, Any}(outcome_mean_estimate.estimand.outcome => outcome_mean_estimate.machine.model)
-    for (cd, cde) in zip(propensity_score_estimate.estimand, propensity_score_estimate.components)
-        models[cd.outcome] = cde.machine.model 
-    end
-    return models
-end
-
 function initialise_candidates(η, fluctuation_model, dataset;
     verbosity=1,
     cache=Dict(),
