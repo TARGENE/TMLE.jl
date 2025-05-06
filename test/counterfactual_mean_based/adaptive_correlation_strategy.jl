@@ -168,7 +168,7 @@ end
     @test candidate.outcome_mean.machine.model isa TMLE.Fluctuation
     @test nrows(candidate.outcome_mean.machine.data[1]) == n_samples
     @test candidate.propensity_score === η̂ₙ.propensity_score
-    @test loss == TMLE.loss_sum(candidate, dataset)
+    @test loss == TMLE.mean_loss(candidate, dataset)
 
     # Check CV candidates initialisation:
     ## - models are fitted on the training sets
@@ -199,10 +199,9 @@ end
             @test ps_component in values(cache[ps_component.estimand])
         end
         # validation loss
-        append!(validation_losses, TMLE.compute_loss(targeted_outcome_mean_estimate, selectrows(dataset, val_indices)))
+        append!(validation_losses, TMLE.mean_loss(fold_estimate, selectrows(dataset, val_indices)))
     end
-    @test length(validation_losses) == n_samples
-    @test sum(validation_losses) ≈ cv_loss
+    @test mean(validation_losses) ≈ cv_loss
 
     # We now enter the main loop
     # The collaborative strategy is updated

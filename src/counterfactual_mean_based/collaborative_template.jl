@@ -129,7 +129,7 @@ function get_initial_candidate(η, fluctuation_model, dataset;
         verbosity=verbosity,
         machine_cache=machine_cache
     )
-    loss = loss_sum(targeted_η̂ₙ, dataset)
+    loss = mean_loss(targeted_η̂ₙ, dataset)
     return (candidate=targeted_η̂ₙ, loss=loss)
 end
 
@@ -160,7 +160,7 @@ function get_new_targeted_candidate(last_candidate, new_propensity_score_estimat
         verbosity=verbosity,
         machine_cache=machine_cache
     )
-    loss = loss_sum(targeted_η̂ₙ, dataset)
+    loss = mean_loss(targeted_η̂ₙ, dataset)
     return targeted_η̂ₙ, loss
 end
 
@@ -215,10 +215,11 @@ function get_initial_cv_candidate(η, dataset, fluctuation_model, train_validati
 end
 
 function compute_validation_loss(candidate, dataset, train_validation_indices)
-    return mapreduce(+, zip(train_validation_indices, candidate)) do ((_, val_indices), targeted_η̂ₙ)
+    folds_val_losses = map(zip(train_validation_indices, candidate)) do ((_, val_indices), targeted_η̂ₙ)
         validation_dataset = selectrows(dataset, val_indices)
-        loss_sum(targeted_η̂ₙ, validation_dataset)
+        mean_loss(targeted_η̂ₙ, validation_dataset)
     end
+    return mean(folds_val_losses)
 end
 
 function evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, propensity_score, models, dataset, train_validation_indices; 
@@ -227,9 +228,9 @@ function evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, propensity
     cache=Dict(),
     machine_cache=false
     )
-    validation_loss = Threads.Atomic{Float64}(0.)
     n_folds = length(train_validation_indices)
-    fold_candidates = Vector{Any}(undef, n_folds)
+    folds_candidates = Vector{Any}(undef, n_folds)
+    folds_val_losses = Vector{Float64}(undef, n_folds)
     for fold_index in 1:n_folds
         fold_train_val_indices = train_validation_indices[fold_index]
         # Update propensity score estimate
@@ -258,17 +259,14 @@ function evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, propensity
             cache=cache,
             machine_cache=machine_cache
         )
-        Threads.atomic_add!(
-            validation_loss,
-            loss_sum(targeted_η̂ₙ_train, selectrows(dataset, fold_train_val_indices[2]))
-        )
-        fold_candidates[fold_index] = targeted_η̂ₙ_train
+        folds_val_losses[fold_index] = mean_loss(targeted_η̂ₙ_train, selectrows(dataset, fold_train_val_indices[2]))
+        folds_candidates[fold_index] = targeted_η̂ₙ_train
     end
-    return fold_candidates, validation_loss[]
+    return folds_candidates, mean(folds_val_losses)
 end
 
-loss_sum(candidate, dataset) =
-    sum(compute_loss(candidate.outcome_mean, dataset))
+mean_loss(candidate, dataset) =
+    mean(compute_loss(candidate.outcome_mean, dataset))
 
 adapt_and_getloss(ŷ::Vector{<:Real}) = ŷ, RootMeanSquaredError()
 
