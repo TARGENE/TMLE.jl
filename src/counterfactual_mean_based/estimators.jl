@@ -247,8 +247,9 @@ end
 function (estimator::Union{Naive, Ose, Tmle})(causalΨ::CausalCMCompositeEstimands, scm, dataset;
     identification_method=BackdoorAdjustment(),
     cache=Dict(), 
-    verbosity=1
+    verbosity=1,
+    acceleration=CPU1()
     )
     Ψ = identify(identification_method, causalΨ, scm)
-    return estimator(Ψ, dataset; cache=cache, verbosity=verbosity)
+    return estimator(Ψ, dataset; cache=cache, verbosity=verbosity, acceleration=acceleration)
 end

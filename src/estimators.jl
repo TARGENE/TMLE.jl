@@ -238,9 +238,9 @@ end
 
 Estimates all components of Ψ and then Ψ itself.
 """
-function (estimator::Estimator)(Ψ::JointEstimand, dataset; cache=Dict(), verbosity=1)
+function (estimator::Estimator)(Ψ::JointEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
     estimates = map(Ψ.args) do estimand 
-        estimate, _ = estimator(estimand, dataset; cache=cache, verbosity=verbosity)
+        estimate, _ = estimator(estimand, dataset; cache=cache, verbosity=verbosity, acceleration=acceleration)
         estimate
     end
     Σ = covariance_matrix(estimates...)
