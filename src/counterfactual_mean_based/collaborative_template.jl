@@ -48,7 +48,8 @@ function find_optimal_candidate(
     models;
     verbosity=1,
     cache=Dict(),
-    machine_cache=false
+    machine_cache=false,
+    acceleration=CPU1()
     )
     candidate_id = 1
     best_candidate = (candidate=last_candidate_info.candidate, cv_loss=last_candidate_info.cv_loss, id=candidate_id)
@@ -71,7 +72,8 @@ function find_optimal_candidate(
             dataset;
             cache=cache,
             verbosity=verbosity-1,
-            machine_cache=machine_cache
+            machine_cache=machine_cache,
+            acceleration=acceleration
         )
         # Fluctuate outcome model through the new propensity score and Q̄k
         use_fluct = false
@@ -92,11 +94,12 @@ function find_optimal_candidate(
             )
         end
         # Evaluate candidate
-        new_cv_candidate, new_cv_loss = evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+        new_cv_candidate, new_cv_loss = evaluate_cv_candidate(last_cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
             use_fluct=use_fluct,
             verbosity=verbosity-1,
             cache=cache,
-            machine_cache=machine_cache
+            machine_cache=machine_cache,
+            acceleration=acceleration
         )
         # Update last candidate info
         last_candidate_info = (candidate=new_candidate, loss=new_loss, cv_candidate=new_cv_candidate, cv_loss=new_cv_loss)
@@ -183,14 +186,16 @@ end
 function get_initial_cv_candidate(η, dataset, fluctuation_model, train_validation_indices, models;
     cache=Dict(),
     verbosity=1,
-    machine_cache=false
+    machine_cache=false,
+    acceleration=CPU1()
     )
     # Estimate Nuisance parameters on each fold
     η̂ = TMLE.FoldsCMRelevantFactorsEstimator(models, train_validation_indices)
     η̂ₙ = η̂(η, dataset;
         cache=cache,
         verbosity=verbosity,
-        machine_cache=machine_cache
+        machine_cache=machine_cache,
+        acceleration=acceleration
     )
     # Target Nuisance parameters on each fold
     targeted_η̂ = TMLE.CMBasedFoldsTMLE(
@@ -206,7 +211,8 @@ function get_initial_cv_candidate(η, dataset, fluctuation_model, train_validati
     candidate = targeted_η̂(η, dataset;
             cache=cache,
             verbosity=verbosity,
-            machine_cache=machine_cache
+            machine_cache=machine_cache,
+            acceleration=acceleration
         )
     # Evaluate candidate on validation fold
     validation_loss = compute_validation_loss(candidate, dataset, train_validation_indices)
@@ -222,46 +228,90 @@ function compute_validation_loss(candidate, dataset, train_validation_indices)
     return mean(folds_val_losses)
 end
 
-function evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, propensity_score, models, dataset, train_validation_indices; 
+function update_cv_folds_info!(
+    folds_candidates, 
+    folds_val_losses,
+    last_cv_candidate,
+    train_validation_indices, 
+    fluctuation_model,
+    propensity_score,
+    models,
+    dataset,
+    fold_index;
     use_fluct=false,
     verbosity=1,
     cache=Dict(),
     machine_cache=false
     )
+    fold_train_val_indices = train_validation_indices[fold_index]
+    # Update propensity score estimate
+    fold_propensity_score_estimator = build_propensity_score_estimator(
+        propensity_score, 
+        models,  
+        dataset;
+        train_validation_indices=fold_train_val_indices,
+    )
+    fold_propensity_score_estimate = fold_propensity_score_estimator(
+        propensity_score,
+        dataset;
+        cache=cache,
+        verbosity=verbosity,
+        machine_cache=machine_cache
+    )
+    # Target Q̄ estimator
+    last_cv_fold_candidate = last_cv_candidate[fold_index]
+    targeted_η̂ₙ_train, _ = get_new_targeted_candidate(
+        last_cv_fold_candidate, 
+        fold_propensity_score_estimate,
+        fluctuation_model, 
+        dataset;
+        use_fluct=use_fluct,
+        verbosity=verbosity,
+        cache=cache,
+        machine_cache=machine_cache
+    )
+    folds_val_losses[fold_index] = mean_loss(targeted_η̂ₙ_train, selectrows(dataset, fold_train_val_indices[2]))
+    folds_candidates[fold_index] = targeted_η̂ₙ_train
+end
+
+function fill_cv_folds_info!(acceleration::CPU1, folds_candidates, args...; kwargs...)
+    nfolds = length(folds_candidates)
+    for fold_index in 1:nfolds
+        update_cv_folds_info!(folds_candidates, args..., fold_index;kwargs...)
+    end
+end
+
+function fill_cv_folds_info!(acceleration::CPUThreads, folds_candidates, args...; kwargs...)
+    nfolds = length(folds_candidates)
+    @threads for fold_index in 1:nfolds
+        update_cv_folds_info!(folds_candidates, args..., fold_index;kwargs...)
+    end
+end
+
+function evaluate_cv_candidate(last_cv_candidate, fluctuation_model, propensity_score, models, dataset, train_validation_indices; 
+    use_fluct=false,
+    verbosity=1,
+    cache=Dict(),
+    machine_cache=false,
+    acceleration=CPU1()
+    )
     n_folds = length(train_validation_indices)
     folds_candidates = Vector{Any}(undef, n_folds)
     folds_val_losses = Vector{Float64}(undef, n_folds)
-    for fold_index in 1:n_folds
-        fold_train_val_indices = train_validation_indices[fold_index]
-        # Update propensity score estimate
-        fold_propensity_score_estimator = build_propensity_score_estimator(
-            propensity_score, 
-            models,  
-            dataset;
-            train_validation_indices=fold_train_val_indices,
-        )
-        fold_propensity_score_estimate = fold_propensity_score_estimator(
-            propensity_score,
-            dataset;
-            cache=cache,
-            verbosity=verbosity,
-            machine_cache=machine_cache
-        )
-        # Target Q̄ estimator
-        last_cv_fold_candidate = last_cv_candidate[fold_index]
-        targeted_η̂ₙ_train, _ = get_new_targeted_candidate(
-            last_cv_fold_candidate, 
-            fold_propensity_score_estimate,
-            fluctuation_model, 
-            dataset;
-            use_fluct=use_fluct,
-            verbosity=verbosity,
-            cache=cache,
-            machine_cache=machine_cache
-        )
-        folds_val_losses[fold_index] = mean_loss(targeted_η̂ₙ_train, selectrows(dataset, fold_train_val_indices[2]))
-        folds_candidates[fold_index] = targeted_η̂ₙ_train
-    end
+    fill_cv_folds_info!(acceleration,
+        folds_candidates, 
+        folds_val_losses,
+        last_cv_candidate,
+        train_validation_indices, 
+        fluctuation_model,
+        propensity_score,
+        models,
+        dataset;
+        use_fluct=use_fluct,
+        verbosity=verbosity,
+        cache=cache,
+        machine_cache=machine_cache
+    )
     return folds_candidates, mean(folds_val_losses)
 end
 

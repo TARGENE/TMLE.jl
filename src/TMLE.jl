@@ -23,6 +23,7 @@ using OrderedCollections
 using AutoHashEquals
 using StatisticalMeasures
 using DataFrames
+using ComputationalResources
 using Base.Threads
 
 # #############################################################################
@@ -45,6 +46,7 @@ export brute_force_ordering, groups_ordering
 export gradients, epsilons, estimates
 export AdaptiveCorrelationOrdering
 export CausalStratifiedCV
+export CPUThreads, CPU1
 
 # #############################################################################
 # INCLUDES

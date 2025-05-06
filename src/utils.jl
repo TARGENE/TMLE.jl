@@ -1,14 +1,18 @@
 ###############################################################################
 ## General Utilities
 ###############################################################################
+const LOCK = ReentrantLock() 
+
 is_fluctuation_estimate(estimate::MLConditionalDistribution) = estimate.machine.model isa Fluctuation
 
 is_fluctuation_estimate(estimate) = false
 
 function update_cache!(cache, estimand, estimator, estimate)
     is_fluctuation_estimate(estimate) && return
-    estimand_cache = get!(cache, estimand, Dict())
-    estimand_cache[estimator] = estimate
+    lock(LOCK) do 
+        estimand_cache = get!(cache, estimand, Dict())
+        estimand_cache[estimator] = estimate
+    end
 end
 
 function estimate_from_cache(cache, estimand, estimator; verbosity=1)
@@ -156,10 +160,16 @@ function try_fit_ml_estimator(ml_estimator, conditional_distribution, dataset;
     error_fn=outcome_mean_fit_error_msg,
     cache=Dict(),
     verbosity=1,
-    machine_cache=false
+    machine_cache=false,
+    acceleration=CPU1()
     )
     return try
-        ml_estimator(conditional_distribution, dataset; cache=cache, verbosity=verbosity, machine_cache=machine_cache)
+        ml_estimator(conditional_distribution, dataset; 
+            cache=cache, 
+            verbosity=verbosity, 
+            machine_cache=machine_cache,
+            acceleration=acceleration
+            )
     catch e
         throw(FitFailedError(conditional_distribution, error_fn(conditional_distribution), e))
     end

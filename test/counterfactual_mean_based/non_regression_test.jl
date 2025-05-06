@@ -18,8 +18,7 @@ function regression_tests(tmle_result)
     @test OneSampleZTest(tmle_result) isa OneSampleZTest
 end
 
-@testset "Test ATE on perinatal dataset." begin
-    # This is a non-regression test which was checked against the R tmle3 package
+function non_regression_dataset()
     dataset = CSV.read(
         joinpath(dirname(dirname(pathof(TMLE))), "test", "data", "perinatal.csv"), 
         DataFrame, 
@@ -31,6 +30,12 @@ end
     for col in confounders
         dataset[!, col] = float(dataset[!, col])
     end
+    return dataset, confounders
+end
+
+@testset "Test ATE on perinatal dataset." begin
+    # This is a non-regression test which was checked against the R tmle3 package
+    dataset, confounders = non_regression_dataset()
 
     Ψ = ATE(
         outcome=:haz01, 
@@ -69,6 +74,28 @@ end
     naive = Naive(with_encoder(LinearBinaryClassifier()))
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=verbosity)
     @test naive_result ≈ -0.150078 atol = 1e-6
+end
+
+@testset "Test accelerations" begin
+    dataset, confounders = non_regression_dataset()
+
+    Ψ = ATE(
+        outcome=:haz01, 
+        treatment_values=(parity01=(case=1, control=0),),
+        treatment_confounders=(parity01=confounders,)
+    )
+    estimators = (
+        tmle = Tmle(),
+        cvtmle = Tmle(resampling=StratifiedCV()),
+        ctmle = Tmle(resampling=StratifiedCV(), collaborative_strategy=AdaptiveCorrelationOrdering()),
+    )
+    # Check results are equivalent with all accelerations
+    for (estimator_name, estimator) in zip(keys(estimators), values(estimators))
+        cpu1_result, _ = estimator(Ψ, dataset; verbosity=0, acceleration=CPU1())
+        threads_result, _ = estimator(Ψ, dataset; verbosity=0, acceleration=CPUThreads())
+        @test cpu1_result.estimate ≈ threads_result.estimate
+        @test cpu1_result.IC ≈ threads_result.IC
+    end
 end
 
 end

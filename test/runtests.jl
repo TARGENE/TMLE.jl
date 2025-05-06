@@ -33,7 +33,7 @@ TEST_DIR = joinpath(pkgdir(TMLE), "test")
         @test include(joinpath(TEST_DIR, "causaltables_interface.jl"))
     end
 
-    # Test Experimental
+    # # Test Experimental
     @test include(joinpath(TEST_DIR, "estimand_ordering.jl"))
 
 end

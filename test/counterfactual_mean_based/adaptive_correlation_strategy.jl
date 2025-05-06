@@ -258,7 +258,7 @@ end
     @test new_loss_bis < new_loss
     
     # Evaluate the new candidate in CV passing through the fluctuated model
-    second_cv_candidate, new_cv_loss = TMLE.evaluate_cv_candidate!(cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+    second_cv_candidate, new_cv_loss = TMLE.evaluate_cv_candidate(cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
         use_fluct=true,
         verbosity=verbosity,
         cache=cache,
@@ -272,7 +272,7 @@ end
     @test TMLE.compute_validation_loss(second_cv_candidate, dataset, train_validation_indices) == new_cv_loss
 
     # Evaluate the new candidate in CV NOT passing through the fluctuated model
-    second_cv_candidate_bis, new_cv_loss_bis = TMLE.evaluate_cv_candidate!(cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+    second_cv_candidate_bis, new_cv_loss_bis = TMLE.evaluate_cv_candidate(cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
         use_fluct=false,
         verbosity=verbosity,
         cache=cache,

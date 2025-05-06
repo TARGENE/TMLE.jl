@@ -85,7 +85,7 @@ function Tmle(;
     )
 end
 
-function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Make train-validation pairs
@@ -102,7 +102,8 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
         verbosity=verbosity-1,
-        machine_cache=tmle.machine_cache
+        machine_cache=tmle.machine_cache,
+        acceleration=acceleration
     )
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)
@@ -123,7 +124,8 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     targeted_factors_estimate = targeted_factors_estimator(relevant_factors, nomissing_dataset; 
         cache=cache, 
         verbosity=verbosity,
-        machine_cache=tmle.machine_cache
+        machine_cache=tmle.machine_cache,
+        acceleration=acceleration
     )
     # Estimation results after TMLE
     estimation_report = report(targeted_factors_estimate)
@@ -177,7 +179,7 @@ ose = Ose()
 Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false) = 
     Ose(models, resampling, ps_lowerbound, machine_cache)
 
-function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Make train-validation pairs
@@ -191,7 +193,8 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
         initial_factors, 
         initial_factors_dataset;
         cache=cache, 
-        verbosity=verbosity
+        verbosity=verbosity,
+        acceleration=acceleration
     )
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)

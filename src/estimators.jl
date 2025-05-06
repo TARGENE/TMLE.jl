@@ -38,7 +38,12 @@ function fit_mlj_model(model, X, y; parents=names(X), cache=false, verbosity=1)
     return mach
 end
 
-function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
+function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
+    cache=Dict(), 
+    verbosity=1, 
+    machine_cache=false,
+    acceleration=CPU1()
+    )
     # Lookup in cache
     estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
     estimate !== nothing && return estimate
@@ -79,7 +84,65 @@ Estimates a conditional distribution (or regression) for each training set defin
     train_validation_indices
 end
 
-function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
+function update_sample_split_machines_with_fold!(machines::Vector{Machine}, 
+    estimator, 
+    estimand, 
+    dataset, 
+    fold_id;
+    machine_cache=false, 
+    verbosity=1
+    )
+    train_indices, _ = estimator.train_validation_indices[fold_id]
+    train_dataset = selectrows(dataset, train_indices)
+    Xtrain = selectcols(train_dataset, estimand.parents)
+    ytrain = train_dataset[!, estimand.outcome]
+    machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
+        parents=estimand.parents, 
+        cache=machine_cache, 
+        verbosity=verbosity
+    )
+end
+
+function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPU1, estimator, estimand, dataset;
+    machine_cache=false, 
+    verbosity=1
+    )
+    nfolds = length(machines)
+    for fold_id in 1:nfolds
+        update_sample_split_machines_with_fold!(machines,
+            estimator, 
+            estimand, 
+            dataset, 
+            fold_id;
+            machine_cache=machine_cache, 
+            verbosity=verbosity
+        )
+    end
+end
+
+function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPUThreads, estimator, estimand, dataset;
+    machine_cache=false, 
+    verbosity=1
+    )
+    nfolds = length(machines)
+    @threads for fold_id in 1:nfolds
+        update_sample_split_machines_with_fold!(machines,
+            estimator, 
+            estimand, 
+            dataset, 
+            fold_id;
+            machine_cache=machine_cache, 
+            verbosity=verbosity
+        )
+    end
+end
+
+function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, dataset; 
+    cache=Dict(), 
+    verbosity=1, 
+    machine_cache=false,
+    acceleration=CPU1()
+    )
     # Lookup in cache
     estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
     estimate !== nothing && return estimate
@@ -91,17 +154,10 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     nfolds = size(estimator.train_validation_indices, 1)
     machines = Vector{Machine}(undef, nfolds)
     # Fit Conditional Distribution on each training split using MLJ
-    for fold_id in 1:nfolds
-        train_indices, _ = estimator.train_validation_indices[fold_id]
-        train_dataset = selectrows(relevant_dataset, train_indices)
-        Xtrain = selectcols(train_dataset, estimand.parents)
-        ytrain = train_dataset[!, estimand.outcome]
-        machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
-            parents=estimand.parents, 
-            cache=machine_cache, 
-            verbosity=verbosity-1
+    fit_sample_split_machines!(machines, acceleration, estimator, estimand, relevant_dataset;
+        machine_cache=machine_cache, 
+        verbosity=verbosity-1,
         )
-    end
     # Build estimate
     estimate = SampleSplitMLConditionalDistribution(estimand, estimator.train_validation_indices, machines)
     # Update cache
@@ -125,7 +181,7 @@ ConditionalDistributionEstimator(model, train_validation_indices::AbstractVector
     cd_estimators::Dict{Symbol, Any}
 end
 
-function fit_conditional_distributions(cd_estimators, conditional_distributions, dataset; cache=Dict(), verbosity=1, machine_cache=false)
+function fit_conditional_distributions(acceleration::CPU1, cd_estimators, conditional_distributions, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     return map(conditional_distributions) do conditional_distribution
         cd_estimator = cd_estimators[conditional_distribution.outcome]
         try_fit_ml_estimator(cd_estimator, conditional_distribution, dataset;
@@ -133,16 +189,39 @@ function fit_conditional_distributions(cd_estimators, conditional_distributions,
             cache=cache,
             verbosity=verbosity,
             machine_cache=machine_cache,
+            acceleration=acceleration
         )
     end
+end
+
+function fit_conditional_distributions(acceleration::CPUThreads, cd_estimators, conditional_distributions, dataset; 
+    cache=Dict(), 
+    verbosity=1, 
+    machine_cache=false
+    )
+    n_components = length(conditional_distributions)
+    estimates = Vector{ConditionalDistributionEstimate}(undef, n_components)
+    for cd_index in 1:n_components
+        conditional_distribution = conditional_distributions[cd_index]
+        cd_estimator = cd_estimators[conditional_distribution.outcome]
+        estimates[cd_index] = try_fit_ml_estimator(cd_estimator, conditional_distribution, dataset;
+            error_fn=propensity_score_fit_error_msg,
+            cache=cache,
+            verbosity=verbosity,
+            machine_cache=machine_cache,
+            acceleration=acceleration
+        )
+    end
+    return Tuple(estimates)
 end
 
 function (estimator::JointConditionalDistributionEstimator)(conditional_distributions, dataset; 
     cache=Dict(), 
     verbosity=1, 
-    machine_cache=false
+    machine_cache=false,
+    acceleration=CPU1()
     )
-    estimates = fit_conditional_distributions(estimator.cd_estimators, conditional_distributions, dataset; 
+    estimates = fit_conditional_distributions(acceleration, estimator.cd_estimators, conditional_distributions, dataset; 
         cache=cache, 
         verbosity=verbosity, 
         machine_cache=machine_cache
