@@ -227,9 +227,11 @@ function evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, propensity
     cache=Dict(),
     machine_cache=false
     )
-    validation_loss = 0.
-    fold_candidates = []
-    for (fold_index, fold_train_val_indices) in enumerate(train_validation_indices)
+    validation_loss = Threads.Atomic{Float64}(0.)
+    n_folds = length(train_validation_indices)
+    fold_candidates = Vector{Any}(undef, n_folds)
+    for fold_index in 1:n_folds
+        fold_train_val_indices = train_validation_indices[fold_index]
         # Update propensity score estimate
         fold_propensity_score_estimator = build_propensity_score_estimator(
             propensity_score, 
@@ -256,10 +258,13 @@ function evaluate_cv_candidate!(last_cv_candidate, fluctuation_model, propensity
             cache=cache,
             machine_cache=machine_cache
         )
-        validation_loss += loss_sum(targeted_η̂ₙ_train, selectrows(dataset, fold_train_val_indices[2]))
-        push!(fold_candidates, targeted_η̂ₙ_train)
+        Threads.atomic_add!(
+            validation_loss,
+            loss_sum(targeted_η̂ₙ_train, selectrows(dataset, fold_train_val_indices[2]))
+        )
+        fold_candidates[fold_index] = targeted_η̂ₙ_train
     end
-    return fold_candidates, validation_loss
+    return fold_candidates, validation_loss[]
 end
 
 loss_sum(candidate, dataset) =

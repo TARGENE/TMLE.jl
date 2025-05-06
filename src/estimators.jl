@@ -91,11 +91,12 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     nfolds = size(estimator.train_validation_indices, 1)
     machines = Vector{Machine}(undef, nfolds)
     # Fit Conditional Distribution on each training split using MLJ
-    for (index, (train_indices, _)) in enumerate(estimator.train_validation_indices)
+    for fold_id in 1:nfolds
+        train_indices, _ = estimator.train_validation_indices[fold_id]
         train_dataset = selectrows(relevant_dataset, train_indices)
         Xtrain = selectcols(train_dataset, estimand.parents)
         ytrain = train_dataset[!, estimand.outcome]
-        machines[index] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
+        machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
             parents=estimand.parents, 
             cache=machine_cache, 
             verbosity=verbosity-1

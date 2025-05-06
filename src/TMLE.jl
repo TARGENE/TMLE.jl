@@ -23,6 +23,7 @@ using OrderedCollections
 using AutoHashEquals
 using StatisticalMeasures
 using DataFrames
+using Base.Threads
 
 # #############################################################################
 # EXPORTS
