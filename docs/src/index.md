@@ -142,13 +142,14 @@ using Random
 using CategoricalArrays
 using MLJLinearModels
 using LogExpFunctions
+using DataFrames
 
 rng = StableRNG(123)
 n = 100
 W = rand(rng, Uniform(), n)
 T = rand(rng, Uniform(), n) .< logistic.(1 .- 2W)
 Y = 1 .+ 3T .- T.*W .+ rand(rng, Normal(0, 0.01), n)
-dataset = (Y=Y, T=categorical(T), W=W)
+dataset = DataFrame(Y=Y, T=categorical(T), W=W)
 nothing # hide
 ```
 
