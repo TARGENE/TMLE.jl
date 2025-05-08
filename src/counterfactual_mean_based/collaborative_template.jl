@@ -1,11 +1,11 @@
 #####################################################################
-###              Targeting AdaptiveCorrelationOrdering            ###
+###                        CollaborativeStrategy                  ###
 #####################################################################
 
 """
     CollaborativeStrategy
 
-A collaborative strategy must implement the interface
+A collaborative strategy must implement the interface.
 """
 abstract type CollaborativeStrategy end
 
@@ -53,7 +53,7 @@ function find_optimal_candidate(
     )
     candidate_id = 1
     best_candidate = (candidate=last_candidate_info.candidate, cv_loss=last_candidate_info.cv_loss, id=candidate_id)
-    verbosity > 0 && @info "Initial candidate's CV loss: $(best_candidate.cvloss)"
+    verbosity > 0 && @info "Initial candidate's CV loss: $(best_candidate.cv_loss)"
     while !exhausted(collaborative_strategy)
         candidate_id += 1
         # Update the collaborative strategy's state
@@ -106,13 +106,13 @@ function find_optimal_candidate(
 
         # Update the best candidate or early stop
         if new_cv_loss < best_candidate.cv_loss
-            verbosity > 0 && @info "New candidate's CV loss: $(cv_loss), updating best candidate."
+            verbosity > 0 && @info "New candidate's CV loss: $(new_cv_loss), updating best candidate."
             best_candidate = (candidate=new_candidate, cv_loss=new_cv_loss, id=candidate_id)
         elseif candidate_id - best_candidate.id > collaborative_strategy.patience
-            verbosity > 0 && @info "New candidate's CV loss: $(cv_loss), patience reached, terminating."
+            verbosity > 0 && @info "New candidate's CV loss: $(new_cv_loss), patience reached, terminating."
             break
         else
-            verbosity > 0 && @info "New candidate's CV loss: $(cv_loss)."
+            verbosity > 0 && @info "New candidate's CV loss: $(new_cv_loss)."
         end
     end
     return best_candidate
