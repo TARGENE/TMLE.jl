@@ -17,7 +17,7 @@ function counterfactual_aggregate(Ψ::StatisticalCMCompositeEstimand, Q, dataset
     for (vals, sign) in indicator_fns(Ψ)
         # Counterfactual dataset for a given treatment setting
         T_ct = counterfactualTreatment(vals, Ttemplate)
-        X_ct = merge(X, T_ct)
+        X_ct = DataFrame((;(Symbol(colname) => colname ∈ names(T_ct) ? T_ct[!, colname] : X[!, colname] for colname in names(X))...))
         # Counterfactual mean
         ctf_agg .+= sign .* expected_value(Q, X_ct)
     end
@@ -56,7 +56,7 @@ This part of the gradient is evaluated on the original dataset. All quantities h
 function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound=1e-8)
     # Maybe can cache some results (H and E[Y|X]) to improve perf here
     H, w = clever_covariate_and_weights(Ψ, G, dataset; ps_lowerbound=ps_lowerbound)
-    y = float(Tables.getcolumn(dataset, Q.estimand.outcome))
+    y = float(dataset[!, Q.estimand.outcome])
     Ey = expected_value(Q, dataset)
     return ∇YX(H, y, Ey, w)
 end

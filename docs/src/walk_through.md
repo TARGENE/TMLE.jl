@@ -135,7 +135,7 @@ Alternatively, you can also directly define the statistical parameters (see [Est
 Then each parameter can be estimated by building an estimator (which is simply a function) and evaluating it on data. For illustration, we will keep the models simple. We define a Targeted Maximum Likelihood Estimator:
 
 ```@example walk-through
-tmle = TMLEE()
+tmle = Tmle()
 ```
 
 Because we haven't identified the `cm` causal estimand yet, we need to provide the `scm` as well to the estimator:
@@ -148,7 +148,7 @@ result
 Statistical Estimands can be estimated without a ``SCM``, let's use the One-Step estimator:
 
 ```@example walk-through
-ose = OSE()
+ose = Ose()
 result, cache = ose(statistical_aie, dataset)
 result
 ```

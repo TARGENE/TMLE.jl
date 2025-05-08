@@ -9,13 +9,14 @@ using TMLE
 using CategoricalArrays
 using LogExpFunctions
 using HypothesisTests
+using DataFrames
 
 function make_dataset(;n=100)
     rng = StableRNG(123)
     W = rand(rng, Uniform(), n)
     T = rand(rng, [0, 1], n)
     Y = 3W .+ T .+ T.*W + rand(rng, Normal(0, 0.05), n)
-    dataset =  (
+    dataset =  DataFrame(
         Y = Y,
         W = W,
         T = categorical(T)
@@ -57,8 +58,8 @@ end
         :Y => with_encoder(LinearRegressor()),
         :T => LogisticClassifier(lambda=0)
     )
-    tmle = TMLEE(models=models)
-    ose = OSE(models=models)
+    tmle = Tmle(models=models)
+    ose = Ose(models=models)
     cache = Dict()
 
     # Via Composition
@@ -106,7 +107,7 @@ end
         :Y => with_encoder(LinearRegressor()),
         :T => LogisticClassifier(lambda=0)
     )
-    tmle = TMLEE(models=models)
+    tmle = Tmle(models=models)
     cache = Dict()
     
     joint = JointEstimand(
@@ -131,7 +132,6 @@ end
     @test size(composed_estimate.cov) == (2, 2)
 
     composed_estimate_dict = TMLE.to_dict(composed_estimate)
-    println(composed_estimate_dict[:estimand])
     @test composed_estimate_dict isa Dict
     composed_estimate_from_dict = TMLE.from_dict!(composed_estimate_dict)
     @test composed_estimate_from_dict.estimand == composed_estimate.estimand
@@ -156,7 +156,7 @@ end
     T₂ = [rand(rng, Categorical(collect(p))) for p in eachrow(pT₂)]
 
     Y = 1 .+ W .+ T₁ .- T₂ .- T₁.*T₂ .+ rand(rng, Normal())
-    dataset = (
+    dataset = DataFrame(
         W = W,
         T₁ = categorical(T₁),
         T₂ = categorical(T₂),
@@ -179,7 +179,7 @@ end
     )
     jointAIE = JointEstimand(AIE₁, AIE₂, AIE₃)
 
-    ose = OSE(models=TMLE.default_models(G=LogisticClassifier(), Q_continuous=LinearRegressor()))
+    ose = Ose(models=TMLE.default_models(G=LogisticClassifier(), Q_continuous=LinearRegressor()))
     jointEstimate, _ = ose(jointAIE, dataset, verbosity=0)
 
     testres = significance_test(jointEstimate)

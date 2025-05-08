@@ -9,15 +9,24 @@ for counterfactual mean based estimands' relevant factors.
 struct MLCMRelevantFactors <: Estimate
     estimand::CMRelevantFactors
     outcome_mean::ConditionalDistributionEstimate
-    propensity_score::Tuple{Vararg{ConditionalDistributionEstimate}}
+    propensity_score
 end
 
 string_repr(estimate::MLCMRelevantFactors) = string(
     "Composite Factor Estimate: \n",
     "-------------------------\n- ",
     string_repr(estimate.outcome_mean),"\n- ", 
-    join((string_repr(f) for f in estimate.propensity_score), "\n- ")
+    join((string_repr(f) for f in estimate.propensity_score.components), "\n- ")
 )
+
+#####################################################################
+###                       FoldsMLCMRelevantFactors                     ###
+#####################################################################
+
+struct FoldsMLCMRelevantFactors <: Estimate
+    estimand::CMRelevantFactors
+    estimates::Vector{MLCMRelevantFactors}
+end
 
 #####################################################################
 ###                   One Dimensional Estimates                   ###

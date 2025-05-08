@@ -171,7 +171,7 @@ The second one is the mean of ``\mathcal{Q}_0(c, w)`` over ``w``:
 
 Using [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/), we can define an estimator for ``\mathcal{Q}_0`` as follows: 
 =#
-using MLJ
+using MLJBase
 using MLJLinearModels
 using EvoTrees
 using MLJModels

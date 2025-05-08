@@ -4,6 +4,7 @@ using Test
 using TMLE
 using CategoricalArrays
 using MLJModels
+using DataFrames
 
 @testset "Test ps_lower_bound" begin
     n = 7
@@ -23,19 +24,21 @@ end
         treatment_values=(T=(case="a", control="b"),),
         treatment_confounders=(T=[:W],),
     )
-    dataset = (
+    dataset = DataFrame(
         T = categorical(["a", "b", "c", "a", "a", "b", "a"]),
         Y = [1., 2., 3, 4, 5, 6, 7],
         W = rand(7),
     )
-    distr_estimate = TMLE.MLConditionalDistributionEstimator(ConstantClassifier())(
-        TMLE.ConditionalDistribution(:T, [:W]),
+
+    propensity_score_estimator = TMLE.JointConditionalDistributionEstimator(Dict(:T => TMLE.MLConditionalDistributionEstimator(ConstantClassifier())))
+    propensity_score_estimate = propensity_score_estimator(
+        (TMLE.ConditionalDistribution(:T, [:W]),),
         dataset,
         verbosity=0
     )
     weighted_fluctuation = true
     ps_lowerbound = 1e-8
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, (distr_estimate,), dataset; 
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset; 
         ps_lowerbound=ps_lowerbound, 
         weighted_fluctuation=weighted_fluctuation
     )
@@ -44,7 +47,7 @@ end
     @test w == [1.75, 3.5, 7.0, 1.75, 1.75, 3.5, 1.75]
 
     weighted_fluctuation = false
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, (distr_estimate,), dataset;
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
         ps_lowerbound=ps_lowerbound,
         weighted_fluctuation=weighted_fluctuation
     )
@@ -61,26 +64,27 @@ end
         ),
         treatment_confounders=(T₁=[:W], T₂=[:W])
     )
-    dataset = (
+    dataset = DataFrame(
         T₁ = categorical([1, 0, 0, 1, 1, 1, 0]),
         T₂ = categorical([1, 1, 1, 1, 1, 0, 0]),
         Y = categorical([1, 1, 1, 1, 0, 0, 0]),
         W = rand(7)
     )
-    T₁_distr_estimate = TMLE.MLConditionalDistributionEstimator(ConstantClassifier())(
-        TMLE.ConditionalDistribution(:T₁, [:W]),
+    distribution_estimator = TMLE.MLConditionalDistributionEstimator(ConstantClassifier())
+    propensity_score_estimator = TMLE.JointConditionalDistributionEstimator(Dict(
+        :T₁ => distribution_estimator,
+        :T₂ => distribution_estimator
+    ))
+    propensity_score_estimate = propensity_score_estimator(
+        (TMLE.ConditionalDistribution(:T₁, [:W]), TMLE.ConditionalDistribution(:T₂, [:W])),
         dataset,
         verbosity=0
     )
-    T₂_distr_estimate = TMLE.MLConditionalDistributionEstimator(ConstantClassifier())(
-        TMLE.ConditionalDistribution(:T₂, [:W]),
-        dataset,
-        verbosity=0
-    )
+
     ps_lowerbound = 1e-8
     weighted_fluctuation = false
 
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, (T₁_distr_estimate, T₂_distr_estimate), dataset;
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
         ps_lowerbound=ps_lowerbound,
         weighted_fluctuation=weighted_fluctuation
     )
@@ -103,7 +107,7 @@ end
             T₃=[:W]
         )
     )
-    dataset = (
+    dataset = DataFrame(
         T₁ = categorical(["a", "a", "b", "b", "c", "b", "b"]),
         T₂ = categorical([3, 2, 1, 1, 2, 2, 2], ordered=true),
         T₃ = categorical([true, false, true, false, false, false, false], ordered=true),
@@ -113,15 +117,19 @@ end
     ps_lowerbound = 1e-8 
     weighted_fluctuation = false
 
-    cond_distr = Tuple(
-        TMLE.MLConditionalDistributionEstimator(ConstantClassifier())(
-            TMLE.ConditionalDistribution(T, [:W]),
-            dataset,
-            verbosity=0
-        ) for T in (:T₁, :T₂, :T₃)
+    propensity_score_estimator = TMLE.JointConditionalDistributionEstimator(Dict(
+        T => TMLE.MLConditionalDistributionEstimator(ConstantClassifier())
+        for T in (:T₁, :T₂, :T₃)
+    ))
+    propensity_score_estimate = propensity_score_estimator(
+        (TMLE.ConditionalDistribution(:T₁, [:W]), 
+         TMLE.ConditionalDistribution(:T₂, [:W]), 
+         TMLE.ConditionalDistribution(:T₃, [:W])),
+        dataset,
+        verbosity=0
     )
 
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, cond_distr, dataset;
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
         ps_lowerbound=ps_lowerbound, 
         weighted_fluctuation=weighted_fluctuation
     )

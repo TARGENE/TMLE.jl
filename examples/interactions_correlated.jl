@@ -25,8 +25,51 @@ using CategoricalArrays
 using TMLE
 using CairoMakie
 using MLJXGBoostInterface
-using MLJ
+using MLJBase
 using MLJLinearModels
+using MLJTuning
+using StatisticalMeasures
+
+function estimate_across_correlation_levels(estimators, σs; n=1000)
+    results = Dict(key => [] for key in keys(estimators))
+    for σ in σs
+        dataset = generate_dataset(n=n, σ=σ)
+        for (estimator_key, estimator) in estimators
+            result, _ = estimator(Ψ, dataset; verbosity=0)
+            push!(results[estimator_key], result)
+        end
+    end
+    return results
+end
+
+function estimate_across_sample_sizes_and_correlation_levels(estimators, ns, σs)
+    results = []
+    for n in ns
+        results_at_n = estimate_across_correlation_levels(estimators, σs; n=n)
+        push!(results, results_at_n)
+    end
+    return results
+end
+
+function plot_across_sample_sizes_and_correlation_levels(results, ns, σs; estimator="TMLE_SL", title="Estimation via TMLE (GLMs)")
+    fig = Figure(size=(800, 800))
+    for (index, n) in enumerate(ns)
+        results_at_n = results[index][estimator]
+        Ψ̂s = TMLE.estimate.(results_at_n)
+        errors = last.(confint.(significance_test.(results_at_n))) .- Ψ̂s
+        ax = if n == last(ns)
+            Axis(fig[index, 1], xlabel="σ", ylabel="AIE\n(n=$n)")
+        else
+            Axis(fig[index, 1], ylabel="AIE\n(n=$n)", xticklabelsvisible=false)
+        end
+        errorbars!(ax, σs, Ψ̂s, errors, color = :blue, whiskerwidth = 10)
+        scatter!(ax, σs, Ψ̂s, color=:red, markersize=10)
+        hlines!(ax, [-1.5], color=:green, linestyle=:dash)
+    end
+    Label(fig[0, :], title; tellwidth=false, fontsize=24)
+    return fig
+end
+
 Random.seed!(123)
 
 μT(w) = [sum(w), sum(w)]
@@ -113,9 +156,9 @@ treatment_correlation(dataset)
 #=
 ## Estimation
 
-We can now proceed to estimation using TMLE and default (linear) models. 
+We can now proceed to estimation, for instance using TMLE with linear models.
 
-Interactions are defined via the `AIE` function (note that we only set `W1` as a confounder).
+First, let's define the effect of interest. Interactions are defined via the `AIE` function (note that we only set `W1` as a confounder).
 =#
 
 Ψ = AIE(
@@ -127,7 +170,7 @@ Interactions are defined via the `AIE` function (note that we only set `W1` as a
     treatment_confounders = [:W1]
 )
 linear_models = default_models(G=LogisticClassifier(lambda=0), Q_continuous=LinearRegressor())
-estimator = TMLEE(models=linear_models, weighted=true)
+estimator = Tmle(models=linear_models, weighted=true)
 result, _ = estimator(Ψ, dataset; verbosity=0)
 @assert pvalue(significance_test(result, -1.5)) > 0.05 #hide
 significance_test(result)
@@ -137,7 +180,12 @@ The true effect size is thus covered by our confidence interval.
 
 ## Varying levels of correlation
 
-We now vary the correlation level between `T1` and `T2` to observe how it affects the estimation results. 
+We will now vary the correlation level between `T1` and `T2` to observe how it affects the estimation results across samples sizes. We will also 
+look at three different modelling strategies:
+1. Generalized linear models (GLMs)
+2. XGBoost
+3. Super Learning (SL) via a model selection approach
+
 First, let's see how the parameter σ affects the correlation between `T1` and `T2`.
 =#
 
@@ -152,74 +200,80 @@ function plot_correlations(;σs = 0.1:0.1:1, n=1000, threshold=0., σY=1.)
     return fig
 end
 
-σs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]
+σs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.999]
 plot_correlations(;σs=σs, n=10_000)
 
 #=
-As expected, the correlation between `T1` and `T2` increases with σ. Let's see how this affects estimation, 
-for this, we will vary both the dataset size and the correlation level.
+As expected, the correlation between `T1` and `T2` increases with σ. Let's see how this affects estimation.
+
+We first define our Super Learners, they compare L2 penalized GLM and XGboost models for various penalization parameters λ 
+on a holdout set and select the best model.
 =#
 
-function estimate_across_correlation_levels(σs; n=1000, estimator=TMLEE(weighted=true))
-    results = []
-    for σ in σs
-        dataset = generate_dataset(n=n, σ=σ)
-        result, _ = estimator(Ψ, dataset; verbosity=0)
-        push!(results, result)
-    end
-    Ψ̂s = TMLE.estimate.(results)
-    errors = last.(confint.(significance_test.(results))) .- Ψ̂s
-    return Ψ̂s, errors
-end
+lambdas = 10 .^ range(1, stop=-4, length=5)
+linear_regressors = [RidgeRegressor(lambda=λ) for λ in lambdas]
+logistic_classifiers = [LogisticClassifier(lambda=λ) for λ in lambdas]
+xgboost_classifiers = [XGBoostClassifier(tree_method="hist", lambda=λ, nthread=1) for λ in lambdas]
+xgboost_regressors = [XGBoostRegressor(tree_method="hist", lambda=λ, nthread=1) for λ in lambdas]
 
-function estimate_across_sample_sizes_and_correlation_levels(ns, σs; estimator=TMLEE(models=linear_models, weighted=true))
-    results = []
-    for n in ns
-        Ψ̂s, errors = estimate_across_correlation_levels(σs; n=n, estimator=estimator)
-        push!(results, (Ψ̂s, errors))
-    end
-    return results
-end
-
-function plot_across_sample_sizes_and_correlation_levels(results, ns, σs; title="Estimation via TMLE (GLMs)")
-    fig = Figure(size=(800, 800))
-    for (index, n) in enumerate(ns)
-        Ψ̂s, errors = results[index]
-        ax = if n == last(ns)
-            Axis(fig[index, 1], xlabel="σ", ylabel="AIE\n(n=$n)")
-        else
-            Axis(fig[index, 1], ylabel="AIE\n(n=$n)", xticklabelsvisible=false)
-        end
-        errorbars!(ax, σs, Ψ̂s, errors, color = :blue, whiskerwidth = 10)
-        scatter!(ax, σs, Ψ̂s, color=:red, markersize=10)
-        hlines!(ax, [-1.5], color=:green, linestyle=:dash)
-    end
-    Label(fig[0, :], title; tellwidth=false, fontsize=24)
-    return fig
-end
-
-ns = [100, 1000, 10_000, 100_000, 1_000_000]
-σs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.999]
-results = estimate_across_sample_sizes_and_correlation_levels(ns, σs; estimator=TMLEE(models=linear_models, weighted=true))
-plot_across_sample_sizes_and_correlation_levels(results, ns, σs; title="Estimation via TMLE (GLMs)")
-
-#=
-First, notice that only extreme correlations (>0.9) tend to blow up the size of the confidence intervals. This implies that statistical power may be limited in such circumstances.
-
-Furthermore, and perhaps unexpectedly, coverage decreases as sample size grows for larger correlations. Since we have used simple linear models until now, 
-this could be due to model misspecification. We can verify this by using a more flexible modelling strategy. Here we will use XGBoost 
-(with tree_method=`hist` to speed things up a little). Because this model is prone to overfitting we will also use cross-validation (this will take a few minutes).
-=#
-
-xgboost_estimator = TMLEE(
-    models=default_models(G=XGBoostClassifier(tree_method="hist"), Q_continuous=XGBoostRegressor(tree_method="hist")),
-    weighted=true,
-    resampling=StratifiedCV(nfolds=3)
+sl_regressor = TunedModel(
+    models=vcat(linear_regressors, xgboost_regressors),
+    resampling=Holdout(),
+    measure=rmse,
+    check_measure=false
 )
-xgboost_results = estimate_across_sample_sizes_and_correlation_levels(ns, σs, estimator=xgboost_estimator)
-plot_across_sample_sizes_and_correlation_levels(xgboost_results, ns, σs; title="Estimation via TMLE (XGboost)")
+
+sl_classifier = TunedModel(
+    models=vcat(logistic_classifiers, xgboost_classifiers),
+    resampling=Holdout(),
+    measure=log_loss,
+    check_measure=false
+)
 
 #=
-As expected, XGBoost improves estimation performance in the asymptotic regime, furthermore, 
-the correlation between `T1` and `T2` seems harmless (except when σ > 0.9 as before).
+Now define the sample sizes and correlation levels we want to explore.
 =#
+
+ns = [1000, 10_000, 100_000, 500_000]
+σs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.999]
+
+#=
+and estimate (this will take a little while).
+=#
+
+estimators = Dict(
+    "TMLE_GLM"  => Tmle(models=linear_models, weighted=true),
+    "TMLE_XGBOOST" => Tmle(
+        models=default_models(G=XGBoostClassifier(tree_method="hist", nthread=1), Q_continuous=XGBoostRegressor(tree_method="hist", nthread=1)),
+        weighted=true,
+    ),
+    "TMLE_SL" => Tmle(
+        models=default_models(G=sl_classifier, Q_continuous=sl_regressor),
+        weighted=true,
+    )
+)
+
+results = estimate_across_sample_sizes_and_correlation_levels(estimators, ns, σs)
+
+#=
+Let us first focus on results obtained with the GLM estimator. In small sample sizes, coverage is almost perfect across all correlation levels. However, as sample size increases, 
+the confidence intervals shrink and start to miss the ground truth. The phenomenon is more pronounced for larger correlations. This could be due to model misspecification bias 
+which can be verified by using a more flexible modelling strategy, here we use XGBoost.
+=#
+
+plot_across_sample_sizes_and_correlation_levels(results, ns, σs; estimator="TMLE_GLM", title="Estimation via TMLE (GLMs)")
+
+#=
+As expected, XGBoost improves estimation performance in the asymptotic regime, however, 
+the performance is the small sample size regime is deteriorated, likely due to over-fitting. To find the sweet spot between GLM and XGBoost, 
+we can resort to model selection to adaptively select the best model (sometimes this is called discrete super learning).
+=#
+
+plot_across_sample_sizes_and_correlation_levels(results, ns, σs; estimator="TMLE_XGBOOST", title="Estimation via TMLE (XGBoost)")
+#=
+As we can see, the performance is now good across all sample sizes. Furthermore, the correlation between `T1` and `T2` seems harmless except when σ > 0.9. 
+The confidence interval is then quite large which will result in a loss of power.
+=#
+
+plot_across_sample_sizes_and_correlation_levels(results, ns, σs; estimator="TMLE_SL", title="Estimation via TMLE (SL)")
+

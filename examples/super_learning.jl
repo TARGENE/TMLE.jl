@@ -25,9 +25,14 @@ Let's consider the case where Y is categorical. In TMLE.jl, this could be useful
 
 We will use the following moons dataset:
 =#
-using MLJ
+using MLJBase
+using MLJTuning
+using StatisticalMeasures
+using MLJXGBoostInterface
+using MLJLinearModels
+using NearestNeighborModels
 
-X, y = MLJ.make_moons(1000)
+X, y = MLJBase.make_moons(1000)
 nothing # hide
 
 #=
@@ -42,22 +47,13 @@ data it is a good idea to make sure the splits are balanced. We will thus use a 
 - `models...`: A series of named MLJ models.
 
 One important point is that MLJ does not provide any model by itself, juat the API, models have to be loaded from 
-external compatible libraries. You can search for available models that match your data.
+external compatible libraries.
 
-=#
-
-models(matching(X, y))
-
-#=
 !!! note "Stack limitation"
     The Stack cannot contain `<:Deterministic` models for classification.
 
 Let's load a few packages providing models and build our first Stack:
 =#
-
-using MLJXGBoostInterface
-using MLJLinearModels
-using NearestNeighborModels
 
 resampling = StratifiedCV()
 metalearner = LogisticClassifier()
@@ -98,7 +94,7 @@ The following self-tuned XGBoost will vary some hyperparameters in an internal s
 It will then be combined with the rest of the models in the Stack's own sample-splitting procedure. Finally, evaluation is performed in an outer sample-split.
 =#
 
-xgboost = XGBoostClassifier(tree_method="hist")
+xgboost = XGBoostClassifier(tree_method="hist", nthread=1)
 self_tuning_xgboost = TunedModel(
     model = xgboost,
     resampling = resampling,

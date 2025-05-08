@@ -49,7 +49,7 @@ function tmle_estimates(data)
         Q_binary=MLJLinearModels.LogisticClassifier(),
         G=MLJLinearModels.LogisticClassifier()
     )
-    Ψ̂ = TMLEE(models=models, weighted=true)
+    Ψ̂ = Tmle(models=models, weighted=true)
     Ψ = ATE(;
         outcome=:Y, 
         treatment_values=(T=(case=true, control = false),),
@@ -80,7 +80,7 @@ end
 function plot(β̂s_confounded, β̂s_unconfounded, tmles_confounded, tmles_unconfounded, β, ATE₀)
     fig = Figure(size=(1000, 800))
     ax = Axis(fig[1, 1], title="Distribution of Linear Model's and TMLE's Estimates", yticks=(1:2, ["Confounded", "Unconfounded"]))
-    labels = vcat(repeat(["Confounded"], length(β̂s_confounded)), repeat(["Unconfounded"], length(β̂s_unconfounded)))
+    labels = vcat(fill("Confounded", length(β̂s_confounded)), fill("Unconfounded", length(β̂s_unconfounded)))
     rainclouds!(ax, labels, vcat(β̂s_confounded, β̂s_unconfounded), orientation = :horizontal, color=(:blue, 0.5))
     rainclouds!(ax, labels, vcat(tmles_confounded, tmles_unconfounded), orientation = :horizontal, color=(:orange, 0.5))
     vlines!(ax, ATE₀, label="ATE", color=:green)
@@ -142,13 +142,14 @@ using Random
 using CategoricalArrays
 using MLJLinearModels
 using LogExpFunctions
+using DataFrames
 
 rng = StableRNG(123)
 n = 100
 W = rand(rng, Uniform(), n)
 T = rand(rng, Uniform(), n) .< logistic.(1 .- 2W)
 Y = 1 .+ 3T .- T.*W .+ rand(rng, Normal(0, 0.01), n)
-dataset = (Y=Y, T=categorical(T), W=W)
+dataset = DataFrame(Y=Y, T=categorical(T), W=W)
 nothing # hide
 ```
 
@@ -167,7 +168,7 @@ The Average Treatment Effect of ``T`` on ``Y`` confounded by ``W`` is defined as
 ### 3. An estimator: here a Targeted Maximum Likelihood Estimator (TMLE)
 
 ```@example quick-start
-tmle = TMLEE()
+tmle = Tmle()
 result, _ = tmle(Ψ, dataset, verbosity=0);
 result
 ```
