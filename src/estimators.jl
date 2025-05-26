@@ -195,13 +195,13 @@ function fit_conditional_distributions(acceleration::CPU1, cd_estimators, condit
 end
 
 function fit_conditional_distributions(acceleration::CPUThreads, cd_estimators, conditional_distributions, dataset; 
-    cache=Dict(), 
+    cache=Dict(),
     verbosity=1, 
     machine_cache=false
     )
     n_components = length(conditional_distributions)
     estimates = Vector{ConditionalDistributionEstimate}(undef, n_components)
-    for cd_index in 1:n_components
+    @threads for cd_index in 1:n_components
         conditional_distribution = conditional_distributions[cd_index]
         cd_estimator = cd_estimators[conditional_distribution.outcome]
         estimates[cd_index] = try_fit_ml_estimator(cd_estimator, conditional_distribution, dataset;
