@@ -52,3 +52,14 @@ function propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_stra
 end
 
 exhausted(strategy::AdaptiveCorrelationOrdering) = length(strategy.remaining_confounders) == 0
+
+function Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationOrdering})
+    return get_new_propensity_score_and_estimator(
+            it.collaborative_strategy,
+            it.Ψ,
+            it.dataset,
+            it.models
+    ), nothing
+end
+
+Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationOrdering}, state) = nothing

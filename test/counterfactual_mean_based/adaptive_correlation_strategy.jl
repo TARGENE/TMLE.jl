@@ -113,7 +113,7 @@ end
         train_validation_indices=train_validation_indices, 
         models=tmle.models
     )
-    η̂ₙ = initial_factors_estimator(η, dataset; 
+    η̂ₙ = initial_factors_estimator(η, dataset;
         cache=cache, 
         verbosity=verbosity, 
         machine_cache=tmle.machine_cache
@@ -159,28 +159,28 @@ end
     ## - The fluctuation is fitted on the whole dataset
     ## - A vector of (candidate, loss) is returned
     ## - A candidate is a targeted estimate
-    candidate, loss = TMLE.get_initial_candidate(η, fluctuation_model, dataset;
+    targeted_η̂ₙ, loss = TMLE.get_initial_candidate(η, fluctuation_model, dataset;
         verbosity=verbosity,
         cache=cache,
         machine_cache=machine_cache
     )
-    @test candidate isa TMLE.MLCMRelevantFactors
-    @test candidate.outcome_mean.machine.model isa TMLE.Fluctuation
-    @test nrows(candidate.outcome_mean.machine.data[1]) == n_samples
-    @test candidate.propensity_score === η̂ₙ.propensity_score
-    @test loss == TMLE.mean_loss(candidate, dataset)
+    @test targeted_η̂ₙ isa TMLE.MLCMRelevantFactors
+    @test targeted_η̂ₙ.outcome_mean.machine.model isa TMLE.Fluctuation
+    @test nrows(targeted_η̂ₙ.outcome_mean.machine.data[1]) == n_samples
+    @test targeted_η̂ₙ.propensity_score === η̂ₙ.propensity_score
+    @test loss == TMLE.mean_loss(targeted_η̂ₙ, dataset)
 
     # Check CV candidates initialisation:
     ## - models are fitted on the training sets
     ## - The evaluation is made on the validation sets
     ## - The cache will contain all estimates to be reused
-    cv_candidate, cv_loss = TMLE.get_initial_cv_candidate(η, dataset, fluctuation_model, train_validation_indices, models;
+    cv_targeted_η̂ₙ, cv_loss = TMLE.get_initial_cv_candidate(η, dataset, fluctuation_model, train_validation_indices, models;
         cache=cache,
         verbosity=0,
         machine_cache=machine_cache
     );
     validation_losses = []
-    for (fold_estimate, (train_indices, val_indices)) in zip(cv_candidate, train_validation_indices)
+    for (fold_estimate, (train_indices, val_indices)) in zip(cv_targeted_η̂ₙ, train_validation_indices)
         # Check the estimate is in the cache
         @test fold_estimate.outcome_mean.machine.model.initial_factors in values(cache[fold_estimate.estimand])
         # Check Fluctuation
@@ -205,7 +205,7 @@ end
 
     # We now enter the main loop
     # The collaborative strategy is updated
-    TMLE.update!(collaborative_strategy, candidate, dataset)
+    TMLE.update!(collaborative_strategy, targeted_η̂ₙ, dataset)
     added_confounder = only(collaborative_strategy.current_confounders)
     @test length(collaborative_strategy.remaining_confounders) == 2
     # A new propensity score and associated estimator is suggested
@@ -229,64 +229,64 @@ end
         @test ps_component in values(cache[ps_component.estimand])
     end
     # get new targeted candidate, not using the fluctuation model first
-    new_candidate, new_loss = TMLE.get_new_targeted_candidate(candidate, new_propensity_score_estimate, fluctuation_model, dataset;
+    new_targeted_η̂ₙ, new_loss = TMLE.get_new_targeted_candidate(targeted_η̂ₙ, new_propensity_score_estimate, fluctuation_model, dataset;
             use_fluct=false,
             verbosity=verbosity,
             cache=cache,
             machine_cache=machine_cache
     )
     # The outcome_mean model which is fluctuated through is Q̄n,k
-    outcome_mean_estimate_used = new_candidate.outcome_mean.machine.model.initial_factors.outcome_mean
-    @test outcome_mean_estimate_used === candidate.outcome_mean.machine.model.initial_factors.outcome_mean
+    outcome_mean_estimate_used = new_targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.outcome_mean
+    @test outcome_mean_estimate_used === targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.outcome_mean
     # The propensity score used for fluctuation is the new candidate
-    fitted_propensity_score = new_candidate.outcome_mean.machine.model.initial_factors.propensity_score.estimand
+    fitted_propensity_score = new_targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.propensity_score.estimand
     @test fitted_propensity_score === new_propensity_score
 
     # get new targeted candidate, this time using the fluctuation model
-    new_candidate, new_loss_bis = TMLE.get_new_targeted_candidate(candidate, new_propensity_score_estimate, fluctuation_model, dataset;
+    new_targeted_η̂ₙ, new_loss_bis = TMLE.get_new_targeted_candidate(targeted_η̂ₙ, new_propensity_score_estimate, fluctuation_model, dataset;
             use_fluct=true,
             verbosity=verbosity,
             cache=cache,
             machine_cache=machine_cache
     )
     # The outcome_mean model which is fluctuated through is Q̄n,k,*
-    outcome_mean_estimate_used = new_candidate.outcome_mean.machine.model.initial_factors.outcome_mean
-    @test outcome_mean_estimate_used === candidate.outcome_mean
+    outcome_mean_estimate_used = new_targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.outcome_mean
+    @test outcome_mean_estimate_used === targeted_η̂ₙ.outcome_mean
     ## The loss should be smaller because we fluctuate through the previous model, however in finite samples
     ## I suppose this is not warranted, we check they are approximately equal and the loss with  Q̄n,k,* <  Q̄n,k
     @test loss ≈ new_loss_bis atol=1e-2
     @test new_loss_bis < new_loss
     
     # Evaluate the new candidate in CV passing through the fluctuated model
-    second_cv_candidate, new_cv_loss = TMLE.evaluate_cv_candidate(cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+    second_cv_targeted_η̂ₙ, new_cv_loss = TMLE.evaluate_cv_candidate(cv_targeted_η̂ₙ, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
         use_fluct=true,
         verbosity=verbosity,
         cache=cache,
         machine_cache=machine_cache
-    )
-    for (fold_id, fold_candidate) in enumerate(second_cv_candidate)
+    );
+    for (fold_id, fold_candidate) in enumerate(second_cv_targeted_η̂ₙ)
         @test fold_candidate.outcome_mean.machine.model isa TMLE.Fluctuation
         @test fold_candidate.estimand.propensity_score === new_propensity_score
-        @test fold_candidate.outcome_mean.machine.model.initial_factors.outcome_mean === cv_candidate[fold_id].outcome_mean
+        @test fold_candidate.outcome_mean.machine.model.initial_factors.outcome_mean === cv_targeted_η̂ₙ[fold_id].outcome_mean
     end
-    @test TMLE.compute_validation_loss(second_cv_candidate, dataset, train_validation_indices) == new_cv_loss
+    @test TMLE.compute_validation_loss(second_cv_targeted_η̂ₙ, dataset, train_validation_indices) == new_cv_loss
 
     # Evaluate the new candidate in CV NOT passing through the fluctuated model
-    second_cv_candidate_bis, new_cv_loss_bis = TMLE.evaluate_cv_candidate(cv_candidate, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+    second_cv_targeted_η̂ₙ_bis, new_cv_loss_bis = TMLE.evaluate_cv_candidate(cv_targeted_η̂ₙ, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
         use_fluct=false,
         verbosity=verbosity,
         cache=cache,
         machine_cache=machine_cache
-    )
-    for (fold_id, fold_candidate) in enumerate(second_cv_candidate_bis)
+    );
+    for (fold_id, fold_candidate) in enumerate(second_cv_targeted_η̂ₙ_bis)
         @test fold_candidate.outcome_mean.machine.model isa TMLE.Fluctuation
         @test fold_candidate.estimand.propensity_score === new_propensity_score
-        @test fold_candidate.outcome_mean.machine.model.initial_factors.outcome_mean === cv_candidate[fold_id].outcome_mean.machine.model.initial_factors.outcome_mean
+        @test fold_candidate.outcome_mean.machine.model.initial_factors.outcome_mean === cv_targeted_η̂ₙ[fold_id].outcome_mean.machine.model.initial_factors.outcome_mean
     end
-    @test TMLE.compute_validation_loss(second_cv_candidate_bis, dataset, train_validation_indices) == new_cv_loss_bis
+    @test TMLE.compute_validation_loss(second_cv_targeted_η̂ₙ_bis, dataset, train_validation_indices) == new_cv_loss_bis
 
     # Check the full loop
-    candidate_info = (candidate=candidate, loss=loss, cv_candidate=cv_candidate, cv_loss=cv_loss, id=1)
+    candidate_info = (targeted_η̂ₙ=targeted_η̂ₙ, loss=loss, cv_targeted_η̂ₙ=cv_targeted_η̂ₙ, cv_loss=cv_loss, id=1)
     best_candidate = TMLE.find_optimal_candidate(
         candidate_info, 
         collaborative_strategy, 
