@@ -43,6 +43,7 @@ makedocs(;
         "Estimators' Cheat Sheet" => "estimators_cheatsheet.md",
         "Learning Resources" => "resources.md",
         "API Reference" => "api.md",
+        "Contributing & Reporting" => "contributing.md",
         
     ],
     pagesonly=true,

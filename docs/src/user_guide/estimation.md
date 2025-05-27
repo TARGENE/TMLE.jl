@@ -241,7 +241,7 @@ nothing # hide
 
 All nuisance functions have been reused, only the fluctuation is fitted!
 
-## Accessing Fluctuations' Reports (Advanced)
+## Accessing Fluctuations' Reports
 
 The cache also holds the last targeted factor that was estimated if TMLE was used. Some key information related to the targeting steps can be accessed, for example:
 

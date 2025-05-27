@@ -8,7 +8,7 @@ The goal of this section is to provide a comprehensive (but non-exhaustive) illu
 
 ## The Dataset
 
-TMLE.jl is compatible with any dataset respecting the [Tables.jl](https://tables.juliadata.org/stable/) interface, that is for instance, a `NamedTuple`, a `DataFrame`, an `Arrow.Table` etc... In this section, we will be working with the same dataset all along.
+TMLE.jl is compatible with any dataset wrapped in a [DataFrame](https://dataframes.juliadata.org/stable/), note that it is possible to wrap an [Arrow Table](https://arrow.apache.org/julia/stable/manual/#Arrow.Table) for instance, in a Dataframe object. In this section, we will be working with the same dataset all along.
 
 ⚠️ One thing to note is that treatment variables as well as binary outcomes **must** be encoded as `categorical` variables in the dataset (see [MLJ Working with categorical data](https://alan-turing-institute.github.io/MLJ.jl/dev/working_with_categorical_data/)).
 

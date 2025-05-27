@@ -6,9 +6,11 @@ CurrentModule = TMLE
 
 ## Overview
 
-TMLE.jl is a Julia implementation of the Targeted Minimum Loss-Based Estimation ([TMLE](https://link.springer.com/book/10.1007/978-1-4419-9782-1)) framework. If you are interested in leveraging the power of modern machine-learning methods while preserving interpretability and statistical inference guarantees, you are in the right place. TMLE.jl is compatible with any [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/) compliant algorithm and any dataset respecting the [Tables](https://tables.juliadata.org/stable/) interface.
+Most scientific questions are causal and can be answered by a finite dimensional causal estimand. Perhaps the most famous of them is the [Average Treatment Effect](https://academic.oup.com/aje/article/192/5/685/6991423). If certain conditions are met (no unobserved confounders, overlap), statistical methods can be employed to estimate these causal estimands from data. Semi-parametric methods have gained interest in the past decade because they are more likely to capture the true generating process than their restricted parametric counterparts. This is particularly true in modern days data science where datasets are increasingly complex and unlikely to be well represented by parametric models. 
 
-The following plot illustrates the bias reduction achieved by TMLE over a mis-specified linear model in the presence of confounding. Note that in this case, TMLE also uses mis-specified models but still achieves a lower bias due to the targeting step.
+TMLE.jl implements such semi-parametric methods. Precisely, it is an implementation of the Targeted Minimum Loss-Based Estimation ([TMLE](https://link.springer.com/book/10.1007/978-1-4419-9782-1)) framework. If you are interested in leveraging the power of modern machine-learning methods while preserving interpretability and statistical inference guarantees, you are in the right place. TMLE.jl is compatible with any [MLJ](https://alan-turing-institute.github.io/MLJ.jl/dev/) compliant algorithm and any dataset wrapped in a [DataFrame](https://dataframes.juliadata.org/stable/) object.
+
+The following plot illustrates the bias reduction achieved by TMLE over a mis-specified parametric linear model in the presence of confounding. Note that in this case, TMLE also uses mis-specified models but still achieves a lower bias due to the targeting step.
 
 ```@setup intro
 using GLM
@@ -188,9 +190,9 @@ The goal of this package is to provide an entry point for semi-parametric asympt
 Distinguishing Features:
 
 - Estimands: Counterfactual Mean, Average Treatment Effect, Interactions, Any composition thereof
-- Estimators: TMLE, One-Step, in both canonical and cross-validated versions.
+- Estimators: TMLE, CV-TMLE, C-TMLE, One-Step, CV-One-Step.
 - Machine-Learning: Any [MLJ](https://alan-turing-institute.github.io/MLJ.jl/stable/) compatible model
-- Dataset: Any dataset respecting the [Tables](https://tables.juliadata.org/stable/) interface (e.g. [DataFrames.jl](https://dataframes.juliadata.org/stable/))
+- Dataset: Any dataset wrapped in a [DataFrame](https://dataframes.juliadata.org/stable/).
 - Factorial Treatment Variables:
   - Multiple treatments
   - Categorical treatment values
@@ -203,7 +205,7 @@ If you use TMLE.jl for your own work and would like to cite us, here are the Bib
 
 ```bibtex
 @software{Labayle_TMLE_jl,
-    author = {Labayle, Olivier and Beentjes, Sjoerd and Khamseh, Ava and Ponting, Chris},
+    author = {Labayle, Olivier and Khamseh, Ava and Ponting, Chris and Beentjes, Sjoerd},
     title = {{TMLE.jl}},
     url = {https://github.com/olivierlabayle/TMLE.jl}
 }
