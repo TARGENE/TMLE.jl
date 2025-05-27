@@ -43,10 +43,11 @@ end
 Defines a TMLE estimator using the specified models for estimation of the nuisance parameters. The estimator is a 
 function that can be applied to estimate estimands for a dataset.
 
-# Arguments
+# Constructor Arguments
 
 - models (default: `default_models()`): A Dict(variable => model, ...) where the `variables` are the outcome variables modeled by the `models`.
-- resampling (default: nothing): Outer resampling strategy. Setting it to `nothing` (default) falls back to vanilla TMLE while 
+- collaborative_strategy (default: nothing): A collaborative strategy to use for the estimation. Then the resampling strategy is used  to evaluate the candidates.
+- resampling (default: `default_resampling(collaborative_strategy)`): Outer resampling strategy. Setting it to `nothing` (default) falls back to vanilla TMLE while 
 any valid `MLJ.ResamplingStrategy` will result in CV-TMLE.
 - ps_lowerbound (default: 1e-8): Lowerbound for the propensity score to avoid division by 0. The special value `nothing` will 
 result in a data adaptive definition as described in [here](https://pubmed.ncbi.nlm.nih.gov/35512316/).
@@ -55,6 +56,14 @@ been show to be more robust to positivity violation in practice.
 - tol (default: nothing): Convergence threshold for the TMLE algorithm iterations. If nothing (default), 1/(sample size) will be used. See also `max_iter`.
 - max_iter (default: 1): Maximum number of iterations for the TMLE algorithm.
 - machine_cache (default: false): Whether MLJ.machine created during estimation should cache data.
+
+# Run Argument
+
+- Ψ: parameter of interest
+- dataset: A DataFrame 
+- cache (default: Dict()): A dictionary to store nuisance function fits.
+- verbosity (default: 1): Verbosity level.
+- acceleration (default: `CPU1()`): acceleration strategy for parallelised estimation of nuisance functions.
 
 # Example
 
@@ -158,7 +167,7 @@ end
 Defines a One Step Estimator using the specified models for estimation of the nuisance parameters. The estimator is a 
 function that can be applied to estimate estimands for a dataset.
 
-# Arguments
+# Constructor Arguments
 
 - models: A Dict(variable => model, ...) where the `variables` are the outcome variables modeled by the `models`.
 - resampling: Outer resampling strategy. Setting it to `nothing` (default) falls back to vanilla estimation while 
@@ -166,6 +175,14 @@ any valid `MLJ.ResamplingStrategy` will result in CV-OSE.
 - ps_lowerbound: Lowerbound for the propensity score to avoid division by 0. The special value `nothing` will 
 result in a data adaptive definition as described in [here](https://pubmed.ncbi.nlm.nih.gov/35512316/).
 - machine_cache: Whether MLJ.machine created during estimation should cache data.
+
+# Run Argument
+
+- Ψ: parameter of interest
+- dataset: A DataFrame 
+- cache (default: Dict()): A dictionary to store nuisance function fits.
+- verbosity (default: 1): Verbosity level.
+- acceleration (default: `CPU1()`): acceleration strategy for parallelised estimation of nuisance functions.
 
 # Example
 
