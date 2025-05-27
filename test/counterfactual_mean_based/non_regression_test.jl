@@ -70,8 +70,8 @@ end
         results_from_yaml = TMLE.read_yaml(yamlfile)
         regression_tests(results_from_yaml[1])
     end
-    # Naive
-    naive = Naive(with_encoder(LinearBinaryClassifier()))
+    # Plugin
+    naive = Plugin(with_encoder(LinearBinaryClassifier()))
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=verbosity)
     @test naive_result ≈ -0.150078 atol = 1e-6
 end

@@ -122,7 +122,7 @@ end
     @test emptyIC(results.tmle, pval_threshold=0.9pval).IC == []
     @test emptyIC(results.tmle, pval_threshold=1.1pval) === results.tmle
     # The initial estimate is far away
-    naive = Naive(models[:Y])
+    naive = Plugin(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
     
@@ -153,7 +153,7 @@ end
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-6)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-6)
     # The initial estimate is far away
-    naive = Naive(models[:Y])
+    naive = Plugin(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0) 
     @test naive_result == 0
     # When Q is well specified but G is misspecified
@@ -185,7 +185,7 @@ end
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
     # The initial estimate is far away
-    naive = Naive(models[:Y])
+    naive = Plugin(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
     @test naive_result == 0
 

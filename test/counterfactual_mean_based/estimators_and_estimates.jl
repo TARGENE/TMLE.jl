@@ -139,7 +139,7 @@ end
 end
 
 @testset "Test structs are concrete types" begin
-    for type in (Ose, Tmle, Naive)
+    for type in (Ose, Tmle, Plugin)
         @test isconcretetype(type)
     end
 end

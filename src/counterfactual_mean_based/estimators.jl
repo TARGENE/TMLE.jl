@@ -216,14 +216,14 @@ function gradient_and_estimate(::Ose, Ψ, factors, dataset; ps_lowerbound=1e-8)
 end
 
 #####################################################################
-###                           NAIVE                               ###
+###                          PLUGIN                               ###
 #####################################################################
 
-mutable struct Naive <: Estimator
+mutable struct Plugin <: Estimator
     model::MLJBase.Supervised
 end
 
-function (estimator::Naive)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+function (estimator::Plugin)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
@@ -244,7 +244,7 @@ end
 #####################################################################
 
 
-function (estimator::Union{Naive, Ose, Tmle})(causalΨ::CausalCMCompositeEstimands, scm, dataset;
+function (estimator::Union{Plugin, Ose, Tmle})(causalΨ::CausalCMCompositeEstimands, scm, dataset;
     identification_method=BackdoorAdjustment(),
     cache=Dict(), 
     verbosity=1,

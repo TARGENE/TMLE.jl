@@ -34,7 +34,7 @@ export SCM, StaticSCM, add_equations!, add_equation!, parents, vertices
 export CM, ATE, AIE
 export AVAILABLE_ESTIMANDS
 export factorialEstimand, factorialEstimands
-export Tmle, Ose, Naive
+export Tmle, Ose, Plugin
 export JointEstimand, ComposedEstimand
 export var, estimate, pvalue, confint, emptyIC
 export significance_test, OneSampleTTest, OneSampleZTest, OneSampleHotellingT2Test
