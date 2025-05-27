@@ -2,7 +2,7 @@
 CurrentModule = TMLE
 ```
 
-# Estimation
+# Estimators
 
 ## Constructing and Using Estimators
 
@@ -168,6 +168,30 @@ There are some practical considerations
 - Choice of `resampling` Strategy: The theory behind sample-splitting requires the nuisance functions to be sufficiently well estimated on **each and every** fold. A practical aspect of it is that each fold should contain a sample representative of the dataset. In particular, when the treatment and outcome variables are categorical it is important to make sure the proportions are preserved. This is typically done using `StratifiedCV`.
 - Computational Complexity: Sample-splitting results in ``K`` fits of the nuisance functions, drastically increasing computational complexity. In particular, if the nuisance functions are estimated using (P-fold) Super-Learning, this will result in two nested cross-validation loops and ``K \times P`` fits.
 - Caching of Nuisance Functions: Because the `resampling` strategy typically needs to preserve the outcome and treatment proportions, very little reuse of cached models is possible (see [Using the Cache](@ref)).
+
+## C-TMLE
+
+Collaborative TMLE (C-TMLE) is an estimation strategy which optimises all nuisance parameters in order to improve estimation performance. For some background material, see [this paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC6086775/#S4) and the [original paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC2898626/#sec48). In the example of the average treatment effect, the propensity score is optimised alongside the targeted step optimising the outcome mean. A sequence of nested estimators is built and the propensity score candidate minimising the cross-validated loss of the associated targeted outcome mean model is selected.
+
+There exist many strategies to optimise the propensity score, at the moment we provide two such strategies in this package. Since C-TMLE is an expensive estimation strategy, an additional `patience` variable can be used for early stopping. If the cross-validated loss of the targeted outcome mean model is not reduced in `patience` iterations, the procedure returns the current best candidate.
+
+### Greedy C-TMLE
+
+This is the original implementation of the C-TMLE template, it operates as a forward variable selection. Initially, the propensity score consists in a marginal model ``p(T|W)=p(T)``. Then, at each iteration, remaining confounding variables are temptatively added to the propensity score model one at a time. The variable minimising the targeted outcome mean model's loss is retained for the iteration.
+
+```@example estimation
+greedy_strategy = GreedyStrategy(patience=10)
+greedy_ctmle = Tmle(collaborative_strategy=greedy_strategy)
+```
+
+### Adaptive Correlation
+
+This is a scalable version of the C-TMLE template which also operates as a forward selection method. However, instead of iterating through all potential confounders at each iteration, the confounder most associated with the residuals of the last targeted outcome mean is selected.
+
+```@example estimation
+adapt_cor_strategy = GreedyStrategy(patience=10)
+adapt_cor_ctmle = Tmle(collaborative_strategy=adapt_cor_strategy)
+```
 
 ## Using the Cache
 
