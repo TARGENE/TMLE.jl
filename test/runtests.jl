@@ -26,6 +26,7 @@ TEST_DIR = joinpath(pkgdir(TMLE), "test")
     @test include(joinpath(TEST_DIR, "counterfactual_mean_based/3points_interactions.jl"))
     @test include(joinpath(TEST_DIR, "counterfactual_mean_based/collaborative_template.jl"))
     @test include(joinpath(TEST_DIR, "counterfactual_mean_based/adaptive_correlation_strategy.jl"))
+    @test include(joinpath(TEST_DIR, "counterfactual_mean_based/greedy_strategy.jl"))
     
     # Test Extensions
     if VERSION >= v"1.9"
@@ -33,7 +34,6 @@ TEST_DIR = joinpath(pkgdir(TMLE), "test")
         @test include(joinpath(TEST_DIR, "causaltables_interface.jl"))
     end
 
-    # # Test Experimental
+    # Test Experimental
     @test include(joinpath(TEST_DIR, "estimand_ordering.jl"))
-
 end

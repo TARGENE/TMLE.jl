@@ -44,7 +44,7 @@ export BackdoorAdjustment, identify
 export Configuration
 export brute_force_ordering, groups_ordering
 export gradients, epsilons, estimates
-export AdaptiveCorrelationOrdering
+export AdaptiveCorrelationOrdering, GreedyStrategy
 export CausalStratifiedCV
 export CPUThreads, CPU1
 
@@ -66,6 +66,7 @@ include("counterfactual_mean_based/estimates.jl")
 include("counterfactual_mean_based/fluctuation.jl")
 include("counterfactual_mean_based/collaborative_template.jl")
 include("counterfactual_mean_based/nuisance_estimators.jl")
+include("counterfactual_mean_based/greedy_strategy.jl")
 include("counterfactual_mean_based/adaptive_correlation_strategy.jl")
 include("counterfactual_mean_based/estimators.jl")
 include("counterfactual_mean_based/clever_covariate.jl")

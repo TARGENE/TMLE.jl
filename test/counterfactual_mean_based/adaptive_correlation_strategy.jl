@@ -18,7 +18,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
         ),
         treatment_confounders = (
             T₁=[:W₁, :W₂],
-            T₂=[:W₁, :W₂],
+            T₂=[:W₁, :W₃],
         )
     )
     # Define the strategy
@@ -26,48 +26,44 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     @test adaptive_strategy.patience == 10
     @test adaptive_strategy.remaining_confounders == Set{Symbol}()
     @test adaptive_strategy.current_confounders == Set{Symbol}()
-    ps = TMLE.propensity_score(Ψ, adaptive_strategy)
-    @test ps == (
+    g_init = TMLE.propensity_score(Ψ, adaptive_strategy)
+    @test g_init == (
         TMLE.ConditionalDistribution(:T₁, (:T₂,)), 
         TMLE.ConditionalDistribution(:T₂, ())
     )
     # Initialisation
     TMLE.initialise!(adaptive_strategy, Ψ)
-    @test adaptive_strategy.remaining_confounders == Set([:W₁, :W₂])
+    @test adaptive_strategy.remaining_confounders == Set([:W₁, :W₂, :W₃])
     @test adaptive_strategy.current_confounders == Set()
     # Updates
-    estimator = TMLE.MLConditionalDistributionEstimator(with_encoder(LinearRegressor()), nothing)
-    cde = estimator(
-        TMLE.ConditionalDistribution(:Y, (:T₁, :T₂, :W₁, :W₂)),
-        dataset,
-        verbosity=0
+    g_1 = (
+        TMLE.ConditionalDistribution(:T₁, (:T₂, :W₂)), 
+        TMLE.ConditionalDistribution(:T₂, ())
     )
-    last_candidate = (outcome_mean=cde,)
-    loss = TMLE.compute_loss(cde, dataset)
+    TMLE.update!(adaptive_strategy, g_1, nothing)
+    @test adaptive_strategy.remaining_confounders == Set([:W₁, :W₃])
+    @test adaptive_strategy.current_confounders == Set([:W₂])
     @test TMLE.exhausted(adaptive_strategy) == false
-    @test abs(cor(dataset.W₁, loss)) > abs(cor(dataset.W₂, loss))
-    TMLE.update!(adaptive_strategy, last_candidate, dataset)
-    @test adaptive_strategy.remaining_confounders == Set([:W₂])
-    @test adaptive_strategy.current_confounders == Set([:W₁])
-    @test TMLE.exhausted(adaptive_strategy) == false
-    ps = TMLE.propensity_score(Ψ, adaptive_strategy)
-    @test ps == (
-        TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁)), 
+    g_2 = (
+        TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂)), 
         TMLE.ConditionalDistribution(:T₂, (:W₁,))
     )
-    TMLE.update!(adaptive_strategy, last_candidate, dataset)
-    @test adaptive_strategy.remaining_confounders == Set()
+    TMLE.update!(adaptive_strategy, g_2, nothing)
+    @test adaptive_strategy.remaining_confounders == Set([:W₃])
     @test adaptive_strategy.current_confounders == Set([:W₁, :W₂])
-    ps = TMLE.propensity_score(Ψ, adaptive_strategy)
-    @test ps == (
+    @test TMLE.exhausted(adaptive_strategy) == false
+    g_3 = (
         TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂)), 
-        TMLE.ConditionalDistribution(:T₂, (:W₁, :W₂))
+        TMLE.ConditionalDistribution(:T₂, (:W₁, :W₃))
     )
+    TMLE.update!(adaptive_strategy, g_3, nothing)
+    @test adaptive_strategy.remaining_confounders == Set{Symbol}()
+    @test adaptive_strategy.current_confounders == Set([:W₁, :W₂, :W₃])
     @test TMLE.exhausted(adaptive_strategy) == true
-    # Finalisation
+    # Finalisation does nothing
     TMLE.finalise!(adaptive_strategy)
     @test adaptive_strategy.remaining_confounders == Set{Symbol}()
-    @test adaptive_strategy.current_confounders == Set{Symbol}()
+    @test adaptive_strategy.current_confounders == Set([:W₁, :W₂, :W₃])
 end
 
 @testset "Integration Test AdaptiveCorrelationOrdering" begin
@@ -204,86 +200,80 @@ end
     @test mean(validation_losses) ≈ cv_loss
 
     # We now enter the main loop
-    # The collaborative strategy is updated
-    TMLE.update!(collaborative_strategy, targeted_η̂ₙ, dataset)
-    added_confounder = only(collaborative_strategy.current_confounders)
-    @test length(collaborative_strategy.remaining_confounders) == 2
     # A new propensity score and associated estimator is suggested
-    new_propensity_score, new_propensity_score_estimator = TMLE.get_new_propensity_score_and_estimator(
-            collaborative_strategy, 
-            Ψ, 
+    new_g, new_ĝ, new_targeted_η̂ₙ, new_loss, use_fluct = TMLE.step_k_best_candidate(
+            collaborative_strategy,
+            Ψ,
             dataset,
-            models
+            models,
+            fluctuation_model,
+            targeted_η̂ₙ,
+            loss;
+            verbosity=verbosity,
+            machine_cache=machine_cache,
+            cache=cache,
     )
-    @test all(added_confounder in ps_component.parents for ps_component in new_propensity_score)
-    @test all(cde.train_validation_indices === nothing for cde in values(new_propensity_score_estimator.cd_estimators))
-    new_propensity_score_estimate = new_propensity_score_estimator(
-        new_propensity_score,
-        dataset;
-        cache=cache,
-        verbosity=verbosity,
-        machine_cache=machine_cache
-    )
-    for ps_component in new_propensity_score_estimate.components
+    @test use_fluct == true
+    @test new_g == (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃)), TMLE.ConditionalDistribution(:T₂, (:W₃,)))
+    @test all(cde.train_validation_indices === nothing for cde in values(new_ĝ.cd_estimators))
+    ## Check the propensity score estimate
+    new_ĝₙ = new_targeted_η̂ₙ.propensity_score
+    for ps_component in new_ĝₙ.components
         @test nrows(ps_component.machine.data[1]) == n_samples
         @test ps_component in values(cache[ps_component.estimand])
     end
-    # get new targeted candidate, not using the fluctuation model first
-    new_targeted_η̂ₙ, new_loss = TMLE.get_new_targeted_candidate(targeted_η̂ₙ, new_propensity_score_estimate, fluctuation_model, dataset;
+    ## We can check that the outcome model used is the targeted one
+    outcome_mean_estimate_used = new_targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.outcome_mean
+    @test outcome_mean_estimate_used === targeted_η̂ₙ.outcome_mean
+    ## The propensity score used for fluctuation is the new candidate
+    fitted_propensity_score = new_targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.propensity_score.estimand
+    @test fitted_propensity_score === new_g
+    ## The loss should be smaller because we fluctuate through the previous model, however in finite samples
+    ## I suppose this is not warranted, we check they are approximately equal and the loss with  Q̄n,k,* <  Q̄n,k
+    @test loss ≈ new_loss atol=1e-5
+    # We can pretend the step_k_best_candidate had used the non targeted outcome model
+    new_targeted_η̂ₙ_bis, new_loss_bis = TMLE.get_new_targeted_candidate(targeted_η̂ₙ, new_ĝₙ, fluctuation_model, dataset;
             use_fluct=false,
             verbosity=verbosity,
             cache=cache,
             machine_cache=machine_cache
     )
-    # The outcome_mean model which is fluctuated through is Q̄n,k
-    outcome_mean_estimate_used = new_targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.outcome_mean
+    outcome_mean_estimate_used = new_targeted_η̂ₙ_bis.outcome_mean.machine.model.initial_factors.outcome_mean
     @test outcome_mean_estimate_used === targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.outcome_mean
-    # The propensity score used for fluctuation is the new candidate
-    fitted_propensity_score = new_targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.propensity_score.estimand
-    @test fitted_propensity_score === new_propensity_score
+    ## Since this outcome mean model wasn't selected, the lost is bigger
+    @test new_loss_bis > new_loss
+    # The collaborative strategy is updated
+    TMLE.update!(collaborative_strategy, new_g, new_ĝ)
+    @test collaborative_strategy.remaining_confounders == Set([:W₁, :W₂])
+    @test collaborative_strategy.current_confounders == Set([:W₃])
 
-    # get new targeted candidate, this time using the fluctuation model
-    new_targeted_η̂ₙ, new_loss_bis = TMLE.get_new_targeted_candidate(targeted_η̂ₙ, new_propensity_score_estimate, fluctuation_model, dataset;
-            use_fluct=true,
-            verbosity=verbosity,
-            cache=cache,
-            machine_cache=machine_cache
-    )
-    # The outcome_mean model which is fluctuated through is Q̄n,k,*
-    outcome_mean_estimate_used = new_targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.outcome_mean
-    @test outcome_mean_estimate_used === targeted_η̂ₙ.outcome_mean
-    ## The loss should be smaller because we fluctuate through the previous model, however in finite samples
-    ## I suppose this is not warranted, we check they are approximately equal and the loss with  Q̄n,k,* <  Q̄n,k
-    @test loss ≈ new_loss_bis atol=1e-2
-    @test new_loss_bis < new_loss
-    
     # Evaluate the new candidate in CV passing through the fluctuated model
-    second_cv_targeted_η̂ₙ, new_cv_loss = TMLE.evaluate_cv_candidate(cv_targeted_η̂ₙ, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+    new_cv_targeted_η̂ₙ, new_cv_loss = TMLE.evaluate_cv_candidate(cv_targeted_η̂ₙ, fluctuation_model, new_g, models, dataset, train_validation_indices; 
         use_fluct=true,
         verbosity=verbosity,
         cache=cache,
         machine_cache=machine_cache
     );
-    for (fold_id, fold_candidate) in enumerate(second_cv_targeted_η̂ₙ)
+    for (fold_id, fold_candidate) in enumerate(new_cv_targeted_η̂ₙ)
         @test fold_candidate.outcome_mean.machine.model isa TMLE.Fluctuation
-        @test fold_candidate.estimand.propensity_score === new_propensity_score
+        @test fold_candidate.estimand.propensity_score === new_g
         @test fold_candidate.outcome_mean.machine.model.initial_factors.outcome_mean === cv_targeted_η̂ₙ[fold_id].outcome_mean
     end
-    @test TMLE.compute_validation_loss(second_cv_targeted_η̂ₙ, dataset, train_validation_indices) == new_cv_loss
+    @test TMLE.compute_validation_loss(new_cv_targeted_η̂ₙ, dataset, train_validation_indices) == new_cv_loss
 
     # Evaluate the new candidate in CV NOT passing through the fluctuated model
-    second_cv_targeted_η̂ₙ_bis, new_cv_loss_bis = TMLE.evaluate_cv_candidate(cv_targeted_η̂ₙ, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+    new_cv_targeted_η̂ₙ_bis, new_cv_loss_bis = TMLE.evaluate_cv_candidate(cv_targeted_η̂ₙ, fluctuation_model, new_g, models, dataset, train_validation_indices; 
         use_fluct=false,
         verbosity=verbosity,
         cache=cache,
         machine_cache=machine_cache
     );
-    for (fold_id, fold_candidate) in enumerate(second_cv_targeted_η̂ₙ_bis)
+    for (fold_id, fold_candidate) in enumerate(new_cv_targeted_η̂ₙ_bis)
         @test fold_candidate.outcome_mean.machine.model isa TMLE.Fluctuation
-        @test fold_candidate.estimand.propensity_score === new_propensity_score
+        @test fold_candidate.estimand.propensity_score === new_g
         @test fold_candidate.outcome_mean.machine.model.initial_factors.outcome_mean === cv_targeted_η̂ₙ[fold_id].outcome_mean.machine.model.initial_factors.outcome_mean
     end
-    @test TMLE.compute_validation_loss(second_cv_targeted_η̂ₙ_bis, dataset, train_validation_indices) == new_cv_loss_bis
+    @test TMLE.compute_validation_loss(new_cv_targeted_η̂ₙ_bis, dataset, train_validation_indices) == new_cv_loss_bis
 
     # Check the full loop
     candidate_info = (targeted_η̂ₙ=targeted_η̂ₙ, loss=loss, cv_targeted_η̂ₙ=cv_targeted_η̂ₙ, cv_loss=cv_loss, id=1)

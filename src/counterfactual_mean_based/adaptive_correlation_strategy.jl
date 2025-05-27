@@ -19,11 +19,29 @@ function initialise!(strategy::AdaptiveCorrelationOrdering, Ψ)
     return nothing
 end
 
-function update!(strategy::AdaptiveCorrelationOrdering, last_candidate, dataset)
-    residuals = compute_loss(last_candidate.outcome_mean, dataset)
+function update!(strategy::AdaptiveCorrelationOrdering, g, ĝ)
+    treatments = (g_.outcome for g_ in g)
+    parents = union((g_.parents for g_ in g)...)
+    current_confounders = setdiff(parents, treatments)
+    setdiff!(strategy.remaining_confounders, current_confounders)
+    union!(strategy.current_confounders, current_confounders)
+    return nothing
+end
+
+function finalise!(strategy::AdaptiveCorrelationOrdering)
+    return nothing
+end
+
+exhausted(strategy::AdaptiveCorrelationOrdering) = length(strategy.remaining_confounders) == 0
+
+propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_strategy::AdaptiveCorrelationOrdering) =
+    propensity_score(Ψ, collaborative_strategy.current_confounders)
+
+function find_confounder_most_correlated_with_residuals(last_targeted_η̂ₙ, dataset, remaining_confounders)
+    residuals = compute_loss(last_targeted_η̂ₙ.outcome_mean, dataset)
     max_cor = 0.
     best_confounder = :nothing
-    for confounder in strategy.remaining_confounders
+    for confounder in remaining_confounders
         confounder_col = unwrap.(dataset[!, confounder])
         σ = abs(cor(confounder_col, residuals))
         if σ > max_cor
@@ -31,35 +49,22 @@ function update!(strategy::AdaptiveCorrelationOrdering, last_candidate, dataset)
             best_confounder = confounder
         end
     end
-    delete!(strategy.remaining_confounders, best_confounder)
-    push!(strategy.current_confounders, best_confounder)
-    return nothing
+    return best_confounder
 end
-
-function finalise!(strategy::AdaptiveCorrelationOrdering)
-    empty!(strategy.remaining_confounders)
-    empty!(strategy.current_confounders)
-    return nothing
-end
-
-function propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_strategy::AdaptiveCorrelationOrdering)
-    Ψtreatments = TMLE.treatments(Ψ)
-    return Tuple(map(eachindex(Ψtreatments)) do index
-        T = Ψtreatments[index]
-        confounders = (Ψtreatments[index+1:end]..., collaborative_strategy.current_confounders...)
-        ConditionalDistribution(T, confounders)
-    end)
-end
-
-exhausted(strategy::AdaptiveCorrelationOrdering) = length(strategy.remaining_confounders) == 0
 
 function Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationOrdering})
-    return get_new_propensity_score_and_estimator(
-            it.collaborative_strategy,
-            it.Ψ,
-            it.dataset,
-            it.models
-    ), nothing
+    # Find confounder most correlated with residuals
+    best_confounder = find_confounder_most_correlated_with_residuals(it.last_targeted_η̂ₙ, it.dataset, it.collaborative_strategy.remaining_confounders)
+    # Create a new propensity score with the best confounder and the current list
+    confounders_list = (it.collaborative_strategy.current_confounders..., best_confounder)
+    g = propensity_score(it.Ψ, confounders_list)
+    ĝ = build_propensity_score_estimator(
+        g,
+        it.models,
+        it.dataset;
+        train_validation_indices=nothing,
+    )
+    return (g, ĝ), nothing
 end
 
 Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationOrdering}, state) = nothing

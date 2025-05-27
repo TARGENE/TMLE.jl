@@ -34,18 +34,24 @@ Returns `true` when there is no more propensity score candidate to explore.
 """
 exhausted(strategy::CollaborativeStrategy) = error("Not Implemented Error.")
 
-#####################################################################
-###                           Functions                           ###
-#####################################################################
-
+"""
+Each collaborative strategy must implement an `iterate` method iterating over (g, ĝ) candidates at step k of the algorithm. 
+- For a general pattern see the `GreedyStrategy` implementation.
+- For pre-ordered strategies, this iterator will stop after 1 iteration (see the `AdaptiveCorrelationOrdering`).
+"""
 struct StepKPropensityScoreIterator{T<:CollaborativeStrategy}
     collaborative_strategy::T
     Ψ
     dataset
     models
+    last_targeted_η̂ₙ
 end
 
 Base.IteratorSize(iter::StepKPropensityScoreIterator) = Base.SizeUnknown()
+
+#####################################################################
+###                           Functions                           ###
+#####################################################################
 
 function step_k_best_candidate(
     collaborative_strategy,
@@ -62,7 +68,7 @@ function step_k_best_candidate(
     )
     best = (g=nothing, ĝ=nothing, targeted_η̂ₙ=nothing, loss=Inf)
     use_fluct = false
-    ps_iterator = StepKPropensityScoreIterator(collaborative_strategy, Ψ, dataset, models)
+    ps_iterator = StepKPropensityScoreIterator(collaborative_strategy, Ψ, dataset, models, last_targeted_η̂ₙ)
     ps_sequence = map(ps_iterator) do (g, ĝ)
         # Fit the new propensity score
         ĝₙ = ĝ(
@@ -127,10 +133,9 @@ function find_optimal_candidate(
     verbosity > 0 && @info "Initial candidate's CV loss: $(best_candidate.cv_loss)"
     while !exhausted(collaborative_strategy)
         candidate_id += 1
-        # Update the collaborative strategy's state
         last_targeted_η̂ₙ, last_loss, last_cv_targeted_η̂ₙ, last_cv_loss = last_candidate_info
-        update!(collaborative_strategy, last_targeted_η̂ₙ, dataset)
-        new_propensity_score, new_propensity_score_estimator, new_targeted_η̂ₙ, new_loss, use_fluct = step_k_best_candidate(
+        # Find best candidate
+        new_g, new_ĝ, new_targeted_η̂ₙ, new_loss, use_fluct = step_k_best_candidate(
             collaborative_strategy,
             Ψ,
             dataset,
@@ -142,9 +147,11 @@ function find_optimal_candidate(
             cache=cache,
             machine_cache=machine_cache,
             acceleration=acceleration
-            )
+        )
+        # Update the collaborative strategy's state
+        update!(collaborative_strategy, new_g, new_ĝ)
         # Evaluate candidate
-        new_cv_targeted_η̂ₙ, new_cv_loss = evaluate_cv_candidate(last_cv_targeted_η̂ₙ, fluctuation_model, new_propensity_score, models, dataset, train_validation_indices; 
+        new_cv_targeted_η̂ₙ, new_cv_loss = evaluate_cv_candidate(last_cv_targeted_η̂ₙ, fluctuation_model, new_g, models, dataset, train_validation_indices; 
             use_fluct=use_fluct,
             verbosity=verbosity-1,
             cache=cache,
@@ -215,22 +222,6 @@ function get_new_targeted_candidate(last_targeted_η̂ₙ, new_propensity_score_
     )
     loss = mean_loss(targeted_η̂ₙ, dataset)
     return targeted_η̂ₙ, loss
-end
-
-function get_new_propensity_score_and_estimator(
-    collaborative_strategy, 
-    Ψ, 
-    dataset,
-    models
-    )
-    g = propensity_score(Ψ, collaborative_strategy)
-    ĝ = build_propensity_score_estimator(
-        g, 
-        models,  
-        dataset;
-        train_validation_indices=nothing,
-    )
-    return g, ĝ
 end
 
 function get_initial_cv_candidate(η, dataset, fluctuation_model, train_validation_indices, models;
