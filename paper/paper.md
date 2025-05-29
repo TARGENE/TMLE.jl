@@ -73,7 +73,7 @@ TMLE.jl fills an important niche for causal inference practitioners in Julia and
 
 TMLE.jl is already being used in three large scale genomic projects:
 
-- The evaluation of semi-parametric methods in population genetics with application to UK-Biobank data [@labayle2025semi]
+- The evaluation of semi-parametric methods in population genetics with application to UK Biobank data [@labayle2025semi]
 - The discovery of genetic variants affecting human traits via differential binding (ongoing)
 - The discovery of genetic variants associated with Myalgic encephalomyelitis (ongoing)
 
