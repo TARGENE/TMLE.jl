@@ -36,7 +36,7 @@ exhausted(strategy::CollaborativeStrategy) = error("Not Implemented Error.")
 
 """
 Each collaborative strategy must implement an `iterate` method iterating over (g, ĝ) candidates at step k of the algorithm. 
-- For a general pattern see the `GreedyStrategy` implementation.
+- For a general pattern see the `Greedy` implementation.
 - For pre-ordered strategies, this iterator will stop after 1 iteration (see the `AdaptiveCorrelationOrdering`).
 """
 struct StepKPropensityScoreIterator{T<:CollaborativeStrategy}
