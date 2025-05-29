@@ -102,7 +102,7 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     # Initial fit of the SCM's relevant factors
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
-    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, tmle.resampling)
+    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices)
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 
         models=tmle.models

@@ -14,10 +14,10 @@ Here is some general information about the code base.
 
 Implementing a new estimand requires both the definition of the estimand (see `src/counterfactual_mean_based/estimands.jl` for examples) and the associated estimators.
 
-The entry point estimators are defined within `src/counterfactual_mean_based/estimators.jl`. This is because there has been a focus on implementationsestimands based on the counterfactual mean ``E[Y(T)]``. However the estimation procedures are still quite general and could serve as a backbone for future .
+The entry point estimators are defined within `src/counterfactual_mean_based/estimators.jl`. This is because there has been a focus on implementationsestimands based on the counterfactual mean ``E[Y(T)]``. However the estimation procedures are still quite general and could serve as a backbone for future estimands. For instance:
 
 - `get_relevant_factors`: returns the nuisance parameters for a given parameter ``Ψ``.
-- `gradient_and_estimate`: computes the gradient for a given parameter ``Ψ`` 
+- `gradient_and_estimate`: computes the gradient for a given parameter ``Ψ``.
 
 ### New Estimators
 
