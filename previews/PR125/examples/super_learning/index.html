@@ -48,8 +48,8 @@ stack = Stack(
 fit!(mach, verbosity=0)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">trained Machine; does not cache data
   model: ProbabilisticStack(metalearner = LogisticClassifier(lambda = 2.220446049250313e-16, …), …)
   args: 
-    1:	Source @236 ⏎ ScientificTypesBase.Table{AbstractVector{ScientificTypesBase.Continuous}}
-    2:	Source @249 ⏎ AbstractVector{ScientificTypesBase.Multiclass{2}}
+    1:	Source @716 ⏎ ScientificTypesBase.Table{AbstractVector{ScientificTypesBase.Continuous}}
+    2:	Source @721 ⏎ AbstractVector{ScientificTypesBase.Multiclass{2}}
 </code></pre><p>Or evaluated. Because the Stack contains a cross-validation procedure, this will result in two nested levels of resampling.</p><pre><code class="language-julia hljs">evaluate!(mach, measure=log_loss, resampling=resampling)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">PerformanceEvaluation object with these fields:
   model, measure, operation,
   measurement, per_fold, per_observation,
