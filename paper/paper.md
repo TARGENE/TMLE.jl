@@ -53,7 +53,8 @@ Despite its theoretical and practical advantages, TMLE has limited implementatio
 
 TMLE.jl addresses this gap by providing the first native Julia implementation of TMLE. The main features of the package are:
 
-* Estimation of classic counterfactual estimands: Counterfactual Mean, Average Treatment Effect and any differentiable composition thereof. It also includes the only implementation for Average Interaction Effect up to any order.
+* Estimation of classic counterfactual estimands: Counterfactual Mean, Average Treatment Effect and any differentiable composition thereof. 
+* First implementation of the Average Interaction Effect up to any order.
 * Various semi-parametric estimators: TMLE (weighted, cross-validated, collaborative), One-Step (including cross-validated).
 * Support for factorial treatment variables.
 * Integration with Julia’s ecosystem like the machine learning [MLJ](https://juliaai.github.io/MLJ.jl/stable/) ecosystem [@blaom2020mlj] and the [DataFrames](https://dataframes.juliadata.org/stable/) package [@bouchet2023dataframes].
