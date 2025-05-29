@@ -281,8 +281,6 @@ function (estimator::CMBasedTMLE)(estimand, dataset;
     fluctuated_propensity_score = fluctuation_model.initial_factors.propensity_score
     # Build estimate
     estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score)
-    # Update cache
-    cache[:targeted_factors] = estimate
 
     return estimate
 end
@@ -433,7 +431,6 @@ function (estimator::CMBasedCTMLE{S})(
 
     return best_candidate.targeted_η̂ₙ
 end
-
 
 function get_targeted_estimator(
     Ψ, 

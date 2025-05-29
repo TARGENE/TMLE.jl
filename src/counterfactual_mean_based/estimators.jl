@@ -137,6 +137,7 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         acceleration=acceleration
     )
     # Estimation results after TMLE
+    cache[:targeted_factors] = targeted_factors_estimate
     estimation_report = report(targeted_factors_estimate)
 
     IC = last(estimation_report.gradients)

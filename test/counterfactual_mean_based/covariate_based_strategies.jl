@@ -64,10 +64,24 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     TMLE.finalise!(adaptive_strategy)
     @test adaptive_strategy.remaining_confounders == Set{Symbol}()
     @test adaptive_strategy.current_confounders == Set([:W₁, :W₂, :W₃])
+
+    # Full run: this leads to only W₃ being used for the propensity score
+    ctmle = Tmle(collaborative_strategy=adaptive_strategy)
+    Ψ = AIE(
+        outcome = :Y,
+        treatment_values = (
+            T₁=(case=true, control=false), 
+            T₂=(case=true, control=false)
+        ),
+        treatment_confounders = [:W₁, :W₂, :W₃]
+    )
+    result_ctmle, cache = ctmle(Ψ, dataset;verbosity=0);
+    targeted_η̂ = cache[:targeted_factors]
+    @test targeted_η̂.propensity_score.components[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃))
+    @test targeted_η̂.propensity_score.components[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₃,))
 end
 
 @testset "Test Greedy Interface" begin
-    n_samples = 1_000
     dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=1_000)
     Ψ = AIE(
         outcome = :Y,
@@ -172,9 +186,24 @@ end
             machine_cache=machine_cache,
     )
     @test new_g == (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂)), TMLE.ConditionalDistribution(:T₂, (:W₁,)))
+    
+    # Full run: this leads to only W₃ being used for the propensity score
+    ctmle = Tmle(collaborative_strategy=collaborative_strategy)
+    Ψ = AIE(
+        outcome = :Y,
+        treatment_values = (
+            T₁=(case=true, control=false),
+            T₂=(case=true, control=false)
+        ),
+        treatment_confounders = [:W₁, :W₂, :W₃]
+    )
+    result_ctmle, cache = ctmle(Ψ, dataset;verbosity=0);
+    targeted_η̂ = cache[:targeted_factors]
+    @test targeted_η̂.propensity_score.components[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃))
+    @test targeted_η̂.propensity_score.components[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₃,))
 end
 
-@testset "Integration Test AdaptiveCorrelationOrdering" begin
+@testset "Integration Test using the AdaptiveCorrelationOrdering" begin
     n_samples = 1_000
     dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=1_000)
     Ψ = AIE(
@@ -399,7 +428,6 @@ end
     )
     @test best_candidate.cv_loss <= new_cv_loss
     @test best_candidate.cv_loss <= new_cv_loss_bis
-
 end
 
 end

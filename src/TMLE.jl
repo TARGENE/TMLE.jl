@@ -25,6 +25,7 @@ using StatisticalMeasures
 using DataFrames
 using ComputationalResources
 using Base.Threads
+using Printf
 
 # #############################################################################
 # EXPORTS
