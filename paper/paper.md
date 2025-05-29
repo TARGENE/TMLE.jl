@@ -45,7 +45,7 @@ TMLE.jl is a Julia package that implements Targeted Maximum Likelihood Estimatio
 
 The goal of TMLE.jl is to provide an accessible, implementation of this methodology within the Julia ecosystem. It enables researchers to estimate average treatment effects and other causal parameters while leveraging modern machine learning algorithms to flexibly model nuisance components, such as the outcome regression and treatment mechanism.
 
-TMLE.jl is useful in a wide range of scientific disciplines—including epidemiology, biostatistics, econometrics, and genomics—where estimating causal effects from high-dimensional or observational data is critical [@smith2023application;@labayle2025semi;gruber2010application]. Unlike traditional regression approaches, TMLE can incorporate nonparametric learning without sacrificing statistical validity, offering both robustness to model misspecification and valid confidence intervals.
+TMLE.jl is useful in a wide range of scientific disciplines—including epidemiology, biostatistics, econometrics, and genomics—where estimating causal effects from high-dimensional or observational data is critical [@smith2023application;@labayle2025semi;@gruber2010application]. Unlike traditional regression approaches, TMLE can incorporate nonparametric learning without sacrificing statistical validity, offering both robustness to model misspecification and valid confidence intervals.
 
 # Statement of Need
 
@@ -56,22 +56,26 @@ TMLE.jl addresses this gap by providing the first native Julia implementation of
 * Estimation of classic counterfactual estimands: 
   * Counterfactual Mean (`CM`)
   * Average Treatment Effect (`ATE`)
-  * Any differentiable function thereof. 
-* First implementation of the Average Interaction Effect (`AIE`) up to any order.
+  * First implementation of the Average Interaction Effect (`AIE`) up to any order.
+  * Any differentiable function thereof via automatic differentiation. 
 * Various semi-parametric estimators: 
   * Targeted Maximum Likelihood Estimators (canonical, weighted, cross-validated and two collaborative flavours)
   * One-Step Estimators (canonical and cross-validated).
 * Support for combinations of factorial treatment variables.
-* Integration with Julia’s ecosystem: the machine learning [MLJ](https://juliaai.github.io/MLJ.jl/stable/) toolbox [@blaom2020mlj] and the [DataFrames](https://dataframes.juliadata.org/stable/) package [@bouchet2023dataframes].
+* Integration with Julia’s ecosystem: 
+  * Machine Learning models including ensemble learning via the [MLJ](https://juliaai.github.io/MLJ.jl/stable/) toolbox [@blaom2020mlj].
+  * Dataset Representation with [DataFrames.jl](https://dataframes.juliadata.org/stable/) [@bouchet2023dataframes].
+  * Automatic Differentiation via [DifferentiationInterface.jl](https://github.com/JuliaDiff/DifferentiationInterface.jl)[@dalle2025commoninterfaceautomaticdifferentiation;@schäfer2022abstractdifferentiationjlbackendagnosticdifferentiableprogramming]
 
 TMLE.jl fills an important niche for causal inference practitioners in Julia and contributes to the growing ecosystem of open-source tools supporting rigorous and scalable statistical modeling.
 
 # Mentions
 
-TMLE.jl has already been used in two large scale genomic projects:
+TMLE.jl is already being used in three large scale genomic projects:
 
 - The evaluation of semi-parametric methods in population genetics with application to UK-Biobank data [@labayle2025semi]
 - The discovery of genetic variants affecting human traits via differential binding (ongoing)
+- The discovery of genetic variants associated with Myalgic encephalomyelitis (ongoing)
 
 # Acknowledgements
 
