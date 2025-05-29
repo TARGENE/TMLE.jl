@@ -9,28 +9,28 @@ tags:
 authors:
   - name: Olivier Labayle
     orcid: 0000-0002-3708-3706
-    affiliation: "5"
-  - name: Chris P. Ponting
     affiliation: "1"
+  - name: Chris P. Ponting
+    affiliation: "2"
     orcid: 0000-0003-0202-7816
   - name: Mark J. van der Laan
-    affiliation: "4"
+    affiliation: "5"
   - name: Ava Khamseh
-    affiliation: "1, 2, 4"
+    affiliation: "2, 3, 5"
     orcid: 0000-0001-5203-2205
   - name: Sjoerd Viktor Beentjes
-    affiliation: "1, 3, 4"
+    affiliation: "2, 4, 5"
     orcid: 0000-0002-7998-4262
 affiliations:
-  - name: MRC Human Genetics Unit, Institute of Genetics and Cancer, University of Edinburgh, Edinburgh EH4 2XU, United Kingdom.
-    index: 1
-  - name: School of Informatics, University of Edinburgh, Edinburgh EH8 9AB, United Kingdom
-    index: 2
-  - name: School of Mathematics and Maxwell Institute, University of Edinburgh, Edinburgh EH9 3FD, United Kingdom
-    index: 3
-  - name: Division of Biostatistics, University of California, Berkeley, CA, USA
-    index: 4
   - name: Institute for Regeneration and Repair, University of Edinburgh, Edinburgh EH16 4UU, United Kingdom
+    index: 1
+  - name: MRC Human Genetics Unit, Institute of Genetics and Cancer, University of Edinburgh, Edinburgh EH4 2XU, United Kingdom.
+    index: 2
+  - name: School of Informatics, University of Edinburgh, Edinburgh EH8 9AB, United Kingdom
+    index: 3
+  - name: School of Mathematics and Maxwell Institute, University of Edinburgh, Edinburgh EH9 3FD, United Kingdom
+    index: 4
+  - name: Division of Biostatistics, University of California, Berkeley, CA, USA
     index: 5
 
 date: 28 May 2025
@@ -45,28 +45,33 @@ TMLE.jl is a Julia package that implements Targeted Maximum Likelihood Estimatio
 
 The goal of TMLE.jl is to provide an accessible, implementation of this methodology within the Julia ecosystem. It enables researchers to estimate average treatment effects and other causal parameters while leveraging modern machine learning algorithms to flexibly model nuisance components, such as the outcome regression and treatment mechanism.
 
-TMLE.jl is useful in a wide range of scientific disciplines—including epidemiology, biostatistics, econometrics, and genomics—where estimating causal effects from high-dimensional or observational data is critical [@smith2023application;@labayle2025semi]. Unlike traditional regression approaches, TMLE can incorporate nonparametric learning without sacrificing statistical validity, offering both robustness to model misspecification and valid confidence intervals.
+TMLE.jl is useful in a wide range of scientific disciplines—including epidemiology, biostatistics, econometrics, and genomics—where estimating causal effects from high-dimensional or observational data is critical [@smith2023application;@labayle2025semi;gruber2010application]. Unlike traditional regression approaches, TMLE can incorporate nonparametric learning without sacrificing statistical validity, offering both robustness to model misspecification and valid confidence intervals.
 
 # Statement of Need
 
-Despite its theoretical and practical advantages, TMLE has limited implementation outside of R (notably the [`tmle`](https://cran.r-project.org/web/packages/tmle/index.html) [@tmleR] and [`tmle3`](https://github.com/tlverse/tmle3/blob/master/README.Rmd) [@coyle2021tmle3-rpkg] packages). This limits accessibility for users and developers who prefer or require a performant, composable, and type-safe environment like Julia. As causal inference tools are increasingly used in computational biology, health sciences, economics, and beyond, there is a growing need for robust, well-integrated TMLE implementations in modern scientific programming languages.
+Despite its theoretical and practical advantages, TMLE has limited implementation outside of R (notably the [tmle](https://cran.r-project.org/web/packages/tmle/index.html), [`tmle3`](https://github.com/tlverse/tmle3/blob/master/README.Rmd) and [ltmle](https://cran.r-project.org/web/packages/ltmle/index.html) packages [@tmleR;@coyle2021tmle3-rpkg;@lendle2017ltmle]). This limits accessibility for users and developers who prefer or require a performant, composable, and type-safe environment like Julia. As causal inference tools are increasingly used in computational biology, health sciences, economics, and beyond, there is a growing need for robust, well-integrated TMLE implementations in modern scientific programming languages.
 
 TMLE.jl addresses this gap by providing the first native Julia implementation of TMLE. The main features of the package are:
 
-* Estimation of classic counterfactual estimands: Counterfactual Mean, Average Treatment Effect and any differentiable composition thereof. 
-* First implementation of the Average Interaction Effect up to any order.
-* Various semi-parametric estimators: TMLE (weighted, cross-validated, collaborative), One-Step (including cross-validated).
-* Support for factorial treatment variables.
-* Integration with Julia’s ecosystem like the machine learning [MLJ](https://juliaai.github.io/MLJ.jl/stable/) ecosystem [@blaom2020mlj] and the [DataFrames](https://dataframes.juliadata.org/stable/) package [@bouchet2023dataframes].
+* Estimation of classic counterfactual estimands: 
+  * Counterfactual Mean (`CM`)
+  * Average Treatment Effect (`ATE`)
+  * Any differentiable function thereof. 
+* First implementation of the Average Interaction Effect (`AIE`) up to any order.
+* Various semi-parametric estimators: 
+  * Targeted Maximum Likelihood Estimators (canonical, weighted, cross-validated and two collaborative flavours)
+  * One-Step Estimators (canonical and cross-validated).
+* Support for combinations of factorial treatment variables.
+* Integration with Julia’s ecosystem: the machine learning [MLJ](https://juliaai.github.io/MLJ.jl/stable/) toolbox [@blaom2020mlj] and the [DataFrames](https://dataframes.juliadata.org/stable/) package [@bouchet2023dataframes].
 
 TMLE.jl fills an important niche for causal inference practitioners in Julia and contributes to the growing ecosystem of open-source tools supporting rigorous and scalable statistical modeling.
 
 # Mentions
 
-TMLE.jl has already been used in two large scale projects:
+TMLE.jl has already been used in two large scale genomic projects:
 
 - The evaluation of semi-parametric methods in population genetics with application to UK-Biobank data [@labayle2025semi]
-- The discovery of binding variants affecting human traits via interaction estimation (ongoing)
+- The discovery of genetic variants affecting human traits via differential binding (ongoing)
 
 # Acknowledgements
 
