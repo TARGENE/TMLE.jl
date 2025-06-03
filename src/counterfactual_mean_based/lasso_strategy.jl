@@ -2,6 +2,10 @@
 ###                      Lasso                           ###
 #####################################################################
 
+using StatsModels
+using GLM
+using DataFrames
+
 
 mutable struct LassoCTMLE <: CollaborativeStrategy
     lambda_sequence :: Vector{Float64}
