@@ -1,146 +1,105 @@
-#####################################################################
-###                      Lasso                           ###
+##################################################################
+###                      LassoStrategy                            ###
 #####################################################################
 
-using StatsModels
-using GLM
+using GLMNet
 using DataFrames
+using StatsFuns
+using MLBase: StratifiedKFold
 
+"""
+    LassoCTMLE <: CollaborativeStrategy
 
-mutable struct LassoCTMLE <: CollaborativeStrategy
-    lambda_sequence :: Vector{Float64}
-    lambda_index :: Int 
-    g_models :: Vector{Any}
-    losses :: Vector{Float64}
-    best_index :: Int 
-    Q_init                             
-    Q0W::Vector{Float64}               
-    Q1W::Vector{Float64}             
-    Q::Vector{Float64}                 
-    cv_ps_model                       
-    targeting_results::Vector{Dict}
+Lasso-based Collaborative TMLE strategy using cross-validated lambda selection.
+"""
+struct LassoCTMLE <: CollaborativeStrategy
+    lambda_path::Vector{Float64}
+    cv_folds::Int
+    best_lambda::Union{Nothing, Float64}
+    losses::Vector{Float64}
+    confounders::Vector{Symbol}
+    
+    function LassoCTMLE(; 
+        lambda_path=exp10.(range(-4, stop=0, length=50)), 
+        cv_folds=5, 
+        confounders=Symbol[]
+    )
+        isempty(confounders) && throw(ArgumentError("Must specify confounders for LassoCTMLE"))
+        new(lambda_path, cv_folds, nothing, Float64[], confounders)
+    end
 end
-
 
 function initialise!(strategy::LassoCTMLE, Ψ)
-
-    data = Ψ.dataset
-    Y = data.Y
-    A = data.A
-    W = Matrix(data[:, Not([:Y, :A])])  # all covariates
-
-    a, b = minimum(Y), maximum(Y)
-    Y_scaled = (Y .- a) ./ (b - a)
-
-    Q_init = fit(LassoPath, hcat(A, W), Y_scaled, Normal(), IdentityLink())
-
-    Q0W = predict(Q_init, hcat(zeros(length(A)), W))
-    Q1W = predict(Q_init, hcat(ones(length(A)), W))
-    Q = predict(Q_init, hcat(A, W))
-
-    ps_cv = fit(LassoPath, W, A, Binomial(), LogitLink())
-    lambda_seq = ps_cv.lambda
-
-    strategy.lambda_sequence = lambda_seq
-    strategy.lambda_index = 1
-    strategy.g_models = Vector{Any}(undef, length(lambda_seq))
-    strategy.losses = fill(Inf, length(lambda_seq))
-    strategy.best_index = 0
-    strategy.Q_init = Q_init
-    strategy.Q0W = Q0W
-    strategy.Q1W = Q1W
-    strategy.Q = Q
-    strategy.a = a
-    strategy.b = b
-    strategy.targeting_results = Vector{Dict}(undef, length(lambda_seq))
+    strategy.best_lambda = nothing
+    empty!(strategy.losses)
+    return nothing
 end
 
-
-function update!(strategy::LassoCTMLE, last_candidate, dataset)
-    idx = strategy.lambda_index
-    lambda = strategy.lambda_sequence[idx]
-    W = Matrix(dataset[:, Not([:Y, :A])])
-    A = dataset.A
-    Y = dataset.Y
-
-    g_model = fit(LassoModel, W, A, Binomial(), LogitLink(); lambda=lambda)
-    strategy.g_models[idx] = g_model
-
-    g1W = predict(g_model, W)
-    g1W = clamp.(g1W, 1e-6, 1-1e-6)  # no division by zero
-
-    H1 = A ./ g1W
-    H0 = (1 .- A) ./ (1 .- g1W)
-
-    offset1 = logit.(strategy.Q)
-    fit1 = glm(@formula(Y ~ 0 + H1), DataFrame(Y=Y, H1=H1), Binomial(), Offset(offset1), wts=H1)
-    epsilon_1 = coef(fit1)[1]
-
-    offset0 = logit.(strategy.Q)
-    fit0 = glm(@formula(Y ~ 0 + H0), DataFrame(Y=Y, H0=H0), Binomial(), Offset(offset0), wts=H0)
-    epsilon_0 = coef(fit0)[1]
-
-    Q_star1 = invlogit.(logit.(strategy.Q1W) .+ epsilon_1)
-    Q_star0 = invlogit.(logit.(strategy.Q0W) .+ epsilon_0)
-
-    predicted_Y = A .* Q_star1 .+ (1 .- A) .* Q_star0
-    loss = -2 * mean(Y .* log.(predicted_Y) .+ (1 .- Y) .* log.(1 .- predicted_Y))
-
-    strategy.losses[idx] = loss
-    strategy.targeting_results[idx] = Dict(
-        :Q_star1 => Q_star1,
-        :Q_star0 => Q_star0,
-        :epsilon_1 => epsilon_1,
-        :epsilon_0 => epsilon_0
-    )
-
-    strategy.lambda_index += 1
+function update!(strategy::LassoCTMLE, g, ĝ)
+    
+    return nothing
 end
 
-
-function propensity_score(Ψ, strategy::LassoCTMLE)
-    idx = strategy.lambda_index - 1  # last updated
-    g_model = strategy.g_models[idx]
-    W = Matrix(Ψ.dataset[:, Not([:Y, :A])])
-    return predict(g_model, W)
-end
-
+finalise!(strategy::LassoCTMLE) = nothing
 
 function exhausted(strategy::LassoCTMLE)
-    return strategy.lambda_index > length(strategy.lambda_sequence)
+    strategy.best_lambda !== nothing
 end
 
+struct LassoCTMLEIterator
+    strategy::LassoCTMLE
+    Ψ
+    dataset
+    models
+end
 
-function finalise!(strategy::LassoCTMLE)
-    best_idx = argmin(strategy.losses)
-    strategy.best_index = best_idx
-    best_targeting = strategy.targeting_results[best_idx]
-    Q_star1 = best_targeting[:Q_star1]
-    Q_star0 = best_targeting[:Q_star0]
+function Base.iterate(it::LassoCTMLEIterator)
+    W = Matrix(select(it.dataset, it.strategy.confounders))
+    A = it.dataset[!, treatment(it.Ψ)]
+    Y = it.dataset[!, outcome(it.Ψ)]
+    n = length(Y)
+    
+    folds = StratifiedKFold(A, it.strategy.cv_folds)
+    lambda_losses = zeros(length(it.strategy.lambda_path))
+    
+    for (fold, (train_idx, val_idx)) in enumerate(folds)
+        g_fit = glmnet(W[train_idx, :], A[train_idx], Binomial(), lambda=it.strategy.lambda_path)
+        for (i, λ) in enumerate(g_fit.lambda)
+            g_pred = GLMNet.predict(g_fit, W[val_idx, :], lambda=λ)
+            g_pred = clamp.(g_pred, 0.01, 0.99)
+            Q_pred = it.models.Q_pred[val_idx]  # Use models from initial Q fit
+            H = A[val_idx] ./ g_pred .- (1 .- A[val_idx]) ./ (1 .- g_pred)
+            Q_star = fluctuate(Q_pred, H, Y[val_idx])
+            lambda_losses[i] += mean(-Y[val_idx].*log.(Q_star) .- (1 .- Y[val_idx]).*log.(1 .- Q_star))
+        end
+    end
+    
+    avg_losses = lambda_losses ./ it.strategy.cv_folds
+    best_idx = argmin(avg_losses)
+    it.strategy.best_lambda = it.strategy.lambda_path[best_idx]
+    it.strategy.losses = avg_losses
+    
+    return (build_final_estimator(it), nothing)
+end
 
-    a = strategy.a
-    b = strategy.b
-    ATE = mean(Q_star1 .- Q_star0) * (b - a)
-    data = strategy.dataset
-    A = data.A
-    Y = data.Y
-
-    g_model = strategy.g_models[best_idx]
-    W = Matrix(select(data, Not([:Y, :A])))
-    g1W = predict(g_model, W)
-    g1W = clamp.(g1W, 1e-6, 1 - 1e-6)
-    IF = (A ./ g1W) .* (Y .- Q_star1) .- ((1 .- A) ./ (1 .- g1W)) .* (Y .- Q_star0) .+ (Q_star1 .- Q_star0) .- (ATE / (b - a))
-    SE = sqrt(var(IF) / length(Y)) * (b - a)
-    z = quantile(Normal(), 1 - 0.05 / 2)
-    CI_lower = ATE - z * SE
-    CI_upper = ATE + z * SE
-    return (
-        ATE = ATE,
-        SE = SE,
-        CI_lower = CI_lower,
-        CI_upper = CI_upper,
-        best_lambda = strategy.lambda_sequence[best_idx],
-        loss = strategy.losses[best_idx]
+function build_final_estimator(it)
+    W = Matrix(select(it.dataset, it.strategy.confounders))
+    A = it.dataset[!, treatment(it.Ψ)]
+    
+    g_final = glmnet(W, A, Binomial(), lambda=[it.strategy.best_lambda])
+    g_pred = GLMNet.predict(g_final, W)
+    g_pred = clamp.(g_pred, 0.01, 0.99)
+    
+    
+    H = A ./ g_pred .- (1 .- A) ./ (1 .- g_pred)
+    Q_star = fluctuate(it.models.Q_pred, H, it.dataset[!, outcome(it.Ψ)])
+    
+    
+    ψ = ATE(Q_star, A, it.dataset[!, outcome(it.Ψ)])
+    return TMLEResult(
+        ψ=ψ.ate,
+        SE=ψ.se,
+        CI=(ψ.ci_lower, ψ.ci_upper),
+        pvalue=ψ.pvalue
     )
 end
-

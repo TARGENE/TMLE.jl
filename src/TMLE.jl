@@ -46,6 +46,7 @@ export Configuration
 export brute_force_ordering, groups_ordering
 export gradients, epsilons, estimates
 export AdaptiveCorrelationOrdering, Greedy
+export LassoCTMLE
 export CausalStratifiedCV, CV, StratifiedCV, Holdout
 export CPUThreads, CPU1
 

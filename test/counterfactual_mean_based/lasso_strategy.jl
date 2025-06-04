@@ -1,44 +1,26 @@
-module TestLassoCTMLE
-
 using Test
-using TMLE
-using DataFrames
-using Random
+using TMLE  
 
-Random.seed!(1234)
-
-@testset "LassoCTMLE Interface" begin
-    n = 200
-    W1 = randn(n)
-    W2 = randn(n)
-    A = rand(Bool, n)
-    Y = 2 .+ 1.5 .* A .+ 0.5 .* W1 .- 0.3 .* W2 .+ randn(n)
-    df = DataFrame(Y=Y, A=A, W1=W1, W2=W2)
-
-    Ψ = TMLE.AIE(
-        outcome = :Y,
-        treatment_values = (A=(case=1, control=0),),
-        treatment_confounders = (A=[:W1, :W2],)
+@testset "LassoCTMLE basic functionality" begin
+    
+    using DataFrames
+    n = 100
+    df = DataFrame(
+        W1 = randn(n),
+        W2 = randn(n),
+        A = rand(Bool, n),
+        Y = rand(Bool, n)
     )
 
-    lasso_strategy = LassoCTMLE(
-        Vector{Float64}(), 0, Vector{Any}(), Float64[], 0, nothing, Float64[], Float64[], Float64[], nothing, Vector{Dict}() 
-    )
+    strategy = LassoCTMLE(confounders=[:W1, :W2], cv_folds=3)
 
-    TMLE.initialise!(lasso_strategy, Ψ)
-    while !TMLE.exhausted(lasso_strategy)
-        TMLE.update!(lasso_strategy, nothing, df)
-    end
-    result = TMLE.finalise!(lasso_strategy)
+    Ψ = ATE(treatment=:A, outcome=:Y, confounders=[:W1, :W2])
 
-    @test typeof(result) == NamedTuple
-    @test haskey(result, :ATE)
-    @test haskey(result, :SE)
-    @test !isnan(result.ATE)
-    @test !isnan(result.SE)
+    result = tmle(strategy, Ψ, df)
+
+    @test result.ψ isa Float64
     @test result.SE > 0
-
-    @info "LassoCTMLE ATE estimate: $(result.ATE), SE: $(result.SE)"
+    @test result.CI[1] < result.CI[2]
+    @test 0.0 <= result.pvalue <= 1.0
 end
 
-end 
