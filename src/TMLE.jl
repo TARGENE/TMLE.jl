@@ -36,6 +36,7 @@ export CM, ATE, AIE
 export AVAILABLE_ESTIMANDS
 export factorialEstimand, factorialEstimands
 export Tmle, Ose, Plugin
+export TMLEE, OSE, NAIVE
 export JointEstimand, ComposedEstimand
 export var, estimate, pvalue, confint, emptyIC
 export significance_test, OneSampleTTest, OneSampleZTest, OneSampleHotellingT2Test

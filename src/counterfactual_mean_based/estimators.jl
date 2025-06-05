@@ -271,3 +271,12 @@ function (estimator::Union{Plugin, Ose, Tmle})(causalΨ::CausalCMCompositeEstima
     Ψ = identify(identification_method, causalΨ, scm)
     return estimator(Ψ, dataset; cache=cache, verbosity=verbosity, acceleration=acceleration)
 end
+
+#####################################################################
+###                        Deprecated                             ###
+#####################################################################
+
+
+@deprecate TMLEE(args...;kwargs...) Tmle(args...;kwargs...)
+@deprecate OSE(args...;kwargs...) Ose(args...;kwargs...)
+@deprecate NAIVE(args...;kwargs...) Plugin(args...;kwargs...)

@@ -23,6 +23,12 @@ function make_dataset()
     return dataset
 end
 
+@testset "Deprecation" begin
+    @test TMLEE() isa TMLE.Tmle
+    @test OSE() isa TMLE.Ose
+    @test NAIVE(LinearRegressor()) isa TMLE.Plugin
+end
+
 @testset "Test CMRelevantFactorsEstimator" begin
     dataset = make_dataset()
     # Estimand
