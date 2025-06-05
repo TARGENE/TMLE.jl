@@ -2,12 +2,9 @@
 ###                      LassoStrategy                            ###
 #####################################################################
 
-module LassoStrategy
-
 using GLMNet
 using DataFrames
 using StatsFuns
-using MLBase: StratifiedKFold
 using ..TMLE
 using Statistics
 
@@ -33,6 +30,37 @@ struct LassoCTMLE <: CollaborativeStrategy
             throw(ArgumentError("Must specify confounders for LassoCTMLE"))
         new(lambda_path, cv_folds, nothing, Float64[], confounders, patience)
     end
+end
+
+"""
+    stratified_kfold(y::AbstractVector, k::Int)
+
+Returns a vector of (train_idx, test_idx) tuples for stratified k-fold cross-validation,
+where `y` contains class labels.
+"""
+function stratified_kfold(y::AbstractVector, k::Int)
+    # Group indices by class
+    idx_by_class = Dict{eltype(y), Vector{Int}}()
+    for (i, label) in enumerate(y)
+        push!(get!(idx_by_class, label, Int[]), i)
+    end
+
+    folds = [Int[] for _ in 1:k]
+    for idxs in values(idx_by_class)
+        shuffled = shuffle(idxs)
+        for (i, idx) in enumerate(shuffled)
+            push!(folds[mod1(i, k)], idx)
+        end
+    end
+
+    result = Vector{Tuple{Vector{Int}, Vector{Int}}}(undef, k)
+    all_idxs = collect(1:length(y))
+    for i in 1:k
+        test_idx = folds[i]
+        train_idx = setdiff(all_idxs, test_idx)
+        result[i] = (train_idx, test_idx)
+    end
+    return result
 end
 
 function initialise!(strategy::LassoCTMLE, Ψ)
@@ -76,7 +104,7 @@ Selects the best lambda from the path via cross-validated log-loss.
 function crossvalidate_lambda(strategy::LassoCTMLE, Ψ, dataset, cv_folds)
     W = Matrix(select(dataset, strategy.confounders))
     A = dataset[!, treatment(Ψ)]
-    folds = StratifiedKFold(A, cv_folds)
+    folds = stratified_kfold(A, cv_folds)
     losses = zeros(length(strategy.lambda_path))
     for (train_idx, val_idx) in folds
         W_train, W_val = W[train_idx, :], W[val_idx, :]
@@ -178,4 +206,3 @@ function step_k_best_candidate(
     return g, ĝ, targeted_η̂ₙ, loss, false
 end
 
-end
