@@ -3,7 +3,7 @@ module NonRegressionTest
 using Test
 using TMLE
 using CSV
-using DataFrames 
+using DataFrames
 using CategoricalArrays
 using MLJGLMInterface
 using MLJBase
@@ -20,13 +20,13 @@ end
 
 function non_regression_dataset()
     dataset = CSV.read(
-        joinpath(dirname(dirname(pathof(TMLE))), "test", "data", "perinatal.csv"), 
-        DataFrame, 
-        missingstring=["", "NA"]
+        joinpath(dirname(dirname(pathof(TMLE))), "test", "data", "perinatal.csv"),
+        DataFrame,
+        missingstring = ["", "NA"],
     )
     confounders = [:apgar1, :apgar5, :gagebrth, :mage, :meducyrs, :sexn]
     dataset.haz01 = categorical(dataset.haz01)
-    dataset.parity01 = categorical(dataset.parity01, ordered=true)
+    dataset.parity01 = categorical(dataset.parity01, ordered = true)
     for col in confounders
         dataset[!, col] = float(dataset[!, col])
     end
@@ -38,9 +38,9 @@ end
     dataset, confounders = non_regression_dataset()
 
     Ψ = ATE(
-        outcome=:haz01, 
-        treatment_values=(parity01=(case=1, control=0),),
-        treatment_confounders=(parity01=confounders,)
+        outcome = :haz01,
+        treatment_values = (parity01 = (case = 1, control = 0),),
+        treatment_confounders = (parity01 = confounders,),
     )
 
     resampling=nothing # No CV
@@ -50,19 +50,19 @@ end
     max_iter = 1 # One iteration
     tol = nothing # Default tolerance
     tmle = Tmle(;
-        resampling=resampling,
-        ps_lowerbound=ps_lowerbound,
-        max_iter=max_iter,
-        tol=tol,
-        weighted=weighted
+        resampling = resampling,
+        ps_lowerbound = ps_lowerbound,
+        max_iter = max_iter,
+        tol = tol,
+        weighted = weighted,
     )
-    
-    tmle_result, cache = tmle(Ψ, dataset; verbosity=verbosity);
+
+    tmle_result, cache = tmle(Ψ, dataset; verbosity = verbosity);
     regression_tests(tmle_result)
     if VERSION >= v"1.9"
         jsonfile = mktemp()[1]
         TMLE.write_json(jsonfile, [tmle_result])
-        results_from_json = TMLE.read_json(jsonfile, use_mmap=false)
+        results_from_json = TMLE.read_json(jsonfile, use_mmap = false)
         regression_tests(results_from_json[1])
 
         yamlfile = mktemp()[1]
@@ -72,7 +72,7 @@ end
     end
     # Plugin
     naive = Plugin(with_encoder(LinearBinaryClassifier()))
-    naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=verbosity)
+    naive_result, cache = naive(Ψ, dataset; cache = cache, verbosity = verbosity)
     @test naive_result ≈ -0.150078 atol = 1e-6
 end
 
@@ -80,19 +80,23 @@ end
     dataset, confounders = non_regression_dataset()
 
     Ψ = ATE(
-        outcome=:haz01, 
-        treatment_values=(parity01=(case=1, control=0),),
-        treatment_confounders=(parity01=confounders,)
+        outcome = :haz01,
+        treatment_values = (parity01 = (case = 1, control = 0),),
+        treatment_confounders = (parity01 = confounders,),
     )
     estimators = (
         tmle = Tmle(),
-        cvtmle = Tmle(resampling=StratifiedCV()),
-        ctmle = Tmle(resampling=StratifiedCV(), collaborative_strategy=AdaptiveCorrelationOrdering()),
+        cvtmle = Tmle(resampling = StratifiedCV()),
+        ctmle = Tmle(
+            resampling = StratifiedCV(),
+            collaborative_strategy = AdaptiveCorrelationOrdering(),
+        ),
     )
     # Check results are equivalent with all accelerations
     for (estimator_name, estimator) in zip(keys(estimators), values(estimators))
-        cpu1_result, _ = estimator(Ψ, dataset; verbosity=0, acceleration=CPU1())
-        threads_result, _ = estimator(Ψ, dataset; verbosity=0, acceleration=CPUThreads())
+        cpu1_result, _ = estimator(Ψ, dataset; verbosity = 0, acceleration = CPU1())
+        threads_result, _ =
+            estimator(Ψ, dataset; verbosity = 0, acceleration = CPUThreads())
         @test cpu1_result.estimate ≈ threads_result.estimate
         @test cpu1_result.IC ≈ threads_result.IC
     end

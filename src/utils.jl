@@ -1,21 +1,22 @@
 ###############################################################################
 ## General Utilities
 ###############################################################################
-const LOCK = ReentrantLock() 
+const LOCK = ReentrantLock()
 
-is_fluctuation_estimate(estimate::MLConditionalDistribution) = estimate.machine.model isa Fluctuation
+is_fluctuation_estimate(estimate::MLConditionalDistribution) =
+    estimate.machine.model isa Fluctuation
 
 is_fluctuation_estimate(estimate) = false
 
 function update_cache!(cache, estimand, estimator, estimate)
     is_fluctuation_estimate(estimate) && return
-    lock(LOCK) do 
+    lock(LOCK) do
         estimand_cache = get!(cache, estimand, Dict())
         estimand_cache[estimator] = estimate
     end
 end
 
-function estimate_from_cache(cache, estimand, estimator; verbosity=1)
+function estimate_from_cache(cache, estimand, estimator; verbosity = 1)
     estimand_cache = get(cache, estimand, nothing)
     estimand_cache === nothing && return nothing
     estimate = get(estimand_cache, estimator, nothing)
@@ -32,7 +33,8 @@ unique_sorted_tuple(iter) = Tuple(sort(unique(Symbol(x) for x in iter)))
 For "vanilla" estimators, missingness management is deferred to the nuisance function estimators. 
 This is in order to maximize data usage.
 """
-choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices::Nothing) = dataset
+choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices::Nothing) =
+    dataset
 
 """
 For cross-validated estimators, missing data are removed early on based on all columns relevant to the estimand. 
@@ -40,16 +42,16 @@ This is to avoid the complications of:
     - Equally distributing missing across folds
     - Tracking sample_ids
 """
-choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices) = nomissing_dataset
+choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices) =
+    nomissing_dataset
 
 """
 If no columns are provided, we return a single intercept column to accomodate marginal distribution fitting
 Otherwise we return the required columns avoiding copying by default.
 """
-function selectcols(dataset, colnames; copycols=false)
-    return isempty(colnames) ? 
-        DataFrame(INTERCEPT=ones(nrows(dataset))) : 
-        DataFrames.select(dataset, collect(colnames), copycols=copycols)
+function selectcols(dataset, colnames; copycols = false)
+    return isempty(colnames) ? DataFrame(INTERCEPT = ones(nrows(dataset))) :
+           DataFrames.select(dataset, collect(colnames), copycols = copycols)
 end
 
 function logit!(v)
@@ -60,24 +62,32 @@ end
 
 ismissingtype(T) = nonmissingtype(T) !== T
 
-function nomissing(dataset::DataFrame, colnames; disallowmissing=true, view=false, copycols=false)
-    subdataset = TMLE.selectcols(dataset, colnames, copycols=copycols)
+function nomissing(
+    dataset::DataFrame,
+    colnames;
+    disallowmissing = true,
+    view = false,
+    copycols = false,
+)
+    subdataset = TMLE.selectcols(dataset, colnames, copycols = copycols)
     return if all(!ismissingtype(eltype(c)) for c in eachcol(subdataset))
         subdataset
     else
-        dropmissing(subdataset, disallowmissing=disallowmissing, view=view)
+        dropmissing(subdataset, disallowmissing = disallowmissing, view = view)
     end
 end
 
 function indicator_values(indicators, T)
     indic = zeros(Float64, nrows(T))
     for (index, row) in enumerate(Tables.namedtupleiterator(T))
-        indic[index] = get(indicators, values(row), 0.)
+        indic[index] = get(indicators, values(row), 0.0)
     end
     return indic
 end
 
-expected_value(ŷ::AbstractArray{<:UnivariateFinite{<:Union{OrderedFactor{2}, Multiclass{2}}}}) = pdf.(ŷ, levels(first(ŷ))[2])
+expected_value(
+    ŷ::AbstractArray{<:UnivariateFinite{<:Union{OrderedFactor{2},Multiclass{2}}}},
+) = pdf.(ŷ, levels(first(ŷ))[2])
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
@@ -85,10 +95,7 @@ function counterfactualTreatment(vals, Ts)
     n = nrows(Ts)
     counterfactual_Ts = map(enumerate(names(Ts))) do (i, T_name)
         T = Ts[!, T_name]
-        categorical(fill(vals[i], n), 
-            levels=levels(T), 
-            ordered=isordered(T)
-        )
+        categorical(fill(vals[i], n), levels = levels(T), ordered = isordered(T))
     end
     DataFrame(counterfactual_Ts, names(Ts))
     return DataFrame(counterfactual_Ts, names(Ts))
@@ -118,16 +125,21 @@ models = default_models(
 ```
 
 """
-default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier(), kwargs...) = Dict(
-    :Q_binary_default     => with_encoder(Q_binary),
+default_models(;
+    Q_binary = LinearBinaryClassifier(),
+    Q_continuous = LinearRegressor(),
+    G = LinearBinaryClassifier(),
+    kwargs...,
+) = Dict(
+    :Q_binary_default => with_encoder(Q_binary),
     :Q_continuous_default => with_encoder(Q_continuous),
-    :G_default            => with_encoder(G),
-    (key => with_encoder(val) for (key, val) in kwargs)...
+    :G_default => with_encoder(G),
+    (key => with_encoder(val) for (key, val) in kwargs)...,
 )
 
 is_binary(dataset, columnname) = Set(skipmissing(dataset[!, columnname])) == Set([0, 1])
 
-function satisfies_positivity(Ψ, freq_table; positivity_constraint=0.01)
+function satisfies_positivity(Ψ, freq_table; positivity_constraint = 0.01)
     for jointlevel in joint_levels(Ψ)
         if !haskey(freq_table, jointlevel) || freq_table[jointlevel] < positivity_constraint
             return false
@@ -136,42 +148,50 @@ function satisfies_positivity(Ψ, freq_table; positivity_constraint=0.01)
     return true
 end
 
-satisfies_positivity(Ψ, freq_table::Nothing; positivity_constraint=nothing) = true
+satisfies_positivity(Ψ, freq_table::Nothing; positivity_constraint = nothing) = true
 
 get_frequency_table(positivity_constraint::Nothing, dataset::Nothing, colnames) = nothing
 
 get_frequency_table(positivity_constraint::Nothing, dataset, colnames) = nothing
 
-get_frequency_table(positivity_constraint, dataset::Nothing, colnames) = 
+get_frequency_table(positivity_constraint, dataset::Nothing, colnames) =
     throw(ArgumentError("A dataset should be provided to enforce a positivity constraint."))
 
-get_frequency_table(positivity_constraint, dataset, colnames) = get_frequency_table(dataset, colnames)
+get_frequency_table(positivity_constraint, dataset, colnames) =
+    get_frequency_table(dataset, colnames)
 
 function get_frequency_table(dataset, colnames)
     iterator = zip((dataset[!, colname] for colname in sort(collect(colnames)))...)
-    counts = groupcount(x -> x, iterator) 
+    counts = groupcount(x -> x, iterator)
     for key in keys(counts)
         counts[key] /= nrows(dataset)
     end
     return counts
 end
 
-function try_fit_ml_estimator(ml_estimator, conditional_distribution, dataset;
-    error_fn=outcome_mean_fit_error_msg,
-    cache=Dict(),
-    verbosity=1,
-    machine_cache=false,
-    acceleration=CPU1()
-    )
+function try_fit_ml_estimator(
+    ml_estimator,
+    conditional_distribution,
+    dataset;
+    error_fn = outcome_mean_fit_error_msg,
+    cache = Dict(),
+    verbosity = 1,
+    machine_cache = false,
+    acceleration = CPU1(),
+)
     return try
-        ml_estimator(conditional_distribution, dataset; 
-            cache=cache, 
-            verbosity=verbosity, 
-            machine_cache=machine_cache,
-            acceleration=acceleration
-            )
+        ml_estimator(
+            conditional_distribution,
+            dataset;
+            cache = cache,
+            verbosity = verbosity,
+            machine_cache = machine_cache,
+            acceleration = acceleration,
+        )
     catch e
-        throw(FitFailedError(conditional_distribution, error_fn(conditional_distribution), e))
+        throw(
+            FitFailedError(conditional_distribution, error_fn(conditional_distribution), e),
+        )
     end
 end
 
@@ -183,22 +203,26 @@ struct FitFailedError <: Exception
 end
 
 default_fit_error_msg(factor) = string(
-    "Could not fit the following model: ", 
-    string_repr(factor), 
-    ".\n Hint: don't forget to use `with_encoder` to encode categorical variables.")
+    "Could not fit the following model: ",
+    string_repr(factor),
+    ".\n Hint: don't forget to use `with_encoder` to encode categorical variables.",
+)
 
-propensity_score_fit_error_msg(factor) = string("Could not fit the following propensity score model: ", string_repr(factor))
+propensity_score_fit_error_msg(factor) =
+    string("Could not fit the following propensity score model: ", string_repr(factor))
 
 outcome_mean_fit_error_msg(factor) = string(
-    "Could not fit the following Outcome mean model: ", 
-    string_repr(factor), 
-    ".\n Hint: don't forget to use `with_encoder` to encode categorical variables.")
+    "Could not fit the following Outcome mean model: ",
+    string_repr(factor),
+    ".\n Hint: don't forget to use `with_encoder` to encode categorical variables.",
+)
 
-outcome_mean_fluctuation_fit_error_msg(factor) = string(
-    "Could not fluctuate the following Outcome mean: ", 
-    string_repr(factor), 
-    ".")
+outcome_mean_fluctuation_fit_error_msg(factor) =
+    string("Could not fluctuate the following Outcome mean: ", string_repr(factor), ".")
 
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
-with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)
+with_encoder(
+    model;
+    encoder = ContinuousEncoder(drop_last = true, one_hot_ordered_factors = false),
+) = Pipeline(encoder, model)

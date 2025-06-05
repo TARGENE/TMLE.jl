@@ -60,9 +60,9 @@ metalearner = LogisticClassifier()
 
 stack = Stack(
     metalearner = metalearner,
-    resampling  = resampling,
-    lr          = LogisticClassifier(),
-    knn         = KNNClassifier(K=3)
+    resampling = resampling,
+    lr = LogisticClassifier(),
+    knn = KNNClassifier(K = 3),
 )
 
 #=
@@ -71,13 +71,13 @@ A Stack is just like any MLJ model, it can be wrapped in a `machine` and fitted:
 =#
 
 mach = machine(stack, X, y)
-fit!(mach, verbosity=0)
+fit!(mach, verbosity = 0)
 
 #=
 Or evaluated. Because the Stack contains a cross-validation procedure, this will result in two nested levels of resampling.
 =#
 
-evaluate!(mach, measure=log_loss, resampling=resampling)
+evaluate!(mach, measure = log_loss, resampling = resampling)
 
 #=
 
@@ -94,31 +94,31 @@ The following self-tuned XGBoost will vary some hyperparameters in an internal s
 It will then be combined with the rest of the models in the Stack's own sample-splitting procedure. Finally, evaluation is performed in an outer sample-split.
 =#
 
-xgboost = XGBoostClassifier(tree_method="hist", nthread=1)
+xgboost = XGBoostClassifier(tree_method = "hist", nthread = 1)
 self_tuning_xgboost = TunedModel(
     model = xgboost,
     resampling = resampling,
-    tuning = Grid(goal=20),
+    tuning = Grid(goal = 20),
     range = [
-        range(xgboost, :max_depth, lower=3, upper=7), 
-        range(xgboost, :lambda, lower=1e-5, upper=10, scale=:log)
-        ],
+        range(xgboost, :max_depth, lower = 3, upper = 7),
+        range(xgboost, :lambda, lower = 1e-5, upper = 10, scale = :log),
+    ],
     measure = log_loss,
-    cache=false
+    cache = false,
 )
 
 stack = Stack(
-    metalearner         = metalearner,
-    resampling          = resampling,
+    metalearner = metalearner,
+    resampling = resampling,
     self_tuning_xgboost = self_tuning_xgboost,
-    lr                  = LogisticClassifier(),
-    knn_2               = KNNClassifier(K=2),
-    knn_3               = KNNClassifier(K=3),
-    cache               = false
+    lr = LogisticClassifier(),
+    knn_2 = KNNClassifier(K = 2),
+    knn_3 = KNNClassifier(K = 3),
+    cache = false,
 )
 
-mach = machine(stack, X, y, cache=false)
-evaluate!(mach, measure=log_loss, resampling=resampling)
+mach = machine(stack, X, y, cache = false)
+evaluate!(mach, measure = log_loss, resampling = resampling)
 
 #=
 
@@ -132,7 +132,7 @@ Here we look at both the Log-Loss and the AUC.
 =#
 
 stack.measures = [log_loss, auc]
-fit!(mach, verbosity=0)
+fit!(mach, verbosity = 0)
 report(mach).cv_report
 
 #=
@@ -141,4 +141,3 @@ One can look at the fitted parameters for the metalearner as well:
 =#
 
 fitted_params(mach).metalearner
-

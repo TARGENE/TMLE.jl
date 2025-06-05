@@ -13,7 +13,7 @@ end
 
 Applies a stratified cross-validation strategy based on both treatments and outcome (if it is Finite) variables.
 """
-CausalStratifiedCV(;resampling=StratifiedCV()) = CausalStratifiedCV(resampling)
+CausalStratifiedCV(; resampling = StratifiedCV()) = CausalStratifiedCV(resampling)
 
 function MLJBase.fit!(resampling::CausalStratifiedCV, Ψ, dataset)
     empty!(resampling.treatment_variables)
@@ -24,7 +24,7 @@ update_stratification_col!(stratification_col::AbstractVector, col::AbstractVect
     stratification_col .*= string.(col, "_")
 
 function update_stratification_col_if_finite!(stratification_col, col)
-    if autotype(col) <: Union{Missing, Finite}
+    if autotype(col) <: Union{Missing,Finite}
         update_stratification_col!(stratification_col, col)
     end
 end
@@ -32,8 +32,8 @@ end
 function aggregate_features!(stratification_col, columnnames, X)
     for colname in columnnames
         update_stratification_col_if_finite!(
-            stratification_col, 
-            Tables.getcolumn(X, colname)
+            stratification_col,
+            Tables.getcolumn(X, colname),
         )
     end
 end
@@ -48,7 +48,12 @@ function MLJBase.train_test_pairs(resampling::CausalStratifiedCV, rows, X, y)
     stratification_col = fill("", nrows(X))
     aggregate_features!(stratification_col, resampling.treatment_variables, X)
     update_stratification_col_if_finite!(stratification_col, y)
-    return MLJBase.train_test_pairs(resampling.resampling, rows, X, categorical(stratification_col))
+    return MLJBase.train_test_pairs(
+        resampling.resampling,
+        rows,
+        X,
+        categorical(stratification_col),
+    )
 end
 
 #####################################################################
@@ -71,8 +76,8 @@ function get_train_validation_indices(resampling::ResamplingStrategy, Ψ, datase
     return MLJBase.train_test_pairs(
         resampling,
         1:nrows(dataset),
-        dataset, 
-        dataset[!, Ψ.outcome]
+        dataset,
+        dataset[!, Ψ.outcome],
     )
 end
 

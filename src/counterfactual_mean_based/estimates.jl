@@ -9,14 +9,15 @@ for counterfactual mean based estimands' relevant factors.
 struct MLCMRelevantFactors <: Estimate
     estimand::CMRelevantFactors
     outcome_mean::ConditionalDistributionEstimate
-    propensity_score
+    propensity_score::Any
 end
 
 string_repr(estimate::MLCMRelevantFactors) = string(
     "Composite Factor Estimate: \n",
     "-------------------------\n- ",
-    string_repr(estimate.outcome_mean),"\n- ", 
-    join((string_repr(f) for f in estimate.propensity_score.components), "\n- ")
+    string_repr(estimate.outcome_mean),
+    "\n- ",
+    join((string_repr(f) for f in estimate.propensity_score.components), "\n- "),
 )
 
 #####################################################################
@@ -40,7 +41,8 @@ struct TMLEstimate{T<:AbstractFloat} <: Estimate
     IC::Vector{T}
 end
 
-TMLEstimate(;estimand, estimate::T, std::T, n, IC) where T = TMLEstimate(estimand, estimate, std, n, convert(Vector{T}, IC))
+TMLEstimate(; estimand, estimate::T, std::T, n, IC) where {T} =
+    TMLEstimate(estimand, estimate, std, n, convert(Vector{T}, IC))
 struct OSEstimate{T<:AbstractFloat} <: Estimate
     estimand::StatisticalCMCompositeEstimand
     estimate::T
@@ -49,30 +51,31 @@ struct OSEstimate{T<:AbstractFloat} <: Estimate
     IC::Vector{T}
 end
 
-OSEstimate(;estimand, estimate::T, std::T, n, IC) where T = OSEstimate(estimand, estimate, std, n, convert(Vector{T}, IC))
+OSEstimate(; estimand, estimate::T, std::T, n, IC) where {T} =
+    OSEstimate(estimand, estimate, std, n, convert(Vector{T}, IC))
 
-const EICEstimate = Union{TMLEstimate, OSEstimate}
+const EICEstimate = Union{TMLEstimate,OSEstimate}
 
-function to_dict(estimate::T) where T <: EICEstimate
+function to_dict(estimate::T) where {T<:EICEstimate}
     Dict(
         :type => replace(string(Base.typename(T).wrapper), "TMLE." => ""),
         :estimate => estimate.estimate,
         :estimand => to_dict(estimate.estimand),
         :std => estimate.std,
         :n => estimate.n,
-        :IC => estimate.IC
+        :IC => estimate.IC,
     )
 end
 
-emptyIC(estimate::T, ::Nothing) where T <: EICEstimate = 
+emptyIC(estimate::T, ::Nothing) where {T<:EICEstimate} =
     T(estimate.estimand, estimate.estimate, estimate.std, estimate.n, [])
 
-function emptyIC(estimate::T, pval_threshold::Float64) where T <: EICEstimate
+function emptyIC(estimate::T, pval_threshold::Float64) where {T<:EICEstimate}
     pval = pvalue(OneSampleZTest(estimate))
     return pval < pval_threshold ? estimate : emptyIC(estimate, nothing)
 end
 
-emptyIC(estimate; pval_threshold=nothing) = emptyIC(estimate, pval_threshold)
+emptyIC(estimate; pval_threshold = nothing) = emptyIC(estimate, pval_threshold)
 
 """
     Distributions.estimate(r::EICEstimate)
@@ -83,5 +86,8 @@ Distributions.estimate(Ψ̂::EICEstimate) = Ψ̂.estimate
 
 Statistics.std(Ψ̂::EICEstimate) = Ψ̂.std
 
-Base.show(io::IO, mime::MIME"text/plain", est::Union{EICEstimate, JointEstimate, ComposedEstimate}) =
-    show(io, mime, significance_test(est))
+Base.show(
+    io::IO,
+    mime::MIME"text/plain",
+    est::Union{EICEstimate,JointEstimate,ComposedEstimate},
+) = show(io, mime, significance_test(est))

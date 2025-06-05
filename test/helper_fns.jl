@@ -21,13 +21,14 @@ The fluctuation is supposed to decrease the risk as its objective function is th
 It seems that sometimes this is not entirely true in practice, so the test actually checks that it does not
 increase risk more than tol
 """
-function test_fluct_decreases_risk(cache; atol=1e-6)
+function test_fluct_decreases_risk(cache; atol = 1e-6)
     fluctuated_mean_machine = cache[:targeted_factors].outcome_mean.machine
-    initial_mean_machine = fluctuated_mean_machine.model.initial_factors.outcome_mean.machine
+    initial_mean_machine =
+        fluctuated_mean_machine.model.initial_factors.outcome_mean.machine
     y = fluctuated_mean_machine.data[2]
     initial_risk = risk(MLJBase.predict(initial_mean_machine), y)
     fluct_risk = risk(MLJBase.predict(fluctuated_mean_machine), y)
-    @test initial_risk >= fluct_risk || isapprox(initial_risk, fluct_risk, atol=atol)
+    @test initial_risk >= fluct_risk || isapprox(initial_risk, fluct_risk, atol = atol)
 end
 
 
@@ -48,21 +49,33 @@ end
 
 The TMLE is supposed to solve the EIC score equation.
 """
-test_mean_inf_curve_almost_zero(tmle_result::TMLE.EICEstimate; atol=1e-10) = @test mean(tmle_result.IC) ≈ 0.0 atol=atol
+test_mean_inf_curve_almost_zero(tmle_result::TMLE.EICEstimate; atol = 1e-10) =
+    @test mean(tmle_result.IC) ≈ 0.0 atol=atol
 
-double_robust_estimators(models; resampling=CV(nfolds=3)) = (
-    tmle = Tmle(models=models, machine_cache=true, weighted=false),
-    ose = Ose(models=models, machine_cache=true),
-    cv_tmle = Tmle(models=models, resampling=resampling, machine_cache=true, weighted=false),
-    cv_ose = Tmle(models=models, resampling=resampling, machine_cache=true),
-    ctmle = Tmle(models=models, resampling=resampling, machine_cache=true, collaborative_strategy=AdaptiveCorrelationOrdering(), weighted=false),
+double_robust_estimators(models; resampling = CV(nfolds = 3)) = (
+    tmle = Tmle(models = models, machine_cache = true, weighted = false),
+    ose = Ose(models = models, machine_cache = true),
+    cv_tmle = Tmle(
+        models = models,
+        resampling = resampling,
+        machine_cache = true,
+        weighted = false,
+    ),
+    cv_ose = Tmle(models = models, resampling = resampling, machine_cache = true),
+    ctmle = Tmle(
+        models = models,
+        resampling = resampling,
+        machine_cache = true,
+        collaborative_strategy = AdaptiveCorrelationOrdering(),
+        weighted = false,
+    ),
 )
 
-function test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+function test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity = 0)
     cache = Dict()
     results = []
     for (estimator_name, estimator) ∈ zip(keys(dr_estimators), values(dr_estimators))
-        result, cache = estimator(Ψ, dataset, cache=cache, verbosity=verbosity)
+        result, cache = estimator(Ψ, dataset, cache = cache, verbosity = verbosity)
         push!(results, result)
         test_coverage(result, Ψ₀)
         if estimator isa Tmle && estimator.resampling === nothing

@@ -11,73 +11,55 @@ using LogExpFunctions
 using HypothesisTests
 using DataFrames
 
-function make_dataset(;n=100)
+function make_dataset(; n = 100)
     rng = StableRNG(123)
     W = rand(rng, Uniform(), n)
     T = rand(rng, [0, 1], n)
-    Y = 3W .+ T .+ T.*W + rand(rng, Normal(0, 0.05), n)
-    dataset =  DataFrame(
-        Y = Y,
-        W = W,
-        T = categorical(T)
-    )
+    Y = 3W .+ T .+ T .* W + rand(rng, Normal(0, 0.05), n)
+    dataset = DataFrame(Y = Y, W = W, T = categorical(T))
     return dataset
 end
 
 @testset "Test cov" begin
-    Ψ = CM(
-        outcome = :Y,
-        treatment_values = (T=1,),
-        treatment_confounders = (T=[:W],)
-    )
+    Ψ = CM(outcome = :Y, treatment_values = (T = 1,), treatment_confounders = (T = [:W],))
     n = 10
     X = rand(n, 2)
-    ER₁ = TMLE.TMLEstimate(Ψ, 1., 1., n, X[:, 1])
-    ER₂ = TMLE.TMLEstimate(Ψ, 0., 1., n, X[:, 2])
+    ER₁ = TMLE.TMLEstimate(Ψ, 1.0, 1.0, n, X[:, 1])
+    ER₂ = TMLE.TMLEstimate(Ψ, 0.0, 1.0, n, X[:, 2])
     Σ = TMLE.covariance_matrix(ER₁, ER₂)
     @test size(Σ) == (2, 2)
-    @test Σ == cov(X) 
+    @test Σ == cov(X)
 end
 
 @testset "Test composition CM(1) - CM(0) = ATE(1,0)" begin
-    dataset = make_dataset(;n=1000)
-    CM₀ = CM(
-        outcome = :Y,
-        treatment_values = (T=0,),
-        treatment_confounders = (T=[:W],)
-    )
-    CM₁ = CM(
-        outcome = :Y,
-        treatment_values = (T=1,),
-        treatment_confounders = (T=[:W],)
-    )
+    dataset = make_dataset(; n = 1000)
+    CM₀ = CM(outcome = :Y, treatment_values = (T = 0,), treatment_confounders = (T = [:W],))
+    CM₁ = CM(outcome = :Y, treatment_values = (T = 1,), treatment_confounders = (T = [:W],))
     mydiff(x) = x[2] - x[1]
 
     jointestimand = JointEstimand(CM₀, CM₁)
-    models = Dict(
-        :Y => with_encoder(LinearRegressor()),
-        :T => LogisticClassifier(lambda=0)
-    )
-    tmle = Tmle(models=models)
-    ose = Ose(models=models)
+    models =
+        Dict(:Y => with_encoder(LinearRegressor()), :T => LogisticClassifier(lambda = 0))
+    tmle = Tmle(models = models)
+    ose = Ose(models = models)
     cache = Dict()
 
     # Via Composition
-    joint_tmle, cache = tmle(jointestimand, dataset; cache=cache, verbosity=0)
+    joint_tmle, cache = tmle(jointestimand, dataset; cache = cache, verbosity = 0)
     diff_tmle = compose(mydiff, joint_tmle)
     @test significance_test(diff_tmle) isa TMLE.OneSampleTTest
-    joint_ose, cache = ose(jointestimand, dataset; cache=cache, verbosity=0)
+    joint_ose, cache = ose(jointestimand, dataset; cache = cache, verbosity = 0)
     diff_ose = compose(mydiff, joint_ose)
     @test significance_test(diff_ose) isa TMLE.OneSampleTTest
 
     # Via ATE
     ATE₁₀ = ATE(
         outcome = :Y,
-        treatment_values = (T=(case=1, control=0),),
-        treatment_confounders = (T=[:W],)
+        treatment_values = (T = (case = 1, control = 0),),
+        treatment_confounders = (T = [:W],),
     )
     # Check composed TMLE
-    ATE_tmle, cache = tmle(ATE₁₀, dataset; cache=cache, verbosity=0)
+    ATE_tmle, cache = tmle(ATE₁₀, dataset; cache = cache, verbosity = 0)
     @test estimate(ATE_tmle) ≈ first(estimate(diff_tmle)) atol = 1e-7
     # T Test
     diff_confint = collect(confint(OneSampleTTest(diff_tmle)))
@@ -89,7 +71,7 @@ end
     @test ATE_confint ≈ diff_confint atol=1e-4
 
     # Check composed OSE
-    ATE_ose, cache = ose(ATE₁₀, dataset; cache=cache, verbosity=0)
+    ATE_ose, cache = ose(ATE₁₀, dataset; cache = cache, verbosity = 0)
     @test estimate(ATE_ose) ≈ only(estimate(diff_ose)) atol = 1e-7
     # T Test
     diff_confint = collect(confint(OneSampleTTest(diff_ose)))
@@ -102,27 +84,18 @@ end
 end
 
 @testset "Test compose multidimensional function" begin
-    dataset = make_dataset(;n=1000)
-    models = Dict(
-        :Y => with_encoder(LinearRegressor()),
-        :T => LogisticClassifier(lambda=0)
-    )
-    tmle = Tmle(models=models)
+    dataset = make_dataset(; n = 1000)
+    models =
+        Dict(:Y => with_encoder(LinearRegressor()), :T => LogisticClassifier(lambda = 0))
+    tmle = Tmle(models = models)
     cache = Dict()
-    
+
     joint = JointEstimand(
-        CM(
-        outcome = :Y,
-        treatment_values = (T=1,),
-        treatment_confounders = (T=[:W],)
-        ),
-        CM(
-        outcome = :Y,
-        treatment_values = (T=0,),
-        treatment_confounders = (T=[:W],))
+        CM(outcome = :Y, treatment_values = (T = 1,), treatment_confounders = (T = [:W],)),
+        CM(outcome = :Y, treatment_values = (T = 0,), treatment_confounders = (T = [:W],)),
     )
 
-    joint_estimate, cache = tmle(joint, dataset; cache=cache, verbosity=0)
+    joint_estimate, cache = tmle(joint, dataset; cache = cache, verbosity = 0)
 
     Main.eval(:(f(x) = [x[1]^2 - x[2], 2x[1] + 3x[2]]))
 
@@ -148,39 +121,39 @@ end
     W = rand(rng, n)
 
     θT₁ = rand(rng, Normal(), 3)
-    pT₁ =  softmax(W*θT₁', dims=2)
+    pT₁ = softmax(W*θT₁', dims = 2)
     T₁ = [rand(rng, Categorical(collect(p))) for p in eachrow(pT₁)]
-    
+
     θT₂ = rand(rng, Normal(), 3)
-    pT₂ =  softmax(W*θT₂', dims=2)
+    pT₂ = softmax(W*θT₂', dims = 2)
     T₂ = [rand(rng, Categorical(collect(p))) for p in eachrow(pT₂)]
 
-    Y = 1 .+ W .+ T₁ .- T₂ .- T₁.*T₂ .+ rand(rng, Normal())
-    dataset = DataFrame(
-        W = W,
-        T₁ = categorical(T₁),
-        T₂ = categorical(T₂),
-        Y = Y
-    )
+    Y = 1 .+ W .+ T₁ .- T₂ .- T₁ .* T₂ .+ rand(rng, Normal())
+    dataset = DataFrame(W = W, T₁ = categorical(T₁), T₂ = categorical(T₂), Y = Y)
     AIE₁ = AIE(
         outcome = :Y,
-        treatment_values = (T₁=(case=2, control=1), T₂=(case=2, control=1)),
-        treatment_confounders = (T₁ = [:W], T₂ = [:W])
+        treatment_values = (T₁ = (case = 2, control = 1), T₂ = (case = 2, control = 1)),
+        treatment_confounders = (T₁ = [:W], T₂ = [:W]),
     )
     AIE₂ = AIE(
         outcome = :Y,
-        treatment_values = (T₁=(case=3, control=1), T₂=(case=3, control=1)),
-        treatment_confounders = (T₁ = [:W], T₂ = [:W])
+        treatment_values = (T₁ = (case = 3, control = 1), T₂ = (case = 3, control = 1)),
+        treatment_confounders = (T₁ = [:W], T₂ = [:W]),
     )
     AIE₃ = AIE(
         outcome = :Y,
-        treatment_values = (T₁=(case=3, control=2), T₂=(case=3, control=2)),
-        treatment_confounders = (T₁ = [:W], T₂ = [:W])
+        treatment_values = (T₁ = (case = 3, control = 2), T₂ = (case = 3, control = 2)),
+        treatment_confounders = (T₁ = [:W], T₂ = [:W]),
     )
     jointAIE = JointEstimand(AIE₁, AIE₂, AIE₃)
 
-    ose = Ose(models=TMLE.default_models(G=LogisticClassifier(), Q_continuous=LinearRegressor()))
-    jointEstimate, _ = ose(jointAIE, dataset, verbosity=0)
+    ose = Ose(
+        models = TMLE.default_models(
+            G = LogisticClassifier(),
+            Q_continuous = LinearRegressor(),
+        ),
+    )
+    jointEstimate, _ = ose(jointAIE, dataset, verbosity = 0)
 
     testres = significance_test(jointEstimate)
     @test testres.x̄ ≈ estimate(jointEstimate)
@@ -192,9 +165,9 @@ end
     end
 
     pval_threshold = 1e-3
-    maybe_emptied_estimate = TMLE.emptyIC(jointEstimate, pval_threshold=pval_threshold)
+    maybe_emptied_estimate = TMLE.emptyIC(jointEstimate, pval_threshold = pval_threshold)
     n_empty = 0
-    for i in 1:3
+    for i = 1:3
         pval = pvalue(significance_test(jointEstimate.estimates[i]))
         maybe_emptied_IC = maybe_emptied_estimate.estimates[i].IC
         if pval > pval_threshold
@@ -219,7 +192,7 @@ end
         using JSON
         filename, _ = mktemp()
         TMLE.write_json(filename, jointEstimate)
-        from_json = TMLE.read_json(filename, use_mmap=false)
+        from_json = TMLE.read_json(filename, use_mmap = false)
         @test jointEstimate.estimand == from_json.estimand
         @test jointEstimate.cov == from_json.cov
         @test estimate(jointEstimate) == estimate(from_json)

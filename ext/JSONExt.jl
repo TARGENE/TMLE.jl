@@ -11,7 +11,8 @@ Loads a YAML configuration file containing:
     - An SCM (optional)
     - An Adjustment Method (optional)
 """
-TMLE.read_json(file; dicttype=Dict{Symbol, Any}, kwargs...) = TMLE.from_dict!(JSON.parsefile(file; dicttype=dicttype, kwargs...))
+TMLE.read_json(file; dicttype = Dict{Symbol,Any}, kwargs...) =
+    TMLE.from_dict!(JSON.parsefile(file; dicttype = dicttype, kwargs...))
 
 """
     write_json(file, config::Configuration)
@@ -19,8 +20,8 @@ TMLE.read_json(file; dicttype=Dict{Symbol, Any}, kwargs...) = TMLE.from_dict!(JS
 Writes a `Configuration` struct to a YAML file. The latter can be deserialized 
 with `read_yaml`.
 """
-function TMLE.write_json(file, config; indent=1)
-    open(file, "w+") do io 
+function TMLE.write_json(file, config; indent = 1)
+    open(file, "w+") do io
         write(io, JSON.json(TMLE.to_dict(config), indent))
     end
 end

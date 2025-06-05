@@ -14,12 +14,13 @@ TEST_DIR = joinpath(PKG_DIR, "test")
 
 include(joinpath(TEST_DIR, "helper_fns.jl"))
 
-function dataset_with_missing_and_ordered_treatment(;n=1000)
+function dataset_with_missing_and_ordered_treatment(; n = 1000)
     rng = StableRNG(123)
     W = rand(rng, n)
     T = rand(rng, [0, 1, 2], n)
     Y = T + 3W + randn(rng, n)
-    dataset = DataFrame(W = W, T = categorical(T, ordered=true, levels=[0, 1, 2]), Y = Y)
+    dataset =
+        DataFrame(W = W, T = categorical(T, ordered = true, levels = [0, 1, 2]), Y = Y)
     allowmissing!(dataset)
     dataset.W[1:5] .= missing
     dataset.T[6:10] .= missing
@@ -36,7 +37,7 @@ end
     @test filtered.x2 === dataset.x2
 
     # Now with missing values
-    dataset = dataset_with_missing_and_ordered_treatment(;n=100)
+    dataset = dataset_with_missing_and_ordered_treatment(; n = 100)
     # filter missing rows based on W column
     filtered = TMLE.nomissing(dataset, [:W])
     @test filtered.W == dataset.W[6:end]
@@ -47,14 +48,16 @@ end
 end
 
 @testset "Test estimation with missing values and ordered factor treatment" begin
-    dataset = dataset_with_missing_and_ordered_treatment(;n=1000)
+    dataset = dataset_with_missing_and_ordered_treatment(; n = 1000)
     Ψ = ATE(
-        outcome=:Y, 
-        treatment_values=(T=(case=1, control=0),),
-        treatment_confounders=(T=[:W],))
-    models = Dict(:Y => with_encoder(LinearRegressor()), :T => LogisticClassifier(lambda=0))
-    tmle = Tmle(models=models, machine_cache=true)
-    tmle_result, cache = tmle(Ψ, dataset; verbosity=0)
+        outcome = :Y,
+        treatment_values = (T = (case = 1, control = 0),),
+        treatment_confounders = (T = [:W],),
+    )
+    models =
+        Dict(:Y => with_encoder(LinearRegressor()), :T => LogisticClassifier(lambda = 0))
+    tmle = Tmle(models = models, machine_cache = true)
+    tmle_result, cache = tmle(Ψ, dataset; verbosity = 0)
     test_coverage(tmle_result, 1)
     test_fluct_decreases_risk(cache)
 end

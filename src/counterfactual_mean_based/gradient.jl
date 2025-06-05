@@ -17,7 +17,13 @@ function counterfactual_aggregate(Ψ::StatisticalCMCompositeEstimand, Q, dataset
     for (vals, sign) in indicator_fns(Ψ)
         # Counterfactual dataset for a given treatment setting
         T_ct = counterfactualTreatment(vals, Ttemplate)
-        X_ct = DataFrame((;(Symbol(colname) => colname ∈ names(T_ct) ? T_ct[!, colname] : X[!, colname] for colname in names(X))...))
+        X_ct = DataFrame((;
+            (
+                Symbol(colname) =>
+                    colname ∈ names(T_ct) ? T_ct[!, colname] : X[!, colname] for
+                colname in names(X)
+            )...
+        ))
         # Counterfactual mean
         ctf_agg .+= sign .* expected_value(Q, X_ct)
     end
@@ -53,16 +59,21 @@ Computes the projection of the gradient on the (Y | X) space.
 
 This part of the gradient is evaluated on the original dataset. All quantities have been precomputed and cached.
 """
-function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound=1e-8)
+function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound = 1e-8)
     # Maybe can cache some results (H and E[Y|X]) to improve perf here
-    H, w = clever_covariate_and_weights(Ψ, G, dataset; ps_lowerbound=ps_lowerbound)
+    H, w = clever_covariate_and_weights(Ψ, G, dataset; ps_lowerbound = ps_lowerbound)
     y = float(dataset[!, Q.estimand.outcome])
     Ey = expected_value(Q, dataset)
     return ∇YX(H, y, Ey, w)
 end
 
 
-function gradient_and_plugin_estimate(Ψ::StatisticalCMCompositeEstimand, factors, dataset; ps_lowerbound=1e-8)
+function gradient_and_plugin_estimate(
+    Ψ::StatisticalCMCompositeEstimand,
+    factors,
+    dataset;
+    ps_lowerbound = 1e-8,
+)
     Q = factors.outcome_mean
     G = factors.propensity_score
     ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
@@ -72,7 +83,8 @@ function gradient_and_plugin_estimate(Ψ::StatisticalCMCompositeEstimand, factor
 end
 
 train_validation_indices_from_ps(::MLConditionalDistribution) = nothing
-train_validation_indices_from_ps(factor::SampleSplitMLConditionalDistribution) = factor.train_validation_indices
+train_validation_indices_from_ps(factor::SampleSplitMLConditionalDistribution) =
+    factor.train_validation_indices
 
-train_validation_indices_from_factors(factors) = 
+train_validation_indices_from_factors(factors) =
     train_validation_indices_from_ps(first(factors.propensity_score))

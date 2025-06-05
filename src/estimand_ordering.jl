@@ -27,7 +27,7 @@ that would be used while performing estimation for an ordered list of estimands.
 This is assuming that after each estimation, we purge the cache from models that will 
 not be subsequently used. That way, we are guaranteed that we minimize computational cost.
 """
-function evaluate_proxy_costs(estimands, η_counts; verbosity=0)
+function evaluate_proxy_costs(estimands, η_counts; verbosity = 0)
     η_counts = deepcopy(η_counts)
     cache = Set()
     maxmem = 0
@@ -43,7 +43,8 @@ function evaluate_proxy_costs(estimands, η_counts; verbosity=0)
         end
         # Update maxmem
         maxmem = max(maxmem, length(cache))
-        verbosity > 0 && @info string("Cache size after estimand $estimand_index: ", length(cache))
+        verbosity > 0 &&
+            @info string("Cache size after estimand $estimand_index: ", length(cache))
         # Free cache from models that are not useful anymore
         for η in ηs
             η_counts[η] -= 1
@@ -52,7 +53,7 @@ function evaluate_proxy_costs(estimands, η_counts; verbosity=0)
             end
         end
     end
-    
+
     return maxmem, compcost
 end
 
@@ -77,7 +78,10 @@ estimands_permutation_generator(estimands) = Combinatorics.permutations(estimand
 
 function propensity_score_group_based_permutation_generator(groups)
     group_permutations = Combinatorics.permutations(collect(keys(groups)))
-    return (vcat((groups[ps_key] for ps_key in group_perm)...) for group_perm in group_permutations)
+    return (
+        vcat((groups[ps_key] for ps_key in group_perm)...) for
+        group_perm in group_permutations
+    )
 end
 
 """
@@ -89,13 +93,14 @@ if a minimum is found fast it is immediatly returned.
 The theoretical complexity is in O(N!). However due to the stop fast approach and 
 the shuffling, this is actually expected to be much smaller than that.
 """
-function brute_force_ordering(estimands; 
-    permutation_generator = estimands_permutation_generator(estimands), 
-    η_counts=nuisance_function_counts(estimands), 
-    do_shuffle=true, 
-    rng=Random.default_rng(), 
-    verbosity=0
-    )
+function brute_force_ordering(
+    estimands;
+    permutation_generator = estimands_permutation_generator(estimands),
+    η_counts = nuisance_function_counts(estimands),
+    do_shuffle = true,
+    rng = Random.default_rng(),
+    verbosity = 0,
+)
     estimands = do_shuffle ? shuffle(rng, estimands) : estimands
     optimal_ordering = estimands
     min_maxmem_lowerbound = get_min_maxmem_lowerbound(estimands)
@@ -136,7 +141,7 @@ function groupby_by_propensity_score(estimands)
             groups[propensity_score_key_] = Dict()
             groups[propensity_score_key_][outcome_mean_key_] = Any[Ψ]
         end
-        
+
     end
     return Dict(key => vcat(values(groups[key])...) for key in keys(groups))
 end
@@ -149,17 +154,26 @@ work reasonably well in practice. It could be optimized further by:
 - Organising the propensity score groups that share similar components to be close together. 
 - Brute forcing the ordering of these groups to find an optimal one.
 """
-function groups_ordering(estimands; brute_force=false, do_shuffle=true, rng=Random.default_rng(), verbosity=0)
+function groups_ordering(
+    estimands;
+    brute_force = false,
+    do_shuffle = true,
+    rng = Random.default_rng(),
+    verbosity = 0,
+)
     # Group estimands based on propensity_score first and outcome_mean second
     groups = groupby_by_propensity_score(estimands)
 
     # Brute force on the propensity score groups
     if brute_force
-        return brute_force_ordering(estimands; 
-            permutation_generator = propensity_score_group_based_permutation_generator(groups), 
-            do_shuffle=do_shuffle, 
-            rng=rng, 
-            verbosity=verbosity
+        return brute_force_ordering(
+            estimands;
+            permutation_generator = propensity_score_group_based_permutation_generator(
+                groups,
+            ),
+            do_shuffle = do_shuffle,
+            rng = rng,
+            verbosity = verbosity,
         )
     else
         return vcat(values(groups)...)

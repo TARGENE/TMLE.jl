@@ -1,27 +1,39 @@
 mutable struct Fluctuation <: MLJBase.Supervised
     Ψ::StatisticalCMCompositeEstimand
     initial_factors::MLCMRelevantFactors
-    tol::Union{Nothing, Float64}
+    tol::Union{Nothing,Float64}
     max_iter::Int
     ps_lowerbound::Float64
     weighted::Bool
     cache::Bool
 end
 
-Fluctuation(Ψ, initial_factors; tol=nothing, max_iter=1, ps_lowerbound=1e-8, weighted=false, cache=false) =
-    Fluctuation(Ψ, initial_factors, tol, max_iter, ps_lowerbound, weighted, cache)
+Fluctuation(
+    Ψ,
+    initial_factors;
+    tol = nothing,
+    max_iter = 1,
+    ps_lowerbound = 1e-8,
+    weighted = false,
+    cache = false,
+) = Fluctuation(Ψ, initial_factors, tol, max_iter, ps_lowerbound, weighted, cache)
 
-one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:MLJBase.Continuous} = LinearRegressor(fit_intercept=false, offsetcol = :offset)
-one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:Finite} = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
+one_dimensional_path(
+    target_scitype::Type{T},
+) where {T<:AbstractVector{<:MLJBase.Continuous}} =
+    LinearRegressor(fit_intercept = false, offsetcol = :offset)
+one_dimensional_path(target_scitype::Type{T}) where {T<:AbstractVector{<:Finite}} =
+    LinearBinaryClassifier(fit_intercept = false, offsetcol = :offset)
 
-same_type_df(covariate::AbstractVector{T}, offset::AbstractVector{T}) where T = DataFrame(covariate=covariate, offset=offset)
+same_type_df(covariate::AbstractVector{T}, offset::AbstractVector{T}) where {T} =
+    DataFrame(covariate = covariate, offset = offset)
 
 """
 
 The GLM models require inputs of the same type, which sometimes is not the case
 """
-same_type_df(covariate::AbstractVector{T1}, offset::AbstractVector{T2}) where {T1, T2} = 
-    DataFrame(covariate=covariate, offset=convert(Vector{T1}, offset))
+same_type_df(covariate::AbstractVector{T1}, offset::AbstractVector{T2}) where {T1,T2} =
+    DataFrame(covariate = covariate, offset = convert(Vector{T1}, offset))
 
 function fluctuation_input(covariate, ŷ)
     offset = compute_offset(ŷ)
@@ -51,12 +63,14 @@ function initialize_observed_cache(model, X, y)
     Q⁰ = model.initial_factors.outcome_mean
     G⁰ = model.initial_factors.propensity_score
     H, w = clever_covariate_and_weights(
-        model.Ψ, G⁰, X;
-        ps_lowerbound=model.ps_lowerbound,
-        weighted_fluctuation=model.weighted
+        model.Ψ,
+        G⁰,
+        X;
+        ps_lowerbound = model.ps_lowerbound,
+        weighted_fluctuation = model.weighted,
     )
     ŷ = MLJBase.predict(Q⁰, X)
-    return Dict{Symbol, Any}(:H => H, :w => w, :ŷ => ŷ, :y => float(y))
+    return Dict{Symbol,Any}(:H => H, :w => w, :ŷ => ŷ, :y => float(y))
 end
 
 """
@@ -75,46 +89,43 @@ function initialize_counterfactual_cache(model, X)
     G⁰ = model.initial_factors.propensity_score
     Ψ = model.Ψ
 
-    counterfactual_cache = (predictions=[], signs=[], covariates=[], weights=[])
+    counterfactual_cache = (predictions = [], signs = [], covariates = [], weights = [])
     Ttemplate = selectcols(X, treatments(Ψ))
     for (vals, sign) in indicator_fns(Ψ)
         T_ct = counterfactualTreatment(vals, Ttemplate)
-        X_ct = DataFrame((;(Symbol(colname) => colname ∈ names(T_ct) ? T_ct[!, colname] : X[!, colname] for colname in names(X))...))
-        
-        covariates_ct, w_ct = clever_covariate_and_weights(Ψ, 
+        X_ct = DataFrame((;
+            (
+                Symbol(colname) =>
+                    colname ∈ names(T_ct) ? T_ct[!, colname] : X[!, colname] for
+                colname in names(X)
+            )...
+        ))
+
+        covariates_ct, w_ct = clever_covariate_and_weights(
+            Ψ,
             G⁰,
-            X_ct; 
-            ps_lowerbound=model.ps_lowerbound, 
-            weighted_fluctuation=model.weighted
+            X_ct;
+            ps_lowerbound = model.ps_lowerbound,
+            weighted_fluctuation = model.weighted,
         )
         predictions_ct = MLJBase.predict(Q⁰, X_ct)
-        push!(
-            counterfactual_cache.predictions, 
-            predictions_ct
-        )
-        push!(
-            counterfactual_cache.signs, 
-            sign
-        )
-        push!(
-            counterfactual_cache.covariates, 
-            covariates_ct
-        )
-        push!(
-            counterfactual_cache.weights, 
-            w_ct
-        )
+        push!(counterfactual_cache.predictions, predictions_ct)
+        push!(counterfactual_cache.signs, sign)
+        push!(counterfactual_cache.covariates, covariates_ct)
+        push!(counterfactual_cache.weights, w_ct)
     end
     return counterfactual_cache
 end
 
 function compute_counterfactual_aggregate!(counterfactual_cache, Q)
     ct_aggregate = zeros(length(first(counterfactual_cache.predictions)))
-    for (idx, (ct_ŷ, sign, ct_covariates)) in enumerate(zip(
-            counterfactual_cache.predictions, 
-            counterfactual_cache.signs, 
-            counterfactual_cache.covariates
-        ))
+    for (idx, (ct_ŷ, sign, ct_covariates)) in enumerate(
+        zip(
+            counterfactual_cache.predictions,
+            counterfactual_cache.signs,
+            counterfactual_cache.covariates,
+        ),
+    )
         # Compute new counterfactual predictions
         Xfluct = fluctuation_input(ct_covariates, ct_ŷ)
         new_ct_ŷ = MLJBase.predict(Q, Xfluct)
@@ -127,18 +138,20 @@ function compute_counterfactual_aggregate!(counterfactual_cache, Q)
 end
 
 function compute_gradient_and_estimate_from_caches!(
-    observed_cache, 
-    counterfactual_cache, 
-    Q, 
-    Xfluct
-    )
+    observed_cache,
+    counterfactual_cache,
+    Q,
+    Xfluct,
+)
     # Update predictions
     observed_cache[:ŷ] = MLJBase.predict(Q, Xfluct)
     # Compute gradient
     Ey = expected_value(observed_cache[:ŷ])
     ct_aggregate = compute_counterfactual_aggregate!(counterfactual_cache, Q)
     Ψ̂ = plugin_estimate(ct_aggregate)
-    gradient = ∇YX(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w]) .+ ∇W(ct_aggregate, Ψ̂)
+    gradient =
+        ∇YX(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w]) .+
+        ∇W(ct_aggregate, Ψ̂)
     return gradient, Ψ̂
 end
 
@@ -180,25 +193,19 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
     counterfactual_cache = initialize_counterfactual_cache(model, X)
     report = (estimates = [], gradients = [], epsilons = [])
     machines = []
-    for iter in 1:model.max_iter
+    for iter = 1:model.max_iter
         verbosity > 0 && @info(string("TMLE step: ", iter, "."))
         # Fit new fluctuation using observed data
         Xfluct = fluctuation_input(observed_cache[:H], observed_cache[:ŷ])
-        Q = machine(
-            fluctuation_model, 
-            Xfluct, 
-            y,
-            observed_cache[:w],
-            cache=model.cache
-        )
-        MLJBase.fit!(Q, verbosity=verbosity-1)
+        Q = machine(fluctuation_model, Xfluct, y, observed_cache[:w], cache = model.cache)
+        MLJBase.fit!(Q, verbosity = verbosity-1)
         push!(machines, Q)
         # Compute the estimate, gradient and update caches
         gradient, Ψ̂ = compute_gradient_and_estimate_from_caches!(
-            observed_cache, 
-            counterfactual_cache, 
-            Q, 
-            Xfluct
+            observed_cache,
+            counterfactual_cache,
+            Q,
+            Xfluct,
         )
         update_report!(report, Ψ̂, gradient, fitted_params(Q).coef)
         if hasconverged(gradient, model.tol)
@@ -215,11 +222,13 @@ end
 
 Generates initial predictions and iteratively predicts from the fitted fluctuations.
 """
-function MLJBase.predict(model::Fluctuation, machines, X) 
+function MLJBase.predict(model::Fluctuation, machines, X)
     covariate, _ = clever_covariate_and_weights(
-        model.Ψ, model.initial_factors.propensity_score, X;
-        ps_lowerbound=model.ps_lowerbound,
-        weighted_fluctuation=model.weighted
+        model.Ψ,
+        model.initial_factors.propensity_score,
+        X;
+        ps_lowerbound = model.ps_lowerbound,
+        weighted_fluctuation = model.weighted,
     )
     ŷ = MLJBase.predict(model.initial_factors.outcome_mean, X)
     for mach in machines
