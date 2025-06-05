@@ -31,8 +31,8 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
     expected_features = collect(estimand.parents)
     @test conditional_density_estimate isa TMLE.MLConditionalDistribution
     @test fitted_params(conditional_density_estimate.machine).features == expected_features
-    ŷ = predict(conditional_density_estimate, binary_dataset)
-    mach_ŷ = predict(conditional_density_estimate.machine, binary_dataset[!, expected_features])
+    ŷ = MLJBase.predict(conditional_density_estimate, binary_dataset)
+    mach_ŷ = MLJBase.predict(conditional_density_estimate.machine, binary_dataset[!, expected_features])
     @test all(ŷ[i].prob_given_ref == mach_ŷ[i].prob_given_ref for i in eachindex(ŷ))
     μ̂ = TMLE.expected_value(conditional_density_estimate, binary_dataset)
     @test μ̂ == [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)]
@@ -42,11 +42,9 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
     # Check cache management
     ## Uses the cache instead of fitting
     new_estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
-    @test TMLE.key(new_estimator) == TMLE.key(estimator)
     @test_logs (:info, reuse_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
     ## Changing the model leads to refit
     new_estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(fit_intercept=false))
-    @test TMLE.key(new_estimator) != TMLE.key(estimator)
     @test_logs (:info, fit_log) new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 end
 
@@ -56,7 +54,7 @@ end
     model = MLJGLMInterface.LinearRegressor()
     estimator = TMLE.MLConditionalDistributionEstimator(model)
     conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, continuous_dataset; cache=Dict(), verbosity=verbosity)
-    ŷ = predict(conditional_density_estimate, continuous_dataset)
+    ŷ = MLJBase.predict(conditional_density_estimate, continuous_dataset)
     @test ŷ isa Vector{Normal{Float64}}
     μ̂ = TMLE.expected_value(conditional_density_estimate, continuous_dataset)
     @test [ŷᵢ.μ for ŷᵢ in ŷ] == μ̂
@@ -67,7 +65,7 @@ end
     model = MLJLinearModels.LinearRegressor()
     estimator = TMLE.MLConditionalDistributionEstimator(model)
     conditional_density_estimate = estimator(estimand, continuous_dataset; cache=Dict(), verbosity=0)
-    ŷ = predict(conditional_density_estimate, continuous_dataset)
+    ŷ = MLJBase.predict(conditional_density_estimate, continuous_dataset)
     @test ŷ isa Vector{Float64}
     μ̂ = TMLE.expected_value(conditional_density_estimate, continuous_dataset)
     @test ŷ == μ̂
@@ -89,13 +87,13 @@ end
     @test conditional_density_estimate isa TMLE.SampleSplitMLConditionalDistribution
     expected_features = collect(estimand.parents)
     @test all(fitted_params(mach).features == expected_features for mach in conditional_density_estimate.machines)
-    ŷ = predict(conditional_density_estimate, binary_dataset)
+    ŷ = MLJBase.predict(conditional_density_estimate, binary_dataset)
     @test ŷ isa UnivariateFiniteVector
     for foldid in 1:nfolds
         train, val = train_validation_indices[foldid]
         # The predictions on validation samples are made from
         # the machine trained on the train sample
-        ŷfold = predict(conditional_density_estimate.machines[foldid], binary_dataset[val, expected_features])
+        ŷfold = MLJBase.predict(conditional_density_estimate.machines[foldid], binary_dataset[val, expected_features])
         @test [ŷᵢ.prob_given_ref for ŷᵢ ∈ ŷ[val]] == [ŷᵢ.prob_given_ref for ŷᵢ ∈ ŷfold]
     end
     μ̂ = TMLE.expected_value(conditional_density_estimate, binary_dataset)
@@ -109,7 +107,6 @@ end
         LinearBinaryClassifier(),
         train_validation_indices
     )
-    @test TMLE.key(new_estimator) == TMLE.key(estimator)
     @test_logs (:info, reuse_log) estimator(estimand, binary_dataset;cache=cache, verbosity=verbosity)
     ## Changing the model leads to refit
     new_model = LinearBinaryClassifier(fit_intercept=false)
@@ -138,7 +135,7 @@ end
         train_validation_indices
     )
     conditional_density_estimate = estimator(estimand, continuous_dataset; verbosity=0)
-    ŷ = predict(conditional_density_estimate, continuous_dataset)
+    ŷ = MLJBase.predict(conditional_density_estimate, continuous_dataset)
     @test ŷ isa Vector{Distributions.Normal{Float64}}
     μ̂ = TMLE.expected_value(conditional_density_estimate, continuous_dataset)
     @test μ̂ isa Vector{Float64}
@@ -153,13 +150,28 @@ end
         train_validation_indices
     )
     conditional_density_estimate = estimator(estimand, continuous_dataset; verbosity=0)
-    ŷ = predict(conditional_density_estimate, continuous_dataset)
+    ŷ = MLJBase.predict(conditional_density_estimate, continuous_dataset)
     @test ŷ isa Vector{Float64}
     μ̂ = TMLE.expected_value(conditional_density_estimate, continuous_dataset)
     @test μ̂ == ŷ
     offset = TMLE.compute_offset(conditional_density_estimate, continuous_dataset)
     @test offset == μ̂
 end
+
+@testset "Test Conditional Distribution with no parents fits a marginal" begin
+    binary_dataset = DataFrame(Y = categorical([1, 1, 0, 0, 0]))
+    estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
+    estimand = TMLE.ConditionalDistribution(:Y, ())
+    estimate = estimator(estimand, binary_dataset, verbosity=0)
+    @test estimate.machine.model isa ConstantClassifier
+    ŷ = predict(estimate, binary_dataset)
+    @test TMLE.expected_value(ŷ) == fill(0.4, 5)
+
+    continuous_dataset = DataFrame(Y = [1., 2., 3., 4., 5.])
+    @test_throws ArgumentError estimator(estimand, continuous_dataset,verbosity=0)
+
+end
+
 end
 
 true

@@ -18,10 +18,10 @@ function truncate!(v::AbstractVector, ps_lowerbound::AbstractFloat)
     end
 end
 
-function balancing_weights(Gs, dataset; ps_lowerbound=1e-8)
+function balancing_weights(G, dataset; ps_lowerbound=1e-8)
     jointlikelihood = ones(nrows(dataset))
-    for G ∈ Gs
-        jointlikelihood .*= likelihood(G, dataset)
+    for Gᵢ ∈ G.components
+        jointlikelihood .*= likelihood(Gᵢ, dataset)
     end
     truncate!(jointlikelihood, ps_lowerbound)
     return 1. ./ jointlikelihood
@@ -52,15 +52,15 @@ where SpecialIndicator(t) is defined in `indicator_fns`.
 """
 function clever_covariate_and_weights(
     Ψ::StatisticalCMCompositeEstimand, 
-    Gs::Tuple{Vararg{ConditionalDistributionEstimate}}, 
+    G, 
     dataset; 
     ps_lowerbound=1e-8, 
     weighted_fluctuation=false
     )
     # Compute the indicator values
-    T = selectcols(dataset, (p.estimand.outcome for p in Gs))
+    T = selectcols(dataset, (p.estimand.outcome for p in G.components))
     indic_vals = indicator_values(indicator_fns(Ψ), T)
-    weights = balancing_weights(Gs, dataset; ps_lowerbound=ps_lowerbound)
+    weights = balancing_weights(G, dataset; ps_lowerbound=ps_lowerbound)
     if weighted_fluctuation
         return indic_vals, weights
     end

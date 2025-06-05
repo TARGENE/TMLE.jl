@@ -6,7 +6,7 @@
 Defines relevant factors that need to be estimated in order to estimate any
 Counterfactual Mean composite estimand (see `StatisticalCMCompositeEstimand`).
 """
-struct CMRelevantFactors <: Estimand
+@auto_hash_equals struct CMRelevantFactors <: Estimand
     outcome_mean::ConditionalDistribution
     propensity_score::Tuple{Vararg{ConditionalDistribution}}
 end
@@ -124,7 +124,7 @@ outcome_mean(Ψ::StatisticalCMCompositeEstimand) = ExpectedValue(Ψ.outcome, Tup
 
 outcome_mean_key(Ψ::StatisticalCMCompositeEstimand) = variables(outcome_mean(Ψ))
 
-function propensity_score(Ψ::StatisticalCMCompositeEstimand)
+function propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_strategy::Nothing=nothing)
     Ψtreatments = TMLE.treatments(Ψ)
     return Tuple(map(eachindex(Ψtreatments)) do index
         T = Ψtreatments[index]
@@ -135,9 +135,9 @@ end
 
 propensity_score_key(Ψ::StatisticalCMCompositeEstimand) = Tuple(variables(x) for x ∈ propensity_score(Ψ))
 
-function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand)
+function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand; collaborative_strategy=nothing)
     outcome_model = outcome_mean(Ψ)
-    treatment_factors = propensity_score(Ψ)
+    treatment_factors = propensity_score(Ψ, collaborative_strategy)
     return CMRelevantFactors(outcome_model, treatment_factors)
 end
 
@@ -224,7 +224,7 @@ function identify(method::BackdoorAdjustment, causal_estimand::T, scm::SCM) wher
 end
 
 function get_treatment_values(dataset, colname)
-    counts = groupcount(skipmissing(Tables.getcolumn(dataset, colname)))
+    counts = groupcount(skipmissing(dataset[!, colname]))
     sorted_counts = sort(collect(pairs(counts)), by = x -> x.second, rev=true)
     return first.(sorted_counts)
 end
@@ -271,7 +271,7 @@ If a NamedTuple of treatments_levels is provided as well as a dataset then the t
 """
 function make_or_check_treatment_levels(treatments_levels::Union{AbstractDict, NamedTuple}, dataset)
     for (treatment, treatment_levels) in zip(keys(treatments_levels), values(treatments_levels))
-        dataset_treatment_levels = Set(skipmissing(Tables.getcolumn(dataset, treatment)))
+        dataset_treatment_levels = Set(skipmissing(dataset[!, treatment]))
         missing_levels = setdiff(treatment_levels, dataset_treatment_levels)
         length(missing_levels) == 0 || 
             throw(ArgumentError(string("Not all levels provided for treatment ", treatment, " were found in the dataset: ", missing_levels)))

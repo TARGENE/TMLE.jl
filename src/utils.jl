@@ -1,11 +1,30 @@
 ###############################################################################
 ## General Utilities
 ###############################################################################
+const LOCK = ReentrantLock() 
+
+is_fluctuation_estimate(estimate::MLConditionalDistribution) = estimate.machine.model isa Fluctuation
+
+is_fluctuation_estimate(estimate) = false
+
+function update_cache!(cache, estimand, estimator, estimate)
+    is_fluctuation_estimate(estimate) && return
+    lock(LOCK) do 
+        estimand_cache = get!(cache, estimand, Dict())
+        estimand_cache[estimator] = estimate
+    end
+end
+
+function estimate_from_cache(cache, estimand, estimator; verbosity=1)
+    estimand_cache = get(cache, estimand, nothing)
+    estimand_cache === nothing && return nothing
+    estimate = get(estimand_cache, estimator, nothing)
+    verbosity > 0 && estimate !== nothing && @info(reuse_string(estimand))
+    return estimate
+end
 
 reuse_string(estimand) = string("Reusing estimate for: ", string_repr(estimand))
 fit_string(estimand) = string("Estimating: ", string_repr(estimand))
-
-key(estimand, estimator) = (key(estimand), key(estimator))
 
 unique_sorted_tuple(iter) = Tuple(sort(unique(Symbol(x) for x in iter)))
 
@@ -13,7 +32,7 @@ unique_sorted_tuple(iter) = Tuple(sort(unique(Symbol(x) for x in iter)))
 For "vanilla" estimators, missingness management is deferred to the nuisance function estimators. 
 This is in order to maximize data usage.
 """
-choose_initial_dataset(dataset, nomissing_dataset, resampling::Nothing) = dataset
+choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices::Nothing) = dataset
 
 """
 For cross-validated estimators, missing data are removed early on based on all columns relevant to the estimand. 
@@ -21,9 +40,17 @@ This is to avoid the complications of:
     - Equally distributing missing across folds
     - Tracking sample_ids
 """
-choose_initial_dataset(dataset, nomissing_dataset, resampling) = nomissing_dataset
+choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices) = nomissing_dataset
 
-selectcols(data, cols) = data |> TableOperations.select(cols...) |> Tables.columntable
+"""
+If no columns are provided, we return a single intercept column to accomodate marginal distribution fitting
+Otherwise we return the required columns avoiding copying by default.
+"""
+function selectcols(dataset, colnames; copycols=false)
+    return isempty(colnames) ? 
+        DataFrame(INTERCEPT=ones(nrows(dataset))) : 
+        DataFrames.select(dataset, collect(colnames), copycols=copycols)
+end
 
 function logit!(v)
     for i in eachindex(v)
@@ -31,22 +58,15 @@ function logit!(v)
     end
 end
 
-function nomissing(table)
-    sch = Tables.schema(table)
-    for type in sch.types
-        if nonmissingtype(type) != type
-            coltable = table |> 
-                       TableOperations.dropmissing |> 
-                       Tables.columntable
-            return NamedTuple{keys(coltable)}([disallowmissing(col) for col in coltable])
-        end
-    end
-    return table
-end
+ismissingtype(T) = nonmissingtype(T) !== T
 
-function nomissing(table, columns)
-    columns = selectcols(table, columns)
-    return nomissing(columns)
+function nomissing(dataset::DataFrame, colnames; disallowmissing=true, view=false, copycols=false)
+    subdataset = TMLE.selectcols(dataset, colnames, copycols=copycols)
+    return if all(!ismissingtype(eltype(c)) for c in eachcol(subdataset))
+        subdataset
+    else
+        dropmissing(subdataset, disallowmissing=disallowmissing, view=view)
+    end
 end
 
 function indicator_values(indicators, T)
@@ -61,12 +81,17 @@ expected_value(ŷ::AbstractArray{<:UnivariateFinite{<:Union{OrderedFactor{2}, Mu
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ
 
-function counterfactualTreatment(vals, T)
-    Tnames = Tables.columnnames(T)
-    n = nrows(T)
-    NamedTuple{Tnames}(
-            [categorical(repeat([vals[i]], n), levels=levels(Tables.getcolumn(T, name)), ordered=isordered(Tables.getcolumn(T, name)))
-                            for (i, name) in enumerate(Tnames)])
+function counterfactualTreatment(vals, Ts)
+    n = nrows(Ts)
+    counterfactual_Ts = map(enumerate(names(Ts))) do (i, T_name)
+        T = Ts[!, T_name]
+        categorical(fill(vals[i], n), 
+            levels=levels(T), 
+            ordered=isordered(T)
+        )
+    end
+    DataFrame(counterfactual_Ts, names(Ts))
+    return DataFrame(counterfactual_Ts, names(Ts))
 end
 
 """
@@ -100,7 +125,7 @@ default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(
     (key => with_encoder(val) for (key, val) in kwargs)...
 )
 
-is_binary(dataset, columnname) = Set(skipmissing(Tables.getcolumn(dataset, columnname))) == Set([0, 1])
+is_binary(dataset, columnname) = Set(skipmissing(dataset[!, columnname])) == Set([0, 1])
 
 function satisfies_positivity(Ψ, freq_table; positivity_constraint=0.01)
     for jointlevel in joint_levels(Ψ)
@@ -123,10 +148,57 @@ get_frequency_table(positivity_constraint, dataset::Nothing, colnames) =
 get_frequency_table(positivity_constraint, dataset, colnames) = get_frequency_table(dataset, colnames)
 
 function get_frequency_table(dataset, colnames)
-    iterator = zip((Tables.getcolumn(dataset, colname) for colname in sort(collect(colnames)))...)
+    iterator = zip((dataset[!, colname] for colname in sort(collect(colnames)))...)
     counts = groupcount(x -> x, iterator) 
     for key in keys(counts)
         counts[key] /= nrows(dataset)
     end
     return counts
 end
+
+function try_fit_ml_estimator(ml_estimator, conditional_distribution, dataset;
+    error_fn=outcome_mean_fit_error_msg,
+    cache=Dict(),
+    verbosity=1,
+    machine_cache=false,
+    acceleration=CPU1()
+    )
+    return try
+        ml_estimator(conditional_distribution, dataset; 
+            cache=cache, 
+            verbosity=verbosity, 
+            machine_cache=machine_cache,
+            acceleration=acceleration
+            )
+    catch e
+        throw(FitFailedError(conditional_distribution, error_fn(conditional_distribution), e))
+    end
+end
+
+
+struct FitFailedError <: Exception
+    estimand::Estimand
+    msg::String
+    origin::Exception
+end
+
+default_fit_error_msg(factor) = string(
+    "Could not fit the following model: ", 
+    string_repr(factor), 
+    ".\n Hint: don't forget to use `with_encoder` to encode categorical variables.")
+
+propensity_score_fit_error_msg(factor) = string("Could not fit the following propensity score model: ", string_repr(factor))
+
+outcome_mean_fit_error_msg(factor) = string(
+    "Could not fit the following Outcome mean model: ", 
+    string_repr(factor), 
+    ".\n Hint: don't forget to use `with_encoder` to encode categorical variables.")
+
+outcome_mean_fluctuation_fit_error_msg(factor) = string(
+    "Could not fluctuate the following Outcome mean: ", 
+    string_repr(factor), 
+    ".")
+
+Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
+
+with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)

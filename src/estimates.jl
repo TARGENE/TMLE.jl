@@ -26,7 +26,8 @@ string_repr(estimate::MLConditionalDistribution) = string(
 )
 
 function MLJBase.predict(estimate::MLConditionalDistribution, dataset)
-    X = selectcols(dataset, estimate.estimand.parents)
+    parents = estimate.estimand.parents
+    X = selectcols(dataset, parents)
     return predict(estimate.machine, X)
 end
 
@@ -37,10 +38,12 @@ end
 
 """
 Holds a Sample Split Machine Learning estimate for a Conditional Distribution.
+Each machine in `machines` contains a ML model trained on a different training fold of the data.
+The predictions are made out of fold, i.e. for each fold k, the predictions are made using the machine trained on fold k̄.
 """
 struct SampleSplitMLConditionalDistribution <: Estimate
     estimand::ConditionalDistribution
-    train_validation_indices::Tuple
+    train_validation_indices
     machines::Vector{Machine}
 end
 
@@ -128,7 +131,7 @@ end
 
 function likelihood(estimate::ConditionalDistributionEstimate, dataset)
     ŷ = predict(estimate, dataset)
-    y = Tables.getcolumn(dataset, estimate.estimand.outcome)
+    y = dataset[!, estimate.estimand.outcome]
     return pdf.(ŷ, y)
 end
 
@@ -148,7 +151,16 @@ function compute_offset(estimate::ConditionalDistributionEstimate, X)
 end
 
 #####################################################################
-###                       Joint Estimate                      ###
+###            JointConditionalDistributionEstimate               ###
+#####################################################################
+
+struct JointConditionalDistributionEstimate{T, N} <: Estimate
+    estimand::Tuple{Vararg{ConditionalDistribution, N}}
+    components::Tuple{Vararg{T, N}}
+end
+
+#####################################################################
+###                        Joint Estimate                         ###
 #####################################################################
 
 struct JointEstimate{T<:AbstractFloat} <: Estimate
@@ -190,6 +202,7 @@ to_dict(estimate::JointEstimate) = Dict(
 #####################################################################
 ###                       Composed Estimate                       ###
 #####################################################################
+
 struct ComposedEstimate{T<:AbstractFloat} <: Estimate
     estimand::ComposedEstimand
     estimates::Vector{T}

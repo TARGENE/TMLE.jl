@@ -14,18 +14,18 @@ Fluctuation(Ψ, initial_factors; tol=nothing, max_iter=1, ps_lowerbound=1e-8, we
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:MLJBase.Continuous} = LinearRegressor(fit_intercept=false, offsetcol = :offset)
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:Finite} = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
 
-same_type_nt(covariate::AbstractVector{T}, offset::AbstractVector{T}) where T = (covariate=covariate, offset=offset)
+same_type_df(covariate::AbstractVector{T}, offset::AbstractVector{T}) where T = DataFrame(covariate=covariate, offset=offset)
 
 """
 
 The GLM models require inputs of the same type, which sometimes is not the case
 """
-same_type_nt(covariate::AbstractVector{T1}, offset::AbstractVector{T2}) where {T1, T2} = 
-    (covariate=covariate, offset=convert(Vector{T1}, offset))
+same_type_df(covariate::AbstractVector{T1}, offset::AbstractVector{T2}) where {T1, T2} = 
+    DataFrame(covariate=covariate, offset=convert(Vector{T1}, offset))
 
 function fluctuation_input(covariate, ŷ)
     offset = compute_offset(ŷ)
-    return same_type_nt(covariate, offset)
+    return same_type_df(covariate, offset)
 end
 
 hasconverged(gradient, tol) = abs(mean(gradient)) < tol
@@ -76,11 +76,11 @@ function initialize_counterfactual_cache(model, X)
     Ψ = model.Ψ
 
     counterfactual_cache = (predictions=[], signs=[], covariates=[], weights=[])
-    X = Tables.columntable(X)
     Ttemplate = selectcols(X, treatments(Ψ))
     for (vals, sign) in indicator_fns(Ψ)
         T_ct = counterfactualTreatment(vals, Ttemplate)
-        X_ct = merge(X, T_ct)
+        X_ct = DataFrame((;(Symbol(colname) => colname ∈ names(T_ct) ? T_ct[!, colname] : X[!, colname] for colname in names(X))...))
+        
         covariates_ct, w_ct = clever_covariate_and_weights(Ψ, 
             G⁰,
             X_ct; 
@@ -181,7 +181,7 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
     report = (estimates = [], gradients = [], epsilons = [])
     machines = []
     for iter in 1:model.max_iter
-        verbosity >= 0 && @info(string("TMLE step: ", iter, "."))
+        verbosity > 0 && @info(string("TMLE step: ", iter, "."))
         # Fit new fluctuation using observed data
         Xfluct = fluctuation_input(observed_cache[:H], observed_cache[:ŷ])
         Q = machine(
@@ -191,7 +191,7 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
             observed_cache[:w],
             cache=model.cache
         )
-        fit!(Q, verbosity=verbosity-1)
+        MLJBase.fit!(Q, verbosity=verbosity-1)
         push!(machines, Q)
         # Compute the estimate, gradient and update caches
         gradient, Ψ̂ = compute_gradient_and_estimate_from_caches!(
@@ -202,11 +202,11 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
         )
         update_report!(report, Ψ̂, gradient, fitted_params(Q).coef)
         if hasconverged(gradient, model.tol)
-            verbosity >= 0 && @info("Convergence criterion reached.")
+            verbosity > 0 && @info("Convergence criterion reached.")
             return machines, nothing, report
         end
     end
-    verbosity >= 0 && @info("Convergence criterion not reached.")
+    verbosity > 0 && @info("Convergence criterion not reached.")
     return machines, nothing, report
 end
 

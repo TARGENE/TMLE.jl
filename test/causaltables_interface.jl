@@ -15,14 +15,14 @@ using Distributions
     ct = rand(scm, 100)
     Ψ = ATE(outcome = :Y, treatment_values = (A = (case = 1, control = 0),))
 
-    # Test TMLEE
-    estimator = TMLEE()
-    result, cache = estimator(Ψ, ct)
+    # Test Tmle
+    estimator = Tmle()
+    result, cache = estimator(Ψ, ct, verbosity=0)
     @test result isa TMLE.TMLEstimate
 
     # Test OSE
-    estimator = OSE()
-    result, _ = estimator(Ψ, ct, cache=cache)
+    estimator = Ose()
+    result, _ = estimator(Ψ, ct, cache=cache, verbosity=0)
     @test result isa TMLE.OSEstimate
 end
 

@@ -2,7 +2,7 @@
 CurrentModule = TMLE
 ```
 
-# Estimation
+# Estimators
 
 ## Constructing and Using Estimators
 
@@ -15,7 +15,7 @@ using CategoricalArrays
 using TMLE
 using LogExpFunctions
 using MLJLinearModels
-using MLJ
+using MLJBase
 
 function make_dataset(;n=1000)
     rng = StableRNG(123)
@@ -53,8 +53,8 @@ scm = SCM([
 
 Once a statistical estimand has been defined, we can proceed with estimation. There are two semi-parametric efficient estimators in TMLE.jl:
 
-- The Targeted Maximum-Likelihood Estimator (`TMLEE`)
-- The One-Step Estimator (`OSE`)
+- The Targeted Maximum-Likelihood Estimator (`Tmle`)
+- The One-Step Estimator (`Ose`)
 
 While they have similar asymptotic properties, their finite sample performance may be different. They also have a very distinguishing feature, the TMLE is a plugin estimator, which means it respects the natural bounds of the estimand of interest. In contrast, the OSE may in theory report values outside these bounds. In practice, this is not often the case and the estimand of interest may not impose any restriction on its domain.
 
@@ -67,7 +67,7 @@ Drawing from the example dataset and `SCM` from the Walk Through section, we can
     treatment_confounders=(T₁=[:W₁₁, :W₁₂],),
     outcome_extra_covariates=[:C]
 )
-tmle = TMLEE()
+tmle = Tmle()
 result₁, cache = tmle(Ψ₁, dataset);
 result₁
 nothing # hide
@@ -87,7 +87,7 @@ Both the TMLE and OSE are asymptotically linear estimators, standard Z/T tests f
 tmle_test_result₁ = pvalue(OneSampleTTest(result₁))
 ```
 
-Let us now turn to the Average Treatment Effect of `T₂`, we will estimate it with a `OSE`:
+Let us now turn to the Average Treatment Effect of `T₂`, we will estimate it with a `Ose`:
 
 ```@example estimation
 Ψ₂ = ATE(
@@ -96,7 +96,7 @@ Let us now turn to the Average Treatment Effect of `T₂`, we will estimate it w
     treatment_confounders=(T₂=[:W₂₁, :W₂₂],),
     outcome_extra_covariates=[:C]
 )
-ose = OSE()
+ose = Ose()
 result₂, cache = ose(Ψ₂, dataset;cache=cache);
 result₂
 nothing # hide
@@ -121,7 +121,7 @@ models = default_models(
     Q_continuous = xgboost_regressor,
     G            = xgboost_classifier
 )
-tmle_gboost = TMLEE(models=models)
+tmle_gboost = Tmle(models=models)
 ```
 
 The advantage of using `default_models` is that it will automatically prepend each model with a [ContinuousEncoder](https://alan-turing-institute.github.io/MLJ.jl/dev/transformers/#MLJModels.ContinuousEncoder) to make sure the correct types are passed to the downstream models.
@@ -144,7 +144,7 @@ models = default_models( # For all non-specified variables use the following def
         # Unspecified G defaults to Logistic Regression
 )
 
-tmle_custom = TMLEE(models=models)
+tmle_custom = Tmle(models=models)
 ```
 
 Notice that `with_encoder` is simply a shorthand to construct a pipeline with a `ContinuousEncoder` and that the resulting `models` is simply a `Dict`.
@@ -154,13 +154,13 @@ Notice that `with_encoder` is simply a shorthand to construct a pipeline with a 
 Canonical TMLE/OSE are essentially using the dataset twice, once for the estimation of the nuisance functions and once for the estimation of the parameter of interest. This means that there is a risk of over-fitting and residual bias ([see here](https://arxiv.org/abs/2203.06469) for some discussion). One way to address this limitation is to use a technique called sample-splitting / cross-validation. In order to activate the sample-splitting mode, simply provide a `MLJ.ResamplingStrategy` using the `resampling` keyword argument:
 
 ```@example estimation
-TMLEE(resampling=StratifiedCV());
+Tmle(resampling=StratifiedCV());
 ```
 
 or
 
 ```julia
-OSE(resampling=StratifiedCV(nfolds=3));
+Ose(resampling=StratifiedCV(nfolds=3));
 ```
 
 There are some practical considerations
@@ -168,6 +168,30 @@ There are some practical considerations
 - Choice of `resampling` Strategy: The theory behind sample-splitting requires the nuisance functions to be sufficiently well estimated on **each and every** fold. A practical aspect of it is that each fold should contain a sample representative of the dataset. In particular, when the treatment and outcome variables are categorical it is important to make sure the proportions are preserved. This is typically done using `StratifiedCV`.
 - Computational Complexity: Sample-splitting results in ``K`` fits of the nuisance functions, drastically increasing computational complexity. In particular, if the nuisance functions are estimated using (P-fold) Super-Learning, this will result in two nested cross-validation loops and ``K \times P`` fits.
 - Caching of Nuisance Functions: Because the `resampling` strategy typically needs to preserve the outcome and treatment proportions, very little reuse of cached models is possible (see [Using the Cache](@ref)).
+
+## C-TMLE
+
+Collaborative TMLE (C-TMLE) is an estimation strategy which optimises all nuisance parameters in order to improve estimation performance. For some background material, see [this paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC6086775/#S4) and the [original paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC2898626/#sec48). In the example of the average treatment effect, the propensity score is optimised alongside the targeted step optimising the outcome mean. A sequence of nested estimators is built and the propensity score candidate minimising the cross-validated loss of the associated targeted outcome mean model is selected.
+
+There exist many strategies to optimise the propensity score, at the moment we provide two such strategies in this package. Since C-TMLE is an expensive estimation strategy, an additional `patience` variable can be used for early stopping. If the cross-validated loss of the targeted outcome mean model is not reduced in `patience` iterations, the procedure returns the current best candidate.
+
+### Greedy Strategy
+
+This is the original implementation of the C-TMLE template, it operates as a forward variable selection. Initially, the propensity score consists in a marginal model ``p(T|W)=p(T)``. Then, at each iteration, remaining confounding variables are temptatively added to the propensity score model one at a time. The variable minimising the targeted outcome mean model's loss is retained for the iteration.
+
+```@example estimation
+greedy_strategy = GreedyStrategy(patience=10)
+greedy_ctmle = Tmle(collaborative_strategy=greedy_strategy)
+```
+
+### Adaptive Correlation Strategy
+
+This is a scalable version of the C-TMLE template which also operates as a forward selection method. However, instead of iterating through all potential confounders at each iteration, the confounder most associated with the residuals of the last targeted outcome mean is selected.
+
+```@example estimation
+adapt_cor_strategy = AdaptiveCorrelationStrategy(patience=10)
+adapt_cor_ctmle = Tmle(collaborative_strategy=adapt_cor_strategy)
+```
 
 ## Using the Cache
 
@@ -217,7 +241,7 @@ nothing # hide
 
 All nuisance functions have been reused, only the fluctuation is fitted!
 
-## Accessing Fluctuations' Reports (Advanced)
+## Accessing Fluctuations' Reports
 
 The cache also holds the last targeted factor that was estimated if TMLE was used. Some key information related to the targeting steps can be accessed, for example:
 

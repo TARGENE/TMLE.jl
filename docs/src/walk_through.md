@@ -8,7 +8,7 @@ The goal of this section is to provide a comprehensive (but non-exhaustive) illu
 
 ## The Dataset
 
-TMLE.jl is compatible with any dataset respecting the [Tables.jl](https://tables.juliadata.org/stable/) interface, that is for instance, a `NamedTuple`, a `DataFrame`, an `Arrow.Table` etc... In this section, we will be working with the same dataset all along.
+TMLE.jl is compatible with any dataset wrapped in a [DataFrame](https://dataframes.juliadata.org/stable/), note that it is possible to wrap an [Arrow Table](https://arrow.apache.org/julia/stable/manual/#Arrow.Table) for instance, in a Dataframe object. In this section, we will be working with the same dataset all along.
 
 ⚠️ One thing to note is that treatment variables as well as binary outcomes **must** be encoded as `categorical` variables in the dataset (see [MLJ Working with categorical data](https://alan-turing-institute.github.io/MLJ.jl/dev/working_with_categorical_data/)).
 
@@ -135,7 +135,7 @@ Alternatively, you can also directly define the statistical parameters (see [Est
 Then each parameter can be estimated by building an estimator (which is simply a function) and evaluating it on data. For illustration, we will keep the models simple. We define a Targeted Maximum Likelihood Estimator:
 
 ```@example walk-through
-tmle = TMLEE()
+tmle = Tmle()
 ```
 
 Because we haven't identified the `cm` causal estimand yet, we need to provide the `scm` as well to the estimator:
@@ -148,7 +148,7 @@ result
 Statistical Estimands can be estimated without a ``SCM``, let's use the One-Step estimator:
 
 ```@example walk-through
-ose = OSE()
+ose = Ose()
 result, cache = ose(statistical_aie, dataset)
 result
 ```

@@ -18,7 +18,7 @@ Y \sim \mathcal{N}(e^{1 - 10 \cdot T + W}, 1)
 =#
 
 using TMLE
-using MLJ
+using MLJBase
 using Distributions
 using StableRNGs
 using LogExpFunctions
@@ -161,7 +161,7 @@ function tmle_inference(data)
         :Y    => with_encoder(LinearRegressor()), 
         :Tcat => with_encoder(LinearBinaryClassifier())
     )
-    tmle = TMLEE(models=models)
+    tmle = Tmle(models=models)
     result, _ = tmle(Ψ, data; verbosity=0)
     lb, ub = confint(OneSampleTTest(result))
     return (TMLE.estimate(result), lb, ub)

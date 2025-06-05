@@ -3,9 +3,10 @@ module TestEstimands
 using Test
 using TMLE
 using OrderedCollections
+using DataFrames
 
 @testset "Test StatisticalCMCompositeEstimand" begin
-    dataset = (
+    dataset = DataFrame(
         W  = [1, 2, 3, 4, 5, 6, 7, 8],
         T₁ = ["A", "B", "A", "B", "A", "B", "A", "B"],
         T₂ = [0, 0, 1, 1, 0, 0, 1, 1],
@@ -231,7 +232,7 @@ end
 end
 
 @testset "Test unique_treatment_values" begin
-    dataset = (
+    dataset = DataFrame(
         T₁ = ["AC", missing, "AC", "CC", "CC", "AA", "CC"],
         T₂ = [1, missing, 1, 2, 2, 3, 2]
     )
@@ -245,7 +246,7 @@ end
 end
 
 @testset "factorialEstimand errors" begin
-    dataset = (
+    dataset = DataFrame(
         T₁ = [0, 1, 2, missing], 
         T₂ = ["AC", "CC", missing, "AA"],
     )
@@ -265,7 +266,7 @@ end
 end
 
 @testset "Test factorial CM" begin
-    dataset = (
+    dataset = DataFrame(
         T₁ = [0, 1, 2, missing], 
         T₂ = ["AC", "CC", missing, "AA"],
         W₁ = [1, 2, 3, 4],
@@ -296,7 +297,7 @@ end
 end
 
 @testset "Test factorial ATE" begin
-    dataset = (
+    dataset = DataFrame(
         T₁ = [0, 1, 2, missing], 
         T₂ = ["AC", "CC", missing, "AA"],
         W₁ = [1, 2, 3, 4],
@@ -354,10 +355,31 @@ end
         verbosity=0
     )
     @test length(jointATE.args) == 1
+    # Given treatment levels
+    ate = factorialEstimand(ATE, (T₁ = [0, 1], T₂ = ["AA", "AC", "CC"]), :Y₁;
+        dataset=dataset, 
+        confounders=[:W₁, :W₂],
+        outcome_extra_covariates=[:C],
+        verbosity=0
+    )
+    @test ate == JointEstimand(
+        TMLE.StatisticalATE(
+            outcome = :Y₁, 
+            treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = "AC", control = "AA")),
+            treatment_confounders = (:W₁, :W₂),
+            outcome_extra_covariates=[:C]
+        ),
+        TMLE.StatisticalATE(
+            outcome = :Y₁, 
+            treatment_values = (T₁ = (case = 1, control = 0), T₂ = (case = "CC", control = "AC")),
+            treatment_confounders = (:W₁, :W₂),
+            outcome_extra_covariates=[:C]
+        )
+    )
 end
 
 @testset "Test factorial AIE" begin
-    dataset = (
+    dataset = DataFrame(
         T₁ = [0, 1, 2, missing], 
         T₂ = ["AC", "CC", missing, "AA"],
         W₁ = [1, 2, 3, 4],
@@ -432,7 +454,7 @@ end
 end
 
 @testset "Test factorialEstimands" begin
-    dataset = (
+    dataset = DataFrame(
         T₁ = [0, 1, 2, missing], 
         T₂ = ["AC", "CC", missing, "AA"],
         W₁ = [1, 2, 3, 4],

@@ -6,6 +6,7 @@ using MLJBase
 using CategoricalArrays
 using MLJLinearModels
 using MLJModels
+using DataFrames
 
 @testset "Test expected_value" begin
     n = 100
@@ -18,7 +19,7 @@ using MLJModels
     proba = mach.fitresult[2][2]
     ŷ = MLJBase.predict(mach)
     expectation = TMLE.expected_value(ŷ)
-    @test expectation == repeat([proba], n)
+    @test expectation == fill(proba, n)
 
     # Probabilistic Regressor
     y = rand(n)
@@ -26,7 +27,7 @@ using MLJModels
     fit!(mach; verbosity=0)
     ŷ = MLJBase.predict(mach)
     expectation = TMLE.expected_value(ŷ)
-    @test expectation ≈ repeat([mean(y)], n) atol=1e-10
+    @test expectation ≈ fill(mean(y), n) atol=1e-10
 
     # Deterministic Regressor
     mach = machine(LinearRegressor(), X, y)
@@ -38,12 +39,12 @@ end
 
 @testset "Test counterfactualTreatment" begin
     vals = (true, "a")
-    T = (
+    T = DataFrame(
         T₁ = categorical([true, false, false], ordered=true),
         T₂ = categorical(["a", "a", "c"])
     )
     cfT = TMLE.counterfactualTreatment(vals, T)
-    @test cfT == (
+    @test cfT == DataFrame(
         T₁ = categorical([true, true, true]),
         T₂ = categorical(["a", "a", "a"])
     )
@@ -59,7 +60,7 @@ end
     ## An error is thrown if no dataset is provided but a positivity constraint is given
     @test_throws ArgumentError("A dataset should be provided to enforce a positivity constraint.") TMLE.get_frequency_table(0.1, nothing, [1, 2])
     ## when both positivity constraint and datasets are provided
-    dataset = (
+    dataset = DataFrame(
         A = [1, 1, 0, 1, 0, 2, 2, 1],
         B = ["AC", "CC", "AA", "AA", "AA", "AA", "AA", "AA"]
     ) 
@@ -150,6 +151,27 @@ end
         (1, "AA", 2),
         (0, "AA", 2)])
     @test expected_joint_levels == Set(TMLE.joint_levels(Ψ))
+end
+
+@testset "Test selectcols" begin
+    dataset = DataFrame(
+        A = [1, 1, 0, 1, 0, 2, 2, 1],
+        B = ["AC", "CC", "AA", "AA", "AA", "AA", "AA", "AA"],
+        C = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    )
+    # Check columns are not copied
+    selected_cols = TMLE.selectcols(dataset, [:A, :B])
+    @test selected_cols.A === dataset.A
+    @test selected_cols.B === dataset.B
+
+    # Check columns are copied
+    selected_cols = TMLE.selectcols(dataset, (:A, ); copycols=true)
+    @test selected_cols.A !== dataset.A
+    @test selected_cols.A == dataset.A
+
+    # No column results in empty dataframe
+    selected_cols = TMLE.selectcols(dataset, [])
+    @test selected_cols == DataFrame(INTERCEPT=[1, 1, 1, 1, 1, 1, 1, 1])
 end
 
 end;

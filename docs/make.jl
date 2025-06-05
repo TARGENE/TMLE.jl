@@ -1,6 +1,9 @@
 using TMLE
 using Documenter
 using Literate
+using Logging
+
+Logging.disable_logging(Logging.Warn)
 
 DocMeta.setdocmeta!(TMLE, :DocTestSetup, :(using TMLE); recursive=true)
 
@@ -30,7 +33,13 @@ makedocs(;
         "Home" => "index.md",
         "Walk Through" => "walk_through.md",
         "User Guide" => [joinpath("user_guide", f) for f in 
-            ("scm.md", "estimands.md", "estimation.md")],
+            ("scm.md", 
+            "estimands.md", 
+            "estimation.md", 
+            "resampling.md", 
+            "acceleration.md",
+            "missingness.md"
+            )],
         "Examples" => [
             joinpath("examples", "super_learning.md"),
             joinpath("examples", "double_robustness.md"),
@@ -40,6 +49,7 @@ makedocs(;
         "Estimators' Cheat Sheet" => "estimators_cheatsheet.md",
         "Learning Resources" => "resources.md",
         "API Reference" => "api.md",
+        "Contributing & Reporting" => "contributing.md",
         
     ],
     pagesonly=true,

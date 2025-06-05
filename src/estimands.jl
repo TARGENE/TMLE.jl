@@ -57,16 +57,11 @@ Makes sure the defined treatment levels are present in the dataset.
 """
 function check_treatment_levels(Ψ::Estimand, dataset)
     for T in treatments(Ψ)
-        treatment_levels = levels(Tables.getcolumn(dataset, T))
+        treatment_levels = levels(dataset[!, T])
         treatment_settings = Ψ.treatment_values[T]
         check_treatment_settings(treatment_settings, treatment_levels, T)
     end
 end
-
-"""
-Function used to sort estimands for optimal estimation ordering.
-"""
-key(estimand::Estimand) = estimand
 
 #####################################################################
 ###                   Conditional Distribution                    ###
@@ -74,7 +69,7 @@ key(estimand::Estimand) = estimand
 """
 Defines a Conditional Distribution estimand ``(outcome, parents) → P(outcome|parents)``.
 """
-struct ConditionalDistribution <: Estimand
+@auto_hash_equals struct ConditionalDistribution <: Estimand
     outcome::Symbol
     parents::Tuple{Vararg{Symbol}}
     function ConditionalDistribution(outcome, parents)

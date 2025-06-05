@@ -4,56 +4,149 @@ abstract type Estimator end
 ###               MLConditionalDistributionEstimator              ###
 #####################################################################
 
-struct MLConditionalDistributionEstimator <: Estimator
+@auto_hash_equals struct MLConditionalDistributionEstimator <: Estimator
     model::MLJBase.Supervised
+    train_validation_indices
 end
 
-function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
+MLConditionalDistributionEstimator(models; train_validation_indices=nothing) = 
+    MLConditionalDistributionEstimator(models, train_validation_indices)
+
+marginal_model(y::CategoricalVector) = ConstantClassifier()
+
+marginal_model(y::AbstractVector) = throw(ArgumentError(string("Marginal model not implemented for non categorical targets, type of the target: ", eltype(y))))
+
+"""
+    actual_model(model, parents, y)
+
+If there are no parents, we are trying to fit a marginal distribution, 
+then we return a constant classifier. Otherwise we return the user-specified model.
+
+This situation can arise in at least two cases for the propensity score:
+- Initialisation of some CTMLE strategies
+- There is actually no confounders
+
+Since there is no current understanding of when this could arise for a continuous outcome y, we throw an error if y is not categorical.
+"""
+actual_model(model, parents, y) =
+    isempty(parents) ? marginal_model(y) : model
+
+function fit_mlj_model(model, X, y; parents=names(X), cache=false, verbosity=1)
+    model = actual_model(model, parents, y)
+    mach = machine(model, X, y, cache=cache)
+    MLJBase.fit!(mach, verbosity=verbosity)
+    return mach
+end
+
+function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
+    cache=Dict(), 
+    verbosity=1, 
+    machine_cache=false,
+    acceleration=CPU1()
+    )
     # Lookup in cache
-    if haskey(cache, estimand)
-        old_estimator, estimate = cache[estimand]
-        if key(old_estimator) == key(estimator)
-            verbosity > 0 && @info(reuse_string(estimand))
-            return estimate
-        end
-    end
+    estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
+    estimate !== nothing && return estimate
+
     verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
     # Otherwise estimate
     relevant_dataset = nomissing(dataset, variables(estimand))
+    relevant_dataset = training_rows(relevant_dataset, estimator.train_validation_indices)
     # Fit Conditional DIstribution using MLJ
-    X = selectcols(relevant_dataset, estimand.parents)
-    y = Tables.getcolumn(relevant_dataset, estimand.outcome)
-    mach = machine(estimator.model, X, y, cache=machine_cache)
-    fit!(mach, verbosity=verbosity-1)
+    X = TMLE.selectcols(relevant_dataset, estimand.parents)
+    y = relevant_dataset[!, estimand.outcome]
+    mach = fit_mlj_model(estimator.model, X, y; 
+        parents=estimand.parents, 
+        cache=machine_cache, 
+        verbosity=verbosity-1
+    )
     # Build estimate
     estimate = MLConditionalDistribution(estimand, mach)
     # Update cache
-    cache[estimand] = estimator => estimate
+    update_cache!(cache, estimand, estimator, estimate)
 
     return estimate
 end
 
-key(estimator::MLConditionalDistributionEstimator) =
-    (MLConditionalDistributionEstimator, estimator.model)
+training_rows(dataset, train_validation_indices) = selectrows(dataset, train_validation_indices[1])
+
+training_rows(dataset, train_validation_indices::Nothing) = dataset
 
 #####################################################################
 ###       SampleSplitMLConditionalDistributionEstimator           ###
 #####################################################################
 
-struct SampleSplitMLConditionalDistributionEstimator <: Estimator
+"""
+Estimates a conditional distribution (or regression) for each training set defined by `train_validation_indices`.
+"""
+@auto_hash_equals struct SampleSplitMLConditionalDistributionEstimator <: Estimator
     model::MLJBase.Supervised
-    train_validation_indices::Tuple
+    train_validation_indices
 end
 
-function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, dataset; cache=Dict(), verbosity=1, machine_cache=false)
-    # Lookup in cache
-    if haskey(cache, estimand)
-        old_estimator, estimate = cache[estimand]
-        if key(old_estimator) == key(estimator)
-            verbosity > 0 && @info(reuse_string(estimand))
-            return estimate
-        end
+function update_sample_split_machines_with_fold!(machines::Vector{Machine}, 
+    estimator, 
+    estimand, 
+    dataset, 
+    fold_id;
+    machine_cache=false, 
+    verbosity=1
+    )
+    train_indices, _ = estimator.train_validation_indices[fold_id]
+    train_dataset = selectrows(dataset, train_indices)
+    Xtrain = selectcols(train_dataset, estimand.parents)
+    ytrain = train_dataset[!, estimand.outcome]
+    machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
+        parents=estimand.parents, 
+        cache=machine_cache, 
+        verbosity=verbosity
+    )
+end
+
+function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPU1, estimator, estimand, dataset;
+    machine_cache=false, 
+    verbosity=1
+    )
+    nfolds = length(machines)
+    for fold_id in 1:nfolds
+        update_sample_split_machines_with_fold!(machines,
+            estimator, 
+            estimand, 
+            dataset, 
+            fold_id;
+            machine_cache=machine_cache, 
+            verbosity=verbosity
+        )
     end
+end
+
+function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPUThreads, estimator, estimand, dataset;
+    machine_cache=false, 
+    verbosity=1
+    )
+    nfolds = length(machines)
+    @threads for fold_id in 1:nfolds
+        update_sample_split_machines_with_fold!(machines,
+            estimator, 
+            estimand, 
+            dataset, 
+            fold_id;
+            machine_cache=machine_cache, 
+            verbosity=verbosity
+        )
+    end
+end
+
+function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, dataset; 
+    cache=Dict(), 
+    verbosity=1, 
+    machine_cache=false,
+    acceleration=CPU1()
+    )
+    # Lookup in cache
+    estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
+    estimate !== nothing && return estimate
+
     # Otherwise estimate
     verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
     
@@ -61,33 +154,83 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     nfolds = size(estimator.train_validation_indices, 1)
     machines = Vector{Machine}(undef, nfolds)
     # Fit Conditional Distribution on each training split using MLJ
-    for (index, (train_indices, _)) in enumerate(estimator.train_validation_indices)
-        train_dataset = selectrows(relevant_dataset, train_indices)
-        Xtrain = selectcols(train_dataset, estimand.parents)
-        ytrain = Tables.getcolumn(train_dataset, estimand.outcome)
-        mach = machine(estimator.model, Xtrain, ytrain, cache=machine_cache)
-        fit!(mach, verbosity=verbosity-1)
-        machines[index] = mach
-    end
+    fit_sample_split_machines!(machines, acceleration, estimator, estimand, relevant_dataset;
+        machine_cache=machine_cache, 
+        verbosity=verbosity-1,
+        )
     # Build estimate
     estimate = SampleSplitMLConditionalDistribution(estimand, estimator.train_validation_indices, machines)
     # Update cache
-    cache[estimand] = estimator => estimate
+    update_cache!(cache, estimand, estimator, estimate)
 
     return estimate
 end
 
-key(estimator::SampleSplitMLConditionalDistributionEstimator) =
-    (MLConditionalDistributionEstimator, estimator.model, estimator.train_validation_indices)
+ConditionalDistributionEstimator(model, train_validation_indices::Union{Nothing,Tuple}) =
+    MLConditionalDistributionEstimator(model, train_validation_indices)
 
-ConditionalDistributionEstimator(train_validation_indices::Nothing, model) =
-    MLConditionalDistributionEstimator(model)
-
-ConditionalDistributionEstimator(train_validation_indices, model) =
+ConditionalDistributionEstimator(model, train_validation_indices::AbstractVector) =
     SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices)
 
+    
 #####################################################################
-###                   JointEstimand Estimator                  ###
+###            JointConditionalDistributionEstimator              ###
+#####################################################################
+
+@auto_hash_equals struct JointConditionalDistributionEstimator <: Estimator 
+    cd_estimators::Dict{Symbol, Any}
+end
+
+function fit_conditional_distributions(acceleration::CPU1, cd_estimators, conditional_distributions, dataset; cache=Dict(), verbosity=1, machine_cache=false)
+    return map(conditional_distributions) do conditional_distribution
+        cd_estimator = cd_estimators[conditional_distribution.outcome]
+        try_fit_ml_estimator(cd_estimator, conditional_distribution, dataset;
+            error_fn=propensity_score_fit_error_msg,
+            cache=cache,
+            verbosity=verbosity,
+            machine_cache=machine_cache,
+            acceleration=acceleration
+        )
+    end
+end
+
+function fit_conditional_distributions(acceleration::CPUThreads, cd_estimators, conditional_distributions, dataset; 
+    cache=Dict(),
+    verbosity=1, 
+    machine_cache=false
+    )
+    n_components = length(conditional_distributions)
+    estimates = Vector{ConditionalDistributionEstimate}(undef, n_components)
+    @threads for cd_index in 1:n_components
+        conditional_distribution = conditional_distributions[cd_index]
+        cd_estimator = cd_estimators[conditional_distribution.outcome]
+        estimates[cd_index] = try_fit_ml_estimator(cd_estimator, conditional_distribution, dataset;
+            error_fn=propensity_score_fit_error_msg,
+            cache=cache,
+            verbosity=verbosity,
+            machine_cache=machine_cache,
+            acceleration=acceleration
+        )
+    end
+    return Tuple(estimates)
+end
+
+function (estimator::JointConditionalDistributionEstimator)(conditional_distributions, dataset; 
+    cache=Dict(), 
+    verbosity=1, 
+    machine_cache=false,
+    acceleration=CPU1()
+    )
+    estimates = fit_conditional_distributions(acceleration, estimator.cd_estimators, conditional_distributions, dataset; 
+        cache=cache, 
+        verbosity=verbosity, 
+        machine_cache=machine_cache
+    )
+    return JointConditionalDistributionEstimate(conditional_distributions, estimates)
+end
+
+#####################################################################
+###                    JointEstimand Estimator                    ###
 #####################################################################
 
 """
@@ -95,9 +238,9 @@ ConditionalDistributionEstimator(train_validation_indices, model) =
 
 Estimates all components of Ψ and then Ψ itself.
 """
-function (estimator::Estimator)(Ψ::JointEstimand, dataset; cache=Dict(), verbosity=1)
+function (estimator::Estimator)(Ψ::JointEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
     estimates = map(Ψ.args) do estimand 
-        estimate, _ = estimator(estimand, dataset; cache=cache, verbosity=verbosity)
+        estimate, _ = estimator(estimand, dataset; cache=cache, verbosity=verbosity, acceleration=acceleration)
         estimate
     end
     Σ = covariance_matrix(estimates...)

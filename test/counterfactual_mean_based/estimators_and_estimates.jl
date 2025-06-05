@@ -23,6 +23,12 @@ function make_dataset()
     return dataset
 end
 
+@testset "Deprecation" begin
+    @test TMLEE() isa TMLE.Tmle
+    @test OSE() isa TMLE.Ose
+    @test NAIVE(LinearRegressor()) isa TMLE.Plugin
+end
+
 @testset "Test CMRelevantFactorsEstimator" begin
     dataset = make_dataset()
     # Estimand
@@ -39,7 +45,6 @@ end
     fit_log = (
         (:info, string("Required ", TMLE.string_repr(η))),
         (:info, TMLE.fit_string(G[1])),
-        (:warn, "f_tol is deprecated. Use f_abstol or f_reltol instead. The provided value (0.0001) will be used as f_reltol."),
         (:info, TMLE.fit_string(Q))
     )
     cache = Dict()
@@ -47,29 +52,20 @@ end
     # Test both sub estimands have been fitted
     @test η̂ₙ.outcome_mean isa TMLE.MLConditionalDistribution
     @test fitted_params(η̂ₙ.outcome_mean.machine) isa NamedTuple
-    @test η̂ₙ.propensity_score[1] isa TMLE.MLConditionalDistribution
-    @test fitted_params(η̂ₙ.propensity_score[1].machine) isa NamedTuple
+    ps_component = only(η̂ₙ.propensity_score.components)
+    @test ps_component isa TMLE.MLConditionalDistribution
+    @test fitted_params(ps_component.machine) isa NamedTuple
 
     # Both models unchanged, η̂ₙ is fully reused
-    new_models = Dict(
-        :Y  => with_encoder(LinearRegressor()), 
-        :T₁ => LogisticClassifier()
-    )
-    new_η̂ = TMLE.CMRelevantFactorsEstimator(models=new_models)
-    @test TMLE.key(η, new_η̂) == TMLE.key(η, η̂)
+    new_η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
     full_reuse_log = (:info, TMLE.reuse_string(η))
     @test_logs full_reuse_log new_η̂(η, dataset; cache=cache, verbosity=1)
     # Changing one model, only the other one is refitted
-    new_models = Dict(
-        :Y  => with_encoder(LinearRegressor()), 
-        :T₁ => LogisticClassifier(fit_intercept=false)
-    )
-    new_η̂ = TMLE.CMRelevantFactorsEstimator(models=new_models)
-    @test TMLE.key(η, new_η̂) != TMLE.key(η, η̂)
+    models[:T₁] = LogisticClassifier(fit_intercept=false)
+    new_η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
     partial_reuse_log = (
         (:info, string("Required ", TMLE.string_repr(η))),
         (:info, TMLE.fit_string(G[1])),
-        (:warn, "f_tol is deprecated. Use f_abstol or f_reltol instead. The provided value (0.0001) will be used as f_reltol."),
         (:info, TMLE.reuse_string(Q))
     )
     @test_logs partial_reuse_log... new_η̂(η, dataset; cache=cache, verbosity=1)
@@ -78,17 +74,15 @@ end
     cv_fit_log = (
         (:info, string("Required ", TMLE.string_repr(η))),
         (:info, TMLE.fit_string(G[1])),
-        (:warn, "f_tol is deprecated. Use f_abstol or f_reltol instead. The provided value (0.0001) will be used as f_reltol."),
-        (:warn, "f_tol is deprecated. Use f_abstol or f_reltol instead. The provided value (0.0001) will be used as f_reltol."),
-        (:warn, "f_tol is deprecated. Use f_abstol or f_reltol instead. The provided value (0.0001) will be used as f_reltol."),
         (:info, TMLE.fit_string(Q))
     )
-    resampled_η̂ = TMLE.CMRelevantFactorsEstimator(models=new_models, resampling=CV(nfolds=3))
-    @test TMLE.key(η, new_η̂) != TMLE.key(η, resampled_η̂)
+    train_validation_indices = MLJBase.train_test_pairs(CV(nfolds=3), 1:nrows(dataset), dataset)
+    resampled_η̂ = TMLE.CMRelevantFactorsEstimator(models=models, train_validation_indices=train_validation_indices)
     η̂ₙ = @test_logs cv_fit_log... resampled_η̂(η, dataset; cache=cache, verbosity=1)
     @test length(η̂ₙ.outcome_mean.machines) == 3
-    @test length(η̂ₙ.propensity_score[1].machines) == 3
-    @test η̂ₙ.outcome_mean.train_validation_indices == η̂ₙ.propensity_score[1].train_validation_indices
+    ps_component = only(η̂ₙ.propensity_score.components)
+    @test length(ps_component.machines) == 3
+    @test η̂ₙ.outcome_mean.train_validation_indices == ps_component.train_validation_indices
 end
 
 @testset "Test FitFailedError" begin
@@ -108,7 +102,6 @@ end
         @test true === false
     catch e
         @test e isa TMLE.FitFailedError
-        @test e.model isa LinearRegressor
         @test e.msg == TMLE.propensity_score_fit_error_msg(G[1])
     end
     # Outcome Mean model is ill-defined
@@ -122,7 +115,6 @@ end
         @test true === false
     catch e
         @test e isa TMLE.FitFailedError
-        @test e.model isa LogisticClassifier
         @test e.msg == TMLE.outcome_mean_fit_error_msg(Q)
     end
     # Fluctuation Pos Def Exception
@@ -137,19 +129,18 @@ end
         treatment_confounders = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
     )
     Q = TMLE.ConditionalDistribution(outcome, [treatment, :PC1, :PC2, :PC3, :PC4, :PC5, :PC6])
-    tmle = TMLEE(models=TMLE.default_models(Q_binary=LogisticClassifier(), G = LogisticClassifier()))
+    tmle = Tmle(models=TMLE.default_models(Q_binary=LogisticClassifier(), G = LogisticClassifier()))
     try 
         tmle(Ψ, pos_def_error_dataset)
         @test true === false
     catch e
         @test e isa TMLE.FitFailedError
-        @test e.model isa TMLE.Fluctuation
         @test e.msg == TMLE.outcome_mean_fluctuation_fit_error_msg(Q)
     end
 end
 
 @testset "Test structs are concrete types" begin
-    for type in (OSE, TMLEE, NAIVE)
+    for type in (Ose, Tmle, Plugin)
         @test isconcretetype(type)
     end
 end
