@@ -39,7 +39,6 @@ end
     fit_log = (
         (:info, string("Required ", TMLE.string_repr(η))),
         (:info, TMLE.fit_string(G[1])),
-        (:warn, "f_tol is deprecated. Use f_abstol or f_reltol instead. The provided value (0.0001) will be used as f_reltol."),
         (:info, TMLE.fit_string(Q))
     )
     cache = Dict()
@@ -61,7 +60,6 @@ end
     partial_reuse_log = (
         (:info, string("Required ", TMLE.string_repr(η))),
         (:info, TMLE.fit_string(G[1])),
-        (:warn, "f_tol is deprecated. Use f_abstol or f_reltol instead. The provided value (0.0001) will be used as f_reltol."),
         (:info, TMLE.reuse_string(Q))
     )
     @test_logs partial_reuse_log... new_η̂(η, dataset; cache=cache, verbosity=1)
@@ -70,9 +68,6 @@ end
     cv_fit_log = (
         (:info, string("Required ", TMLE.string_repr(η))),
         (:info, TMLE.fit_string(G[1])),
-        (:warn, "f_tol is deprecated. Use f_abstol or f_reltol instead. The provided value (0.0001) will be used as f_reltol."),
-        (:warn, "f_tol is deprecated. Use f_abstol or f_reltol instead. The provided value (0.0001) will be used as f_reltol."),
-        (:warn, "f_tol is deprecated. Use f_abstol or f_reltol instead. The provided value (0.0001) will be used as f_reltol."),
         (:info, TMLE.fit_string(Q))
     )
     train_validation_indices = MLJBase.train_test_pairs(CV(nfolds=3), 1:nrows(dataset), dataset)
