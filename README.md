@@ -7,7 +7,7 @@
 
 Causal inference is essential for understanding the effect of interventions in real-world settings, such as determining whether a treatment improves health outcomes or whether a gene variant contributes to disease risk. Traditional statistical methods, such as linear regression or propensity score matching, often rely on strong modeling assumptions and may fail to provide valid inference when these assumptions are violated—particularly in the presence of high-dimensional data or model misspecification.
 
-**TMLE.jl** is a Julia package that implements Targeted Maximum Likelihood Estimation (TMLE) [@van2011targeted,van2018targeted], a general framework for causal effect estimation that combines machine learning with principles from semiparametric statistics. TMLE provides doubly robust, efficient, and flexible estimation of causal parameters in observational and experimental studies.
+**TMLE.jl** is a Julia package that implements [Targeted Maximum Likelihood Estimation](https://link.springer.com/book/10.1007/978-1-4419-9782-1) (TMLE), a general framework for causal effect estimation that combines machine learning with principles from semiparametric statistics. TMLE provides doubly robust, efficient, and flexible estimation of causal parameters in observational and experimental studies.
 
 ## Installation
 
@@ -17,11 +17,29 @@ TMLE.jl can be installed via the Package Manager and supports Julia `v1.10` and 
 Pkg> add TMLE
 ```
 
-## Documentation
+## Documentation
 
-**New to TMLE.jl?** [Get started now](https://targene.github.io/TMLE.jl/stable/)
+For more information, please visit the [documentation](https://targene.github.io/TMLE.jl/stable/)
 
-## Contact
+## Citation
+
+If you use TMLE.jl for your own work and would like to cite us, here are the BibTeX and APA formats:
+
+- BibTeX
+
+```bibtex
+@software{Labayle_TMLE_jl,
+    author = {Labayle, Olivier and Khamseh, Ava and Ponting, Chris and Beentjes, Sjoerd},
+    title = {{TMLE.jl}},
+    url = {https://github.com/olivierlabayle/TMLE.jl}
+}
+```
+
+- APA
+
+Labayle, O., Khamseh, A., & Ponting, C., Beentjes, S. TMLE.jl [Computer software]. https://github.com/olivierlabayle/TMLE.jl
+
+## Contact
 
 A bug, a question or want to say hello? Please fill an [issue](https://github.com/TARGENE/TMLE.jl/issues).
 
