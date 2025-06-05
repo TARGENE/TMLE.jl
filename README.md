@@ -31,13 +31,13 @@ If you use TMLE.jl for your own work and would like to cite us, here are the Bib
 @software{Labayle_TMLE_jl,
     author = {Labayle, Olivier and Khamseh, Ava and Ponting, Chris and Beentjes, Sjoerd},
     title = {{TMLE.jl}},
-    url = {https://github.com/olivierlabayle/TMLE.jl}
+    url = {https://github.com/TARGENE/TMLE.jl}
 }
 ```
 
 - APA
 
-Labayle, O., Khamseh, A., & Ponting, C., Beentjes, S. TMLE.jl [Computer software]. https://github.com/olivierlabayle/TMLE.jl
+Labayle, O., Khamseh, A., & Ponting, C., Beentjes, S. TMLE.jl [Computer software]. https://github.com/TARGENE/TMLE.jl
 
 ## Contact
 
