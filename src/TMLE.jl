@@ -46,7 +46,7 @@ export BackdoorAdjustment, identify
 export Configuration
 export brute_force_ordering, groups_ordering
 export gradients, epsilons, estimates
-export AdaptiveCorrelationOrdering, Greedy
+export AdaptiveCorrelationStrategy, GreedyStrategy
 export CausalStratifiedCV, CV, StratifiedCV, Holdout
 export CPUThreads, CPU1
 
