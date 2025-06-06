@@ -30,12 +30,12 @@ using MLJLinearModels
 using MLJTuning
 using StatisticalMeasures
 
-function estimate_across_correlation_levels(estimators, σs; n=1000)
+function estimate_across_correlation_levels(estimators, σs; n = 1000)
     results = Dict(key => [] for key in keys(estimators))
     for σ in σs
-        dataset = generate_dataset(n=n, σ=σ)
+        dataset = generate_dataset(n = n, σ = σ)
         for (estimator_key, estimator) in estimators
-            result, _ = estimator(Ψ, dataset; verbosity=0)
+            result, _ = estimator(Ψ, dataset; verbosity = 0)
             push!(results[estimator_key], result)
         end
     end
@@ -45,28 +45,34 @@ end
 function estimate_across_sample_sizes_and_correlation_levels(estimators, ns, σs)
     results = []
     for n in ns
-        results_at_n = estimate_across_correlation_levels(estimators, σs; n=n)
+        results_at_n = estimate_across_correlation_levels(estimators, σs; n = n)
         push!(results, results_at_n)
     end
     return results
 end
 
-function plot_across_sample_sizes_and_correlation_levels(results, ns, σs; estimator="TMLE_SL", title="Estimation via TMLE (GLMs)")
-    fig = Figure(size=(800, 800))
+function plot_across_sample_sizes_and_correlation_levels(
+    results,
+    ns,
+    σs;
+    estimator = "TMLE_SL",
+    title = "Estimation via TMLE (GLMs)",
+)
+    fig = Figure(size = (800, 800))
     for (index, n) in enumerate(ns)
         results_at_n = results[index][estimator]
         Ψ̂s = TMLE.estimate.(results_at_n)
         errors = last.(confint.(significance_test.(results_at_n))) .- Ψ̂s
         ax = if n == last(ns)
-            Axis(fig[index, 1], xlabel="σ", ylabel="AIE\n(n=$n)")
+            Axis(fig[index, 1], xlabel = "σ", ylabel = "AIE\n(n=$n)")
         else
-            Axis(fig[index, 1], ylabel="AIE\n(n=$n)", xticklabelsvisible=false)
+            Axis(fig[index, 1], ylabel = "AIE\n(n=$n)", xticklabelsvisible = false)
         end
         errorbars!(ax, σs, Ψ̂s, errors, color = :blue, whiskerwidth = 10)
-        scatter!(ax, σs, Ψ̂s, color=:red, markersize=10)
-        hlines!(ax, [-1.5], color=:green, linestyle=:dash)
+        scatter!(ax, σs, Ψ̂s, color = :red, markersize = 10)
+        hlines!(ax, [-1.5], color = :green, linestyle = :dash)
     end
-    Label(fig[0, :], title; tellwidth=false, fontsize=24)
+    Label(fig[0, :], title; tellwidth = false, fontsize = 24)
     return fig
 end
 
@@ -86,13 +92,13 @@ generate_W(n) = rand(Uniform(0, 1), 2, n)
 `T1` and `T2` are generated via a copula method through a multivariate normal to induce some statistical dependence (via σ).
 =#
 
-function generate_T(W, n; σ=0.5, threshold=0)
+function generate_T(W, n; σ = 0.5, threshold = 0)
     covariance = [
-        1. σ
-        σ 1.
+        1.0 σ
+        σ 1.0
     ]
     T = zeros(Bool, 2, n)
-    for i in 1:n
+    for i = 1:n
         dTi = MultivariateNormal(μT(W[:, i]), covariance)
         T[:, i] = rand(dTi) .> threshold
     end
@@ -103,9 +109,9 @@ end
 Finally, `Y` is generated through a simple linear model with an interaction term.
 =#
 
-function generate_Y(T, W1, n; σY=1)
+function generate_Y(T, W1, n; σY = 1)
     Y = zeros(Float64, n)
-    for i in 1:n
+    for i = 1:n
         dY = Normal(μY(T[:, i], W1[i]), σY)
         Y[i] = rand(dY)
     end
@@ -118,22 +124,22 @@ Importantly, the average interaction effect between `T1` and `T2` is thus ``-3 \
 We will generate a full dataset with the following function.
 =#
 
-function generate_dataset(;n=1000, σ=0.5, threshold=0., σY=1)
+function generate_dataset(; n = 1000, σ = 0.5, threshold = 0.0, σY = 1)
 
     W = generate_W(n)
-    T = generate_T(W, n; σ=σ, threshold=threshold)
+    T = generate_T(W, n; σ = σ, threshold = threshold)
 
     W = permutedims(W)
     W1 = W[:, 1]
     W2 = W[:, 2]
 
-    Y = generate_Y(T, W1, n; σY=σY)
+    Y = generate_Y(T, W1, n; σY = σY)
 
     T = permutedims(T)
     T1 = categorical(T[:, 1])
     T2 = categorical(T[:, 2])
 
-    return DataFrame(W1=W1, W2=W2, T1=T1, T2=T2, Y=Y)
+    return DataFrame(W1 = W1, W2 = W2, T1 = T1, T2 = T2, Y = Y)
 end
 
 dataset = generate_dataset()
@@ -162,16 +168,14 @@ First, let's define the effect of interest. Interactions are defined via the `AI
 =#
 
 Ψ = AIE(
-    outcome=:Y,
-    treatment_values= (
-        T1=(case=1, control=0), 
-        T2=(case=1, control=0)
-    ),
-    treatment_confounders = [:W1]
+    outcome = :Y,
+    treatment_values = (T1 = (case = 1, control = 0), T2 = (case = 1, control = 0)),
+    treatment_confounders = [:W1],
 )
-linear_models = default_models(G=LogisticClassifier(lambda=0), Q_continuous=LinearRegressor())
-estimator = Tmle(models=linear_models, weighted=true)
-result, _ = estimator(Ψ, dataset; verbosity=0)
+linear_models =
+    default_models(G = LogisticClassifier(lambda = 0), Q_continuous = LinearRegressor())
+estimator = Tmle(models = linear_models, weighted = true)
+result, _ = estimator(Ψ, dataset; verbosity = 0)
 @assert pvalue(significance_test(result, -1.5)) > 0.05 #hide
 significance_test(result)
 
@@ -189,19 +193,19 @@ look at three different modelling strategies:
 First, let's see how the parameter σ affects the correlation between `T1` and `T2`.
 =#
 
-function plot_correlations(;σs = 0.1:0.1:1, n=1000, threshold=0., σY=1.)
+function plot_correlations(; σs = 0.1:0.1:1, n = 1000, threshold = 0.0, σY = 1.0)
     fig = Figure()
-    ax = Axis(fig[1, 1], xlabel="σ", ylabel="Correlation(T1, T2)")
+    ax = Axis(fig[1, 1], xlabel = "σ", ylabel = "Correlation(T1, T2)")
     correlations = map(σs) do σ
-        dataset = generate_dataset(;n=n, σ=σ, threshold=threshold, σY=σY)
+        dataset = generate_dataset(; n = n, σ = σ, threshold = threshold, σY = σY)
         return treatment_correlation(dataset)
     end
-    scatter!(ax, σs, correlations, color=:blue)
+    scatter!(ax, σs, correlations, color = :blue)
     return fig
 end
 
 σs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.999]
-plot_correlations(;σs=σs, n=10_000)
+plot_correlations(; σs = σs, n = 10_000)
 
 #=
 As expected, the correlation between `T1` and `T2` increases with σ. Let's see how this affects estimation.
@@ -210,24 +214,26 @@ We first define our Super Learners, they compare L2 penalized GLM and XGboost mo
 on a holdout set and select the best model.
 =#
 
-lambdas = 10 .^ range(1, stop=-4, length=5)
-linear_regressors = [RidgeRegressor(lambda=λ) for λ in lambdas]
-logistic_classifiers = [LogisticClassifier(lambda=λ) for λ in lambdas]
-xgboost_classifiers = [XGBoostClassifier(tree_method="hist", lambda=λ, nthread=1) for λ in lambdas]
-xgboost_regressors = [XGBoostRegressor(tree_method="hist", lambda=λ, nthread=1) for λ in lambdas]
+lambdas = 10 .^ range(1, stop = -4, length = 5)
+linear_regressors = [RidgeRegressor(lambda = λ) for λ in lambdas]
+logistic_classifiers = [LogisticClassifier(lambda = λ) for λ in lambdas]
+xgboost_classifiers =
+    [XGBoostClassifier(tree_method = "hist", lambda = λ, nthread = 1) for λ in lambdas]
+xgboost_regressors =
+    [XGBoostRegressor(tree_method = "hist", lambda = λ, nthread = 1) for λ in lambdas]
 
 sl_regressor = TunedModel(
-    models=vcat(linear_regressors, xgboost_regressors),
-    resampling=Holdout(),
-    measure=rmse,
-    check_measure=false
+    models = vcat(linear_regressors, xgboost_regressors),
+    resampling = Holdout(),
+    measure = rmse,
+    check_measure = false,
 )
 
 sl_classifier = TunedModel(
-    models=vcat(logistic_classifiers, xgboost_classifiers),
-    resampling=Holdout(),
-    measure=log_loss,
-    check_measure=false
+    models = vcat(logistic_classifiers, xgboost_classifiers),
+    resampling = Holdout(),
+    measure = log_loss,
+    check_measure = false,
 )
 
 #=
@@ -242,15 +248,18 @@ and estimate (this will take a little while).
 =#
 
 estimators = Dict(
-    "TMLE_GLM"  => Tmle(models=linear_models, weighted=true),
+    "TMLE_GLM" => Tmle(models = linear_models, weighted = true),
     "TMLE_XGBOOST" => Tmle(
-        models=default_models(G=XGBoostClassifier(tree_method="hist", nthread=1), Q_continuous=XGBoostRegressor(tree_method="hist", nthread=1)),
-        weighted=true,
+        models = default_models(
+            G = XGBoostClassifier(tree_method = "hist", nthread = 1),
+            Q_continuous = XGBoostRegressor(tree_method = "hist", nthread = 1),
+        ),
+        weighted = true,
     ),
     "TMLE_SL" => Tmle(
-        models=default_models(G=sl_classifier, Q_continuous=sl_regressor),
-        weighted=true,
-    )
+        models = default_models(G = sl_classifier, Q_continuous = sl_regressor),
+        weighted = true,
+    ),
 )
 
 results = estimate_across_sample_sizes_and_correlation_levels(estimators, ns, σs)
@@ -261,7 +270,13 @@ the confidence intervals shrink and start to miss the ground truth. The phenomen
 which can be verified by using a more flexible modelling strategy, here we use XGBoost.
 =#
 
-plot_across_sample_sizes_and_correlation_levels(results, ns, σs; estimator="TMLE_GLM", title="Estimation via TMLE (GLMs)")
+plot_across_sample_sizes_and_correlation_levels(
+    results,
+    ns,
+    σs;
+    estimator = "TMLE_GLM",
+    title = "Estimation via TMLE (GLMs)",
+)
 
 #=
 As expected, XGBoost improves estimation performance in the asymptotic regime, however, 
@@ -269,11 +284,22 @@ the performance is the small sample size regime is deteriorated, likely due to o
 we can resort to model selection to adaptively select the best model (sometimes this is called discrete super learning).
 =#
 
-plot_across_sample_sizes_and_correlation_levels(results, ns, σs; estimator="TMLE_XGBOOST", title="Estimation via TMLE (XGBoost)")
+plot_across_sample_sizes_and_correlation_levels(
+    results,
+    ns,
+    σs;
+    estimator = "TMLE_XGBOOST",
+    title = "Estimation via TMLE (XGBoost)",
+)
 #=
 As we can see, the performance is now good across all sample sizes. Furthermore, the correlation between `T1` and `T2` seems harmless except when σ > 0.9. 
 The confidence interval is then quite large which will result in a loss of power.
 =#
 
-plot_across_sample_sizes_and_correlation_levels(results, ns, σs; estimator="TMLE_SL", title="Estimation via TMLE (SL)")
-
+plot_across_sample_sizes_and_correlation_levels(
+    results,
+    ns,
+    σs;
+    estimator = "TMLE_SL",
+    title = "Estimation via TMLE (SL)",
+)

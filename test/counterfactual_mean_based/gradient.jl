@@ -10,38 +10,35 @@ using MLJLinearModels
 using MLJModels
 using DataFrames
 
-μY(T, W)  = 1 .+ 2T .- W.*T
+μY(T, W) = 1 .+ 2T .- W .* T
 
-function one_treatment_dataset(;n=100)
+function one_treatment_dataset(; n = 100)
     rng = StableRNG(123)
-    W   = rand(rng, n)
-    μT  = logistic.(1 .- 3W)
-    T   = rand(rng, n) .< μT
-    Y   = μY(T, W) .+ rand(rng, Normal(0, 0.1), n)
-    return DataFrame(
-        T = categorical(T, ordered=true),
-        Y = Y,
-        W = W
-    )
+    W = rand(rng, n)
+    μT = logistic.(1 .- 3W)
+    T = rand(rng, n) .< μT
+    Y = μY(T, W) .+ rand(rng, Normal(0, 0.1), n)
+    return DataFrame(T = categorical(T, ordered = true), Y = Y, W = W)
 end
 
 @testset "Test gradient_and_plugin_estimate" begin
     ps_lowerbound = 1e-8
     Ψ = ATE(
-        outcome = :Y, 
-        treatment_values = (T=(case=1, control=0),), 
-        treatment_confounders = (T=[:W],), 
+        outcome = :Y,
+        treatment_values = (T = (case = 1, control = 0),),
+        treatment_confounders = (T = [:W],),
     )
-    dataset = one_treatment_dataset(;n=100)
+    dataset = one_treatment_dataset(; n = 100)
     η = TMLE.CMRelevantFactors(
         TMLE.ConditionalDistribution(:Y, [:T, :W]),
-        TMLE.ConditionalDistribution(:T, [:W])
+        TMLE.ConditionalDistribution(:T, [:W]),
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
         nothing,
         Dict(
-            :Y => with_encoder(InteractionTransformer(order=2) |> LinearRegressor()), 
-            :T => LogisticClassifier())
+            :Y => with_encoder(InteractionTransformer(order = 2) |> LinearRegressor()),
+            :T => LogisticClassifier(),
+        ),
     )
     η̂ₙ = η̂(η, dataset, verbosity = 0)
     # Retrieve conditional distributions and fitted_params
@@ -52,20 +49,25 @@ end
     coefs = Dict(linear_model.coefs)
     # Counterfactual aggregate
     ctf_agg = TMLE.counterfactual_aggregate(Ψ, η̂ₙ.outcome_mean, dataset)
-    expected_ctf_agg = (intercept .+ coefs[:T] .+ dataset.W.*coefs[:W] .+ dataset.W.*coefs[:T_W]) .- (intercept .+ dataset.W.*coefs[:W])
+    expected_ctf_agg =
+        (intercept .+ coefs[:T] .+ dataset.W .* coefs[:W] .+ dataset.W .* coefs[:T_W]) .-
+        (intercept .+ dataset.W .* coefs[:W])
     @test ctf_agg ≈ expected_ctf_agg atol=1e-10
     # Gradient Y|X
     ps_machine = only(G.components).machine
-    H = 1 ./ pdf.(predict(ps_machine), dataset.T) .* [t == 1 ? 1. : -1. for t in dataset.T]
+    H =
+        1 ./ pdf.(predict(ps_machine), dataset.T) .*
+        [t == 1 ? 1.0 : -1.0 for t in dataset.T]
     expected_∇YX = H .* (dataset.Y .- predict(Q.machine))
-    ∇YX = TMLE.∇YX(Ψ, Q, G, dataset; ps_lowerbound=ps_lowerbound)
+    ∇YX = TMLE.∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound)
     @test expected_∇YX == ∇YX
     # Gradient W
     expectedΨ̂ = mean(ctf_agg)
     ∇W = TMLE.∇W(ctf_agg, expectedΨ̂)
     @test ∇W == ctf_agg .- expectedΨ̂
     # gradient_and_plugin_estimate
-    IC, Ψ̂ = TMLE.gradient_and_plugin_estimate(Ψ, η̂ₙ, dataset; ps_lowerbound=ps_lowerbound)
+    IC, Ψ̂ =
+        TMLE.gradient_and_plugin_estimate(Ψ, η̂ₙ, dataset; ps_lowerbound = ps_lowerbound)
     @test expectedΨ̂ == Ψ̂
     @test IC == ∇YX .+ ∇W
 end

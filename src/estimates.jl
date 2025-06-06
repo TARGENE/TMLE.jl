@@ -20,9 +20,12 @@ struct MLConditionalDistribution <: Estimate
 end
 
 string_repr(estimate::MLConditionalDistribution) = string(
-    "P̂(", estimate.estimand.outcome, " | ", join(estimate.estimand.parents, ", "), 
-    "), with model: ", 
-    Base.typename(typeof(estimate.machine.model)).wrapper
+    "P̂(",
+    estimate.estimand.outcome,
+    " | ",
+    join(estimate.estimand.parents, ", "),
+    "), with model: ",
+    Base.typename(typeof(estimate.machine.model)).wrapper,
 )
 
 function MLJBase.predict(estimate::MLConditionalDistribution, dataset)
@@ -43,14 +46,17 @@ The predictions are made out of fold, i.e. for each fold k, the predictions are 
 """
 struct SampleSplitMLConditionalDistribution <: Estimate
     estimand::ConditionalDistribution
-    train_validation_indices
+    train_validation_indices::Any
     machines::Vector{Machine}
 end
 
-string_repr(estimate::SampleSplitMLConditionalDistribution) = 
-    string("P̂(", estimate.estimand.outcome, " | ", join(estimate.estimand.parents, ", "), 
-    "), sample split with model: ", 
-    Base.typename(typeof(first(estimate.machines).model)).wrapper
+string_repr(estimate::SampleSplitMLConditionalDistribution) = string(
+    "P̂(",
+    estimate.estimand.outcome,
+    " | ",
+    join(estimate.estimand.parents, ", "),
+    "), sample split with model: ",
+    Base.typename(typeof(first(estimate.machines).model)).wrapper,
 )
 
 """
@@ -75,21 +81,21 @@ update_preds!(ŷ, preds, idx) = ŷ[idx] = preds
 """
 In the case where predictions are a UnivariateFiniteVector, we store a Matrix of probabilities.
 """
-initialize_cv_preds(first_preds::UnivariateFiniteVector, n) = 
+initialize_cv_preds(first_preds::UnivariateFiniteVector, n) =
     Matrix{Float64}(undef, n, length(first_preds.prob_given_ref))
 
 """
 As a default, we initialize predictions with a Vector of the type corresponding to the
 predictions from the first machine.
 """
-initialize_cv_preds(first_preds, n) = 
-    Vector{eltype(first_preds)}(undef, n)
-    
+initialize_cv_preds(first_preds, n) = Vector{eltype(first_preds)}(undef, n)
+
 """
 In the case where predictions are a UnivariateFiniteVector, we create a special 
 UnivariateFinite vector for downstream optimizaton.
 """
-finalize_cv_preds(probs, first_preds::UnivariateFiniteVector) = UnivariateFinite(support(first_preds), probs)
+finalize_cv_preds(probs, first_preds::UnivariateFiniteVector) =
+    UnivariateFinite(support(first_preds), probs)
 
 """
 As a default we simply return the vector
@@ -101,7 +107,10 @@ Out of fold prediction, predictions for fold k are made from machines trained on
 We distinguish the case where preidctions are a UnivariateFiniteVector that requires specific attention.
 """
 function cv_predict(estimate, X)
-    fold_to_val_idx = [(fold, val_idx) for (fold, (_, val_idx)) in enumerate(estimate.train_validation_indices)]
+    fold_to_val_idx = [
+        (fold, val_idx) for
+        (fold, (_, val_idx)) in enumerate(estimate.train_validation_indices)
+    ]
     first_fold, first_val_idx = first(fold_to_val_idx)
     first_preds = fold_prediction(estimate, X, first_val_idx, first_fold)
 
@@ -123,7 +132,8 @@ end
 ###               ConditionalDistributionEstimate                 ###
 #####################################################################
 
-ConditionalDistributionEstimate = Union{MLConditionalDistribution, SampleSplitMLConditionalDistribution}
+ConditionalDistributionEstimate =
+    Union{MLConditionalDistribution,SampleSplitMLConditionalDistribution}
 
 function expected_value(estimate::ConditionalDistributionEstimate, dataset)
     return expected_value(predict(estimate, dataset))
@@ -135,15 +145,18 @@ function likelihood(estimate::ConditionalDistributionEstimate, dataset)
     return pdf.(ŷ, y)
 end
 
-function compute_offset(ŷ::AbstractVector{<:UnivariateFinite{<:Union{OrderedFactor{2}, Multiclass{2}}}})
+function compute_offset(
+    ŷ::AbstractVector{<:UnivariateFinite{<:Union{OrderedFactor{2},Multiclass{2}}}},
+)
     μy = expected_value(ŷ)
     logit!(μy)
     return μy
 end
 
-compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = expected_value(ŷ)
+compute_offset(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) =
+    expected_value(ŷ)
 
-compute_offset(ŷ::AbstractVector{T}) where T<:Real = expected_value(ŷ)
+compute_offset(ŷ::AbstractVector{T}) where {T<:Real} = expected_value(ŷ)
 
 function compute_offset(estimate::ConditionalDistributionEstimate, X)
     ŷ = predict(estimate, X)
@@ -154,9 +167,9 @@ end
 ###            JointConditionalDistributionEstimate               ###
 #####################################################################
 
-struct JointConditionalDistributionEstimate{T, N} <: Estimate
-    estimand::Tuple{Vararg{ConditionalDistribution, N}}
-    components::Tuple{Vararg{T, N}}
+struct JointConditionalDistributionEstimate{T,N} <: Estimate
+    estimand::Tuple{Vararg{ConditionalDistribution,N}}
+    components::Tuple{Vararg{T,N}}
 end
 
 #####################################################################
@@ -173,7 +186,7 @@ end
 to_matrix(x::Matrix) = x
 to_matrix(x) = reduce(hcat, x)
 
-JointEstimate(;estimand, estimates, cov, n) =
+JointEstimate(; estimand, estimates, cov, n) =
     JointEstimate(estimand, Tuple(estimates), to_matrix(cov), n)
 
 """
@@ -195,7 +208,7 @@ to_dict(estimate::JointEstimate) = Dict(
     :estimand => to_dict(estimate.estimand),
     :estimates => [to_dict(e) for e in estimate.estimates],
     :cov => estimate.cov,
-    :n => estimate.n
+    :n => estimate.n,
 )
 
 
@@ -212,7 +225,8 @@ end
 
 ComposedEstimate(Ψ, estimate::Real, cov, n) = ComposedEstimate(Ψ, [estimate], cov, n)
 
-ComposedEstimate(;estimand, estimates, cov, n) = ComposedEstimate(estimand, estimates, cov, n)
+ComposedEstimate(; estimand, estimates, cov, n) =
+    ComposedEstimate(estimand, estimates, cov, n)
 
 Distributions.estimate(Ψ̂::ComposedEstimate) = Ψ̂.estimates
 
@@ -220,10 +234,10 @@ Statistics.std(Ψ̂::ComposedEstimate) = sqrt(only(Ψ̂.cov))
 
 function to_dict(Ψ̂::ComposedEstimate)
     Dict(
-    :type => string(ComposedEstimate),
-    :estimand => to_dict(Ψ̂.estimand),
-    :estimates => Ψ̂.estimates,
-    :cov => Ψ̂.cov,
-    :n => Ψ̂.n
-)
+        :type => string(ComposedEstimate),
+        :estimand => to_dict(Ψ̂.estimand),
+        :estimates => Ψ̂.estimates,
+        :cov => Ψ̂.cov,
+        :n => Ψ̂.n,
+    )
 end

@@ -13,9 +13,15 @@ from the CausalTables.jl package. The causal estimand is automatically identifie
 statistical estimand using the structure encoded in the CausalTable. 
 
 """
-function (estimator::Union{TMLE.Plugin, TMLE.Ose, TMLE.Tmle})(Ψ::TMLE.CausalCMCompositeEstimands, ct::CausalTables.CausalTable; kwargs...)
+function (estimator::Union{TMLE.Plugin,TMLE.Ose,TMLE.Tmle})(
+    Ψ::TMLE.CausalCMCompositeEstimands,
+    ct::CausalTables.CausalTable;
+    kwargs...,
+)
     # Convert treatment columns of the CausalTable to CategoricalArray
-    cleaned_data = DataFrame([(k => k ∈ ct.treatment ? categorical(v) : v) for (k,v) in pairs(ct.data)])
+    cleaned_data = DataFrame([
+        (k => k ∈ ct.treatment ? categorical(v) : v) for (k, v) in pairs(ct.data)
+    ])
 
     # Create a StructuralCausalModel from the CausalTable and identify
     scm = SCM([k => v for (k, v) in pairs(ct.causes)])
@@ -26,4 +32,3 @@ function (estimator::Union{TMLE.Plugin, TMLE.Ose, TMLE.Tmle})(Ψ::TMLE.CausalCMC
 end
 
 end
-

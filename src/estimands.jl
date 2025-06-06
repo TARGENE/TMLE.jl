@@ -13,13 +13,29 @@ Base.show(io::IO, ::MIME"text/plain", estimand::Estimand) =
 
 treatments(Ψ::Estimand) = collect(keys(Ψ.treatment_values))
 
-AbsentLevelError(treatment_name, key, val, levels) = ArgumentError(string(
-    "The treatment variable ", treatment_name, "'s, '", key, "' level: '", val,
-    "' in Ψ does not match any level in the dataset: ", levels))
+AbsentLevelError(treatment_name, key, val, levels) = ArgumentError(
+    string(
+        "The treatment variable ",
+        treatment_name,
+        "'s, '",
+        key,
+        "' level: '",
+        val,
+        "' in Ψ does not match any level in the dataset: ",
+        levels,
+    ),
+)
 
-AbsentLevelError(treatment_name, val, levels) = ArgumentError(string(
-    "The treatment variable ", treatment_name, "'s, level: '", val,
-    "' in Ψ does not match any level in the dataset: ", levels))
+AbsentLevelError(treatment_name, val, levels) = ArgumentError(
+    string(
+        "The treatment variable ",
+        treatment_name,
+        "'s, level: '",
+        val,
+        "' in Ψ does not match any level in the dataset: ",
+        levels,
+    ),
+)
 
 """
     check_treatment_settings(settings::NamedTuple, levels, treatment_name)
@@ -30,9 +46,8 @@ Note: This method is for estimands like the ATE or AIE that have case/control tr
 `NamedTuple`.
 """
 function check_treatment_settings(settings::NamedTuple, levels, treatment_name)
-    for (key, val) in zip(keys(settings), settings) 
-        any(val .== levels) || 
-            throw(AbsentLevelError(treatment_name, key, val, levels))
+    for (key, val) in zip(keys(settings), settings)
+        any(val .== levels) || throw(AbsentLevelError(treatment_name, key, val, levels))
     end
 end
 
@@ -45,9 +60,7 @@ Note: This is for estimands like the CM that do not have case/control treatment 
 and are represented as simple values.
 """
 function check_treatment_settings(setting, levels, treatment_name)
-    any(setting .== levels) || 
-            throw(
-                AbsentLevelError(treatment_name, setting, levels))
+    any(setting .== levels) || throw(AbsentLevelError(treatment_name, setting, levels))
 end
 
 """
@@ -75,13 +88,21 @@ Defines a Conditional Distribution estimand ``(outcome, parents) → P(outcome|p
     function ConditionalDistribution(outcome, parents)
         outcome = Symbol(outcome)
         parents = unique_sorted_tuple(parents)
-        outcome ∉ parents || throw(ArgumentError(string("The outcome variable of a conditional distribution (here ", outcome, ") cannot be in the parents set.")))
+        outcome ∉ parents || throw(
+            ArgumentError(
+                string(
+                    "The outcome variable of a conditional distribution (here ",
+                    outcome,
+                    ") cannot be in the parents set.",
+                ),
+            ),
+        )
         # Maybe check variables are in the SCM?
         return new(outcome, parents)
     end
 end
 
-string_repr(estimand::ConditionalDistribution) = 
+string_repr(estimand::ConditionalDistribution) =
     string("P₀(", estimand.outcome, " | ", join(estimand.parents, ", "), ")")
 
 variables(estimand::ConditionalDistribution) = (estimand.outcome, estimand.parents...)
@@ -106,31 +127,30 @@ const ExpectedValue = ConditionalDistribution
     JointEstimand(args...) = new(Tuple(args))
 end
 
-JointEstimand(;args) = JointEstimand(args...)
+JointEstimand(; args) = JointEstimand(args...)
 
 function to_dict(Ψ::JointEstimand)
-    return Dict(
-    :type => string(JointEstimand),
-    :args => [to_dict(x) for x in Ψ.args]
-)
+    return Dict(:type => string(JointEstimand), :args => [to_dict(x) for x in Ψ.args])
 end
 
-propensity_score_key(Ψ::JointEstimand) = Tuple(unique(Iterators.flatten(propensity_score_key(arg) for arg in Ψ.args)))
+propensity_score_key(Ψ::JointEstimand) =
+    Tuple(unique(Iterators.flatten(propensity_score_key(arg) for arg in Ψ.args)))
 outcome_mean_key(Ψ::JointEstimand) = Tuple(unique(outcome_mean_key(arg) for arg in Ψ.args))
 
-n_uniques_nuisance_functions(Ψ::JointEstimand) = length(propensity_score_key(Ψ)) + length(outcome_mean_key(Ψ))
+n_uniques_nuisance_functions(Ψ::JointEstimand) =
+    length(propensity_score_key(Ψ)) + length(outcome_mean_key(Ψ))
 
 nuisance_functions_iterator(Ψ::JointEstimand) =
     Iterators.flatten(nuisance_functions_iterator(arg) for arg in Ψ.args)
 
-identify(method::AdjustmentMethod, Ψ::JointEstimand, scm) = 
+identify(method::AdjustmentMethod, Ψ::JointEstimand, scm) =
     JointEstimand((identify(method, arg, scm) for arg ∈ Ψ.args)...)
 
 function string_repr(estimand::JointEstimand)
     string(
         "Joint Estimand:\n",
         "--------------\n- ",
-        join((string_repr(arg) for arg in estimand.args), "\n- ")
+        join((string_repr(arg) for arg in estimand.args), "\n- "),
     )
 end
 
@@ -144,26 +164,30 @@ end
     estimand::JointEstimand
 end
 
-ComposedEstimand(;f, estimand) = ComposedEstimand(f, estimand)
+ComposedEstimand(; f, estimand) = ComposedEstimand(f, estimand)
 
 ComposedEstimand(f::String, estimand) = ComposedEstimand(eval(Meta.parse(f)), estimand)
 
 function to_dict(Ψ::ComposedEstimand)
     fname = string(parentmodule(Ψ.f), ".", nameof(Ψ.f))
-    occursin("#", fname,) && 
-        throw(ArgumentError("The function of a ComposedEstimand cannot be anonymous to be converted to a dictionary."))
+    occursin("#", fname) && throw(
+        ArgumentError(
+            "The function of a ComposedEstimand cannot be anonymous to be converted to a dictionary.",
+        ),
+    )
     return Dict(
         :type => string(ComposedEstimand),
         :f => fname,
-        :estimand => to_dict(Ψ.estimand)
+        :estimand => to_dict(Ψ.estimand),
     )
 end
 
 function string_repr(Ψ::ComposedEstimand)
-    firstline = string("Composed Estimand applying function `", Ψ.f , "` to :\n")
+    firstline = string("Composed Estimand applying function `", Ψ.f, "` to :\n")
     string(
         firstline,
-        repeat("-", length(firstline)-2), "\n- ",
-        join((string_repr(arg) for arg in Ψ.estimand.args), "\n- ")
+        repeat("-", length(firstline)-2),
+        "\n- ",
+        join((string_repr(arg) for arg in Ψ.estimand.args), "\n- "),
     )
 end

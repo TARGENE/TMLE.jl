@@ -17,7 +17,7 @@ include(joinpath(pkgdir(TMLE), "test", "helper_fns.jl"))
 """
 Q and G are two logistic models
 """
-function binary_outcome_binary_treatment_pb(;n=100)
+function binary_outcome_binary_treatment_pb(; n = 100)
     rng = StableRNG(123)
     p_w() = 0.3
     pa_given_w(w) = 1 ./ (1 .+ exp.(-0.5w .+ 1))
@@ -27,8 +27,8 @@ function binary_outcome_binary_treatment_pb(;n=100)
     W = rand(rng, Unif, n) .< p_w()
     T = rand(rng, Unif, n) .< pa_given_w(W)
     Y = rand(rng, Unif, n) .< py_given_aw(T, W)
-    dataset = DataFrame(T=categorical(T), W=W, Y=categorical(Y))
-    
+    dataset = DataFrame(T = categorical(T), W = W, Y = categorical(Y))
+
     # Compute the theoretical ATE
     ATE₁ = py_given_aw(1, 1)*p_w() + (1-p_w())*py_given_aw(1, 0)
     ATE₀ = py_given_aw(0, 1)*p_w() + (1-p_w())*py_given_aw(0, 0)
@@ -40,7 +40,7 @@ end
 """
 From https://www.degruyter.com/document/doi/10.2202/1557-4679.1043/html
 """
-function continuous_outcome_binary_treatment_pb(;n=100)
+function continuous_outcome_binary_treatment_pb(; n = 100)
     # Dataset
     rng = StableRNG(123)
     Unif = Uniform(0, 1)
@@ -55,7 +55,7 @@ function continuous_outcome_binary_treatment_pb(;n=100)
     return dataset, ATE
 end
 
-function continuous_outcome_categorical_treatment_pb(;n=100, control="TT", case="AA")
+function continuous_outcome_categorical_treatment_pb(; n = 100, control = "TT", case = "AA")
     # Define dataset
     rng = StableRNG(123)
     ft(T) = (T .== "AA") - (T .== "AT") + 2(T .== "TT")
@@ -63,33 +63,27 @@ function continuous_outcome_categorical_treatment_pb(;n=100, control="TT", case=
     W = float(rand(rng, Bernoulli(0.5), n, 3))
     W₁, W₂, W₃ = W[:, 1], W[:, 2], W[:, 3]
     θ = rand(rng, 3, 3)
-    softmax = exp.(W*θ) ./ sum(exp.(W*θ), dims=2)
-    T = [sample(rng, ["TT", "AA", "AT"], Weights(softmax[i, :])) for i in 1:n]
-    y = ft(T) + fw(W₁, W₂, W₃) + rand(rng, Normal(0,1), n)
-    dataset = DataFrame(T = categorical(T),  W₁ = W₁, W₂ = W₂, W₃ = W₃, Y = y)
+    softmax = exp.(W*θ) ./ sum(exp.(W*θ), dims = 2)
+    T = [sample(rng, ["TT", "AA", "AT"], Weights(softmax[i, :])) for i = 1:n]
+    y = ft(T) + fw(W₁, W₂, W₃) + rand(rng, Normal(0, 1), n)
+    dataset = DataFrame(T = categorical(T), W₁ = W₁, W₂ = W₂, W₃ = W₃, Y = y)
     # True ATE: Ew[E[Y|t,w]] = ∑ᵤ (ft(T) + fw(w))p(w) = ft(t) + 0.5
-    ATE = (ft(case) + 0.5) -  (ft(control) + 0.5)
+    ATE = (ft(case) + 0.5) - (ft(control) + 0.5)
     return dataset, ATE
 end
 
 
-function dataset_2_treatments_pb(;rng = StableRNG(123), n=100)
+function dataset_2_treatments_pb(; rng = StableRNG(123), n = 100)
     # Dataset
     μY(W₁, W₂, T₁, T₂) = 4T₁ .- 2T₂ .+ 5W₁ .- 3W₂
     W₁ = rand(rng, Normal(), n)
     W₂ = rand(rng, Normal(), n)
     μT₁ = logistic.(0.5W₁ + 1.5W₂)
     T₁ = float(rand(rng, Uniform(), n) .< μT₁)
-    μT₂ = logistic.(-1.5W₁ + .5W₂ .+ 1)
+    μT₂ = logistic.(-1.5W₁ + 0.5W₂ .+ 1)
     T₂ = float(rand(rng, Uniform(), n) .< μT₂)
     y = μY(W₁, W₂, T₁, T₂) .+ rand(rng, Normal(), n)
-    dataset = DataFrame(
-        W₁ = W₁,
-        W₂ = W₂,
-        T₁ = categorical(T₁),
-        T₂ = categorical(T₂),
-        Y  = y
-    )
+    dataset = DataFrame(W₁ = W₁, W₂ = W₂, T₁ = categorical(T₁), T₂ = categorical(T₂), Y = y)
     # Those ATEs are MC approximations, only reliable with large samples
     case = ones(n)
     control = zeros(n)
@@ -100,165 +94,174 @@ function dataset_2_treatments_pb(;rng = StableRNG(123), n=100)
 end
 
 @testset "Test Double Robustness ATE on continuous_outcome_categorical_treatment_pb" begin
-    dataset, Ψ₀ = continuous_outcome_categorical_treatment_pb(;n=10_000, control="TT", case="AA")
-    Ψ = ATE(
-        outcome   = :Y,
-        treatment_values = (T=(case="AA", control="TT"),),
-        treatment_confounders = (T = [:W₁, :W₂, :W₃],)
+    dataset, Ψ₀ = continuous_outcome_categorical_treatment_pb(;
+        n = 10_000,
+        control = "TT",
+        case = "AA",
     )
-    
+    Ψ = ATE(
+        outcome = :Y,
+        treatment_values = (T = (case = "AA", control = "TT"),),
+        treatment_confounders = (T = [:W₁, :W₂, :W₃],),
+    )
+
     # When Q is misspecified but G is well specified
     models = Dict(
         :Y => with_encoder(MLJModels.DeterministicConstantRegressor()),
-        :T => with_encoder(LogisticClassifier(lambda=0))
+        :T => with_encoder(LogisticClassifier(lambda = 0)),
     )
     dr_estimators = double_robust_estimators(models)
-    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
-    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
-    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
+    results, cache =
+        test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity = 0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol = 1e-10)
+    test_mean_inf_curve_almost_zero(results.ose; atol = 1e-10)
     # Test emptyIC function
     @test emptyIC(results.tmle).IC == []
     pval = pvalue(OneSampleZTest(results.tmle))
-    @test emptyIC(results.tmle, pval_threshold=0.9pval).IC == []
-    @test emptyIC(results.tmle, pval_threshold=1.1pval) === results.tmle
+    @test emptyIC(results.tmle, pval_threshold = 0.9pval).IC == []
+    @test emptyIC(results.tmle, pval_threshold = 1.1pval) === results.tmle
     # The initial estimate is far away
     naive = Plugin(models[:Y])
-    naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
+    naive_result, cache = naive(Ψ, dataset; cache = cache, verbosity = 0)
     @test naive_result == 0
-    
+
     # When Q is well specified but G is misspecified
     models = Dict(
         :Y => with_encoder(LinearRegressor()),
-        :T => with_encoder(ConstantClassifier())
+        :T => with_encoder(ConstantClassifier()),
     )
     dr_estimators = double_robust_estimators(models)
-    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
-    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
+    results, cache =
+        test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity = 0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol = 1e-10)
 end
 
 @testset "Test Double Robustness ATE on binary_outcome_binary_treatment_pb" begin
-    dataset, Ψ₀ = binary_outcome_binary_treatment_pb(;n=10_000)
+    dataset, Ψ₀ = binary_outcome_binary_treatment_pb(; n = 10_000)
     Ψ = ATE(
         outcome = :Y,
-        treatment_values = (T=(case=true, control=false),),
-        treatment_confounders = (T=[:W],)
+        treatment_values = (T = (case = true, control = false),),
+        treatment_confounders = (T = [:W],),
     )
     # When Q is misspecified but G is well specified
     models = Dict(
         :Y => with_encoder(ConstantClassifier()),
-        :T => with_encoder(LogisticClassifier(lambda=0))
+        :T => with_encoder(LogisticClassifier(lambda = 0)),
     )
-    dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
-    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
-    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-6)
-    test_mean_inf_curve_almost_zero(results.ose; atol=1e-6)
+    dr_estimators = double_robust_estimators(models, resampling = StratifiedCV())
+    results, cache =
+        test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity = 0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol = 1e-6)
+    test_mean_inf_curve_almost_zero(results.ose; atol = 1e-6)
     # The initial estimate is far away
     naive = Plugin(models[:Y])
-    naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0) 
+    naive_result, cache = naive(Ψ, dataset; cache = cache, verbosity = 0)
     @test naive_result == 0
     # When Q is well specified but G is misspecified
     models = Dict(
-        :Y => with_encoder(LogisticClassifier(lambda=0)),
-        :T => with_encoder(ConstantClassifier())
+        :Y => with_encoder(LogisticClassifier(lambda = 0)),
+        :T => with_encoder(ConstantClassifier()),
     )
-    dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
-    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
-    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-6)
+    dr_estimators = double_robust_estimators(models, resampling = StratifiedCV())
+    results, cache =
+        test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity = 0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol = 1e-6)
 end
 
 
 @testset "Test Double Robustness ATE on continuous_outcome_binary_treatment_pb" begin
-    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=50_000)
+    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n = 50_000)
     Ψ = ATE(
         outcome = :Y,
-        treatment_values = (T=(case=true, control=false),),
-        treatment_confounders = (T=[:W₁, :W₂, :W₃],)
+        treatment_values = (T = (case = true, control = false),),
+        treatment_confounders = (T = [:W₁, :W₂, :W₃],),
     )
     # When Q is misspecified but G is well specified
     models = Dict(
         :Y => with_encoder(MLJModels.DeterministicConstantRegressor()),
-        :T => with_encoder(LogisticClassifier(lambda=0))
+        :T => with_encoder(LogisticClassifier(lambda = 0)),
     )
     dr_estimators = double_robust_estimators(models)
-    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
+    results, cache =
+        test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity = 0)
 
-    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
-    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
+    test_mean_inf_curve_almost_zero(results.tmle; atol = 1e-10)
+    test_mean_inf_curve_almost_zero(results.ose; atol = 1e-10)
     # The initial estimate is far away
     naive = Plugin(models[:Y])
-    naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
+    naive_result, cache = naive(Ψ, dataset; cache = cache, verbosity = 0)
     @test naive_result == 0
 
     # When Q is well specified but G is misspecified
     models = Dict(
         :Y => with_encoder(LinearRegressor()),
-        :T => with_encoder(ConstantClassifier())
+        :T => with_encoder(ConstantClassifier()),
     )
     dr_estimators = double_robust_estimators(models)
-    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
-    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
+    results, cache =
+        test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity = 0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol = 1e-10)
 end
 
 @testset "Test Double Robustness ATE with two treatment variables" begin
-    dataset, (ATE₁₁₋₀₁, ATE₁₁₋₀₀) = dataset_2_treatments_pb(;rng = StableRNG(123), n=50_000)
+    dataset, (ATE₁₁₋₀₁, ATE₁₁₋₀₀) =
+        dataset_2_treatments_pb(; rng = StableRNG(123), n = 50_000)
     # Test first ATE, only T₁ treatment varies 
     Ψ = ATE(
         outcome = :Y,
         treatment_values = (
-            T₁=(case=1., control=0.), 
-            T₂=(case=1., control=1.)
+            T₁ = (case = 1.0, control = 0.0),
+            T₂ = (case = 1.0, control = 1.0),
         ),
-        treatment_confounders = (
-            T₁ = [:W₁, :W₂],
-            T₂ = [:W₁, :W₂],
-        )
+        treatment_confounders = (T₁ = [:W₁, :W₂], T₂ = [:W₁, :W₂]),
     )
     # When Q is misspecified but G is well specified
     models = Dict(
-        :Y  => with_encoder(MLJModels.DeterministicConstantRegressor()),
-        :T₁ => with_encoder(LogisticClassifier(lambda=0)),
-        :T₂ => with_encoder(LogisticClassifier(lambda=0))
+        :Y => with_encoder(MLJModels.DeterministicConstantRegressor()),
+        :T₁ => with_encoder(LogisticClassifier(lambda = 0)),
+        :T₂ => with_encoder(LogisticClassifier(lambda = 0)),
     )
     dr_estimators = double_robust_estimators(models)
-    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₁, dataset; verbosity=0)
-    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
-    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
+    results, cache =
+        test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₁, dataset; verbosity = 0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol = 1e-10)
+    test_mean_inf_curve_almost_zero(results.ose; atol = 1e-10)
     # When Q is well specified but G is misspecified
     models = Dict(
-        :Y  => with_encoder(LinearRegressor()),
+        :Y => with_encoder(LinearRegressor()),
         :T₁ => with_encoder(ConstantClassifier()),
-        :T₂ => with_encoder(ConstantClassifier())
+        :T₂ => with_encoder(ConstantClassifier()),
     )
     dr_estimators = double_robust_estimators(models)
-    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₁, dataset; verbosity=0)
-    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
+    results, cache =
+        test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₁, dataset; verbosity = 0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol = 1e-10)
 
     # Test second ATE, two treatment varies 
     Ψ = ATE(
         outcome = :Y,
         treatment_values = (
-            T₁=(case=1., control=0.), 
-            T₂=(case=1., control=0.)
+            T₁ = (case = 1.0, control = 0.0),
+            T₂ = (case = 1.0, control = 0.0),
         ),
-        treatment_confounders = (
-            T₁ = [:W₁, :W₂],
-            T₂ = [:W₁, :W₂],
-        )
+        treatment_confounders = (T₁ = [:W₁, :W₂], T₂ = [:W₁, :W₂]),
     )
     dr_estimators = double_robust_estimators(models)
-    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₀, dataset; verbosity=0)
-    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
-    test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
+    results, cache =
+        test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₀, dataset; verbosity = 0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol = 1e-10)
+    test_mean_inf_curve_almost_zero(results.ose; atol = 1e-10)
 
     # When Q is well specified but G is misspecified
     models = Dict(
-        :Y  => with_encoder(MLJModels.DeterministicConstantRegressor()),
-        :T₁ => with_encoder(LogisticClassifier(lambda=0)),
-        :T₂ => with_encoder(LogisticClassifier(lambda=0)),
+        :Y => with_encoder(MLJModels.DeterministicConstantRegressor()),
+        :T₁ => with_encoder(LogisticClassifier(lambda = 0)),
+        :T₂ => with_encoder(LogisticClassifier(lambda = 0)),
     )
     dr_estimators = double_robust_estimators(models)
-    results, cache = test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₀, dataset; verbosity=0)
-    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-10)
+    results, cache =
+        test_coverage_and_get_results(dr_estimators, Ψ, ATE₁₁₋₀₀, dataset; verbosity = 0)
+    test_mean_inf_curve_almost_zero(results.tmle; atol = 1e-10)
 end
 
 end;

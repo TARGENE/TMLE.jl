@@ -46,7 +46,8 @@ export BackdoorAdjustment, identify
 export Configuration
 export brute_force_ordering, groups_ordering
 export gradients, epsilons, estimates
-export AdaptiveCorrelationStrategy, GreedyStrategy
+export AdaptiveCorrelationOrdering, Greedy
+export LassoCTMLE
 export CausalStratifiedCV, CV, StratifiedCV, Holdout
 export CPUThreads, CPU1
 
@@ -72,6 +73,7 @@ include("counterfactual_mean_based/covariate_based_strategies.jl")
 include("counterfactual_mean_based/estimators.jl")
 include("counterfactual_mean_based/clever_covariate.jl")
 include("counterfactual_mean_based/gradient.jl")
+include("counterfactual_mean_based/lasso_strategy.jl")
 
 include("configuration.jl")
 include("testing.jl")

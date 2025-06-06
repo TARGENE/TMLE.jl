@@ -4,35 +4,38 @@
 
 mutable struct Tmle <: Estimator
     models::Dict
-    resampling::Union{Nothing, ResamplingStrategy}
-    collaborative_strategy::Union{Nothing, CollaborativeStrategy}
-    ps_lowerbound::Union{Float64, Nothing}
+    resampling::Union{Nothing,ResamplingStrategy}
+    collaborative_strategy::Union{Nothing,CollaborativeStrategy}
+    ps_lowerbound::Union{Float64,Nothing}
     weighted::Bool
-    tol::Union{Float64, Nothing}
+    tol::Union{Float64,Nothing}
     max_iter::Int
     machine_cache::Bool
     function Tmle(
-        models, 
-        resampling, 
-        collaborative_strategy, 
-        ps_lowerbound, 
-        weighted, 
-        tol, 
-        max_iter, 
-        machine_cache
+        models,
+        resampling,
+        collaborative_strategy,
+        ps_lowerbound,
+        weighted,
+        tol,
+        max_iter,
+        machine_cache,
     )
         if resampling === nothing && collaborative_strategy !== nothing
-            @warn("Collaborative TMLE requires a resampling strategy but none was provided. Using the default resampling strategy.")
+            @warn(
+                "Collaborative TMLE requires a resampling strategy but none was provided. Using the default resampling strategy."
+            )
             resampling = default_resampling(collaborative_strategy)
         end
         return new(
-            models, 
-            resampling, 
-            collaborative_strategy, 
-            ps_lowerbound, 
-            weighted, tol, 
-            max_iter, 
-            machine_cache
+            models,
+            resampling,
+            collaborative_strategy,
+            ps_lowerbound,
+            weighted,
+            tol,
+            max_iter,
+            machine_cache,
         )
     end
 end
@@ -74,67 +77,81 @@ tmle = Tmle()
 ```
 """
 function Tmle(;
-    models=default_models(), 
-    collaborative_strategy=nothing,
-    resampling=default_resampling(collaborative_strategy), 
-    ps_lowerbound=1e-8, 
-    weighted=true, 
-    tol=nothing, 
-    max_iter=1, 
-    machine_cache=false
-    )
+    models = default_models(),
+    collaborative_strategy = nothing,
+    resampling = default_resampling(collaborative_strategy),
+    ps_lowerbound = 1e-8,
+    weighted = true,
+    tol = nothing,
+    max_iter = 1,
+    machine_cache = false,
+)
     Tmle(
-        models, 
-        resampling, 
-        collaborative_strategy, 
-        ps_lowerbound, 
-        weighted, tol, 
-        max_iter, 
-        machine_cache
+        models,
+        resampling,
+        collaborative_strategy,
+        ps_lowerbound,
+        weighted,
+        tol,
+        max_iter,
+        machine_cache,
     )
 end
 
-function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
+function (tmle::Tmle)(
+    Ψ::StatisticalCMCompositeEstimand,
+    dataset;
+    cache = Dict(),
+    verbosity = 1,
+    acceleration = CPU1(),
+)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Make train-validation pairs
     train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors
-    relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
+    relevant_factors =
+        get_relevant_factors(Ψ, collaborative_strategy = tmle.collaborative_strategy)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
-    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices)
-    initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
-        train_validation_indices=train_validation_indices, 
-        models=tmle.models
+    initial_factors_dataset =
+        choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices)
+    initial_factors_estimator = CMRelevantFactorsEstimator(
+        tmle.collaborative_strategy;
+        train_validation_indices = train_validation_indices,
+        models = tmle.models,
     )
     verbosity >= 1 && @info "Estimating nuisance parameters."
-    initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
-        cache=cache, 
-        verbosity=verbosity-1,
-        machine_cache=tmle.machine_cache,
-        acceleration=acceleration
+    initial_factors_estimate = initial_factors_estimator(
+        relevant_factors,
+        initial_factors_dataset;
+        cache = cache,
+        verbosity = verbosity-1,
+        machine_cache = tmle.machine_cache,
+        acceleration = acceleration,
     )
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)
     ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
     # Fluctuation initial factors
     targeted_factors_estimator = get_targeted_estimator(
-        Ψ, 
-        tmle.collaborative_strategy, 
+        Ψ,
+        tmle.collaborative_strategy,
         train_validation_indices,
         initial_factors_estimate;
-        tol=tmle.tol,
-        max_iter=tmle.max_iter,
-        ps_lowerbound=ps_lowerbound,
-        weighted=tmle.weighted,
-        machine_cache=tmle.machine_cache,
-        models=tmle.models
+        tol = tmle.tol,
+        max_iter = tmle.max_iter,
+        ps_lowerbound = ps_lowerbound,
+        weighted = tmle.weighted,
+        machine_cache = tmle.machine_cache,
+        models = tmle.models,
     )
-    targeted_factors_estimate = targeted_factors_estimator(relevant_factors, nomissing_dataset; 
-        cache=cache, 
-        verbosity=verbosity,
-        machine_cache=tmle.machine_cache,
-        acceleration=acceleration
+    targeted_factors_estimate = targeted_factors_estimator(
+        relevant_factors,
+        nomissing_dataset;
+        cache = cache,
+        verbosity = verbosity,
+        machine_cache = tmle.machine_cache,
+        acceleration = acceleration,
     )
     # Estimation results after TMLE
     cache[:targeted_factors] = targeted_factors_estimate
@@ -148,8 +165,8 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     return TMLEstimate(Ψ, Ψ̂, σ̂, n, IC), cache
 end
 
-gradient_and_estimate(::Tmle, Ψ, factors, dataset; ps_lowerbound=1e-8) = 
-    gradient_and_plugin_estimate(Ψ, factors, dataset; ps_lowerbound=ps_lowerbound)
+gradient_and_estimate(::Tmle, Ψ, factors, dataset; ps_lowerbound = 1e-8) =
+    gradient_and_plugin_estimate(Ψ, factors, dataset; ps_lowerbound = ps_lowerbound)
 
 #####################################################################
 ###                            OSE                                ###
@@ -157,8 +174,8 @@ gradient_and_estimate(::Tmle, Ψ, factors, dataset; ps_lowerbound=1e-8) =
 
 mutable struct Ose <: Estimator
     models::Dict
-    resampling::Union{Nothing, ResamplingStrategy}
-    ps_lowerbound::Union{Float64, Nothing}
+    resampling::Union{Nothing,ResamplingStrategy}
+    ps_lowerbound::Union{Float64,Nothing}
     machine_cache::Bool
 end
 
@@ -194,10 +211,20 @@ ose = Ose()
 Ψ̂ₙ, cache = ose(Ψ, dataset)
 ```
 """
-Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false) = 
-    Ose(models, resampling, ps_lowerbound, machine_cache)
+Ose(;
+    models = default_models(),
+    resampling = nothing,
+    ps_lowerbound = 1e-8,
+    machine_cache = false,
+) = Ose(models, resampling, ps_lowerbound, machine_cache)
 
-function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
+function (ose::Ose)(
+    Ψ::StatisticalCMCompositeEstimand,
+    dataset;
+    cache = Dict(),
+    verbosity = 1,
+    acceleration = CPU1(),
+)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Make train-validation pairs
@@ -205,29 +232,38 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     # Initial fit of the SCM's relevant factors
     initial_factors = get_relevant_factors(Ψ)
     nomissing_dataset = nomissing(dataset, variables(initial_factors))
-    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling)
-    initial_factors_estimator = CMRelevantFactorsEstimator(train_validation_indices, ose.models)
+    initial_factors_dataset =
+        choose_initial_dataset(dataset, nomissing_dataset, ose.resampling)
+    initial_factors_estimator =
+        CMRelevantFactorsEstimator(train_validation_indices, ose.models)
     initial_factors_estimate = initial_factors_estimator(
-        initial_factors, 
+        initial_factors,
         initial_factors_dataset;
-        cache=cache, 
-        verbosity=verbosity,
-        acceleration=acceleration
+        cache = cache,
+        verbosity = verbosity,
+        acceleration = acceleration,
     )
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)
     ps_lowerbound = ps_lower_bound(n, ose.ps_lowerbound)
 
     # Gradient and estimate
-    IC, Ψ̂ = gradient_and_estimate(ose, Ψ, initial_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
+    IC, Ψ̂ = gradient_and_estimate(
+        ose,
+        Ψ,
+        initial_factors_estimate,
+        nomissing_dataset;
+        ps_lowerbound = ps_lowerbound,
+    )
     σ̂ = std(IC)
     n = size(IC, 1)
     verbosity >= 1 && @info "Done."
     return OSEstimate(Ψ, Ψ̂, σ̂, n, IC), cache
 end
 
-function gradient_and_estimate(::Ose, Ψ, factors, dataset; ps_lowerbound=1e-8)
-    IC, Ψ̂ = gradient_and_plugin_estimate(Ψ, factors, dataset; ps_lowerbound=ps_lowerbound)
+function gradient_and_estimate(::Ose, Ψ, factors, dataset; ps_lowerbound = 1e-8)
+    IC, Ψ̂ =
+        gradient_and_plugin_estimate(Ψ, factors, dataset; ps_lowerbound = ps_lowerbound)
     IC_mean = mean(IC)
     IC .-= IC_mean
     return IC, Ψ̂ + IC_mean
@@ -241,17 +277,22 @@ mutable struct Plugin <: Estimator
     model::MLJBase.Supervised
 end
 
-function (estimator::Plugin)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+function (estimator::Plugin)(
+    Ψ::StatisticalCMCompositeEstimand,
+    dataset;
+    cache = Dict(),
+    verbosity = 1,
+)
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
     relevant_factors = get_relevant_factors(Ψ)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
     outcome_mean_estimate = MLConditionalDistributionEstimator(estimator.model)(
-        relevant_factors.outcome_mean, 
+        relevant_factors.outcome_mean,
         dataset;
-        cache=cache,
-        verbosity=verbosity
+        cache = cache,
+        verbosity = verbosity,
     )
     Ψ̂ = mean(counterfactual_aggregate(Ψ, outcome_mean_estimate, nomissing_dataset))
     return Ψ̂, cache
@@ -262,21 +303,21 @@ end
 #####################################################################
 
 
-function (estimator::Union{Plugin, Ose, Tmle})(causalΨ::CausalCMCompositeEstimands, scm, dataset;
-    identification_method=BackdoorAdjustment(),
-    cache=Dict(), 
-    verbosity=1,
-    acceleration=CPU1()
-    )
+function (estimator::Union{Plugin,Ose,Tmle})(
+    causalΨ::CausalCMCompositeEstimands,
+    scm,
+    dataset;
+    identification_method = BackdoorAdjustment(),
+    cache = Dict(),
+    verbosity = 1,
+    acceleration = CPU1(),
+)
     Ψ = identify(identification_method, causalΨ, scm)
-    return estimator(Ψ, dataset; cache=cache, verbosity=verbosity, acceleration=acceleration)
+    return estimator(
+        Ψ,
+        dataset;
+        cache = cache,
+        verbosity = verbosity,
+        acceleration = acceleration,
+    )
 end
-
-#####################################################################
-###                        Deprecated                             ###
-#####################################################################
-
-
-@deprecate TMLEE(args...;kwargs...) Tmle(args...;kwargs...)
-@deprecate OSE(args...;kwargs...) Ose(args...;kwargs...)
-@deprecate NAIVE(args...;kwargs...) Plugin(args...;kwargs...)

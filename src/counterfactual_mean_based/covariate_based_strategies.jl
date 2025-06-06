@@ -4,32 +4,44 @@
 
 struct GreedyStrategy <: CollaborativeStrategy
     patience::Int
-    max_confounders::Union{Nothing, Int}
+    max_confounders::Union{Nothing,Int}
     remaining_confounders::Set{Symbol}
     current_confounders::Set{Symbol}
-    GreedyStrategy(patience, max_confounders) = new(patience, max_confounders, Set{Symbol}(), Set{Symbol}())
+    Greedy(patience, max_confounders) =
+        new(patience, max_confounders, Set{Symbol}(), Set{Symbol}())
 end
 
-GreedyStrategy(;patience=10, max_confounders=nothing) = GreedyStrategy(patience, max_confounders)
+Greedy(; patience = 10, max_confounders = nothing) = Greedy(patience, max_confounders)
 
 
 function propensity_score_from_state!(state, it)
     new_candidate_confounder = pop!(state)
-    confounders_list = (it.collaborative_strategy.current_confounders..., new_candidate_confounder)
+    confounders_list =
+        (it.collaborative_strategy.current_confounders..., new_candidate_confounder)
     return propensity_score(it.Ψ, confounders_list)
 end
 
 function Base.iterate(it::StepKPropensityScoreIterator{GreedyStrategy})
     state = copy(it.collaborative_strategy.remaining_confounders)
     g = propensity_score_from_state!(state, it)
-    ĝ = build_propensity_score_estimator(g, it.models, it.dataset; train_validation_indices=nothing) 
+    ĝ = build_propensity_score_estimator(
+        g,
+        it.models,
+        it.dataset;
+        train_validation_indices = nothing,
+    )
     return (g, ĝ), state
 end
 
 function Base.iterate(it::StepKPropensityScoreIterator{GreedyStrategy}, state)
     isempty(state) && return nothing
     g = propensity_score_from_state!(state, it)
-    ĝ = build_propensity_score_estimator(g, it.models, it.dataset; train_validation_indices=nothing)
+    ĝ = build_propensity_score_estimator(
+        g,
+        it.models,
+        it.dataset;
+        train_validation_indices = nothing,
+    )
     return (g, ĝ), state
 end
 
@@ -44,17 +56,23 @@ This strategy adaptively selects the confounding variable that is the most corre
 """
 struct AdaptiveCorrelationStrategy <: CollaborativeStrategy
     patience::Int
-    max_confounders::Union{Nothing, Int}
+    max_confounders::Union{Nothing,Int}
     remaining_confounders::Set{Symbol}
     current_confounders::Set{Symbol}
-    AdaptiveCorrelationStrategy(patience, max_confounders) = new(patience, max_confounders, Set{Symbol}(), Set{Symbol}())
+    AdaptiveCorrelationOrdering(patience, max_confounders) =
+        new(patience, max_confounders, Set{Symbol}(), Set{Symbol}())
 end
 
-AdaptiveCorrelationStrategy(;patience=10, max_confounders=nothing) = AdaptiveCorrelationStrategy(patience, max_confounders)
+AdaptiveCorrelationOrdering(; patience = 10, max_confounders = nothing) =
+    AdaptiveCorrelationOrdering(patience, max_confounders)
 
-function find_confounder_most_correlated_with_residuals(last_targeted_η̂ₙ, dataset, remaining_confounders)
+function find_confounder_most_correlated_with_residuals(
+    last_targeted_η̂ₙ,
+    dataset,
+    remaining_confounders,
+)
     residuals = compute_loss(last_targeted_η̂ₙ.outcome_mean, dataset)
-    max_cor = 0.
+    max_cor = 0.0
     best_confounder = :nothing
     for confounder in remaining_confounders
         confounder_col = unwrap.(dataset[!, confounder])
@@ -69,7 +87,11 @@ end
 
 function Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationStrategy})
     # Find confounder most correlated with residuals
-    best_confounder = find_confounder_most_correlated_with_residuals(it.last_targeted_η̂ₙ, it.dataset, it.collaborative_strategy.remaining_confounders)
+    best_confounder = find_confounder_most_correlated_with_residuals(
+        it.last_targeted_η̂ₙ,
+        it.dataset,
+        it.collaborative_strategy.remaining_confounders,
+    )
     # Create a new propensity score with the best confounder and the current list
     confounders_list = (it.collaborative_strategy.current_confounders..., best_confounder)
     g = propensity_score(it.Ψ, confounders_list)
@@ -77,7 +99,7 @@ function Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationStrate
         g,
         it.models,
         it.dataset;
-        train_validation_indices=nothing,
+        train_validation_indices = nothing,
     )
     return (g, ĝ), nothing
 end
@@ -89,14 +111,17 @@ Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationStrategy}, stat
 #####################################################################
 
 
-function initialise!(strategy::Union{GreedyStrategy, AdaptiveCorrelationStrategy}, Ψ)
+function initialise!(strategy::Union{Greedy,AdaptiveCorrelationOrdering}, Ψ)
     empty!(strategy.remaining_confounders)
-    union!(strategy.remaining_confounders, Set(Iterators.flatten(values(Ψ.treatment_confounders))))
+    union!(
+        strategy.remaining_confounders,
+        Set(Iterators.flatten(values(Ψ.treatment_confounders))),
+    )
     empty!(strategy.current_confounders)
     return nothing
 end
 
-function update!(strategy::Union{GreedyStrategy, AdaptiveCorrelationStrategy}, g, ĝ)
+function update!(strategy::Union{Greedy,AdaptiveCorrelationOrdering}, g, ĝ)
     treatments = (g_.outcome for g_ in g)
     parents = union((g_.parents for g_ in g)...)
     current_confounders = setdiff(parents, treatments)
@@ -105,12 +130,12 @@ function update!(strategy::Union{GreedyStrategy, AdaptiveCorrelationStrategy}, g
     return nothing
 end
 
-finalise!(strategy::Union{GreedyStrategy, AdaptiveCorrelationStrategy}) = nothing
+finalise!(strategy::Union{Greedy,AdaptiveCorrelationOrdering}) = nothing
 
-function exhausted(strategy::Union{GreedyStrategy, AdaptiveCorrelationStrategy})
+function exhausted(strategy::Union{Greedy,AdaptiveCorrelationOrdering})
     if length(strategy.remaining_confounders) == 0
         return true
-    elseif strategy.max_confounders !== nothing && 
+    elseif strategy.max_confounders !== nothing &&
            length(strategy.current_confounders) >= strategy.max_confounders
         return true
     end
@@ -119,13 +144,17 @@ end
 
 function propensity_score(Ψ, confounders_list)
     Ψtreatments = TMLE.treatments(Ψ)
-    return Tuple(map(eachindex(Ψtreatments)) do index
-        T = Ψtreatments[index]
-        T_confounders = intersect(confounders_list, Ψ.treatment_confounders[T])
-        T_parents = (T_confounders..., Ψtreatments[index+1:end]...)
-        ConditionalDistribution(T, T_parents)
-    end)
+    return Tuple(
+        map(eachindex(Ψtreatments)) do index
+            T = Ψtreatments[index]
+            T_confounders = intersect(confounders_list, Ψ.treatment_confounders[T])
+            T_parents = (T_confounders..., Ψtreatments[(index+1):end]...)
+            ConditionalDistribution(T, T_parents)
+        end,
+    )
 end
 
-propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_strategy::Union{GreedyStrategy, AdaptiveCorrelationStrategy}) =
-    propensity_score(Ψ, collaborative_strategy.current_confounders)
+propensity_score(
+    Ψ::StatisticalCMCompositeEstimand,
+    collaborative_strategy::Union{Greedy,AdaptiveCorrelationOrdering},
+) = propensity_score(Ψ, collaborative_strategy.current_confounders)
