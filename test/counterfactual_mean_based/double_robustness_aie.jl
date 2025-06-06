@@ -10,7 +10,7 @@ using MLJXGBoostInterface
 TEST_DIR = joinpath(pkgdir(TMLE), "test")
 
 include(joinpath(TEST_DIR, "helper_fns.jl"))
-include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulations.jl"))
+include(joinpath(TEST_DIR, "counterfactual_mean_based", "aie_simulations.jl"))
 
 cont_interacter = InteractionTransformer(order=2) |> LinearRegressor
 cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1.)
