@@ -175,21 +175,21 @@ Collaborative TMLE (C-TMLE) is an estimation strategy which optimises all nuisan
 
 There exist many strategies to optimise the propensity score, at the moment we provide two such strategies in this package. Since C-TMLE is an expensive estimation strategy, an additional `patience` variable can be used for early stopping. If the cross-validated loss of the targeted outcome mean model is not reduced in `patience` iterations, the procedure returns the current best candidate.
 
-### Greedy C-TMLE
+### Greedy Strategy
 
 This is the original implementation of the C-TMLE template, it operates as a forward variable selection. Initially, the propensity score consists in a marginal model ``p(T|W)=p(T)``. Then, at each iteration, remaining confounding variables are temptatively added to the propensity score model one at a time. The variable minimising the targeted outcome mean model's loss is retained for the iteration.
 
 ```@example estimation
-greedy_strategy = Greedy(patience=10)
+greedy_strategy = GreedyStrategy(patience=10)
 greedy_ctmle = Tmle(collaborative_strategy=greedy_strategy)
 ```
 
-### Adaptive Correlation
+### Adaptive Correlation Strategy
 
 This is a scalable version of the C-TMLE template which also operates as a forward selection method. However, instead of iterating through all potential confounders at each iteration, the confounder most associated with the residuals of the last targeted outcome mean is selected.
 
 ```@example estimation
-adapt_cor_strategy = Greedy(patience=10)
+adapt_cor_strategy = AdaptiveCorrelationStrategy(patience=10)
 adapt_cor_ctmle = Tmle(collaborative_strategy=adapt_cor_strategy)
 ```
 

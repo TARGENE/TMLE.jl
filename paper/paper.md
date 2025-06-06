@@ -28,7 +28,7 @@ affiliations:
     index: 2
   - name: School of Informatics, University of Edinburgh, Edinburgh EH8 9AB, United Kingdom
     index: 3
-  - name: School of Mathematics and Maxwell Institute, University of Edinburgh, Edinburgh EH9 3FD, United Kingdom
+  - name: School of Mathematics and Maxwell Institute for Mathematical Sciences, University of Edinburgh, Edinburgh EH9 3FD, United Kingdom
     index: 4
   - name: Division of Biostatistics, University of California, Berkeley, CA, USA
     index: 5
@@ -43,7 +43,7 @@ Causal inference is essential for understanding the effect of interventions in r
 
 TMLE.jl is a Julia package that implements Targeted Maximum Likelihood Estimation (TMLE) [@van2011targeted;@van2018targeted], a general framework for causal effect estimation that combines machine learning with principles from semiparametric statistics. TMLE provides doubly robust, efficient, and flexible estimation of causal parameters in observational and experimental studies.
 
-The goal of TMLE.jl is to provide an accessible, implementation of this methodology within the Julia ecosystem. It enables researchers to estimate average treatment effects and other causal parameters while leveraging modern machine learning algorithms to flexibly model nuisance components, such as the outcome regression and treatment mechanism.
+The goal of TMLE.jl is to provide an accessible implementation of this methodology within the Julia ecosystem. It enables researchers to estimate average treatment effects and other causal parameters while leveraging modern machine learning algorithms to flexibly model nuisance components, such as the outcome regression and treatment mechanism.
 
 TMLE.jl is useful in a wide range of scientific disciplines—including epidemiology, biostatistics, econometrics, and genomics—where estimating causal effects from high-dimensional or observational data is critical [@smith2023application;@labayle2025semi;@gruber2010application]. Unlike traditional regression approaches, TMLE can incorporate nonparametric learning without sacrificing statistical validity, offering both robustness to model misspecification and valid confidence intervals.
 
@@ -61,11 +61,12 @@ TMLE.jl addresses this gap by providing the first native Julia implementation of
 * Various semi-parametric estimators: 
   * Targeted Maximum Likelihood Estimators (canonical, weighted, cross-validated and two collaborative flavours)
   * One-Step Estimators (canonical and cross-validated).
-* Support for combinations of factorial treatment variables.
+* Support for factorial treatment variables and combination thereof.
 * Integration with Julia’s ecosystem: 
   * Machine Learning models including ensemble learning via the [MLJ](https://juliaai.github.io/MLJ.jl/stable/) toolbox [@blaom2020mlj].
   * Dataset Representation with [DataFrames.jl](https://dataframes.juliadata.org/stable/) [@bouchet2023dataframes].
   * Automatic Differentiation via [DifferentiationInterface.jl](https://github.com/JuliaDiff/DifferentiationInterface.jl)[@dalle2025commoninterfaceautomaticdifferentiation;@schäfer2022abstractdifferentiationjlbackendagnosticdifferentiableprogramming]
+  * Causal Simulations via [CausalTables.jl](https://github.com/salbalkus/CausalTables.jl) [@Balkus2025]
 
 TMLE.jl fills an important niche for causal inference practitioners in Julia and contributes to the growing ecosystem of open-source tools supporting rigorous and scalable statistical modeling.
 

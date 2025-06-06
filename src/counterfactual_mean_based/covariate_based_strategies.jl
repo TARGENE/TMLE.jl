@@ -1,8 +1,8 @@
 #####################################################################
-###                      Greedy                           ###
+###                      GreedyStrategy                           ###
 #####################################################################
 
-struct Greedy <: CollaborativeStrategy
+struct GreedyStrategy <: CollaborativeStrategy
     patience::Int
     max_confounders::Union{Nothing,Int}
     remaining_confounders::Set{Symbol}
@@ -21,7 +21,7 @@ function propensity_score_from_state!(state, it)
     return propensity_score(it.Ψ, confounders_list)
 end
 
-function Base.iterate(it::StepKPropensityScoreIterator{Greedy})
+function Base.iterate(it::StepKPropensityScoreIterator{GreedyStrategy})
     state = copy(it.collaborative_strategy.remaining_confounders)
     g = propensity_score_from_state!(state, it)
     ĝ = build_propensity_score_estimator(
@@ -33,7 +33,7 @@ function Base.iterate(it::StepKPropensityScoreIterator{Greedy})
     return (g, ĝ), state
 end
 
-function Base.iterate(it::StepKPropensityScoreIterator{Greedy}, state)
+function Base.iterate(it::StepKPropensityScoreIterator{GreedyStrategy}, state)
     isempty(state) && return nothing
     g = propensity_score_from_state!(state, it)
     ĝ = build_propensity_score_estimator(
@@ -46,15 +46,15 @@ function Base.iterate(it::StepKPropensityScoreIterator{Greedy}, state)
 end
 
 #####################################################################
-###                AdaptiveCorrelationOrdering                    ###
+###                AdaptiveCorrelationStrategy                    ###
 #####################################################################
 
 """
-    AdaptiveCorrelationOrdering()
+    AdaptiveCorrelationStrategy()
 
 This strategy adaptively selects the confounding variable that is the most correlated with the last residuals of the outcome mean estimator.
 """
-struct AdaptiveCorrelationOrdering <: CollaborativeStrategy
+struct AdaptiveCorrelationStrategy <: CollaborativeStrategy
     patience::Int
     max_confounders::Union{Nothing,Int}
     remaining_confounders::Set{Symbol}
@@ -85,7 +85,7 @@ function find_confounder_most_correlated_with_residuals(
     return best_confounder
 end
 
-function Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationOrdering})
+function Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationStrategy})
     # Find confounder most correlated with residuals
     best_confounder = find_confounder_most_correlated_with_residuals(
         it.last_targeted_η̂ₙ,
@@ -104,10 +104,10 @@ function Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationOrderi
     return (g, ĝ), nothing
 end
 
-Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationOrdering}, state) = nothing
+Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationStrategy}, state) = nothing
 
 #####################################################################
-###             Shared AdaptiveCorrelationOrdering                ###
+###             Shared AdaptiveCorrelationStrategy                ###
 #####################################################################
 
 

@@ -9,7 +9,7 @@ TEST_DIR = joinpath(pkgdir(TMLE), "test")
 include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulations.jl"))
 
 @testset "Test AdaptiveCorrelationOrdering Interface" begin
-    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n = 1_000)
+    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=1_000)
     Ψ = AIE(
         outcome = :Y,
         treatment_values = (
@@ -19,7 +19,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
         treatment_confounders = (T₁ = [:W₁, :W₂], T₂ = [:W₁, :W₃]),
     )
     # Define the strategy
-    adaptive_strategy = AdaptiveCorrelationOrdering()
+    adaptive_strategy = AdaptiveCorrelationStrategy()
     @test adaptive_strategy.patience == 10
     @test adaptive_strategy.remaining_confounders == Set{Symbol}()
     @test adaptive_strategy.current_confounders == Set{Symbol}()
@@ -79,7 +79,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
 end
 
 @testset "Test Greedy Interface" begin
-    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n = 1_000)
+    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=1_000)
     Ψ = AIE(
         outcome = :Y,
         treatment_values = (
@@ -93,7 +93,7 @@ end
     resampling = StratifiedCV()
     machine_cache = true
     verbosity = 0
-    collaborative_strategy = Greedy()
+    collaborative_strategy = GreedyStrategy()
     models = default_models(;
         Q_continuous = LinearRegressor(),
         G = LogisticClassifier(lambda = 0.0),
@@ -239,7 +239,7 @@ end
           TMLE.ConditionalDistribution(:T₂, (:W₃,))
 end
 
-@testset "Integration Test using the AdaptiveCorrelationOrdering" begin
+@testset "Integration Test using the AdaptiveCorrelationStrategy" begin
     n_samples = 1_000
     dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n = 1_000)
     Ψ = AIE(
@@ -255,7 +255,7 @@ end
     resampling = StratifiedCV()
     machine_cache = true
     verbosity = 0
-    collaborative_strategy = AdaptiveCorrelationOrdering()
+    collaborative_strategy = AdaptiveCorrelationStrategy()
     models = default_models(;
         Q_continuous = LinearRegressor(),
         G = LogisticClassifier(lambda = 0.0),
@@ -315,7 +315,7 @@ end
         machine_cache = tmle.machine_cache,
         models = tmle.models,
     )
-    @test estimator isa TMLE.CMBasedCTMLE{TMLE.AdaptiveCorrelationOrdering}
+    @test estimator isa TMLE.CMBasedCTMLE{TMLE.AdaptiveCorrelationStrategy}
     @test estimator.train_validation_indices == train_validation_indices
     fluctuation_model = estimator.fluctuation
     ## Check initialisation of the collaborative strategy

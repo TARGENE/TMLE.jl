@@ -86,11 +86,8 @@ end
     )
     estimators = (
         tmle = Tmle(),
-        cvtmle = Tmle(resampling = StratifiedCV()),
-        ctmle = Tmle(
-            resampling = StratifiedCV(),
-            collaborative_strategy = AdaptiveCorrelationOrdering(),
-        ),
+        cvtmle = Tmle(resampling=StratifiedCV()),
+        ctmle = Tmle(resampling=StratifiedCV(), collaborative_strategy=AdaptiveCorrelationOrdering()),
     )
     # Check results are equivalent with all accelerations
     for (estimator_name, estimator) in zip(keys(estimators), values(estimators))
