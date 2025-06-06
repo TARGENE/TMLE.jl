@@ -8,7 +8,7 @@ using Distributions
 using StatisticalMeasures
 
 TEST_DIR = joinpath(pkgdir(TMLE), "test")
-include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulations.jl"))
+include(joinpath(TEST_DIR, "counterfactual_mean_based", "aie_simulations.jl"))
 
 @testset "Test compute_loss" begin
     dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=1_000)

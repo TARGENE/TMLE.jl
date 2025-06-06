@@ -6,11 +6,13 @@ If you have a question that is not answered by the documentation, would like a n
 
 ## Contributing
 
+If you are new to Julia and are unsure where to start, I recommend this (old but good) [Youtube video](https://www.youtube.com/watch?v=QVmU29rCjaA&t=16s).
+
 The package is not fully mature and some of the API is subject to change. If you would like to contribute a new estimand, estimator, extension, or example for the documentation, feel free to get in [touch](https://github.com/TARGENE/TMLE.jl/issues). Breaking changes are welcome if they extend the capabilities of the package.
 
 Here is some general information about the code base.
 
-### New Estimands
+### Guidance for New Estimands
 
 Implementing a new estimand requires both the definition of the estimand (see `src/counterfactual_mean_based/estimands.jl` for examples) and the associated estimators.
 
@@ -19,7 +21,7 @@ The entry point estimators are defined within `src/counterfactual_mean_based/est
 - `get_relevant_factors`: returns the nuisance parameters for a given parameter ``Ψ``.
 - `gradient_and_estimate`: computes the gradient for a given parameter ``Ψ``.
 
-### New Estimators
+### Guidance for New Estimators
 
 There are several interesting directions to complement this package with new estimators.
 
@@ -41,3 +43,31 @@ estimand = Estimand(kwargs...)
 estimator = Estimator(kwargs...)
 estimate = estimator(estimand, dataset; kwargs...)
 ```
+
+### Testing
+
+Testing is a vital part of any software development and is expected with a particular focus on correctness. 
+
+#### Unit Testing
+
+Basic unit-testing should be in place for most important implemented functions but you don't need to test that ``1 + 1 = 2``.
+
+#### Statistical Guarantees
+
+Theoretical statistical guarantees are difficult to verify in practice but simulations can help. At the moment, the main property for which most estimators are tested against, is their so-called double robustness. That is, they should converge to the true value of the parameter if only the propensity score or the outcome model is correctly specified. At the moment there is a test file for each of the two main parameters of the package, the `ATE` and the `AIE`:
+
+- `test/counterfactual_mean_based/double_robustness_ate.jl` with simulations in `test/counterfactual_mean_based/double_robustness_ate.jl`
+- `test/counterfactual_mean_based/double_robustness_aie.jl` with simulations in `test/counterfactual_mean_based/aie_simulations.jl`
+
+Both test the set of estimators defined by the `double_robust_estimators()` function in `test/helper_fns.jl`. To add your new estimator to the testset, you just need to add it to the return list of that function. One thing to note here is that, instead of verifying the convergence with the sample size, we only verify coverage for a sufficiently large sample size in a variety of simulations. This can be improved in the future and would represent an interesting contribution to this package.
+
+If a new estimator you provide is expected to perform better in a well defined context, writing a suitable simulation verifying this expected behaviour is highly recommended. Note that this does not have to be a test in the `test` folder but could instead be part of the documentation and will then serve two purposes at once.
+
+### Documentation
+
+Please provide documentation for your contribution, this documentation is two folds:
+
+- Developer oriented: with comments in the code for example
+- User oriented: 
+  - At least a docstring with a brief description and potentially a usage example.
+  - Ideally a contribution to the `docs` source code.
