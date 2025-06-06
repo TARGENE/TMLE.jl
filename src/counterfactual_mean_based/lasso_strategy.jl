@@ -39,7 +39,6 @@ Returns a vector of (train_idx, test_idx) tuples for stratified k-fold cross-val
 where `y` contains class labels.
 """
 function stratified_kfold(y::AbstractVector, k::Int)
-    # Group indices by class
     idx_by_class = Dict{eltype(y), Vector{Int}}()
     for (i, label) in enumerate(y)
         push!(get!(idx_by_class, label, Int[]), i)
