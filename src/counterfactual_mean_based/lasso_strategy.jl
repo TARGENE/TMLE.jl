@@ -1,6 +1,6 @@
 ##################################################################
-###                      LassoStrategy                            ###
-#####################################################################
+###                      LassoStrategy                         ###
+##################################################################
 
 using GLMNet
 using DataFrames
@@ -82,6 +82,7 @@ end
     propensity_score(Ψ, strategy::LassoCTMLE)
 
 Returns a function which, given a dataset, fits LASSO at the chosen lambda and predicts propensity scores.
+This method is generic: it works for any valid Ψ parameter by using TMLE.treatment(Ψ).
 """
 function propensity_score(Ψ, strategy::LassoCTMLE)
     function fit_predict(dataset; lambda_override = nothing)
@@ -163,6 +164,9 @@ end
     )
 
 Pipeline step: cross-validates lambda, sets best_lambda, fits candidate at best lambda, and targets using TMLE fluctuation machinery.
+NOTE: This strategy does NOT compute clever covariate or target the parameter directly.
+      It only provides a g-model fit (propensity score model) using LASSO.
+      TMLE.jl machinery handles clever covariate and targeting for any valid Ψ.
 """
 function step_k_best_candidate(
     collaborative_strategy::LassoCTMLE,
