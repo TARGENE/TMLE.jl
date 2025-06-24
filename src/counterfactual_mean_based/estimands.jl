@@ -224,9 +224,9 @@ function identify(method::BackdoorAdjustment, causal_estimand::T, scm::SCM) wher
 end
 
 function get_treatment_values(dataset, colname)
-    counts = groupcount(skipmissing(dataset[!, colname]))
-    sorted_counts = sort(collect(pairs(counts)), by = x -> x.second, rev=true)
-    return first.(sorted_counts)
+    counts = combine(groupby(dataset, colname, skipmissing=true), nrow)
+    sorted_counts = sort!(counts, :nrow, rev=true)
+    return sorted_counts[!, colname]
 end
 
 """

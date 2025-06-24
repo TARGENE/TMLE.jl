@@ -1,7 +1,6 @@
 module TMLE
 
 using Tables
-using TableOperations
 using CategoricalArrays
 using MLJBase
 using HypothesisTests
@@ -18,7 +17,6 @@ using DifferentiationInterface
 using Graphs
 using MetaGraphsNext
 using Combinatorics
-using SplitApplyCombine
 using OrderedCollections
 using AutoHashEquals
 using StatisticalMeasures
