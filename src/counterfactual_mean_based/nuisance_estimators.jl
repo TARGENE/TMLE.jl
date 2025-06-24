@@ -80,19 +80,20 @@ end
 @auto_hash_equals struct CMRelevantFactorsEstimator <: Estimator
     train_validation_indices
     models::Dict
+    prevalence::Union{Nothing, Float64}
 end
 
-CMRelevantFactorsEstimator(;models, train_validation_indices=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models)
+CMRelevantFactorsEstimator(;models, train_validation_indices=nothing, prevalence=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models, prevalence)
 
 """
 If there is no collaborative strategy, we are in CV mode and `train_validation_indices` are used to build the initial estimator.
 """
-CMRelevantFactorsEstimator(collaborative_strategy::Nothing; models, train_validation_indices=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models)
+CMRelevantFactorsEstimator(collaborative_strategy::Nothing; models, train_validation_indices=nothing, prevalence=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models, prevalence)
 
 """
 If there is a collaborative strategy, `train_validation_indices` are ignored to build the initial estimator.
 """
-CMRelevantFactorsEstimator(collaborative_strategy; models, train_validation_indices=nothing) = CMRelevantFactorsEstimator(nothing, models)
+CMRelevantFactorsEstimator(collaborative_strategy; models, train_validation_indices=nothing, prevalance=nothing) = CMRelevantFactorsEstimator(nothing, models, prevalance)
 
 function acquire_model(models, key, dataset, is_propensity_score)
     # If the model is in models return it
@@ -108,12 +109,13 @@ end
 
 function build_propensity_score_estimator(propensity_score, models, dataset;
     train_validation_indices=nothing,
+    prevalence=nothing
     )
     cd_estimators = Dict()
     for conditional_distribution in propensity_score
         outcome = conditional_distribution.outcome
         model = acquire_model(models, outcome, dataset, true)
-        cd_estimators[outcome] = ConditionalDistributionEstimator(model, train_validation_indices)
+        cd_estimators[outcome] = ConditionalDistributionEstimator(model, train_validation_indices, prevalence=prevalence)
     end
     return JointConditionalDistributionEstimator(cd_estimators)
 end
@@ -123,13 +125,15 @@ function estimate_propensity_score(propensity_score, models, dataset;
     cache=Dict(),
     verbosity=1,
     machine_cache=false,
-    acceleration=CPU1()
+    acceleration=CPU1(),
+    prevalence=nothing
     )
     propensity_score_estimator = build_propensity_score_estimator(
         propensity_score, 
         models,  
         dataset;
         train_validation_indices=train_validation_indices,
+        prevalence=prevalence
     )
     return propensity_score_estimator(
         propensity_score, 
@@ -146,12 +150,14 @@ function estimate_outcome_mean(outcome_mean, models, dataset;
     cache=Dict(),
     verbosity=1,
     machine_cache=false,
-    acceleration=CPU1()
+    acceleration=CPU1(),
+    prevalence=nothing
     )
     outcome_model = acquire_model(models, outcome_mean.outcome, dataset, false)
     outcome_mean_estimator = ConditionalDistributionEstimator(
         outcome_model,
-        train_validation_indices, 
+        train_validation_indices,
+        prevalence=prevalence 
     )
     return try_fit_ml_estimator(outcome_mean_estimator, outcome_mean, dataset;
         error_fn=outcome_mean_fit_error_msg,
@@ -171,20 +177,23 @@ function estimate_propensity_score_and_outcome_mean(
     train_validation_indices=nothing,
     cache=Dict(), 
     verbosity=1, 
-    machine_cache=false
+    machine_cache=false,
+    prevalence=nothing
     )
     propensity_score_estimate = estimate_propensity_score(propensity_score, models, dataset;
         train_validation_indices=train_validation_indices,
         cache=cache,
         verbosity=verbosity,
-        machine_cache=machine_cache
+        machine_cache=machine_cache,
+        prevalence=prevalence
     )
     # Estimate outcome mean
     outcome_mean_estimate = estimate_outcome_mean(outcome_mean, models, dataset;
         train_validation_indices=train_validation_indices,
         cache=cache,
         verbosity=verbosity,
-        machine_cache=machine_cache
+        machine_cache=machine_cache,
+        prevalence=prevalence
     )
     return (propensity_score_estimate, outcome_mean_estimate)
 end
@@ -198,20 +207,23 @@ function estimate_propensity_score_and_outcome_mean(
     train_validation_indices=nothing,
     cache=Dict(), 
     verbosity=1, 
-    machine_cache=false
+    machine_cache=false,
+    prevalence=nothing
     )
     propensity_score_estimate = @spawn estimate_propensity_score(propensity_score, models, dataset;
         train_validation_indices=train_validation_indices,
         cache=cache,
         verbosity=verbosity,
         machine_cache=machine_cache,
-        acceleration=acceleration
+        acceleration=acceleration,
+        prevalence=prevalence
     )
     outcome_mean_estimate = @spawn estimate_outcome_mean(outcome_mean, models, dataset;
         train_validation_indices=train_validation_indices,
         cache=cache,
         verbosity=verbosity,
-        machine_cache=machine_cache
+        machine_cache=machine_cache,
+        prevalence=prevalance,
     )
     return fetch.([propensity_score_estimate, outcome_mean_estimate])
 end
@@ -232,6 +244,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
     outcome_mean = estimand.outcome_mean
     propensity_score = estimand.propensity_score
     train_validation_indices = estimator.train_validation_indices
+    prevalence = estimator.prevalence
     # Estimate propensity score and outcome mean
     propensity_score_estimate, outcome_mean_estimate = estimate_propensity_score_and_outcome_mean(
         acceleration,
@@ -242,7 +255,8 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
         train_validation_indices=train_validation_indices,
         cache=cache,
         verbosity=verbosity,
-        machine_cache=machine_cache
+        machine_cache=machine_cache,
+        prevalence=prevalence
     )
     # Build estimate
     estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate)
@@ -259,7 +273,11 @@ end
 struct CMBasedTMLE{T<:Union{Nothing, Tuple}}
     fluctuation::Fluctuation
     train_validation_indices::T
+    prevalence::Union{Nothing, Float64}
 end
+
+CMBasedTMLE(fluctuation::Fluctuation; train_validation_indices=nothing, prevalence=nothing) = 
+    CMBasedTMLE(fluctuation, train_validation_indices, prevalence)
 
 function (estimator::CMBasedTMLE)(estimand, dataset; 
     cache=Dict(), 
@@ -269,8 +287,9 @@ function (estimator::CMBasedTMLE)(estimand, dataset;
     )
     fluctuation_model = estimator.fluctuation
     outcome_mean = fluctuation_model.initial_factors.outcome_mean.estimand
-    # Fluctuate outcome model
-    fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model, estimator.train_validation_indices)
+    # Fluctuate outcome model 
+    # This does not actually weight the fluctuation model as fit_mlj_model will ignore weights in this case
+    fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model, estimator.train_validation_indices, estimator.prevalence)
     fluctuated_outcome_mean = try_fit_ml_estimator(fluctuated_estimator, outcome_mean, dataset;
         error_fn=outcome_mean_fluctuation_fit_error_msg,
         cache=cache,
@@ -442,7 +461,8 @@ function get_targeted_estimator(
     ps_lowerbound=1e-8,
     weighted=true,
     machine_cache=false,
-    models=nothing
+    models=nothing,
+    prevalence=nothing
     )
     fluctuation_model = Fluctuation(Ψ, initial_factors_estimate; 
         tol=tol,
@@ -454,6 +474,6 @@ function get_targeted_estimator(
     if collaborative_strategy isa CollaborativeStrategy
         return CMBasedCTMLE(fluctuation_model, collaborative_strategy, train_validation_indices, models)
     else
-        return CMBasedTMLE(fluctuation_model, nothing)
+        return CMBasedTMLE(fluctuation_model, train_validation_indices=nothing, prevalence=prevalence)
     end
 end

@@ -11,6 +11,7 @@ mutable struct Tmle <: Estimator
     tol::Union{Float64, Nothing}
     max_iter::Int
     machine_cache::Bool
+    prevalence::Union{Nothing, Float64}
     function Tmle(
         models, 
         resampling, 
@@ -19,7 +20,8 @@ mutable struct Tmle <: Estimator
         weighted, 
         tol, 
         max_iter, 
-        machine_cache
+        machine_cache,
+        prevalence
     )
         if resampling === nothing && collaborative_strategy !== nothing
             @warn("Collaborative TMLE requires a resampling strategy but none was provided. Using the default resampling strategy.")
@@ -32,7 +34,8 @@ mutable struct Tmle <: Estimator
             ps_lowerbound, 
             weighted, tol, 
             max_iter, 
-            machine_cache
+            machine_cache,
+            prevalence
         )
     end
 end
@@ -81,7 +84,8 @@ function Tmle(;
     weighted=true, 
     tol=nothing, 
     max_iter=1, 
-    machine_cache=false
+    machine_cache=false,
+    prevalence=nothing
     )
     Tmle(
         models, 
@@ -90,7 +94,8 @@ function Tmle(;
         ps_lowerbound, 
         weighted, tol, 
         max_iter, 
-        machine_cache
+        machine_cache,
+        prevalence
     )
 end
 
@@ -105,7 +110,8 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices)
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 
-        models=tmle.models
+        models=tmle.models,
+        prevalence=tmle.prevalence
     )
     verbosity >= 1 && @info "Estimating nuisance parameters."
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
@@ -128,7 +134,8 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         ps_lowerbound=ps_lowerbound,
         weighted=tmle.weighted,
         machine_cache=tmle.machine_cache,
-        models=tmle.models
+        models=tmle.models,
+        prevalence=tmle.prevalence
     )
     targeted_factors_estimate = targeted_factors_estimator(relevant_factors, nomissing_dataset; 
         cache=cache, 
