@@ -4,8 +4,7 @@
 /docs/build/
 /docs/src/examples/
 build/
+sandbox.jl
 /Manifest.toml
 /test/Manifest.toml
 /docs/Manifest.toml
-.vscode/settings.json
-test/case_control.jl
