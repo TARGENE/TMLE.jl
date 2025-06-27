@@ -35,7 +35,7 @@ add_equation!(scm, :Y => [:T, :W, :C])
 This model does not contain the relationship between ``T`` and ``W``, let's add it now:
 
 ```@example scm
-add_equations!(scm, :T => [:W])
+add_equation!(scm, :T => [:W])
 ```
 
 ## One Step Construction
@@ -69,7 +69,7 @@ There are many cases where we are interested in estimating the causal effect of 
 scm = StaticSCM(
     outcomes=[:Y₁, :Y₂], 
     treatments=[:T₁, :T₂], 
-    confounders=[:W₁, :W₂]
+    confounders=[:W]
 )
 ```
 
