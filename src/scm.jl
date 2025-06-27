@@ -47,6 +47,7 @@ function add_equations!(scm::SCM, equations...)
     for outcome_parents_pair in equations
         add_equation!(scm, outcome_parents_pair)
     end
+    return scm
 end
 
 function add_equation!(scm::SCM, outcome_parents_pair)
@@ -58,6 +59,7 @@ function add_equation!(scm::SCM, outcome_parents_pair)
         add_vertex!(scm.graph, parent_symbol)
         add_edge!(scm.graph, parent_symbol, outcome_symbol)
     end
+    return scm
 end
 
 function parents(scm::SCM, label)
