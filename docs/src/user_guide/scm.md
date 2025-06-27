@@ -6,7 +6,7 @@ CurrentModule = TMLE
 
 In TMLE.jl, specifying a structural causal model (`SCM`) is optional but can be useful to reason about your data. It can also be used for causal identification, that is, converting a causal estimand into a statistical estimand which can be estimated from data. A `SCM` is a directed acyclic graph that describes the causal relationships between the random variables under study. However, it does not make any assumption on the functional form of these dependencies. The traditional `SCM` used in most causal inference studies is the following:
 
-![classic_scm](assets/causal_graph.png)
+![classic_scm](../assets/causal_graph.png)
 
 Where:
 
@@ -75,6 +75,6 @@ scm = StaticSCM(
 
 This `SCM` can be represented by the following illustration:
 
-![static_scm](assets/static_scm_example.png)
+![static_scm](../assets/static_scm_example.png)
 
 In the following section, we illustrate how the `SCM` can be used to convert a causal estimand in a statistical estimand.
