@@ -2,12 +2,30 @@ module TestEstimands
 
 using TMLE
 using Test
+using DataFrames
 
 @testset "Test ConditionalDistribution" begin
     distr = TMLE.ConditionalDistribution("Y", ["C", 1, :A, ])
     @test distr.outcome === :Y
     @test distr.parents === (Symbol("1"), :A, :C)
     @test TMLE.variables(distr) == (:Y, Symbol("1"), :A, :C)
+    # Test string representation
+    @test TMLE.string_repr(distr) == "P₀(Y | 1, A, C)"
+end
+
+@testset "Test check_treatment_levels" begin
+    estimand = ATE(;
+        outcome=:Y,
+        treatment_values=(T=(case=1, control=0),),
+        treatment_confounders=[:W]
+    )
+    # This does not throw
+    dataset = DataFrame(Y=rand(10), T=rand(0:1, 10), W=rand(10))
+    @test TMLE.check_treatment_levels(estimand, dataset) isa Any
+    # This throws
+    dataset = DataFrame(Y=rand(10), T=rand(2:3, 10), W=rand(10))
+    msg = "The treatment variable T's, 'control' level: '0' in Ψ does not match any level in the dataset: [2, 3]"
+    @test_throws ArgumentError(msg) TMLE.check_treatment_levels(estimand, dataset)
 end
 
 @testset "Test CMRelevantFactors" begin
@@ -25,6 +43,8 @@ end
         )
     )
     @test TMLE.variables(η) == (:Y, :T, :W, :T₁, :W₁, :T₂, :W₂₁, :W₂₂)
+    # Test string representation
+    @test TMLE.string_repr(η) == "Relevant Factors: \n- P₀(Y | T, W)\n- P₀(T₁ | W₁)\n- P₀(T₂ | W₂₁, W₂₂)"
 end
 
 @testset "Test JointEstimand and ComposedEstimand" begin
@@ -48,12 +68,18 @@ end
     joint_from_dict = TMLE.from_dict!(joint_dict)
     @test joint_from_dict == joint
 
+    # Test string representation
+    @test TMLE.string_repr(joint) == "Joint Estimand:\n--------------\n- StatisticalATE\n\t- Outcome: Y\n\t- Treatment: T₁ => (control = 0, case = 1) & T₂ => (control = 0, case = 1)\n- StatisticalATE\n\t- Outcome: Y\n\t- Treatment: T₁ => (control = 1, case = 2) & T₂ => (control = 1, case = 2)"
+
     # ComposedEstimand
     Main.eval(:(difference(x, y) = x - y))
     composed = ComposedEstimand(Main.difference, joint)
     composed_dict = TMLE.to_dict(composed)
     composed_from_dict = TMLE.from_dict!(composed_dict)
     @test composed_from_dict == composed
+
+    # Test string representation
+    @test TMLE.string_repr(composed) == "Composed Estimand applying function `difference` to :\n----------------------------------------------------\n- StatisticalATE\n\t- Outcome: Y\n\t- Treatment: T₁ => (control = 0, case = 1) & T₂ => (control = 0, case = 1)\n- StatisticalATE\n\t- Outcome: Y\n\t- Treatment: T₁ => (control = 1, case = 2) & T₂ => (control = 1, case = 2)"
 
     # Anonymous function will raise
     diff = ComposedEstimand((x,y) -> x - y, joint)
