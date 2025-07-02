@@ -2,12 +2,6 @@
 ###                      LassoStrategy                         ###
 ##################################################################
 
-using GLMNet
-using DataFrames
-using StatsFuns
-using ..TMLE
-using Statistics
-
 """
     LassoCTMLE <: CollaborativeStrategy
 
