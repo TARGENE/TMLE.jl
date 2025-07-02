@@ -10,7 +10,36 @@ If you are new to Julia and are unsure where to start, I recommend this (old but
 
 The package is not fully mature and some of the API is subject to change. If you would like to contribute a new estimand, estimator, extension, or example for the documentation, feel free to get in [touch](https://github.com/TARGENE/TMLE.jl/issues). Breaking changes are welcome if they extend the capabilities of the package.
 
-Here is some general information about the code base.
+### Environment
+
+If you are new to Julia, the general [Pkg Documentation](https://pkgdocs.julialang.org/v1/) will be useful. To instantiate the package, that is, install all dependencies and build the package, you can run:
+
+```julia
+using Pkg; Pkg.activate("."); Pkg.instantiate()
+```
+
+Furthermore, the test suite depends on additional dependencies. They are handled via the alternative strategy described [here](https://pkgdocs.julialang.org/v1/creating-packages/#Alternative-approach:-test/Project.toml-file-test-specific-dependencies). In order to instantiate the test environment you can run the following:
+
+```julia
+using Pkg; Pkg.activate("test"); Pkg.instantiate()
+```
+
+For development, I also recommend to use [Revise](https://timholy.github.io/Revise.jl/stable/), which can be installed in your `base` environment like so:
+
+```julia
+using Pkg; Pkg.activate(); Pkg.add("Revise")
+```
+
+Finally, in order to make all this available within your REPL everytime you start Julia, you can add the following lines to your startup.jl file:
+
+```julia
+using Revise
+
+if isfile("test/Project.toml")
+   @info "Adding test environment to the stack."
+   push!(LOAD_PATH, "test")
+end
+```
 
 ### Guidance for New Estimands
 
