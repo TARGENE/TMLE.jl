@@ -26,8 +26,6 @@ using DataFrames
 using ComputationalResources
 using Base.Threads
 using Printf
-using GLMNet
-using StatsFuns
 
 # #############################################################################
 # EXPORTS
