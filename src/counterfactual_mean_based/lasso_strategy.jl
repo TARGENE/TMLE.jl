@@ -1,7 +1,7 @@
 ##################################################################
 ###                      LassoStrategy                         ###
 ##################################################################
-
+using DataFrames: select
 """
     LassoCTMLE <: CollaborativeStrategy
 
@@ -14,15 +14,17 @@ struct LassoCTMLE <: CollaborativeStrategy
     losses::Vector{Float64}
     confounders::Vector{Symbol}
     patience::Int
-    function LassoCTMLE(;
+    dataset::Any  
+    function LassoCTMLE(; 
         lambda_path = exp10.(range(-4, stop = 0, length = 50)),
         cv_folds = 5,
         confounders = Symbol[],
         patience = 3,
+        dataset = nothing  
     )
         isempty(confounders) &&
             throw(ArgumentError("Must specify confounders for LassoCTMLE"))
-        new(lambda_path, cv_folds, nothing, Float64[], confounders, patience)
+        new(lambda_path, cv_folds, nothing, Float64[], confounders, patience, dataset)
     end
 end
 
@@ -73,21 +75,18 @@ function exhausted(strategy::LassoCTMLE)
 end
 
 """
-    propensity_score(Ψ, strategy::LassoCTMLE)
+    propensity_score(Ψ, strategy::LassoCTMLE, dataset)
 
-Returns a function which, given a dataset, fits LASSO at the chosen lambda and predicts propensity scores.
-This method is generic: it works for any valid Ψ parameter by using TMLE.treatment(Ψ).
+Fits LASSO at the chosen lambda and returns a ConditionalDistribution object.
 """
-function propensity_score(Ψ, strategy::LassoCTMLE)
-    function fit_predict(dataset; lambda_override = nothing)
-        W = Matrix(select(dataset, strategy.confounders))
-        A = dataset[!, treatment(Ψ)]
-        λ = isnothing(lambda_override) ? [strategy.best_lambda] : [lambda_override]
-        g_fit = glmnet(W, A, Binomial(), lambda = λ)
-        g_pred = GLMNet.predict(g_fit, W, lambda = λ[1])
-        clamp.(g_pred, 0.01, 0.99) # stabilize
-    end
-    return fit_predict
+function propensity_score(Ψ::TMLE.StatisticalATE, strategy::LassoCTMLE)
+    dataset = strategy.dataset
+    W = Matrix(select(dataset, strategy.confounders))
+    A_cat = dataset[!, first(keys(Ψ.treatment_values))]
+    A = Float64.([x for x in A_cat])
+    λ = isnothing(strategy.best_lambda) ? [strategy.lambda_path[1]] : [strategy.best_lambda]
+    g_fit = glmnet(W, A, Binomial(); lambda = λ)
+    return ConditionalDistribution(g_fit, strategy.confounders)
 end
 
 """
@@ -97,17 +96,17 @@ Selects the best lambda from the path via cross-validated log-loss.
 """
 function crossvalidate_lambda(strategy::LassoCTMLE, Ψ, dataset, cv_folds)
     W = Matrix(select(dataset, strategy.confounders))
-    A = dataset[!, treatment(Ψ)]
+    A_cat = dataset[!, first(keys(Ψ.treatment_values))]
+    A = Float64.([x for x in A_cat])
     folds = stratified_kfold(A, cv_folds)
     losses = zeros(length(strategy.lambda_path))
     for (train_idx, val_idx) in folds
         W_train, W_val = W[train_idx, :], W[val_idx, :]
         A_train, A_val = A[train_idx], A[val_idx]
-        g_fit = glmnet(W_train, A_train, Binomial(), lambda = strategy.lambda_path)
+        g_fit = glmnet(W_train, A_train, Binomial(); lambda = strategy.lambda_path)
         for (i, λ) in enumerate(g_fit.lambda)
             g_pred = GLMNet.predict(g_fit, W_val, lambda = λ)
             g_pred = clamp.(g_pred, 0.01, 0.99)
-            # Log-loss
             losses[i] += -mean(A_val .* log.(g_pred) .+ (1 .- A_val) .* log.(1 .- g_pred))
         end
     end
@@ -135,18 +134,11 @@ function Base.iterate(it::LassoCTMLEIterator, state = 1)
     end
     strategy, Ψ, dataset = it.strategy, it.Ψ, it.dataset
     W = Matrix(select(dataset, strategy.confounders))
-    A = dataset[!, treatment(Ψ)]
+    A_cat = dataset[!, first(keys(Ψ.treatment_values))]
+    A = Float64.([x for x in A_cat])
     λ = strategy.best_lambda
-    g_fit = glmnet(W, A, Binomial(), lambda = [λ])
-    ĝ =
-        (g, dataset; kwargs...) -> begin
-            g_pred = GLMNet.predict(
-                g,
-                Matrix(select(dataset, strategy.confounders)),
-                lambda = λ,
-            )
-            clamp.(g_pred, 0.01, 0.99)
-        end
+    g_fit = glmnet(W, A, Binomial(); lambda = [λ])
+    ĝ = ConditionalDistribution(g_fit, strategy.confounders)
     return ((g_fit, ĝ), state+1)
 end
 
@@ -158,9 +150,6 @@ end
     )
 
 Pipeline step: cross-validates lambda, sets best_lambda, fits candidate at best lambda, and targets using TMLE fluctuation machinery.
-NOTE: This strategy does NOT compute clever covariate or target the parameter directly.
-      It only provides a g-model fit (propensity score model) using LASSO.
-      TMLE.jl machinery handles clever covariate and targeting for any valid Ψ.
 """
 function step_k_best_candidate(
     collaborative_strategy::LassoCTMLE,
@@ -175,7 +164,6 @@ function step_k_best_candidate(
     machine_cache = false,
     acceleration = CPU1(),
 )
-
     best_lambda, avg_losses = crossvalidate_lambda(
         collaborative_strategy,
         Ψ,
@@ -187,9 +175,9 @@ function step_k_best_candidate(
 
     iterator =
         LassoCTMLEIterator(collaborative_strategy, Ψ, dataset, models, last_targeted_η̂ₙ)
-    (g, ĝ), _ = iterate(iterator, 1)
+    (g, g_cd), _ = iterate(iterator, 1) 
 
-    ĝₙ = ĝ(g, dataset)
+    ĝₙ = GLMNet.predict(g_cd, dataset)
     targeted_η̂ₙ, loss = TMLE.get_new_targeted_candidate(
         last_targeted_η̂ₙ,
         ĝₙ,
@@ -200,6 +188,5 @@ function step_k_best_candidate(
         machine_cache = machine_cache,
     )
 
-    return g, ĝ, targeted_η̂ₙ, loss, false
+    return g, g_cd, targeted_η̂ₙ, loss, false
 end
-
