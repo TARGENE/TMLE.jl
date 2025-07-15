@@ -125,6 +125,8 @@ default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(
     (key => with_encoder(val) for (key, val) in kwargs)...
 )
 
+MLJBase.supports_weights(::Type{<:ProbabilisticPipeline}) = true
+
 is_binary(dataset, columnname) = Set(skipmissing(dataset[!, columnname])) == Set([0, 1])
 
 function satisfies_positivity(Ψ, freq_table; positivity_constraint=0.01)

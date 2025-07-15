@@ -10,11 +10,11 @@ abstract type Estimator end
     prevalence::Union{Nothing, Float64}
 end
 
-MLConditionalDistributionEstimator(models; train_validation_indices=nothing, prevalance=nothing) = 
-    MLConditionalDistributionEstimator(models, train_validation_indices, prevalance)
+MLConditionalDistributionEstimator(models; train_validation_indices=nothing, prevalence=nothing) = 
+    MLConditionalDistributionEstimator(models, train_validation_indices, prevalence)
 
-MLConditionalDistributionEstimator(models, train_validation_indices; prevalance=nothing) = 
-    MLConditionalDistributionEstimator(models, train_validation_indices, prevalance)
+MLConditionalDistributionEstimator(models, train_validation_indices; prevalence=nothing) = 
+    MLConditionalDistributionEstimator(models, train_validation_indices, prevalence)
 
 marginal_model(y::CategoricalVector) = ConstantClassifier()
 
@@ -47,7 +47,7 @@ function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothi
     if !isnothing(weights) && MLJBase.supports_weights(model)
         mach = machine(model, X, y, weights; cache=cache)
     else
-        if !isnothing(weights)
+        if !isnothing(weights) && verbosity >= 1
             @warn("The model $(model) does not support weights. Weights will be ignored.")
         end
         mach = machine(model, X, y; cache=cache)
@@ -64,7 +64,7 @@ Calculates weights for a case-control study to use in the fitting of nuisance fu
 - `prevalence`: The prevalence of the outcome in the population.
 - `y`: The outcome variable across observations, which should be binary vector.`
 """
-function get_weights_from_prevalence(prevalence::Union{Nothing, Float64}, y::CategoricalVector)
+function get_weights_from_prevalence(prevalence::Union{Nothing, Float64}, y::AbstractVector)
     if !isnothing(prevalence)
         nC = sum(y .== 1)
         nCo = sum(y .== 0)
@@ -75,7 +75,7 @@ function get_weights_from_prevalence(prevalence::Union{Nothing, Float64}, y::Cat
         end
         return weights
     else
-        return nothing
+        return ones(size(y,1))
     end
     
 end
@@ -224,8 +224,8 @@ end
 ConditionalDistributionEstimator(model, train_validation_indices::Union{Nothing,Tuple}; prevalence=nothing) =
     MLConditionalDistributionEstimator(model, train_validation_indices, prevalence)
 
-ConditionalDistributionEstimator(model, train_validation_indices::AbstractVector; prevalance=nothing) =
-    SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices, prevalance)
+ConditionalDistributionEstimator(model, train_validation_indices::AbstractVector; prevalence=nothing) =
+    SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices, prevalence)
 
     
 #####################################################################

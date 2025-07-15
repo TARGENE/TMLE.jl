@@ -114,6 +114,8 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         prevalence=tmle.prevalence
     )
     verbosity >= 1 && @info "Estimating nuisance parameters."
+    verbosity >= 1 && !isnothing(tmle.prevalence) && @info "With prevalence weights."
+    
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
         verbosity=verbosity-1,

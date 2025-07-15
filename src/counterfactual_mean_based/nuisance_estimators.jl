@@ -93,7 +93,7 @@ CMRelevantFactorsEstimator(collaborative_strategy::Nothing; models, train_valida
 """
 If there is a collaborative strategy, `train_validation_indices` are ignored to build the initial estimator.
 """
-CMRelevantFactorsEstimator(collaborative_strategy; models, train_validation_indices=nothing, prevalance=nothing) = CMRelevantFactorsEstimator(nothing, models, prevalance)
+CMRelevantFactorsEstimator(collaborative_strategy; models, train_validation_indices=nothing, prevalence=nothing) = CMRelevantFactorsEstimator(nothing, models, prevalence)
 
 function acquire_model(models, key, dataset, is_propensity_score)
     # If the model is in models return it
@@ -223,7 +223,7 @@ function estimate_propensity_score_and_outcome_mean(
         cache=cache,
         verbosity=verbosity,
         machine_cache=machine_cache,
-        prevalence=prevalance,
+        prevalence=prevalence,
     )
     return fetch.([propensity_score_estimate, outcome_mean_estimate])
 end
@@ -469,7 +469,8 @@ function get_targeted_estimator(
         max_iter=max_iter, 
         ps_lowerbound=ps_lowerbound, 
         weighted=weighted,
-        cache=machine_cache
+        cache=machine_cache,
+        prevalence=prevalence
     )
     if collaborative_strategy isa CollaborativeStrategy
         return CMBasedCTMLE(fluctuation_model, collaborative_strategy, train_validation_indices, models)

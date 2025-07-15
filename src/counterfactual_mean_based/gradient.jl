@@ -25,6 +25,7 @@ function counterfactual_aggregate(Ψ::StatisticalCMCompositeEstimand, Q, dataset
 end
 
 plugin_estimate(ctf_aggregate) = mean(ctf_aggregate)
+plugin_estimate(ctf_aggregate, w) = sum(ctf_aggregate) / sum(w)
 
 
 """
@@ -33,6 +34,7 @@ plugin_estimate(ctf_aggregate) = mean(ctf_aggregate)
 Computes the projection of the gradient on the (W) space.
 """
 ∇W(ctf_agg, Ψ̂) = ctf_agg .- Ψ̂
+∇W(ctf_agg, Ψ̂, w) = ctf_agg .- (w .* Ψ̂)
 
 """
     ∇YX(H, y, Ey, w)
