@@ -55,9 +55,9 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
     # Fit Conditional DIstribution using MLJ
     X = TMLE.selectcols(relevant_dataset, estimand.parents)
     y = relevant_dataset[!, estimand.outcome]
-    mach = fit_mlj_model(estimator.model, X, y; 
-        parents=estimand.parents, 
-        cache=machine_cache, 
+    mach = fit_mlj_model(estimator.model, X, y;
+        parents=estimand.parents,
+        cache=machine_cache,
         verbosity=verbosity-1
     )
     # Build estimate
