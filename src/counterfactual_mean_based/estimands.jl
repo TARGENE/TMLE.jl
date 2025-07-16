@@ -146,15 +146,12 @@ n_uniques_nuisance_functions(Ψ::StatisticalCMCompositeEstimand) = length(propen
 nuisance_functions_iterator(Ψ::StatisticalCMCompositeEstimand) =
     (propensity_score(Ψ)..., outcome_mean(Ψ))
 
-function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: StatisticalCMCompositeEstimand 
-    param_string = string(
+string_repr(Ψ::T)  where T <: StatisticalCMCompositeEstimand = string(
         replace(string(Base.typename(T).wrapper), "TMLE." => ""),
         "\n- Outcome: ", Ψ.outcome,
         "\n- Treatment: ", 
         join((string(key, " => ", val) for (key, val) in Ψ.treatment_values), " & ")
     )
-    println(io, param_string)
-end
 
 case_control_dict(case_control_nt::NamedTuple) = OrderedDict(pairs(case_control_nt))
 case_control_dict(value) = value

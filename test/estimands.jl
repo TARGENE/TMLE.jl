@@ -2,12 +2,39 @@ module TestEstimands
 
 using TMLE
 using Test
+using DataFrames
 
 @testset "Test ConditionalDistribution" begin
-    distr = TMLE.ConditionalDistribution("Y", ["C", 1, :A, ])
+    distr = TMLE.ConditionalDistribution("Y", ["C", :A])
     @test distr.outcome === :Y
-    @test distr.parents === (Symbol("1"), :A, :C)
-    @test TMLE.variables(distr) == (:Y, Symbol("1"), :A, :C)
+    @test distr.parents === (:A, :C)
+    @test TMLE.variables(distr) == (:Y, :A, :C)
+    dataset = DataFrame(Y=randn(100), C=rand(100), A=rand(100))
+    X, y = TMLE.get_mlj_model_inputs(distr, dataset)
+    @test X == dataset[!, [:A, :C]]
+    @test y == dataset[!, :Y]
+end
+
+@testset "Test RieszRepresenter" begin
+    Ψ = TMLE.ATE(
+        outcome=:Y,
+        treatment_values=(T_1=(case=1, control=0), T_2=(case=1, control=0)),
+        treatment_confounders=(T_1=[:W₁, :W₂], T_2=[:A])
+    )
+    riesz_representer = TMLE.RieszRepresenter(Ψ)
+    @test riesz_representer.Ψ === Ψ
+    @test TMLE.variables(riesz_representer) == [:T_1, :T_2, :A, :W₁, :W₂]
+    
+    dataset = DataFrame(
+        T_1=rand(100), 
+        T_2=rand(100), 
+        A=rand(100), 
+        W₁=rand(100), 
+        W₂=rand(100),
+        Y=randn(100)
+    )
+    X = TMLE.get_mlj_model_inputs(riesz_representer, dataset)
+    @test X == dataset[!, [:T_1, :T_2, :A, :W₁, :W₂]]
 end
 
 @testset "Test CMRelevantFactors" begin

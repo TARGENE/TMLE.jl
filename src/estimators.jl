@@ -37,14 +37,12 @@ function fit_mlj_model(model, mlj_model_inputs; cache=false, verbosity=1)
     return mach
 end
 
-function get_mlj_model_inputs(estimand::ConditionalDistribution, dataset)
-    X = TMLE.selectcols(dataset, estimand.parents)
-    y = dataset[!, estimand.outcome]
-    return X, y
-end
-
 make_ml_estimate(estimand::ConditionalDistribution, mach) =
     MLConditionalDistribution(estimand, mach)
+
+training_rows(dataset, train_validation_indices) = selectrows(dataset, train_validation_indices[1])
+
+training_rows(dataset, train_validation_indices::Nothing) = dataset
 
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
     cache=Dict(), 
@@ -74,10 +72,6 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
 
     return estimate
 end
-
-training_rows(dataset, train_validation_indices) = selectrows(dataset, train_validation_indices[1])
-
-training_rows(dataset, train_validation_indices::Nothing) = dataset
 
 #####################################################################
 ###       SampleSplitMLConditionalDistributionEstimator           ###

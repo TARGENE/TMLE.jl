@@ -86,6 +86,12 @@ string_repr(estimand::ConditionalDistribution) =
 
 variables(estimand::ConditionalDistribution) = (estimand.outcome, estimand.parents...)
 
+function get_mlj_model_inputs(estimand::ConditionalDistribution, dataset)
+    X = TMLE.selectcols(dataset, estimand.parents)
+    y = dataset[!, estimand.outcome]
+    return X, y
+end
+
 #####################################################################
 ###                        ExpectedValue                          ###
 #####################################################################
@@ -96,6 +102,31 @@ At the moment there is no distinction between an Expected Value and
 a Conditional Distribution because they are estimated in the same way.
 """
 const ExpectedValue = ConditionalDistribution
+
+
+#####################################################################
+###                      RieszRepresenter                         ###
+#####################################################################
+
+"""
+Defines the riesz representer (see: https://arxiv.org/pdf/2501.04871) associated with agiven estimand Ψ.
+"""
+@auto_hash_equals struct RieszRepresenter{T<:Estimand} <: Estimand
+    Ψ::T
+end
+
+string_repr(estimand::RieszRepresenter) = 
+    string("Riesz Representer for ", string_repr(estimand.Ψ))
+
+function variables(estimand::RieszRepresenter)
+    confounders = sort(unique(Iterators.flatten(values(estimand.Ψ.treatment_confounders))))
+    return vcat(treatments(estimand.Ψ), confounders)
+end
+
+function get_mlj_model_inputs(estimand::RieszRepresenter, dataset)
+    X = TMLE.selectcols(dataset, variables(estimand))
+    return X
+end
 
 #####################################################################
 ###                      JointEstimand                         ###
