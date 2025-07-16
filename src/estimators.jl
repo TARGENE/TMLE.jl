@@ -17,7 +17,7 @@ marginal_model(y::CategoricalVector) = ConstantClassifier()
 marginal_model(y::AbstractVector) = throw(ArgumentError(string("Marginal model not implemented for non categorical targets, type of the target: ", eltype(y))))
 
 """
-    actual_model(model, parents, y)
+    get_actual_model(model, parents, X, y)
 
 If there are no parents, we are trying to fit a marginal distribution, 
 then we return a constant classifier. Otherwise we return the user-specified model.
@@ -28,15 +28,23 @@ This situation can arise in at least two cases for the propensity score:
 
 Since there is no current understanding of when this could arise for a continuous outcome y, we throw an error if y is not categorical.
 """
-actual_model(model, parents, y) =
-    isempty(parents) ? marginal_model(y) : model
+get_actual_model(model, estimand::ConditionalDistribution, X, y) =
+    isempty(estimand.parents) ? marginal_model(y) : model
 
-function fit_mlj_model(model, X, y; parents=names(X), cache=false, verbosity=1)
-    model = actual_model(model, parents, y)
-    mach = machine(model, X, y, cache=cache)
+function fit_mlj_model(model, mlj_model_inputs; cache=false, verbosity=1)
+    mach = machine(model, mlj_model_inputs..., cache=cache)
     MLJBase.fit!(mach, verbosity=verbosity)
     return mach
 end
+
+function get_mlj_model_inputs(estimand::ConditionalDistribution, dataset)
+    X = TMLE.selectcols(dataset, estimand.parents)
+    y = dataset[!, estimand.outcome]
+    return X, y
+end
+
+make_ml_estimate(estimand::ConditionalDistribution, mach) =
+    MLConditionalDistribution(estimand, mach)
 
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
     cache=Dict(), 
@@ -53,15 +61,14 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
     relevant_dataset = nomissing(dataset, variables(estimand))
     relevant_dataset = training_rows(relevant_dataset, estimator.train_validation_indices)
     # Fit Conditional DIstribution using MLJ
-    X = TMLE.selectcols(relevant_dataset, estimand.parents)
-    y = relevant_dataset[!, estimand.outcome]
-    mach = fit_mlj_model(estimator.model, X, y;
-        parents=estimand.parents,
+    mlj_model_inputs = get_mlj_model_inputs(estimand, relevant_dataset)
+    model = get_actual_model(estimator.model, estimand, mlj_model_inputs...)
+    mach = fit_mlj_model(model, mlj_model_inputs;
         cache=machine_cache,
         verbosity=verbosity-1
     )
     # Build estimate
-    estimate = MLConditionalDistribution(estimand, mach)
+    estimate = make_ml_estimate(estimand, mach)
     # Update cache
     update_cache!(cache, estimand, estimator, estimate)
 
@@ -94,10 +101,9 @@ function update_sample_split_machines_with_fold!(machines::Vector{Machine},
     )
     train_indices, _ = estimator.train_validation_indices[fold_id]
     train_dataset = selectrows(dataset, train_indices)
-    Xtrain = selectcols(train_dataset, estimand.parents)
-    ytrain = train_dataset[!, estimand.outcome]
-    machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
-        parents=estimand.parents, 
+    mlj_model_inputs = get_mlj_model_inputs(estimand, train_dataset)
+    model = get_actual_model(estimator.model, estimand, mlj_model_inputs...)
+    machines[fold_id] = fit_mlj_model(model, mlj_model_inputs; 
         cache=machine_cache, 
         verbosity=verbosity
     )
