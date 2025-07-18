@@ -27,7 +27,10 @@ dataset, Ψ₀ = continuous_outcome_binary_treatment_pb()
     models = default_models()
     models[:riesz_representer] = riesznet
     tmle = Tmle(models=models)
-    tmle(Ψ, dataset)
+    Ψ̂_tmle, cache = tmle(Ψ, dataset)
+
+    ose = Ose(models=models)
+    Ψ̂_ose, _ = ose(Ψ, dataset)
 end
 
 end

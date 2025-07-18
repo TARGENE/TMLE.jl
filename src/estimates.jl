@@ -46,7 +46,8 @@ string_repr(estimate::RieszRepresenterEstimate) = string(
 )
 
 function MLJBase.predict(estimate::RieszRepresenterEstimate, dataset)
-    throw(ArgumentError("To be implemented"))
+    X, _ = get_mlj_model_inputs(estimate.estimand, dataset)
+    return MLJBase.predict(estimate.mach, X)
 end
 
 #####################################################################

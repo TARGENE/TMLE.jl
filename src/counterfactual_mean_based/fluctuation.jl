@@ -48,14 +48,14 @@ For the observed data, we store:
 - The observed outcome in floating point representation
 """
 function initialize_observed_cache(model, X, y)
-    Q⁰ = model.initial_factors.outcome_mean
-    G⁰ = model.initial_factors.treatments_factor
+    initial_outcome_mean_estimate = model.initial_factors.outcome_mean
+    initial_treatments_factor_estimate = model.initial_factors.treatments_factor
     H, w = clever_covariate_and_weights(
-        model.Ψ, G⁰, X;
+        model.Ψ, initial_treatments_factor_estimate, X;
         ps_lowerbound=model.ps_lowerbound,
         weighted_fluctuation=model.weighted
     )
-    ŷ = MLJBase.predict(Q⁰, X)
+    ŷ = MLJBase.predict(initial_outcome_mean_estimate, X)
     return Dict{Symbol, Any}(:H => H, :w => w, :ŷ => ŷ, :y => float(y))
 end
 

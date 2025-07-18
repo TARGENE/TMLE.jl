@@ -33,13 +33,11 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 [weakdeps]
 CausalTables = "6af48e0c-efc2-4bf7-a92f-a553ccf79fd6"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-RieszLearning = "a0bf4b8b-e406-4596-8317-f128bc1688be"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [extensions]
 CausalTablesExt = "CausalTables"
 JSONExt = "JSON"
-RiesznetExt = ["RieszLearning"]
 YAMLExt = "YAML"
 
 [compat]

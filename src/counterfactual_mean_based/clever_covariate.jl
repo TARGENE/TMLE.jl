@@ -52,7 +52,7 @@ where SpecialIndicator(t) is defined in `indicator_fns`.
 """
 function clever_covariate_and_weights(
     Ψ::StatisticalCMCompositeEstimand, 
-    G, 
+    G::JointConditionalDistributionEstimate, 
     dataset; 
     ps_lowerbound=1e-8, 
     weighted_fluctuation=false
@@ -67,4 +67,14 @@ function clever_covariate_and_weights(
     # Vanilla unweighted fluctuation
     indic_vals .*= weights
     return indic_vals, ones(size(weights, 1))
+end
+
+function clever_covariate_and_weights(
+    Ψ::StatisticalCMCompositeEstimand, 
+    riesz_representer_estimate::RieszRepresenterEstimate, 
+    dataset; 
+    args...
+    )
+    riesz_predictions = MLJBase.predict(riesz_representer_estimate, dataset)
+    return riesz_predictions, ones(size(riesz_predictions, 1))
 end
