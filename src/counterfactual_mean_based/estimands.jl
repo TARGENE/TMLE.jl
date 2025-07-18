@@ -8,19 +8,19 @@ Counterfactual Mean composite estimand (see `StatisticalCMCompositeEstimand`).
 """
 @auto_hash_equals struct CMRelevantFactors <: Estimand
     outcome_mean::ConditionalDistribution
-    ps_or_rr::Union{JointConditionalDistribution, RieszRepresenter}
+    treatments_factor::Union{JointConditionalDistribution, RieszRepresenter}
 end
 
-CMRelevantFactors(;outcome_mean, ps_or_rr) = 
-    CMRelevantFactors(outcome_mean, ps_or_rr)
+CMRelevantFactors(;outcome_mean, treatments_factor) = 
+    CMRelevantFactors(outcome_mean, treatments_factor)
 
 string_repr(estimand::CMRelevantFactors) = string("Relevant Factors: \n- ",
         string_repr(estimand.outcome_mean), "\n- ", 
-        string_repr(estimand.ps_or_rr)
+        string_repr(estimand.treatments_factor)
     )
 
 variables(estimand::CMRelevantFactors) = 
-    Tuple(union(variables(estimand.outcome_mean), variables(estimand.ps_or_rr)))
+    Tuple(union(variables(estimand.outcome_mean), variables(estimand.treatments_factor)))
 
 #####################################################################
 ###                         Functionals                           ###

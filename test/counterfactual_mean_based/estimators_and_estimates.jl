@@ -34,7 +34,7 @@ end
     # Estimand
     Q = TMLE.ConditionalDistribution(:Y, [:T₁, :W])
     G = TMLE.JointConditionalDistribution(TMLE.ConditionalDistribution(:T₁, [:W]))
-    η = TMLE.CMRelevantFactors(outcome_mean=Q, ps_or_rr=G)
+    η = TMLE.CMRelevantFactors(outcome_mean=Q, treatments_factor=G)
     # Estimator
     models = Dict(
         :Y  => with_encoder(LinearRegressor()), 
@@ -52,7 +52,7 @@ end
     # Test both sub estimands have been fitted
     @test η̂ₙ.outcome_mean isa TMLE.MLConditionalDistribution
     @test fitted_params(η̂ₙ.outcome_mean.machine) isa NamedTuple
-    ps_component = only(η̂ₙ.ps_or_rr.components)
+    ps_component = only(η̂ₙ.treatments_factor.components)
     @test ps_component isa TMLE.MLConditionalDistribution
     @test fitted_params(ps_component.machine) isa NamedTuple
 
@@ -80,7 +80,7 @@ end
     resampled_η̂ = TMLE.CMRelevantFactorsEstimator(models=models, train_validation_indices=train_validation_indices)
     η̂ₙ = @test_logs cv_fit_log... resampled_η̂(η, dataset; cache=cache, verbosity=1)
     @test length(η̂ₙ.outcome_mean.machines) == 3
-    ps_component = only(η̂ₙ.ps_or_rr.components)
+    ps_component = only(η̂ₙ.treatments_factor.components)
     @test length(ps_component.machines) == 3
     @test η̂ₙ.outcome_mean.train_validation_indices == ps_component.train_validation_indices
 end
@@ -90,7 +90,7 @@ end
     # Estimand
     Q = TMLE.ConditionalDistribution(:Y, [:T₁, :W])
     G = TMLE.JointConditionalDistribution(TMLE.ConditionalDistribution(:T₁, [:W]))
-    η = TMLE.CMRelevantFactors(outcome_mean=Q, ps_or_rr=G)
+    η = TMLE.CMRelevantFactors(outcome_mean=Q, treatments_factor=G)
     # Propensity score model is ill-defined
     models = Dict(
         :Y  => with_encoder(LinearRegressor()), 

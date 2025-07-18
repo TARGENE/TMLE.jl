@@ -236,7 +236,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
     verbosity > 0 && @info(string("Required ", string_repr(estimand)))
     models = estimator.models
     outcome_mean = estimand.outcome_mean
-    treatments_factor = estimand.ps_or_rr
+    treatments_factor = estimand.treatments_factor
     train_validation_indices = estimator.train_validation_indices
     # Estimate propensity score and outcome mean
     treatments_factor_estimate, outcome_mean_estimate = estimate_factors(
@@ -284,7 +284,7 @@ function (estimator::CMBasedTMLE)(estimand, dataset;
         machine_cache=machine_cache
     )
     # Do not fluctuate propensity score
-    fluctuated_treatments_factor = fluctuation_model.initial_factors.ps_or_rr
+    fluctuated_treatments_factor = fluctuation_model.initial_factors.treatments_factor
     # Build estimate
     estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_treatments_factor)
 

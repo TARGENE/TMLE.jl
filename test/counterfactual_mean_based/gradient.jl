@@ -46,7 +46,7 @@ end
     η̂ₙ = η̂(η, dataset, verbosity = 0)
     # Retrieve conditional distributions and fitted_params
     Q = η̂ₙ.outcome_mean
-    G = η̂ₙ.ps_or_rr
+    G = η̂ₙ.treatments_factor
     linear_model = fitted_params(Q.machine).deterministic_pipeline.linear_regressor
     intercept = linear_model.intercept
     coefs = Dict(linear_model.coefs)

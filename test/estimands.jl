@@ -63,13 +63,13 @@ end
     # Check with RieszRepresenter
     η = TMLE.CMRelevantFactors(
         outcome_mean=outcome_mean,
-        ps_or_rr=TMLE.RieszRepresenter(Ψ)
+        treatments_factor=TMLE.RieszRepresenter(Ψ)
     )
     @test TMLE.variables(η) == (:Y, :T, :W, :W₁, :W₂)
 
     η = TMLE.CMRelevantFactors(
         outcome_mean=outcome_mean,
-        ps_or_rr=TMLE.JointConditionalDistribution(
+        treatments_factor=TMLE.JointConditionalDistribution(
             TMLE.ConditionalDistribution(:T, [:W₁, :W₂])
         )
     )
