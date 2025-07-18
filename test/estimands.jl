@@ -33,27 +33,47 @@ end
         W₂=rand(100),
         Y=randn(100)
     )
-    (T, W), Ψr = TMLE.get_mlj_model_inputs(riesz_representer, dataset)
+    (T, W), indic_fns = TMLE.get_mlj_model_inputs(riesz_representer, dataset)
     @test T == dataset[!, [:T_1, :T_2]]
     @test W == dataset[!, [:A, :W₁, :W₂]]
-    @test Ψr === Ψ
+    @test indic_fns == TMLE.indicator_fns(Ψ)
+end
+
+@testset "Test JointConditionalDistribution" begin
+    distr1 = TMLE.ConditionalDistribution("Y1", ["C1", :A1])
+    distr2 = TMLE.ConditionalDistribution("Y2", ["C2", :A2, :A1])
+    joint_distr_1 = TMLE.JointConditionalDistribution(distr1, distr2)
+    joint_distr_2 = TMLE.JointConditionalDistribution((distr1, distr2))
+    
+    @test joint_distr_1 === joint_distr_2
+    @test joint_distr_1.components == (distr1, distr2)
+
+    @test TMLE.string_repr(joint_distr_1) == "Joint Conditional Distribution: \n   - P₀(Y1 | A1, C1)\n   - P₀(Y2 | A1, A2, C2)"
+
+    @test TMLE.variables(joint_distr_1) == (:Y1, :A1, :C1, :Y2, :A2, :C2)
 end
 
 @testset "Test CMRelevantFactors" begin
-    η = TMLE.CMRelevantFactors(
-        outcome_mean=TMLE.ExpectedValue(:Y, [:T, :W]),
-        propensity_score=TMLE.ConditionalDistribution(:T, [:W])
+    Ψ = CM(
+        outcome=:Y, 
+        treatment_values=(T=1,), 
+        treatment_confounders=(T=[:W₁, :W₂])
     )
-    @test TMLE.variables(η) == (:Y, :T, :W)
+    outcome_mean = TMLE.ExpectedValue(:Y, [:T, :W])
+    # Check with RieszRepresenter
+    η = TMLE.CMRelevantFactors(
+        outcome_mean=outcome_mean,
+        ps_or_rr=TMLE.RieszRepresenter(Ψ)
+    )
+    @test TMLE.variables(η) == (:Y, :T, :W, :W₁, :W₂)
 
     η = TMLE.CMRelevantFactors(
-        outcome_mean=TMLE.ExpectedValue(:Y, [:T, :W]),
-        propensity_score=(
-            TMLE.ConditionalDistribution(:T₁, [:W₁]),
-            TMLE.ConditionalDistribution(:T₂, [:W₂₁, :W₂₂])
+        outcome_mean=outcome_mean,
+        ps_or_rr=TMLE.JointConditionalDistribution(
+            TMLE.ConditionalDistribution(:T, [:W₁, :W₂])
         )
     )
-    @test TMLE.variables(η) == (:Y, :T, :W, :T₁, :W₁, :T₂, :W₂₁, :W₂₂)
+    @test TMLE.variables(η) == (:Y, :T, :W, :W₁, :W₂)
 end
 
 @testset "Test JointEstimand and ComposedEstimand" begin

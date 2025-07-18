@@ -8,22 +8,19 @@ Counterfactual Mean composite estimand (see `StatisticalCMCompositeEstimand`).
 """
 @auto_hash_equals struct CMRelevantFactors <: Estimand
     outcome_mean::ConditionalDistribution
-    propensity_score::Tuple{Vararg{ConditionalDistribution}}
+    ps_or_rr::Union{JointConditionalDistribution, RieszRepresenter}
 end
 
-CMRelevantFactors(outcome_mean, propensity_score::ConditionalDistribution) = 
-    CMRelevantFactors(outcome_mean, (propensity_score,))
+CMRelevantFactors(;outcome_mean, ps_or_rr) = 
+    CMRelevantFactors(outcome_mean, ps_or_rr)
 
-CMRelevantFactors(;outcome_mean, propensity_score) = 
-    CMRelevantFactors(outcome_mean, propensity_score)
-
-string_repr(estimand::CMRelevantFactors) = 
-    string("Relevant Factors: \n- ",
-        string_repr(estimand.outcome_mean),"\n- ", 
-        join((string_repr(f) for f in estimand.propensity_score), "\n- "))
+string_repr(estimand::CMRelevantFactors) = string("Relevant Factors: \n- ",
+        string_repr(estimand.outcome_mean), "\n- ", 
+        string_repr(estimand.ps_or_rr)
+    )
 
 variables(estimand::CMRelevantFactors) = 
-    Tuple(union(variables(estimand.outcome_mean), (variables(est) for est in estimand.propensity_score)...))
+    Tuple(union(variables(estimand.outcome_mean), variables(estimand.ps_or_rr)))
 
 #####################################################################
 ###                         Functionals                           ###
@@ -126,25 +123,40 @@ outcome_mean_key(Ψ::StatisticalCMCompositeEstimand) = variables(outcome_mean(Ψ
 
 function propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_strategy::Nothing=nothing)
     Ψtreatments = TMLE.treatments(Ψ)
-    return Tuple(map(eachindex(Ψtreatments)) do index
+    conditional_distributions = map(eachindex(Ψtreatments)) do index
         T = Ψtreatments[index]
         confounders = (Ψ.treatment_confounders[T]..., Ψtreatments[index+1:end]...)
         ConditionalDistribution(T, confounders)
-    end)
+    end
+    return JointConditionalDistribution(conditional_distributions...)
 end
 
-propensity_score_key(Ψ::StatisticalCMCompositeEstimand) = Tuple(variables(x) for x ∈ propensity_score(Ψ))
+propensity_score_key(Ψ::StatisticalCMCompositeEstimand) = Tuple(variables(x) for x ∈ propensity_score(Ψ).components)
 
-function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand; collaborative_strategy=nothing)
+function propensity_score_or_riesz_representer(Ψ::StatisticalCMCompositeEstimand, models; collaborative_strategy=nothing)
+    if haskey(models, :riesz_representer)
+        return RieszRepresenter(Ψ, collaborative_strategy)
+    else
+        return propensity_score(Ψ, collaborative_strategy)
+    end
+end
+
+function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand, models; collaborative_strategy=nothing)
     outcome_model = outcome_mean(Ψ)
-    treatment_factors = propensity_score(Ψ, collaborative_strategy)
+    treatment_factors = propensity_score_or_riesz_representer(Ψ, models; collaborative_strategy=collaborative_strategy)
     return CMRelevantFactors(outcome_model, treatment_factors)
 end
 
-n_uniques_nuisance_functions(Ψ::StatisticalCMCompositeEstimand) = length(propensity_score(Ψ)) + 1
+function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand)
+    outcome_model = outcome_mean(Ψ)
+    treatment_factors = propensity_score(Ψ)
+    return CMRelevantFactors(outcome_model, treatment_factors)
+end
+
+n_uniques_nuisance_functions(Ψ::StatisticalCMCompositeEstimand) = length(propensity_score(Ψ).components) + 1
 
 nuisance_functions_iterator(Ψ::StatisticalCMCompositeEstimand) =
-    (propensity_score(Ψ)..., outcome_mean(Ψ))
+    (propensity_score(Ψ).components..., outcome_mean(Ψ))
 
 string_repr(Ψ::T)  where T <: StatisticalCMCompositeEstimand = string(
         replace(string(Base.typename(T).wrapper), "TMLE." => ""),

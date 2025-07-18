@@ -39,9 +39,9 @@ end
     )
     ## Check propensity score is well formed
     propensity_score = TMLE.propensity_score(Ψ)
-    @test propensity_score[1] == TMLE.ConditionalDistribution(:T₁, (:T₂, :T₃, :W))
-    @test propensity_score[2] == TMLE.ConditionalDistribution(:T₂, (:T₃, :W))
-    @test propensity_score[3] == TMLE.ConditionalDistribution(:T₃, (:W,))
+    @test propensity_score.components[1] == TMLE.ConditionalDistribution(:T₁, (:T₂, :T₃, :W))
+    @test propensity_score.components[2] == TMLE.ConditionalDistribution(:T₂, (:T₃, :W))
+    @test propensity_score.components[3] == TMLE.ConditionalDistribution(:T₃, (:W,))
     ## Define models
     models = Dict(
         :Y  => with_encoder(InteractionTransformer(order=3) |> LinearRegressor()),

@@ -106,33 +106,39 @@ function acquire_model(models, key, dataset, is_propensity_score)
     return models[model_default]
 end
 
-function build_propensity_score_estimator(propensity_score, models, dataset;
+function build_treatments_factor_estimator(propensity_score::JointConditionalDistribution, models, dataset;
     train_validation_indices=nothing,
     )
     cd_estimators = Dict()
-    for conditional_distribution in propensity_score
+    for conditional_distribution in propensity_score.components
         outcome = conditional_distribution.outcome
         model = acquire_model(models, outcome, dataset, true)
-        cd_estimators[outcome] = ConditionalDistributionEstimator(model, train_validation_indices)
+        cd_estimators[outcome] = full_or_sample_split_ml_estimator(model, train_validation_indices)
     end
     return JointConditionalDistributionEstimator(cd_estimators)
 end
 
-function estimate_propensity_score(propensity_score, models, dataset;
+function build_treatments_factor_estimator(riesz_representer::RieszRepresenter, models, dataset;
+    train_validation_indices=nothing,
+    )
+    return full_or_sample_split_ml_estimator(models[:riesz_representer], train_validation_indices)
+end
+
+function estimate_treatments_factor(treatments_factor, models, dataset;
     train_validation_indices=nothing,
     cache=Dict(),
     verbosity=1,
     machine_cache=false,
     acceleration=CPU1()
     )
-    propensity_score_estimator = build_propensity_score_estimator(
-        propensity_score, 
+    treatments_factor_estimator = build_treatments_factor_estimator(
+        treatments_factor, 
         models,  
         dataset;
         train_validation_indices=train_validation_indices,
     )
-    return propensity_score_estimator(
-        propensity_score, 
+    return treatments_factor_estimator(
+        treatments_factor, 
         dataset;
         cache=cache,
         verbosity=verbosity,
@@ -149,7 +155,7 @@ function estimate_outcome_mean(outcome_mean, models, dataset;
     acceleration=CPU1()
     )
     outcome_model = acquire_model(models, outcome_mean.outcome, dataset, false)
-    outcome_mean_estimator = ConditionalDistributionEstimator(
+    outcome_mean_estimator = full_or_sample_split_ml_estimator(
         outcome_model,
         train_validation_indices, 
     )
@@ -162,10 +168,10 @@ function estimate_outcome_mean(outcome_mean, models, dataset;
     )
 end
 
-function estimate_propensity_score_and_outcome_mean(
+function estimate_factors(
     acceleration::CPU1, 
     models,
-    propensity_score,
+    treatments_factor,
     outcome_mean,
     dataset;
     train_validation_indices=nothing,
@@ -173,7 +179,7 @@ function estimate_propensity_score_and_outcome_mean(
     verbosity=1, 
     machine_cache=false
     )
-    propensity_score_estimate = estimate_propensity_score(propensity_score, models, dataset;
+    treatments_factor_estimate = estimate_treatments_factor(treatments_factor, models, dataset;
         train_validation_indices=train_validation_indices,
         cache=cache,
         verbosity=verbosity,
@@ -186,13 +192,13 @@ function estimate_propensity_score_and_outcome_mean(
         verbosity=verbosity,
         machine_cache=machine_cache
     )
-    return (propensity_score_estimate, outcome_mean_estimate)
+    return (treatments_factor_estimate, outcome_mean_estimate)
 end
 
-function estimate_propensity_score_and_outcome_mean(
+function estimate_factors(
     acceleration::CPUThreads, 
     models,
-    propensity_score,
+    treatments_factor,
     outcome_mean,
     dataset;
     train_validation_indices=nothing,
@@ -200,7 +206,7 @@ function estimate_propensity_score_and_outcome_mean(
     verbosity=1, 
     machine_cache=false
     )
-    propensity_score_estimate = @spawn estimate_propensity_score(propensity_score, models, dataset;
+    treatments_factor_estimate = @spawn estimate_treatments_factor(treatments_factor, models, dataset;
         train_validation_indices=train_validation_indices,
         cache=cache,
         verbosity=verbosity,
@@ -213,7 +219,7 @@ function estimate_propensity_score_and_outcome_mean(
         verbosity=verbosity,
         machine_cache=machine_cache
     )
-    return fetch.([propensity_score_estimate, outcome_mean_estimate])
+    return fetch.([treatments_factor_estimate, outcome_mean_estimate])
 end
 
 function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; 
@@ -230,13 +236,13 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
     verbosity > 0 && @info(string("Required ", string_repr(estimand)))
     models = estimator.models
     outcome_mean = estimand.outcome_mean
-    propensity_score = estimand.propensity_score
+    treatments_factor = estimand.ps_or_rr
     train_validation_indices = estimator.train_validation_indices
     # Estimate propensity score and outcome mean
-    propensity_score_estimate, outcome_mean_estimate = estimate_propensity_score_and_outcome_mean(
+    treatments_factor_estimate, outcome_mean_estimate = estimate_factors(
         acceleration,
         models,
-        propensity_score,
+        treatments_factor,
         outcome_mean,
         dataset;
         train_validation_indices=train_validation_indices,
@@ -245,7 +251,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
         machine_cache=machine_cache
     )
     # Build estimate
-    estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate)
+    estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, treatments_factor_estimate)
     # Update cache
     update_cache!(cache, estimand, estimator, estimate)
 
@@ -270,7 +276,7 @@ function (estimator::CMBasedTMLE)(estimand, dataset;
     fluctuation_model = estimator.fluctuation
     outcome_mean = fluctuation_model.initial_factors.outcome_mean.estimand
     # Fluctuate outcome model
-    fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model, estimator.train_validation_indices)
+    fluctuated_estimator = MLEstimator(fluctuation_model, estimator.train_validation_indices)
     fluctuated_outcome_mean = try_fit_ml_estimator(fluctuated_estimator, outcome_mean, dataset;
         error_fn=outcome_mean_fluctuation_fit_error_msg,
         cache=cache,
@@ -278,9 +284,9 @@ function (estimator::CMBasedTMLE)(estimand, dataset;
         machine_cache=machine_cache
     )
     # Do not fluctuate propensity score
-    fluctuated_propensity_score = fluctuation_model.initial_factors.propensity_score
+    fluctuated_treatments_factor = fluctuation_model.initial_factors.ps_or_rr
     # Build estimate
-    estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score)
+    estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_treatments_factor)
 
     return estimate
 end

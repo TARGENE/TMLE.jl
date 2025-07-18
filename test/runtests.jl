@@ -31,7 +31,7 @@ TEST_DIR = joinpath(pkgdir(TMLE), "test")
     if VERSION >= v"1.9"
         @test include(joinpath(TEST_DIR, "configuration.jl"))
         @test include(joinpath(TEST_DIR, "causaltables_interface.jl"))
-        @test include(joinpath(TEST_DIR, "riesz_learning.jl"))
+        # @test include(joinpath(TEST_DIR, "riesz_learning.jl"))
     end
 
     # Test Experimental

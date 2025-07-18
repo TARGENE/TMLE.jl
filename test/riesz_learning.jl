@@ -14,8 +14,7 @@ TEST_DIR = joinpath(pkgdir(TMLE), "test")
 
 include(joinpath(TEST_DIR, "counterfactual_mean_based", "ate_simulations.jl"))
 
-
-riesznet = RieszNetModel()
+riesznet = RieszNetModel(lux_model=RieszLearning.MLP([5, 10]))
 
 Ψ = ATE(
     outcome = :Y,
@@ -25,7 +24,10 @@ riesznet = RieszNetModel()
 dataset, Ψ₀ = continuous_outcome_binary_treatment_pb()
 
 @testset "Test RieszRepresenterEstimator" begin
-    
+    models = default_models()
+    models[:riesz_representer] = riesznet
+    tmle = Tmle(models=models)
+    tmle(Ψ, dataset)
 end
 
 end

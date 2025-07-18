@@ -64,7 +64,7 @@ end
 
 function gradient_and_plugin_estimate(Ψ::StatisticalCMCompositeEstimand, factors, dataset; ps_lowerbound=1e-8)
     Q = factors.outcome_mean
-    G = factors.propensity_score
+    G = factors.ps_or_rr
     ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
     Ψ̂ = plugin_estimate(ctf_agg)
     IC = ∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound) .+ ∇W(ctf_agg, Ψ̂)
@@ -75,4 +75,4 @@ train_validation_indices_from_ps(::MLConditionalDistribution) = nothing
 train_validation_indices_from_ps(factor::SampleSplitMLConditionalDistribution) = factor.train_validation_indices
 
 train_validation_indices_from_factors(factors) = 
-    train_validation_indices_from_ps(first(factors.propensity_score))
+    train_validation_indices_from_ps(first(factors.ps_or_rr))

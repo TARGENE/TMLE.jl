@@ -35,7 +35,7 @@ end
     dataset = one_treatment_dataset(;n=100)
     η = TMLE.CMRelevantFactors(
         TMLE.ConditionalDistribution(:Y, [:T, :W]),
-        TMLE.ConditionalDistribution(:T, [:W])
+        TMLE.JointConditionalDistribution(TMLE.ConditionalDistribution(:T, [:W]))
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
         nothing,
@@ -46,7 +46,7 @@ end
     η̂ₙ = η̂(η, dataset, verbosity = 0)
     # Retrieve conditional distributions and fitted_params
     Q = η̂ₙ.outcome_mean
-    G = η̂ₙ.propensity_score
+    G = η̂ₙ.ps_or_rr
     linear_model = fitted_params(Q.machine).deterministic_pipeline.linear_regressor
     intercept = linear_model.intercept
     coefs = Dict(linear_model.coefs)

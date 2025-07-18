@@ -22,9 +22,9 @@ estimand = TMLE.ConditionalDistribution(:Y, [:X₁, :X₂])
 fit_log = string("Estimating: ", TMLE.string_repr(estimand))
 reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
 
-@testset "Test MLConditionalDistributionEstimator: binary outcome" begin
+@testset "Test MLEstimator: binary outcome" begin
     # Check predict / expected_value / compute_offset
-    estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
+    estimator = TMLE.MLEstimator(LinearBinaryClassifier())
     # Fitting with no cache
     cache = Dict()
     conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
@@ -41,18 +41,18 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
     @test all(0. <= x <= 1. for x in TMLE.likelihood(conditional_density_estimate, binary_dataset)) # The pdf is not necessarily between 0 and 1
     # Check cache management
     ## Uses the cache instead of fitting
-    new_estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
+    new_estimator = TMLE.MLEstimator(LinearBinaryClassifier())
     @test_logs (:info, reuse_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
     ## Changing the model leads to refit
-    new_estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(fit_intercept=false))
+    new_estimator = TMLE.MLEstimator(LinearBinaryClassifier(fit_intercept=false))
     @test_logs (:info, fit_log) new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 end
 
-@testset "Test MLConditionalDistributionEstimator: continuous outcome" begin
+@testset "Test MLEstimator: continuous outcome" begin
     # Check predict / expected_value / compute_offset
     ## Probabilistic Model
     model = MLJGLMInterface.LinearRegressor()
-    estimator = TMLE.MLConditionalDistributionEstimator(model)
+    estimator = TMLE.MLEstimator(model)
     conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, continuous_dataset; cache=Dict(), verbosity=verbosity)
     ŷ = MLJBase.predict(conditional_density_estimate, continuous_dataset)
     @test ŷ isa Vector{Normal{Float64}}
@@ -63,7 +63,7 @@ end
 
     ## Deterministic Model
     model = MLJLinearModels.LinearRegressor()
-    estimator = TMLE.MLConditionalDistributionEstimator(model)
+    estimator = TMLE.MLEstimator(model)
     conditional_density_estimate = estimator(estimand, continuous_dataset; cache=Dict(), verbosity=0)
     ŷ = MLJBase.predict(conditional_density_estimate, continuous_dataset)
     @test ŷ isa Vector{Float64}
@@ -73,12 +73,12 @@ end
     @test offset == μ̂
 end
 
-@testset "Test SampleSplitMLConditionalDistributionEstimator: Binary outcome" begin
+@testset "Test SampleSplitMLEstimator: Binary outcome" begin
     # Check predict / expected_value / compute_offset
     nfolds = 3
     train_validation_indices = Tuple(MLJBase.train_test_pairs(StratifiedCV(nfolds=nfolds), 1:n, binary_dataset, binary_dataset.Y))
     model = LinearBinaryClassifier()
-    estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
+    estimator = TMLE.SampleSplitMLEstimator(
         model,
         train_validation_indices
     )
@@ -103,34 +103,34 @@ end
     @test all(0. <= x <= 1. for x in TMLE.likelihood(conditional_density_estimate, binary_dataset))
     # Check cache management
     ## Uses the cache instead of fitting
-    new_estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
+    new_estimator = TMLE.SampleSplitMLEstimator(
         LinearBinaryClassifier(),
         train_validation_indices
     )
     @test_logs (:info, reuse_log) estimator(estimand, binary_dataset;cache=cache, verbosity=verbosity)
     ## Changing the model leads to refit
     new_model = LinearBinaryClassifier(fit_intercept=false)
-    new_estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
+    new_estimator = TMLE.SampleSplitMLEstimator(
         new_model,
         train_validation_indices
     )
     @test_logs (:info, fit_log) new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
     ## Changing the train/validation splits leads to refit
     train_validation_indices = Tuple(MLJBase.train_test_pairs(CV(nfolds=4), 1:n, binary_dataset))
-    new_estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
+    new_estimator = TMLE.SampleSplitMLEstimator(
         new_model,
         train_validation_indices
     )
     @test_logs (:info, fit_log) new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 end
 
-@testset "Test SampleSplitMLConditionalDistributionEstimator: Continuous outcome" begin
+@testset "Test SampleSplitMLEstimator: Continuous outcome" begin
     # Check predict / expected_value / compute_offset
     nfolds = 3
     train_validation_indices = Tuple(MLJBase.train_test_pairs(CV(nfolds=nfolds), 1:n, continuous_dataset))
     ## Probabilistic Model
     model = MLJGLMInterface.LinearRegressor()
-    estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
+    estimator = TMLE.SampleSplitMLEstimator(
         model,
         train_validation_indices
     )
@@ -145,7 +145,7 @@ end
 
     ## Deterministic Model
     model = MLJLinearModels.LinearRegressor()
-    estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
+    estimator = TMLE.SampleSplitMLEstimator(
         model,
         train_validation_indices
     )
@@ -160,7 +160,7 @@ end
 
 @testset "Test Conditional Distribution with no parents fits a marginal" begin
     binary_dataset = DataFrame(Y = categorical([1, 1, 0, 0, 0]))
-    estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
+    estimator = TMLE.MLEstimator(LinearBinaryClassifier())
     estimand = TMLE.ConditionalDistribution(:Y, ())
     estimate = estimator(estimand, binary_dataset, verbosity=0)
     @test estimate.machine.model isa ConstantClassifier

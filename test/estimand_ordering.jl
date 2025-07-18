@@ -65,6 +65,7 @@ statistical_estimands = [identify(x, scm) for x in causal_estimands]
         @test Set(permutation) == Set(statistical_estimands)
     end
 end
+
 @testset "Test ordering strategies" begin
     # Estimand ID || Required models   
     # 1           || (T₁, Y₁|T₁)       

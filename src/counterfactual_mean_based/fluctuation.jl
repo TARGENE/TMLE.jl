@@ -49,7 +49,7 @@ For the observed data, we store:
 """
 function initialize_observed_cache(model, X, y)
     Q⁰ = model.initial_factors.outcome_mean
-    G⁰ = model.initial_factors.propensity_score
+    G⁰ = model.initial_factors.ps_or_rr
     H, w = clever_covariate_and_weights(
         model.Ψ, G⁰, X;
         ps_lowerbound=model.ps_lowerbound,
@@ -72,7 +72,7 @@ These are used to evaluate the gradient and estimate
 """
 function initialize_counterfactual_cache(model, X)
     Q⁰ = model.initial_factors.outcome_mean
-    G⁰ = model.initial_factors.propensity_score
+    G⁰ = model.initial_factors.ps_or_rr
     Ψ = model.Ψ
 
     counterfactual_cache = (predictions=[], signs=[], covariates=[], weights=[])
@@ -217,7 +217,7 @@ Generates initial predictions and iteratively predicts from the fitted fluctuati
 """
 function MLJBase.predict(model::Fluctuation, machines, X) 
     covariate, _ = clever_covariate_and_weights(
-        model.Ψ, model.initial_factors.propensity_score, X;
+        model.Ψ, model.initial_factors.ps_or_rr, X;
         ps_lowerbound=model.ps_lowerbound,
         weighted_fluctuation=model.weighted
     )

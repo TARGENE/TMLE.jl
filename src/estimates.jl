@@ -31,6 +31,23 @@ function MLJBase.predict(estimate::MLConditionalDistribution, dataset)
     return predict(estimate.machine, X)
 end
 
+#####################################################################
+###                      RieszRepresenterEstimate                 ###
+#####################################################################
+
+struct RieszRepresenterEstimate <: Estimate
+    estimand::RieszRepresenter
+    mach::MLJBase.Machine
+end
+
+string_repr(estimate::RieszRepresenterEstimate) = string(
+    "Riesz Representer Estimate with model: ", 
+    Base.typename(typeof(estimate.mach.model)).wrapper
+)
+
+function MLJBase.predict(estimate::RieszRepresenterEstimate, dataset)
+    throw(ArgumentError("To be implemented"))
+end
 
 #####################################################################
 ###             SampleSplitMLConditionalDistribution              ###
@@ -155,7 +172,7 @@ end
 #####################################################################
 
 struct JointConditionalDistributionEstimate{T, N} <: Estimate
-    estimand::Tuple{Vararg{ConditionalDistribution, N}}
+    estimand::JointConditionalDistribution{N}
     components::Tuple{Vararg{T, N}}
 end
 

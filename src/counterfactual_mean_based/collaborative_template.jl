@@ -286,7 +286,7 @@ function update_cv_folds_info!(
     )
     fold_train_val_indices = train_validation_indices[fold_index]
     # Update propensity score estimate
-    fold_propensity_score_estimator = build_propensity_score_estimator(
+    fold_propensity_score_estimator = build_treatments_factor_estimator(
         propensity_score, 
         models,  
         dataset;

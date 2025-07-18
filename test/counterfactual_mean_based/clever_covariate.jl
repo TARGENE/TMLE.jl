@@ -30,9 +30,9 @@ end
         W = rand(7),
     )
 
-    propensity_score_estimator = TMLE.JointConditionalDistributionEstimator(Dict(:T => TMLE.MLConditionalDistributionEstimator(ConstantClassifier())))
+    propensity_score_estimator = TMLE.JointConditionalDistributionEstimator(Dict(:T => TMLE.MLEstimator(ConstantClassifier())))
     propensity_score_estimate = propensity_score_estimator(
-        (TMLE.ConditionalDistribution(:T, [:W]),),
+        TMLE.JointConditionalDistribution(TMLE.ConditionalDistribution(:T, [:W]),),
         dataset,
         verbosity=0
     )
@@ -70,13 +70,16 @@ end
         Y = categorical([1, 1, 1, 1, 0, 0, 0]),
         W = rand(7)
     )
-    distribution_estimator = TMLE.MLConditionalDistributionEstimator(ConstantClassifier())
+    distribution_estimator = TMLE.MLEstimator(ConstantClassifier())
     propensity_score_estimator = TMLE.JointConditionalDistributionEstimator(Dict(
         :T₁ => distribution_estimator,
         :T₂ => distribution_estimator
     ))
     propensity_score_estimate = propensity_score_estimator(
-        (TMLE.ConditionalDistribution(:T₁, [:W]), TMLE.ConditionalDistribution(:T₂, [:W])),
+        TMLE.JointConditionalDistribution(
+            TMLE.ConditionalDistribution(:T₁, [:W]), 
+            TMLE.ConditionalDistribution(:T₂, [:W])
+        ),
         dataset,
         verbosity=0
     )
@@ -118,13 +121,15 @@ end
     weighted_fluctuation = false
 
     propensity_score_estimator = TMLE.JointConditionalDistributionEstimator(Dict(
-        T => TMLE.MLConditionalDistributionEstimator(ConstantClassifier())
+        T => TMLE.MLEstimator(ConstantClassifier())
         for T in (:T₁, :T₂, :T₃)
     ))
     propensity_score_estimate = propensity_score_estimator(
-        (TMLE.ConditionalDistribution(:T₁, [:W]), 
-         TMLE.ConditionalDistribution(:T₂, [:W]), 
-         TMLE.ConditionalDistribution(:T₃, [:W])),
+        TMLE.JointConditionalDistribution(
+            TMLE.ConditionalDistribution(:T₁, [:W]), 
+            TMLE.ConditionalDistribution(:T₂, [:W]), 
+            TMLE.ConditionalDistribution(:T₃, [:W])
+        ),
         dataset,
         verbosity=0
     )

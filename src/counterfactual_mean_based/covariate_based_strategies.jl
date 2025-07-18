@@ -22,14 +22,14 @@ end
 function Base.iterate(it::StepKPropensityScoreIterator{GreedyStrategy})
     state = copy(it.collaborative_strategy.remaining_confounders)
     g = propensity_score_from_state!(state, it)
-    ĝ = build_propensity_score_estimator(g, it.models, it.dataset; train_validation_indices=nothing) 
+    ĝ = build_treatments_factor_estimator(g, it.models, it.dataset; train_validation_indices=nothing) 
     return (g, ĝ), state
 end
 
 function Base.iterate(it::StepKPropensityScoreIterator{GreedyStrategy}, state)
     isempty(state) && return nothing
     g = propensity_score_from_state!(state, it)
-    ĝ = build_propensity_score_estimator(g, it.models, it.dataset; train_validation_indices=nothing)
+    ĝ = build_treatments_factor_estimator(g, it.models, it.dataset; train_validation_indices=nothing)
     return (g, ĝ), state
 end
 
@@ -73,7 +73,7 @@ function Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationStrate
     # Create a new propensity score with the best confounder and the current list
     confounders_list = (it.collaborative_strategy.current_confounders..., best_confounder)
     g = propensity_score(it.Ψ, confounders_list)
-    ĝ = build_propensity_score_estimator(
+    ĝ = build_treatments_factor_estimator(
         g,
         it.models,
         it.dataset;
@@ -88,7 +88,6 @@ Base.iterate(it::StepKPropensityScoreIterator{AdaptiveCorrelationStrategy}, stat
 ###             Shared AdaptiveCorrelationStrategy                ###
 #####################################################################
 
-
 function initialise!(strategy::Union{GreedyStrategy, AdaptiveCorrelationStrategy}, Ψ)
     empty!(strategy.remaining_confounders)
     union!(strategy.remaining_confounders, Set(Iterators.flatten(values(Ψ.treatment_confounders))))
@@ -97,8 +96,8 @@ function initialise!(strategy::Union{GreedyStrategy, AdaptiveCorrelationStrategy
 end
 
 function update!(strategy::Union{GreedyStrategy, AdaptiveCorrelationStrategy}, g, ĝ)
-    treatments = (g_.outcome for g_ in g)
-    parents = union((g_.parents for g_ in g)...)
+    treatments = (g_.outcome for g_ in g.components)
+    parents = union((g_.parents for g_ in g.components)...)
     current_confounders = setdiff(parents, treatments)
     setdiff!(strategy.remaining_confounders, current_confounders)
     union!(strategy.current_confounders, current_confounders)
@@ -119,12 +118,13 @@ end
 
 function propensity_score(Ψ, confounders_list)
     Ψtreatments = TMLE.treatments(Ψ)
-    return Tuple(map(eachindex(Ψtreatments)) do index
+    conditional_distributions = map(eachindex(Ψtreatments)) do index
         T = Ψtreatments[index]
         T_confounders = intersect(confounders_list, Ψ.treatment_confounders[T])
         T_parents = (T_confounders..., Ψtreatments[index+1:end]...)
         ConditionalDistribution(T, T_parents)
-    end)
+    end
+    return JointConditionalDistribution(conditional_distributions...)
 end
 
 propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_strategy::Union{GreedyStrategy, AdaptiveCorrelationStrategy}) =

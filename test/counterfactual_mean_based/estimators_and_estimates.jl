@@ -33,8 +33,8 @@ end
     dataset = make_dataset()
     # Estimand
     Q = TMLE.ConditionalDistribution(:Y, [:T₁, :W])
-    G = (TMLE.ConditionalDistribution(:T₁, [:W]),)
-    η = TMLE.CMRelevantFactors(outcome_mean=Q, propensity_score=G)
+    G = TMLE.JointConditionalDistribution(TMLE.ConditionalDistribution(:T₁, [:W]))
+    η = TMLE.CMRelevantFactors(outcome_mean=Q, ps_or_rr=G)
     # Estimator
     models = Dict(
         :Y  => with_encoder(LinearRegressor()), 
@@ -44,7 +44,7 @@ end
     # Estimate
     fit_log = (
         (:info, string("Required ", TMLE.string_repr(η))),
-        (:info, TMLE.fit_string(G[1])),
+        (:info, TMLE.fit_string(G.components[1])),
         (:info, TMLE.fit_string(Q))
     )
     cache = Dict()
@@ -52,7 +52,7 @@ end
     # Test both sub estimands have been fitted
     @test η̂ₙ.outcome_mean isa TMLE.MLConditionalDistribution
     @test fitted_params(η̂ₙ.outcome_mean.machine) isa NamedTuple
-    ps_component = only(η̂ₙ.propensity_score.components)
+    ps_component = only(η̂ₙ.ps_or_rr.components)
     @test ps_component isa TMLE.MLConditionalDistribution
     @test fitted_params(ps_component.machine) isa NamedTuple
 
@@ -65,7 +65,7 @@ end
     new_η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
     partial_reuse_log = (
         (:info, string("Required ", TMLE.string_repr(η))),
-        (:info, TMLE.fit_string(G[1])),
+        (:info, TMLE.fit_string(G.components[1])),
         (:info, TMLE.reuse_string(Q))
     )
     @test_logs partial_reuse_log... new_η̂(η, dataset; cache=cache, verbosity=1)
@@ -73,14 +73,14 @@ end
     # Adding a resampling strategy
     cv_fit_log = (
         (:info, string("Required ", TMLE.string_repr(η))),
-        (:info, TMLE.fit_string(G[1])),
+        (:info, TMLE.fit_string(G.components[1])),
         (:info, TMLE.fit_string(Q))
     )
     train_validation_indices = MLJBase.train_test_pairs(CV(nfolds=3), 1:nrows(dataset), dataset)
     resampled_η̂ = TMLE.CMRelevantFactorsEstimator(models=models, train_validation_indices=train_validation_indices)
     η̂ₙ = @test_logs cv_fit_log... resampled_η̂(η, dataset; cache=cache, verbosity=1)
     @test length(η̂ₙ.outcome_mean.machines) == 3
-    ps_component = only(η̂ₙ.propensity_score.components)
+    ps_component = only(η̂ₙ.ps_or_rr.components)
     @test length(ps_component.machines) == 3
     @test η̂ₙ.outcome_mean.train_validation_indices == ps_component.train_validation_indices
 end
@@ -89,8 +89,8 @@ end
     dataset = make_dataset()
     # Estimand
     Q = TMLE.ConditionalDistribution(:Y, [:T₁, :W])
-    G = (TMLE.ConditionalDistribution(:T₁, [:W]),)
-    η = TMLE.CMRelevantFactors(outcome_mean=Q, propensity_score=G)
+    G = TMLE.JointConditionalDistribution(TMLE.ConditionalDistribution(:T₁, [:W]))
+    η = TMLE.CMRelevantFactors(outcome_mean=Q, ps_or_rr=G)
     # Propensity score model is ill-defined
     models = Dict(
         :Y  => with_encoder(LinearRegressor()), 
@@ -102,7 +102,7 @@ end
         @test true === false
     catch e
         @test e isa TMLE.FitFailedError
-        @test e.msg == TMLE.propensity_score_fit_error_msg(G[1])
+        @test e.msg == TMLE.propensity_score_fit_error_msg(G.components[1])
     end
     # Outcome Mean model is ill-defined
     models = Dict(

@@ -25,8 +25,8 @@ using DataFrames
     @test indic_values == [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
     ## Check the propensity score does not assume an independent decomposition
     propensity_score = TMLE.propensity_score(Ψ)
-    @test propensity_score[1].outcome == :T₁
-    @test propensity_score[1].parents == (:T₂, :W)
+    @test propensity_score.components[1].outcome == :T₁
+    @test propensity_score.components[1].parents == (:T₂, :W)
     # ATE
     Ψ = ATE(
         outcome=:Y, 

@@ -104,6 +104,24 @@ a Conditional Distribution because they are estimated in the same way.
 const ExpectedValue = ConditionalDistribution
 
 #####################################################################
+###                 JointConditionalDistribution                  ###
+#####################################################################
+
+@auto_hash_equals struct JointConditionalDistribution{N} <: Estimand
+    components::Tuple{Vararg{ConditionalDistribution, N}}
+end
+
+JointConditionalDistribution(distrs::Vararg{ConditionalDistribution}) = 
+    JointConditionalDistribution(distrs)
+
+string_repr(estimand::JointConditionalDistribution) = 
+    string("Joint Conditional Distribution: \n   - ",
+        join((string_repr(c) for c in estimand.components), "\n   - "))
+
+variables(estimand::JointConditionalDistribution) =
+    Tuple(union((variables(c) for c in estimand.components)...))
+
+#####################################################################
 ###                      RieszRepresenter                         ###
 #####################################################################
 
@@ -113,6 +131,10 @@ Defines the riesz representer (see: https://arxiv.org/pdf/2501.04871) associated
 @auto_hash_equals struct RieszRepresenter{T<:Estimand} <: Estimand
     Ψ::T
 end
+
+RieszRepresenter(Ψ, collaborative_strategy::Nothing) = RieszRepresenter(Ψ)
+
+RieszRepresenter(Ψ, collaborative_strategy) = throw(ArgumentError("RieszLearning does not support collaborative strategies yet."))
 
 string_repr(estimand::RieszRepresenter) = 
     string("Riesz Representer for ", string_repr(estimand.Ψ))
@@ -128,7 +150,7 @@ function get_mlj_model_inputs(estimand::RieszRepresenter, dataset)
         dataset, 
         sort(unique(Iterators.flatten(values(estimand.Ψ.treatment_confounders))))
     )
-    return (T, W), estimand.Ψ
+    return (T, W), indicator_fns(estimand.Ψ)
 end
 
 #####################################################################

@@ -1,16 +1,16 @@
 abstract type Estimator end
 
 #####################################################################
-###               MLConditionalDistributionEstimator              ###
+###                        MLEstimator                            ###
 #####################################################################
 
-@auto_hash_equals struct MLConditionalDistributionEstimator <: Estimator
+@auto_hash_equals struct MLEstimator <: Estimator
     model::MLJBase.Supervised
     train_validation_indices
 end
 
-MLConditionalDistributionEstimator(models; train_validation_indices=nothing) = 
-    MLConditionalDistributionEstimator(models, train_validation_indices)
+MLEstimator(models; train_validation_indices=nothing) = 
+    MLEstimator(models, train_validation_indices)
 
 marginal_model(y::CategoricalVector) = ConstantClassifier()
 
@@ -37,14 +37,19 @@ function fit_mlj_model(model, mlj_model_inputs; cache=false, verbosity=1)
     return mach
 end
 
+get_actual_model(model, estimand::RieszRepresenter, args...) = model
+
 make_ml_estimate(estimand::ConditionalDistribution, mach) =
     MLConditionalDistribution(estimand, mach)
 
+make_ml_estimate(estimand::RieszRepresenter, mach) =
+    RieszRepresenterEstimate(estimand, mach)
+    
 training_rows(dataset, train_validation_indices) = selectrows(dataset, train_validation_indices[1])
 
 training_rows(dataset, train_validation_indices::Nothing) = dataset
 
-function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
+function (estimator::MLEstimator)(estimand, dataset; 
     cache=Dict(), 
     verbosity=1, 
     machine_cache=false,
@@ -74,13 +79,13 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
 end
 
 #####################################################################
-###       SampleSplitMLConditionalDistributionEstimator           ###
+###                       SampleSplitMLEstimator                  ###
 #####################################################################
 
 """
 Estimates a conditional distribution (or regression) for each training set defined by `train_validation_indices`.
 """
-@auto_hash_equals struct SampleSplitMLConditionalDistributionEstimator <: Estimator
+@auto_hash_equals struct SampleSplitMLEstimator <: Estimator
     model::MLJBase.Supervised
     train_validation_indices
 end
@@ -137,7 +142,7 @@ function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPU
     end
 end
 
-function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, dataset; 
+function (estimator::SampleSplitMLEstimator)(estimand, dataset; 
     cache=Dict(), 
     verbosity=1, 
     machine_cache=false,
@@ -166,11 +171,11 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     return estimate
 end
 
-ConditionalDistributionEstimator(model, train_validation_indices::Union{Nothing,Tuple}) =
-    MLConditionalDistributionEstimator(model, train_validation_indices)
+full_or_sample_split_ml_estimator(model, train_validation_indices::Union{Nothing,Tuple}) =
+    MLEstimator(model, train_validation_indices)
 
-ConditionalDistributionEstimator(model, train_validation_indices::AbstractVector) =
-    SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices)
+full_or_sample_split_ml_estimator(model, train_validation_indices::AbstractVector) =
+    SampleSplitMLEstimator(model, train_validation_indices)
 
     
 #####################################################################
@@ -215,18 +220,18 @@ function fit_conditional_distributions(acceleration::CPUThreads, cd_estimators, 
     return Tuple(estimates)
 end
 
-function (estimator::JointConditionalDistributionEstimator)(conditional_distributions, dataset; 
+function (estimator::JointConditionalDistributionEstimator)(joint_conditional_distribution, dataset; 
     cache=Dict(), 
     verbosity=1, 
     machine_cache=false,
     acceleration=CPU1()
     )
-    estimates = fit_conditional_distributions(acceleration, estimator.cd_estimators, conditional_distributions, dataset; 
+    estimates = fit_conditional_distributions(acceleration, estimator.cd_estimators, joint_conditional_distribution.components, dataset; 
         cache=cache, 
         verbosity=verbosity, 
         machine_cache=machine_cache
     )
-    return JointConditionalDistributionEstimate(conditional_distributions, estimates)
+    return JointConditionalDistributionEstimate(joint_conditional_distribution, estimates)
 end
 
 #####################################################################

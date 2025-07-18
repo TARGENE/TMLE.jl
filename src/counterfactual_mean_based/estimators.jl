@@ -100,7 +100,7 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     # Make train-validation pairs
     train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors
-    relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
+    relevant_factors = get_relevant_factors(Ψ, tmle.models; collaborative_strategy=tmle.collaborative_strategy)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices)
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
@@ -203,7 +203,7 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     # Make train-validation pairs
     train_validation_indices = get_train_validation_indices(ose.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors
-    initial_factors = get_relevant_factors(Ψ)
+    initial_factors = get_relevant_factors(Ψ, ose.models)
     nomissing_dataset = nomissing(dataset, variables(initial_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling)
     initial_factors_estimator = CMRelevantFactorsEstimator(train_validation_indices, ose.models)
@@ -247,7 +247,7 @@ function (estimator::Plugin)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=
     # Initial fit of the SCM's relevant factors
     relevant_factors = get_relevant_factors(Ψ)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
-    outcome_mean_estimate = MLConditionalDistributionEstimator(estimator.model)(
+    outcome_mean_estimate = MLEstimator(estimator.model)(
         relevant_factors.outcome_mean, 
         dataset;
         cache=cache,

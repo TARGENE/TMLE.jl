@@ -22,7 +22,7 @@ using Distributions
     )
     η = TMLE.CMRelevantFactors(
         TMLE.ConditionalDistribution(:Y, [:T, :W₁, :W₂, :W₃]),
-        TMLE.ConditionalDistribution(:T, [:W₁, :W₂, :W₃])
+        TMLE.JointConditionalDistribution(TMLE.ConditionalDistribution(:T, [:W₁, :W₂, :W₃]))
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
         nothing,
@@ -110,7 +110,7 @@ end
     )
     η = TMLE.CMRelevantFactors(
         TMLE.ConditionalDistribution(:Y, [:T₁, :T₂, :W₁, :W₂, :W₃]),
-        (
+        TMLE.JointConditionalDistribution(
             TMLE.ConditionalDistribution(:T₁, [:W₁, :W₂, :W₃]),
             TMLE.ConditionalDistribution(:T₂, [:W₁, :W₂, :W₃]),
         )

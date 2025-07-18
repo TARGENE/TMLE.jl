@@ -27,7 +27,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     @test adaptive_strategy.remaining_confounders == Set{Symbol}()
     @test adaptive_strategy.current_confounders == Set{Symbol}()
     g_init = TMLE.propensity_score(Ψ, adaptive_strategy)
-    @test g_init == (
+    @test g_init == TMLE.JointConditionalDistribution(
         TMLE.ConditionalDistribution(:T₁, (:T₂,)), 
         TMLE.ConditionalDistribution(:T₂, ())
     )
@@ -36,7 +36,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     @test adaptive_strategy.remaining_confounders == Set([:W₁, :W₂, :W₃])
     @test adaptive_strategy.current_confounders == Set()
     # Updates
-    g_1 = (
+    g_1 = TMLE.JointConditionalDistribution(
         TMLE.ConditionalDistribution(:T₁, (:T₂, :W₂)), 
         TMLE.ConditionalDistribution(:T₂, ())
     )
@@ -44,7 +44,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     @test adaptive_strategy.remaining_confounders == Set([:W₁, :W₃])
     @test adaptive_strategy.current_confounders == Set([:W₂])
     @test TMLE.exhausted(adaptive_strategy) == false
-    g_2 = (
+    g_2 = TMLE.JointConditionalDistribution(
         TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂)), 
         TMLE.ConditionalDistribution(:T₂, (:W₁,))
     )
@@ -52,7 +52,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     @test adaptive_strategy.remaining_confounders == Set([:W₃])
     @test adaptive_strategy.current_confounders == Set([:W₁, :W₂])
     @test TMLE.exhausted(adaptive_strategy) == false
-    g_3 = (
+    g_3 = TMLE.JointConditionalDistribution(
         TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂)), 
         TMLE.ConditionalDistribution(:T₂, (:W₁, :W₃))
     )
@@ -77,8 +77,8 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     )
     result_ctmle, cache = ctmle(Ψ, dataset;verbosity=0);
     targeted_η̂ = cache[:targeted_factors]
-    @test targeted_η̂.propensity_score.components[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃))
-    @test targeted_η̂.propensity_score.components[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₃,))
+    @test targeted_η̂.ps_or_rr.components[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃))
+    @test targeted_η̂.ps_or_rr.components[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₃,))
 end
 
 @testset "Test GreedyStrategy Interface" begin
@@ -121,7 +121,7 @@ end
         train_validation_indices=train_validation_indices, 
         models=tmle.models
     )
-    η = TMLE.get_relevant_factors(Ψ, collaborative_strategy=collaborative_strategy)
+    η = TMLE.get_relevant_factors(Ψ, models, collaborative_strategy=collaborative_strategy)
     η̂ₙ = initial_factors_estimator(η, dataset;
         cache=cache, 
         verbosity=verbosity, 
@@ -138,9 +138,18 @@ end
     g_ĝ_candidates = collect(step_k_candidate_iterator)
     g_candidates = Set(first.(g_ĝ_candidates))
     @test g_candidates == Set([
-        (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁)), TMLE.ConditionalDistribution(:T₂, (:W₁,))),
-        (TMLE.ConditionalDistribution(:T₁, (:T₂,)), TMLE.ConditionalDistribution(:T₂, (:W₃,))),
-        (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₂)), TMLE.ConditionalDistribution(:T₂, ()))
+        TMLE.JointConditionalDistribution(
+            TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁)), 
+            TMLE.ConditionalDistribution(:T₂, (:W₁,))
+        ),
+        TMLE.JointConditionalDistribution(
+            TMLE.ConditionalDistribution(:T₁, (:T₂,)), 
+            TMLE.ConditionalDistribution(:T₂, (:W₃,))
+        ),
+        TMLE.JointConditionalDistribution(
+            TMLE.ConditionalDistribution(:T₁, (:T₂, :W₂)),
+            TMLE.ConditionalDistribution(:T₂, ())
+        )
     ])
     ĝ = only(unique(last.(g_ĝ_candidates)))
     @test ĝ.cd_estimators[:T₁].model == models[:G_default]
@@ -158,7 +167,10 @@ end
             cache=cache,
             machine_cache=machine_cache,
     )
-    @test new_g == (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁)), TMLE.ConditionalDistribution(:T₂, (:W₁,)))
+    @test new_g == TMLE.JointConditionalDistribution(
+        TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁)), 
+        TMLE.ConditionalDistribution(:T₂, (:W₁,))
+    )
     @test new_ĝ == ĝ
     # Update the collaborative strategy
     TMLE.update!(collaborative_strategy, new_g, new_ĝ)
@@ -169,8 +181,14 @@ end
     g_ĝ_candidates = collect(step_k_candidate_iterator)
     g_candidates = Set(first.(g_ĝ_candidates))
     @test g_candidates == Set([
-        (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂)), TMLE.ConditionalDistribution(:T₂, (:W₁,))),
-        (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁)), TMLE.ConditionalDistribution(:T₂, (:W₁, :W₃)))
+        TMLE.JointConditionalDistribution(
+            TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂)), 
+            TMLE.ConditionalDistribution(:T₂, (:W₁,))
+        ),
+        TMLE.JointConditionalDistribution(
+            TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁)), 
+            TMLE.ConditionalDistribution(:T₂, (:W₁, :W₃))
+        )
     ])
     # Find optimal candidate again
     new_g, new_ĝ, new_targeted_η̂ₙ, new_loss, use_fluct = TMLE.step_k_best_candidate(
@@ -185,7 +203,10 @@ end
             cache=cache,
             machine_cache=machine_cache,
     )
-    @test new_g == (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂)), TMLE.ConditionalDistribution(:T₂, (:W₁,)))
+    @test new_g == TMLE.JointConditionalDistribution(
+        TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂)), 
+        TMLE.ConditionalDistribution(:T₂, (:W₁,))
+    )
     
     # Full run: this leads to only W₃ being used for the propensity score
     ctmle = Tmle(collaborative_strategy=collaborative_strategy)
@@ -199,8 +220,8 @@ end
     )
     result_ctmle, cache = ctmle(Ψ, dataset;verbosity=0);
     targeted_η̂ = cache[:targeted_factors]
-    @test targeted_η̂.propensity_score.components[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃))
-    @test targeted_η̂.propensity_score.components[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₃,))
+    @test targeted_η̂.ps_or_rr.components[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃))
+    @test targeted_η̂.ps_or_rr.components[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₃,))
 end
 
 @testset "Integration Test using the AdaptiveCorrelationStrategy" begin
@@ -235,8 +256,8 @@ end
         machine_cache=machine_cache,
     )
     # Initialize the relevant factors: no confounder is present in the propensity score
-    η = TMLE.get_relevant_factors(Ψ, collaborative_strategy=collaborative_strategy)
-    @test η.propensity_score == (
+    η = TMLE.get_relevant_factors(Ψ, models, collaborative_strategy=collaborative_strategy)
+    @test η.ps_or_rr == TMLE.JointConditionalDistribution(
         TMLE.ConditionalDistribution(:T₁, (:T₂,)), 
         TMLE.ConditionalDistribution(:T₂, ())
     )
@@ -251,20 +272,20 @@ end
         verbosity=verbosity, 
         machine_cache=tmle.machine_cache
     )
-    ps_T1_given_T2 = η̂ₙ.propensity_score.components[1]
+    ps_T1_given_T2 = η̂ₙ.ps_or_rr.components[1]
     fp = fitted_params(ps_T1_given_T2.machine)
     X, _ = ps_T1_given_T2.machine.data
     @test nrows(X) == n_samples
     fitted_variables = first.(fp.logistic_classifier.coefs)
     @test issubset(fitted_variables, [:T₂__false])
-    ps_T2 = η̂ₙ.propensity_score.components[2]
+    ps_T2 = η̂ₙ.ps_or_rr.components[2]
     fp = fitted_params(ps_T2.machine)
     @test haskey(fp, :target_distribution)
     @test ps_T2.machine.data[1] == DataFrame(INTERCEPT=fill(1., n_samples))
     
     ## One estimate for each estimand in the cache
     @test length(cache) == 4
-    for estimand in (η, η.outcome_mean, η.propensity_score...)
+    for estimand in (η, η.outcome_mean, η.ps_or_rr.components...)
         @test length(cache[estimand]) == 1
     end
     # Collaborative Targeted Estimation
@@ -300,7 +321,7 @@ end
     @test targeted_η̂ₙ isa TMLE.MLCMRelevantFactors
     @test targeted_η̂ₙ.outcome_mean.machine.model isa TMLE.Fluctuation
     @test nrows(targeted_η̂ₙ.outcome_mean.machine.data[1]) == n_samples
-    @test targeted_η̂ₙ.propensity_score === η̂ₙ.propensity_score
+    @test targeted_η̂ₙ.ps_or_rr === η̂ₙ.ps_or_rr
     @test loss == TMLE.mean_loss(targeted_η̂ₙ, dataset)
 
     # Check CV candidates initialisation:
@@ -326,7 +347,7 @@ end
         _, y_train = outcome_mean_estimate.machine.data
         @test y_train == dataset.Y[train_indices]
         # Check propensity score
-        for ps_component in fold_estimate.propensity_score.components
+        for ps_component in fold_estimate.ps_or_rr.components
             _, y_train = ps_component.machine.data
             @test y_train == dataset[!, ps_component.estimand.outcome][train_indices]
             @test ps_component in values(cache[ps_component.estimand])
@@ -351,10 +372,13 @@ end
             cache=cache,
     )
     @test use_fluct == true
-    @test new_g == (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃)), TMLE.ConditionalDistribution(:T₂, (:W₃,)))
+    @test new_g == TMLE.JointConditionalDistribution(
+        TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃)), 
+        TMLE.ConditionalDistribution(:T₂, (:W₃,))
+    )
     @test all(cde.train_validation_indices === nothing for cde in values(new_ĝ.cd_estimators))
     ## Check the propensity score estimate
-    new_ĝₙ = new_targeted_η̂ₙ.propensity_score
+    new_ĝₙ = new_targeted_η̂ₙ.ps_or_rr
     for ps_component in new_ĝₙ.components
         @test nrows(ps_component.machine.data[1]) == n_samples
         @test ps_component in values(cache[ps_component.estimand])
@@ -363,7 +387,7 @@ end
     outcome_mean_estimate_used = new_targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.outcome_mean
     @test outcome_mean_estimate_used === targeted_η̂ₙ.outcome_mean
     ## The propensity score used for fluctuation is the new candidate
-    fitted_propensity_score = new_targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.propensity_score.estimand
+    fitted_propensity_score = new_targeted_η̂ₙ.outcome_mean.machine.model.initial_factors.ps_or_rr.estimand
     @test fitted_propensity_score === new_g
     ## The loss should be smaller because we fluctuate through the previous model, however in finite samples
     ## I suppose this is not warranted, we check they are approximately equal and the loss with  Q̄n,k,* <  Q̄n,k
@@ -393,7 +417,7 @@ end
     );
     for (fold_id, fold_candidate) in enumerate(new_cv_targeted_η̂ₙ)
         @test fold_candidate.outcome_mean.machine.model isa TMLE.Fluctuation
-        @test fold_candidate.estimand.propensity_score === new_g
+        @test fold_candidate.estimand.ps_or_rr === new_g
         @test fold_candidate.outcome_mean.machine.model.initial_factors.outcome_mean === cv_targeted_η̂ₙ[fold_id].outcome_mean
     end
     @test TMLE.compute_validation_loss(new_cv_targeted_η̂ₙ, dataset, train_validation_indices) == new_cv_loss
@@ -407,7 +431,7 @@ end
     );
     for (fold_id, fold_candidate) in enumerate(new_cv_targeted_η̂ₙ_bis)
         @test fold_candidate.outcome_mean.machine.model isa TMLE.Fluctuation
-        @test fold_candidate.estimand.propensity_score === new_g
+        @test fold_candidate.estimand.ps_or_rr === new_g
         @test fold_candidate.outcome_mean.machine.model.initial_factors.outcome_mean === cv_targeted_η̂ₙ[fold_id].outcome_mean.machine.model.initial_factors.outcome_mean
     end
     @test TMLE.compute_validation_loss(new_cv_targeted_η̂ₙ_bis, dataset, train_validation_indices) == new_cv_loss_bis

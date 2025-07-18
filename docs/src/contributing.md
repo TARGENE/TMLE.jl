@@ -31,8 +31,8 @@ There are several interesting directions to complement this package with new est
 The package is centered around the following statistical concepts which are embodied by [Julia structs](https://docs.julialang.org/en/v1/manual/types/):
 
 - Estimand: A quantity of interest, one-dimensional like the Average Treatment Effect (`ATE`) or infinite dimensional like a conditional distribution (`ConditionalDistribution`).
-- Estimator: A method that uses data to obtain an estimate of the estimand. `Tmle` and `Ose` are valid estimators for the `ATE` and the `MLConditionalDistributionEstimator` is a valid estimator for a `ConditionalDistribution`.
-- Estimate: Calling an estimator on an estimand with a dataset yields an estimate. For example a `TMLEstimate` is obtained by using a `Tmle` for the `ATE`. A `MLConditionalDistribution` is obtained from `MLConditionalDistributionEstimator` for a `ConditionalDistribution`.
+- Estimator: A method that uses data to obtain an estimate of the estimand. `Tmle` and `Ose` are valid estimators for the `ATE` and the `MLEstimator` is a valid estimator for a `ConditionalDistribution`.
+- Estimate: Calling an estimator on an estimand with a dataset yields an estimate. For example a `TMLEstimate` is obtained by using a `Tmle` for the `ATE`. A `MLConditionalDistribution` is obtained from `MLEstimator` for a `ConditionalDistribution`.
 
 The general pattern is thus:
 
