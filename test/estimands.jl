@@ -33,8 +33,10 @@ end
         W₂=rand(100),
         Y=randn(100)
     )
-    X = TMLE.get_mlj_model_inputs(riesz_representer, dataset)
-    @test X == dataset[!, [:T_1, :T_2, :A, :W₁, :W₂]]
+    (T, W), Ψr = TMLE.get_mlj_model_inputs(riesz_representer, dataset)
+    @test T == dataset[!, [:T_1, :T_2]]
+    @test W == dataset[!, [:A, :W₁, :W₂]]
+    @test Ψr === Ψ
 end
 
 @testset "Test CMRelevantFactors" begin

@@ -103,7 +103,6 @@ a Conditional Distribution because they are estimated in the same way.
 """
 const ExpectedValue = ConditionalDistribution
 
-
 #####################################################################
 ###                      RieszRepresenter                         ###
 #####################################################################
@@ -124,8 +123,12 @@ function variables(estimand::RieszRepresenter)
 end
 
 function get_mlj_model_inputs(estimand::RieszRepresenter, dataset)
-    X = TMLE.selectcols(dataset, variables(estimand))
-    return X
+    T = TMLE.selectcols(dataset, treatments(estimand.Ψ))
+    W = TMLE.selectcols(
+        dataset, 
+        sort(unique(Iterators.flatten(values(estimand.Ψ.treatment_confounders))))
+    )
+    return (T, W), estimand.Ψ
 end
 
 #####################################################################
