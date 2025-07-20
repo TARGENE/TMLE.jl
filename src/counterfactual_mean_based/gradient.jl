@@ -70,9 +70,3 @@ function gradient_and_plugin_estimate(Ψ::StatisticalCMCompositeEstimand, factor
     IC = ∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound) .+ ∇W(ctf_agg, Ψ̂)
     return IC, Ψ̂
 end
-
-train_validation_indices_from_ps(::MLConditionalDistribution) = nothing
-train_validation_indices_from_ps(factor::SampleSplitMLConditionalDistribution) = factor.train_validation_indices
-
-train_validation_indices_from_factors(factors) = 
-    train_validation_indices_from_ps(first(factors.treatments_factor))
