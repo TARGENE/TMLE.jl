@@ -10,7 +10,7 @@ using DataFrames
     @test distr.parents === (:A, :C)
     @test TMLE.variables(distr) == (:Y, :A, :C)
     dataset = DataFrame(Y=randn(100), C=rand(100), A=rand(100))
-    X, y = TMLE.get_mlj_model_inputs(distr, dataset)
+    X, y = TMLE.get_mlj_inputs_and_target(distr, dataset)
     @test X == dataset[!, [:A, :C]]
     @test y == dataset[!, :Y]
 end
@@ -33,7 +33,7 @@ end
         W₂=rand(100),
         Y=randn(100)
     )
-    (T, W), indic_fns = TMLE.get_mlj_model_inputs(riesz_representer, dataset)
+    (T, W), indic_fns = TMLE.get_mlj_inputs_and_target(riesz_representer, dataset)
     @test T == dataset[!, [:T_1, :T_2]]
     @test W == dataset[!, [:A, :W₁, :W₂]]
     @test indic_fns == TMLE.indicator_fns(Ψ)

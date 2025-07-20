@@ -8,46 +8,31 @@ Base.show(io::IO, ::MIME"text/plain", estimate::Estimate) =
     println(io, string_repr(estimate))
 
 #####################################################################
-###                   MLConditionalDistribution                   ###
+###                         MLJEstimate                           ###
 #####################################################################
 
 """
 Holds a Machine Learning estimate for a Conditional Distribution.
 """
-struct MLConditionalDistribution <: Estimate
-    estimand::ConditionalDistribution
+struct MLJEstimate{T} <: Estimate
+    estimand::T
     machine::MLJBase.Machine
 end
 
-string_repr(estimate::MLConditionalDistribution) = string(
+string_repr(estimate::MLJEstimate{ConditionalDistribution}) = string(
     "P̂(", estimate.estimand.outcome, " | ", join(estimate.estimand.parents, ", "), 
     "), with model: ", 
     Base.typename(typeof(estimate.machine.model)).wrapper
 )
 
-function MLJBase.predict(estimate::MLConditionalDistribution, dataset)
-    parents = estimate.estimand.parents
-    X = selectcols(dataset, parents)
-    return predict(estimate.machine, X)
-end
-
-#####################################################################
-###                      RieszRepresenterEstimate                 ###
-#####################################################################
-
-struct RieszRepresenterEstimate <: Estimate
-    estimand::RieszRepresenter
-    mach::MLJBase.Machine
-end
-
-string_repr(estimate::RieszRepresenterEstimate) = string(
+string_repr(estimate::MLJEstimate{RieszRepresenter}) = string(
     "Riesz Representer Estimate with model: ", 
-    Base.typename(typeof(estimate.mach.model)).wrapper
+    Base.typename(typeof(estimate.machine.model)).wrapper
 )
 
-function MLJBase.predict(estimate::RieszRepresenterEstimate, dataset)
-    X, _ = get_mlj_model_inputs(estimate.estimand, dataset)
-    return MLJBase.predict(estimate.mach, X)
+function MLJBase.predict(estimate::MLJEstimate, dataset)
+    X = get_mlj_inputs(estimate.estimand, dataset)
+    return MLJBase.predict(estimate.machine, X)
 end
 
 #####################################################################
@@ -141,7 +126,7 @@ end
 ###               ConditionalDistributionEstimate                 ###
 #####################################################################
 
-ConditionalDistributionEstimate = Union{MLConditionalDistribution, SampleSplitMLConditionalDistribution}
+ConditionalDistributionEstimate = Union{MLJEstimate{ConditionalDistribution}, SampleSplitMLConditionalDistribution}
 
 function expected_value(estimate::ConditionalDistributionEstimate, dataset)
     return expected_value(predict(estimate, dataset))

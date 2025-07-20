@@ -50,10 +50,10 @@ end
     cache = Dict()
     η̂ₙ = @test_logs fit_log... η̂(η, dataset; cache=cache, verbosity=1)
     # Test both sub estimands have been fitted
-    @test η̂ₙ.outcome_mean isa TMLE.MLConditionalDistribution
+    @test η̂ₙ.outcome_mean isa TMLE.MLJEstimate{TMLE.ConditionalDistribution}
     @test fitted_params(η̂ₙ.outcome_mean.machine) isa NamedTuple
     ps_component = only(η̂ₙ.treatments_factor)
-    @test ps_component isa TMLE.MLConditionalDistribution
+    @test ps_component isa TMLE.MLJEstimate{TMLE.ConditionalDistribution}
     @test fitted_params(ps_component.machine) isa NamedTuple
 
     # Both models unchanged, η̂ₙ is fully reused

@@ -29,7 +29,7 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
     cache = Dict()
     conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
     expected_features = collect(estimand.parents)
-    @test conditional_density_estimate isa TMLE.MLConditionalDistribution
+    @test conditional_density_estimate isa TMLE.MLJEstimate{TMLE.ConditionalDistribution}
     @test fitted_params(conditional_density_estimate.machine).features == expected_features
     ŷ = MLJBase.predict(conditional_density_estimate, binary_dataset)
     mach_ŷ = MLJBase.predict(conditional_density_estimate.machine, binary_dataset[!, expected_features])

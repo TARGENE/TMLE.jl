@@ -31,19 +31,13 @@ Since there is no current understanding of when this could arise for a continuou
 get_actual_model(model, estimand::ConditionalDistribution, X, y) =
     isempty(estimand.parents) ? marginal_model(y) : model
 
-function fit_mlj_model(model, mlj_model_inputs; cache=false, verbosity=1)
-    mach = machine(model, mlj_model_inputs..., cache=cache)
+function fit_mlj_model(model, X, y; cache=false, verbosity=1)
+    mach = machine(model, X, y, cache=cache)
     MLJBase.fit!(mach, verbosity=verbosity)
     return mach
 end
 
 get_actual_model(model, estimand::RieszRepresenter, args...) = model
-
-make_ml_estimate(estimand::ConditionalDistribution, mach) =
-    MLConditionalDistribution(estimand, mach)
-
-make_ml_estimate(estimand::RieszRepresenter, mach) =
-    RieszRepresenterEstimate(estimand, mach)
     
 training_rows(dataset, train_validation_indices) = selectrows(dataset, train_validation_indices[1])
 
@@ -64,14 +58,14 @@ function (estimator::MLEstimator)(estimand, dataset;
     relevant_dataset = nomissing(dataset, variables(estimand))
     relevant_dataset = training_rows(relevant_dataset, estimator.train_validation_indices)
     # Fit Conditional DIstribution using MLJ
-    mlj_model_inputs = get_mlj_model_inputs(estimand, relevant_dataset)
-    model = get_actual_model(estimator.model, estimand, mlj_model_inputs...)
-    mach = fit_mlj_model(model, mlj_model_inputs;
+    X, y = get_mlj_inputs_and_target(estimand, relevant_dataset)
+    model = get_actual_model(estimator.model, estimand, X, y)
+    mach = fit_mlj_model(model, X, y;
         cache=machine_cache,
         verbosity=verbosity-1
     )
     # Build estimate
-    estimate = make_ml_estimate(estimand, mach)
+    estimate = MLJEstimate(estimand, mach)
     # Update cache
     update_cache!(cache, estimand, estimator, estimate)
 
@@ -100,9 +94,9 @@ function update_sample_split_machines_with_fold!(machines::Vector{Machine},
     )
     train_indices, _ = estimator.train_validation_indices[fold_id]
     train_dataset = selectrows(dataset, train_indices)
-    mlj_model_inputs = get_mlj_model_inputs(estimand, train_dataset)
-    model = get_actual_model(estimator.model, estimand, mlj_model_inputs...)
-    machines[fold_id] = fit_mlj_model(model, mlj_model_inputs; 
+    X, y = get_mlj_inputs_and_target(estimand, train_dataset)
+    model = get_actual_model(estimator.model, estimand, X, y)
+    machines[fold_id] = fit_mlj_model(model, X, y; 
         cache=machine_cache, 
         verbosity=verbosity
     )

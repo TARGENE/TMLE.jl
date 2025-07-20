@@ -3,7 +3,7 @@
 ###############################################################################
 const LOCK = ReentrantLock() 
 
-is_fluctuation_estimate(estimate::MLConditionalDistribution) = estimate.machine.model isa Fluctuation
+is_fluctuation_estimate(estimate::MLJEstimate{ConditionalDistribution}) = estimate.machine.model isa Fluctuation
 
 is_fluctuation_estimate(estimate) = false
 

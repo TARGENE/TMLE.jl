@@ -63,6 +63,12 @@ function check_treatment_levels(Ψ::Estimand, dataset)
     end
 end
 
+function get_mlj_inputs_and_target(estimand, dataset)
+    X = get_mlj_inputs(estimand, dataset)
+    y = get_mlj_target(estimand, dataset)
+    return X, y
+end
+
 #####################################################################
 ###                   Conditional Distribution                    ###
 #####################################################################
@@ -86,11 +92,10 @@ string_repr(estimand::ConditionalDistribution) =
 
 variables(estimand::ConditionalDistribution) = (estimand.outcome, estimand.parents...)
 
-function get_mlj_model_inputs(estimand::ConditionalDistribution, dataset)
-    X = TMLE.selectcols(dataset, estimand.parents)
-    y = dataset[!, estimand.outcome]
-    return X, y
-end
+get_mlj_inputs(estimand::ConditionalDistribution, dataset) =
+    TMLE.selectcols(dataset, estimand.parents)
+
+get_mlj_target(estimand::ConditionalDistribution, dataset) = dataset[!, estimand.outcome]
 
 #####################################################################
 ###                        ExpectedValue                          ###
@@ -163,14 +168,16 @@ function variables(estimand::RieszRepresenter)
     return vcat(treatments(estimand.Ψ), confounders)
 end
 
-function get_mlj_model_inputs(estimand::RieszRepresenter, dataset)
+function get_mlj_inputs(estimand::RieszRepresenter, dataset)
     T = TMLE.selectcols(dataset, treatments(estimand.Ψ))
     W = TMLE.selectcols(
         dataset, 
         sort(unique(Iterators.flatten(values(estimand.Ψ.treatment_confounders))))
     )
-    return (T, W), indicator_fns(estimand.Ψ)
+    return T, W
 end
+
+get_mlj_target(estimand::RieszRepresenter, dataset) = indicator_fns(estimand.Ψ)
 
 #####################################################################
 ###                      JointEstimand                         ###

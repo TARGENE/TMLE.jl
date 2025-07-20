@@ -18,7 +18,7 @@ function truncate!(v::AbstractVector, ps_lowerbound::AbstractFloat)
     end
 end
 
-function balancing_weights(G, dataset; ps_lowerbound=1e-8)
+function balancing_weights(G::JointConditionalDistributionEstimate, dataset; ps_lowerbound=1e-8)
     jointlikelihood = ones(nrows(dataset))
     for Gᵢ ∈ G
         jointlikelihood .*= likelihood(Gᵢ, dataset)
@@ -71,7 +71,7 @@ end
 
 function clever_covariate_and_weights(
     Ψ::StatisticalCMCompositeEstimand, 
-    riesz_representer_estimate::RieszRepresenterEstimate, 
+    riesz_representer_estimate::MLJEstimate{RieszRepresenter}, 
     dataset; 
     args...
     )
