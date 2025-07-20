@@ -51,6 +51,19 @@ end
     @test TMLE.string_repr(joint_distr_1) == "Joint Conditional Distribution: \n   - P₀(Y1 | A1, C1)\n   - P₀(Y2 | A1, A2, C2)"
 
     @test TMLE.variables(joint_distr_1) == (:Y1, :A1, :C1, :Y2, :A2, :C2)
+    # Test getindex, firstindex, lastindex
+    @test joint_distr_1[1] === distr1
+    @test joint_distr_1[2] === distr2
+    @test TMLE.firstindex(joint_distr_1) == 1
+    @test TMLE.lastindex(joint_distr_1) == 2
+    # Test iteration
+    for (i, distr) in enumerate(joint_distr_1)
+        @test distr == joint_distr_1[i]
+    end
+    @test length(joint_distr_1) == 2
+    @test Base.IteratorSize(TMLE.JointConditionalDistribution) == Base.HasLength()
+    @test Base.IteratorEltype(TMLE.JointConditionalDistribution) == Base.HasEltype()
+    @test Base.eltype(TMLE.JointConditionalDistribution) == TMLE.ConditionalDistribution
 end
 
 @testset "Test CMRelevantFactors" begin

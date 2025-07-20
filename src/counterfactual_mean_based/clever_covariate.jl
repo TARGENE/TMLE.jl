@@ -20,7 +20,7 @@ end
 
 function balancing_weights(G, dataset; ps_lowerbound=1e-8)
     jointlikelihood = ones(nrows(dataset))
-    for Gᵢ ∈ G.components
+    for Gᵢ ∈ G
         jointlikelihood .*= likelihood(Gᵢ, dataset)
     end
     truncate!(jointlikelihood, ps_lowerbound)
@@ -58,7 +58,7 @@ function clever_covariate_and_weights(
     weighted_fluctuation=false
     )
     # Compute the indicator values
-    T = selectcols(dataset, (p.estimand.outcome for p in G.components))
+    T = selectcols(dataset, (p.estimand.outcome for p in G))
     indic_vals = indicator_values(indicator_fns(Ψ), T)
     weights = balancing_weights(G, dataset; ps_lowerbound=ps_lowerbound)
     if weighted_fluctuation

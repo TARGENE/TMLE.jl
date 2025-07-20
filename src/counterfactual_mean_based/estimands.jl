@@ -131,7 +131,7 @@ function propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_stra
     return JointConditionalDistribution(conditional_distributions...)
 end
 
-propensity_score_key(Ψ::StatisticalCMCompositeEstimand) = Tuple(variables(x) for x ∈ propensity_score(Ψ).components)
+propensity_score_key(Ψ::StatisticalCMCompositeEstimand) = Tuple(variables(x) for x ∈ propensity_score(Ψ))
 
 function propensity_score_or_riesz_representer(Ψ::StatisticalCMCompositeEstimand, models; collaborative_strategy=nothing)
     if haskey(models, :riesz_representer)
@@ -153,10 +153,10 @@ function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand)
     return CMRelevantFactors(outcome_model, treatment_factors)
 end
 
-n_uniques_nuisance_functions(Ψ::StatisticalCMCompositeEstimand) = length(propensity_score(Ψ).components) + 1
+n_uniques_nuisance_functions(Ψ::StatisticalCMCompositeEstimand) = length(propensity_score(Ψ)) + 1
 
 nuisance_functions_iterator(Ψ::StatisticalCMCompositeEstimand) =
-    (propensity_score(Ψ).components..., outcome_mean(Ψ))
+    (propensity_score(Ψ)..., outcome_mean(Ψ))
 
 string_repr(Ψ::T)  where T <: StatisticalCMCompositeEstimand = string(
         replace(string(Base.typename(T).wrapper), "TMLE." => ""),

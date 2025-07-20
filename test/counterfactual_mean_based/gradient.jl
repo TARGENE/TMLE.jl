@@ -55,7 +55,7 @@ end
     expected_ctf_agg = (intercept .+ coefs[:T] .+ dataset.W.*coefs[:W] .+ dataset.W.*coefs[:T_W]) .- (intercept .+ dataset.W.*coefs[:W])
     @test ctf_agg ≈ expected_ctf_agg atol=1e-10
     # Gradient Y|X
-    ps_machine = only(G.components).machine
+    ps_machine = only(G).machine
     H = 1 ./ pdf.(predict(ps_machine), dataset.T) .* [t == 1 ? 1. : -1. for t in dataset.T]
     expected_∇YX = H .* (dataset.Y .- predict(Q.machine))
     ∇YX = TMLE.∇YX(Ψ, Q, G, dataset; ps_lowerbound=ps_lowerbound)

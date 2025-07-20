@@ -177,6 +177,24 @@ struct JointConditionalDistributionEstimate{T, N} <: Estimate
     components::Tuple{Vararg{T, N}}
 end
 
+Base.getindex(estimand::JointConditionalDistributionEstimate, i) = Base.getindex(estimand.components, i)
+
+Base.firstindex(estimand::JointConditionalDistributionEstimate) = Base.firstindex(estimand.components)
+
+Base.lastindex(estimand::JointConditionalDistributionEstimate) = Base.lastindex(estimand.components)
+
+Base.iterate(estimand::JointConditionalDistributionEstimate) = Base.iterate(estimand.components)
+
+Base.iterate(estimand::JointConditionalDistributionEstimate, state) = Base.iterate(estimand.components, state)
+
+Base.length(estimand::JointConditionalDistributionEstimate) = length(estimand.components)
+
+Base.IteratorSize(::Type{JointConditionalDistributionEstimate}) = Base.HasLength()
+
+Base.IteratorEltype(::Type{JointConditionalDistributionEstimate}) = Base.HasEltype()
+
+Base.eltype(::Type{JointConditionalDistributionEstimate{T, N}}) where {T, N} = T
+
 #####################################################################
 ###                        Joint Estimate                         ###
 #####################################################################

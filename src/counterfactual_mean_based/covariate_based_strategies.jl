@@ -96,8 +96,8 @@ function initialise!(strategy::Union{GreedyStrategy, AdaptiveCorrelationStrategy
 end
 
 function update!(strategy::Union{GreedyStrategy, AdaptiveCorrelationStrategy}, g, ĝ)
-    treatments = (g_.outcome for g_ in g.components)
-    parents = union((g_.parents for g_ in g.components)...)
+    treatments = (g_.outcome for g_ in g)
+    parents = union((g_.parents for g_ in g)...)
     current_confounders = setdiff(parents, treatments)
     setdiff!(strategy.remaining_confounders, current_confounders)
     union!(strategy.current_confounders, current_confounders)

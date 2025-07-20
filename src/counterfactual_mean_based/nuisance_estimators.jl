@@ -110,7 +110,7 @@ function build_treatments_factor_estimator(propensity_score::JointConditionalDis
     train_validation_indices=nothing,
     )
     cd_estimators = Dict()
-    for conditional_distribution in propensity_score.components
+    for conditional_distribution in propensity_score
         outcome = conditional_distribution.outcome
         model = acquire_model(models, outcome, dataset, true)
         cd_estimators[outcome] = full_or_sample_split_ml_estimator(model, train_validation_indices)

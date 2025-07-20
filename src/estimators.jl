@@ -186,8 +186,8 @@ full_or_sample_split_ml_estimator(model, train_validation_indices::AbstractVecto
     cd_estimators::Dict{Symbol, Any}
 end
 
-function fit_conditional_distributions(acceleration::CPU1, cd_estimators, conditional_distributions, dataset; cache=Dict(), verbosity=1, machine_cache=false)
-    return map(conditional_distributions) do conditional_distribution
+function fit_joint_conditional_distribution(acceleration::CPU1, cd_estimators, joint_conditional_distribution, dataset; cache=Dict(), verbosity=1, machine_cache=false)
+    return map(joint_conditional_distribution.components) do conditional_distribution
         cd_estimator = cd_estimators[conditional_distribution.outcome]
         try_fit_ml_estimator(cd_estimator, conditional_distribution, dataset;
             error_fn=propensity_score_fit_error_msg,
@@ -199,15 +199,15 @@ function fit_conditional_distributions(acceleration::CPU1, cd_estimators, condit
     end
 end
 
-function fit_conditional_distributions(acceleration::CPUThreads, cd_estimators, conditional_distributions, dataset; 
+function fit_joint_conditional_distribution(acceleration::CPUThreads, cd_estimators, joint_conditional_distribution, dataset; 
     cache=Dict(),
     verbosity=1, 
     machine_cache=false
     )
-    n_components = length(conditional_distributions)
+    n_components = length(joint_conditional_distribution)
     estimates = Vector{ConditionalDistributionEstimate}(undef, n_components)
     @threads for cd_index in 1:n_components
-        conditional_distribution = conditional_distributions[cd_index]
+        conditional_distribution = joint_conditional_distribution[cd_index]
         cd_estimator = cd_estimators[conditional_distribution.outcome]
         estimates[cd_index] = try_fit_ml_estimator(cd_estimator, conditional_distribution, dataset;
             error_fn=propensity_score_fit_error_msg,
@@ -226,7 +226,7 @@ function (estimator::JointConditionalDistributionEstimator)(joint_conditional_di
     machine_cache=false,
     acceleration=CPU1()
     )
-    estimates = fit_conditional_distributions(acceleration, estimator.cd_estimators, joint_conditional_distribution.components, dataset; 
+    estimates = fit_joint_conditional_distribution(acceleration, estimator.cd_estimators, joint_conditional_distribution, dataset; 
         cache=cache, 
         verbosity=verbosity, 
         machine_cache=machine_cache

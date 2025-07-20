@@ -77,8 +77,8 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
     )
     result_ctmle, cache = ctmle(Ψ, dataset;verbosity=0);
     targeted_η̂ = cache[:targeted_factors]
-    @test targeted_η̂.treatments_factor.components[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃))
-    @test targeted_η̂.treatments_factor.components[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₃,))
+    @test targeted_η̂.treatments_factor[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃))
+    @test targeted_η̂.treatments_factor[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₃,))
 end
 
 @testset "Test GreedyStrategy Interface" begin
@@ -220,8 +220,8 @@ end
     )
     result_ctmle, cache = ctmle(Ψ, dataset;verbosity=0);
     targeted_η̂ = cache[:targeted_factors]
-    @test targeted_η̂.treatments_factor.components[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃))
-    @test targeted_η̂.treatments_factor.components[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₃,))
+    @test targeted_η̂.treatments_factor[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃))
+    @test targeted_η̂.treatments_factor[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₃,))
 end
 
 @testset "Integration Test using the AdaptiveCorrelationStrategy" begin
@@ -272,20 +272,20 @@ end
         verbosity=verbosity, 
         machine_cache=tmle.machine_cache
     )
-    ps_T1_given_T2 = η̂ₙ.treatments_factor.components[1]
+    ps_T1_given_T2 = η̂ₙ.treatments_factor[1]
     fp = fitted_params(ps_T1_given_T2.machine)
     X, _ = ps_T1_given_T2.machine.data
     @test nrows(X) == n_samples
     fitted_variables = first.(fp.logistic_classifier.coefs)
     @test issubset(fitted_variables, [:T₂__false])
-    ps_T2 = η̂ₙ.treatments_factor.components[2]
+    ps_T2 = η̂ₙ.treatments_factor[2]
     fp = fitted_params(ps_T2.machine)
     @test haskey(fp, :target_distribution)
     @test ps_T2.machine.data[1] == DataFrame(INTERCEPT=fill(1., n_samples))
     
     ## One estimate for each estimand in the cache
     @test length(cache) == 4
-    for estimand in (η, η.outcome_mean, η.treatments_factor.components...)
+    for estimand in (η, η.outcome_mean, η.treatments_factor...)
         @test length(cache[estimand]) == 1
     end
     # Collaborative Targeted Estimation
@@ -347,7 +347,7 @@ end
         _, y_train = outcome_mean_estimate.machine.data
         @test y_train == dataset.Y[train_indices]
         # Check propensity score
-        for ps_component in fold_estimate.treatments_factor.components
+        for ps_component in fold_estimate.treatments_factor
             _, y_train = ps_component.machine.data
             @test y_train == dataset[!, ps_component.estimand.outcome][train_indices]
             @test ps_component in values(cache[ps_component.estimand])
@@ -379,7 +379,7 @@ end
     @test all(cde.train_validation_indices === nothing for cde in values(new_ĝ.cd_estimators))
     ## Check the propensity score estimate
     new_ĝₙ = new_targeted_η̂ₙ.treatments_factor
-    for ps_component in new_ĝₙ.components
+    for ps_component in new_ĝₙ
         @test nrows(ps_component.machine.data[1]) == n_samples
         @test ps_component in values(cache[ps_component.estimand])
     end

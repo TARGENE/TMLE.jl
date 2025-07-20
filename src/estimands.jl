@@ -116,10 +116,29 @@ JointConditionalDistribution(distrs::Vararg{ConditionalDistribution}) =
 
 string_repr(estimand::JointConditionalDistribution) = 
     string("Joint Conditional Distribution: \n   - ",
-        join((string_repr(c) for c in estimand.components), "\n   - "))
+        join((string_repr(c) for c in estimand), "\n   - "))
 
 variables(estimand::JointConditionalDistribution) =
-    Tuple(union((variables(c) for c in estimand.components)...))
+    Tuple(union((variables(c) for c in estimand)...))
+
+Base.getindex(estimand::JointConditionalDistribution, i) = Base.getindex(estimand.components, i)
+
+Base.firstindex(estimand::JointConditionalDistribution) = Base.firstindex(estimand.components)
+
+Base.lastindex(estimand::JointConditionalDistribution) = Base.lastindex(estimand.components)
+
+Base.iterate(estimand::JointConditionalDistribution) = Base.iterate(estimand.components)
+
+Base.iterate(estimand::JointConditionalDistribution, state) = Base.iterate(estimand.components, state)
+
+Base.length(estimand::JointConditionalDistribution) = length(estimand.components)
+
+Base.IteratorSize(::Type{JointConditionalDistribution}) = Base.HasLength()
+
+Base.IteratorEltype(::Type{JointConditionalDistribution}) = Base.HasEltype()
+
+Base.eltype(::Type{JointConditionalDistribution}) = ConditionalDistribution
+
 
 #####################################################################
 ###                      RieszRepresenter                         ###
