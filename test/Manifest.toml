@@ -1013,9 +1013,9 @@ version = "1.11.0"
 
 [[deps.MLJBase]]
 deps = ["CategoricalArrays", "CategoricalDistributions", "ComputationalResources", "Dates", "DelimitedFiles", "Distributed", "Distributions", "InteractiveUtils", "InvertedIndices", "LearnAPI", "LinearAlgebra", "MLJModelInterface", "Missings", "OrderedCollections", "Parameters", "PrettyTables", "ProgressMeter", "Random", "RecipesBase", "Reexport", "ScientificTypes", "Serialization", "StatisticalMeasuresBase", "StatisticalTraits", "Statistics", "StatsBase", "Tables"]
-git-tree-sha1 = "05b91197e791cd1410aad3e421e9e47b27e9ce31"
+git-tree-sha1 = "9fa62ebd16bfa86a3f7821a9ec49d28ad8fb6e74"
 uuid = "a7f614a8-145f-11e9-1d2a-a57a1082229d"
-version = "1.8.1"
+version = "1.8.2"
 weakdeps = ["StatisticalMeasures"]
 
     [deps.MLJBase.extensions]
@@ -1034,10 +1034,10 @@ uuid = "6ee0df7b-362f-4a72-a706-9e79364fb692"
 version = "0.10.1"
 
 [[deps.MLJModelInterface]]
-deps = ["REPL", "Random", "ScientificTypesBase", "StatisticalTraits"]
-git-tree-sha1 = "66626f80d5807921045d539b4f7153b1d47c5f8a"
+deps = ["InteractiveUtils", "REPL", "Random", "ScientificTypesBase", "StatisticalTraits"]
+git-tree-sha1 = "ccaa3f7938890ee8042cc970ba275115428bd592"
 uuid = "e80e1ace-859a-464e-9ed9-23947d8ae3ea"
-version = "1.11.1"
+version = "1.12.0"
 
 [[deps.MLJModels]]
 deps = ["CategoricalArrays", "CategoricalDistributions", "Combinatorics", "Dates", "Distances", "Distributions", "InteractiveUtils", "LinearAlgebra", "MLJModelInterface", "Markdown", "OrderedCollections", "Parameters", "Pkg", "PrettyPrinting", "REPL", "Random", "RelocatableFolders", "ScientificTypes", "StatisticalTraits", "Statistics", "StatsBase", "Tables"]
@@ -1356,11 +1356,11 @@ version = "1.3.1"
 
 [[deps.RieszLearning]]
 deps = ["CategoricalArrays", "DataFrames", "Lux", "MLJBase", "MLUtils", "OneHotArrays", "Optimisers", "Printf", "Random", "Zygote"]
-git-tree-sha1 = "11be990492e7733cea75193159f1bb0c7ea007cb"
+git-tree-sha1 = "7286462110962f437e16974b55aeb2c9f978ef7a"
 repo-rev = "main"
 repo-url = "https://github.com/olivierlabayle/RieszLearning.jl"
 uuid = "a0bf4b8b-e406-4596-8317-f128bc1688be"
-version = "0.0.0-DEV"
+version = "0.0.1"
 
 [[deps.Rmath]]
 deps = ["Random", "Rmath_jll"]
