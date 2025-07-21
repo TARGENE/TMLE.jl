@@ -25,7 +25,7 @@ string_repr(estimate::MLJEstimate{ConditionalDistribution}) = string(
     Base.typename(typeof(estimate.machine.model)).wrapper
 )
 
-string_repr(estimate::MLJEstimate{RieszRepresenter}) = string(
+string_repr(estimate::MLJEstimate{<:RieszRepresenter}) = string(
     "Riesz Representer Estimate with model: ", 
     Base.typename(typeof(estimate.machine.model)).wrapper
 )

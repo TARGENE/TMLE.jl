@@ -9,7 +9,7 @@ for counterfactual mean based estimands' relevant factors.
 struct MLCMRelevantFactors <: Estimate
     estimand::CMRelevantFactors
     outcome_mean::ConditionalDistributionEstimate
-    treatments_factor::Union{JointConditionalDistributionEstimate, MLJEstimate{RieszRepresenter}}
+    treatments_factor::Union{JointConditionalDistributionEstimate, MLJEstimate{<:RieszRepresenter}}
 end
 
 string_repr(estimate::MLCMRelevantFactors) = string(
