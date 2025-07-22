@@ -118,12 +118,18 @@ models = default_models(
 ```
 
 """
-default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier(), kwargs...) = Dict{Symbol, Any}(
-    :Q_binary_default     => with_encoder(Q_binary),
-    :Q_continuous_default => with_encoder(Q_continuous),
-    :G_default            => with_encoder(G),
-    (key => with_encoder(val) for (key, val) in kwargs)...
-)
+function default_models(;
+    Q_binary=LinearBinaryClassifier(), 
+    Q_continuous=LinearRegressor(), 
+    G=LinearBinaryClassifier(),
+    kwargs...)
+    return Dict{Symbol, Any}(
+        :Q_binary_default     => with_encoder(Q_binary),
+        :Q_continuous_default => with_encoder(Q_continuous),
+        :G_default            => with_encoder(G),
+        (key => with_encoder(val) for (key, val) in kwargs)...
+    )
+end
 
 is_binary(dataset, columnname) = Set(skipmissing(dataset[!, columnname])) == Set([0, 1])
 

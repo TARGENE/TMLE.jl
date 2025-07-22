@@ -106,6 +106,13 @@ function acquire_model(models, key, dataset, is_propensity_score)
     return models[model_default]
 end
 
+"""
+    build_treatments_factor_estimator(propensity_score::JointConditionalDistribution, models, dataset;
+    train_validation_indices=nothing,
+    )
+
+A `MLEstimator` or `SampleSplitMLEstimator` estimator is built for each treatment variable and wrapped into a `JointConditionalDistributionEstimator`.
+"""
 function build_treatments_factor_estimator(propensity_score::JointConditionalDistribution, models, dataset;
     train_validation_indices=nothing,
     )
@@ -118,6 +125,13 @@ function build_treatments_factor_estimator(propensity_score::JointConditionalDis
     return JointConditionalDistributionEstimator(cd_estimators)
 end
 
+"""
+    build_treatments_factor_estimator(riesz_representer::RieszRepresenter, models, dataset;
+    train_validation_indices=nothing,
+    )
+
+A `MLEstimator` or `SampleSplitMLEstimator` estimator is built for the RieszRepresenter.
+"""
 function build_treatments_factor_estimator(riesz_representer::RieszRepresenter, models, dataset;
     train_validation_indices=nothing,
     )
