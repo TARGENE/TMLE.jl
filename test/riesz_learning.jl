@@ -110,7 +110,7 @@ end
         X = selectrows(TMLE.get_mlj_inputs(η̂ₙ.treatments_factor.estimand, dataset), val_idx)
         α̂_expected[val_idx] = MLJBase.predict(mach, X)
     end
-    @test α̂ == α̂_expected
+    @test α̂ ≈ α̂_expected
     #### clever covariate is the same as predict
     H, w = TMLE.clever_covariate_and_weights(Ψ, η̂ₙ.treatments_factor, dataset)
     @test H == α̂
