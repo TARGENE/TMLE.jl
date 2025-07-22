@@ -2,6 +2,8 @@
 ###                       MLCMRelevantFactors                     ###
 #####################################################################
 
+RieszRepresenterEstimate = Union{MLJEstimate{<:RieszRepresenter}, SampleSplitMLJEstimate{<:RieszRepresenter}}
+
 """
 Holds a Sample Split Machine Learning set of estimates (outcome mean, propensity score) 
 for counterfactual mean based estimands' relevant factors.
@@ -9,7 +11,7 @@ for counterfactual mean based estimands' relevant factors.
 struct MLCMRelevantFactors <: Estimate
     estimand::CMRelevantFactors
     outcome_mean::ConditionalDistributionEstimate
-    treatments_factor::Union{JointConditionalDistributionEstimate, MLJEstimate{<:RieszRepresenter}}
+    treatments_factor::Union{JointConditionalDistributionEstimate, RieszRepresenterEstimate}
 end
 
 string_repr(estimate::MLCMRelevantFactors) = string(

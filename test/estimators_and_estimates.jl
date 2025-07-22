@@ -84,7 +84,7 @@ end
     )
     cache = Dict()
     conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset;cache=cache, verbosity=verbosity)
-    @test conditional_density_estimate isa TMLE.SampleSplitMLConditionalDistribution
+    @test conditional_density_estimate isa TMLE.SampleSplitMLJEstimate
     expected_features = collect(estimand.parents)
     @test all(fitted_params(mach).features == expected_features for mach in conditional_density_estimate.machines)
     ŷ = MLJBase.predict(conditional_density_estimate, binary_dataset)

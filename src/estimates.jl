@@ -26,7 +26,8 @@ string_repr(estimate::MLJEstimate{ConditionalDistribution}) = string(
 )
 
 string_repr(estimate::MLJEstimate{<:RieszRepresenter}) = string(
-    "Riesz Representer Estimate with model: ", 
+    "α̂(", join(variables(estimate.estimand), ", "), 
+    "), with model: ", 
     Base.typename(typeof(estimate.machine.model)).wrapper
 )
 
@@ -36,7 +37,7 @@ function MLJBase.predict(estimate::MLJEstimate, dataset)
 end
 
 #####################################################################
-###             SampleSplitMLConditionalDistribution              ###
+###                       SampleSplitMLJEstimate                  ###
 #####################################################################
 
 """
@@ -44,14 +45,20 @@ Holds a Sample Split Machine Learning estimate for a Conditional Distribution.
 Each machine in `machines` contains a ML model trained on a different training fold of the data.
 The predictions are made out of fold, i.e. for each fold k, the predictions are made using the machine trained on fold k̄.
 """
-struct SampleSplitMLConditionalDistribution <: Estimate
-    estimand::ConditionalDistribution
+struct SampleSplitMLJEstimate{T} <: Estimate
+    estimand::T
     train_validation_indices
     machines::Vector{Machine}
 end
 
-string_repr(estimate::SampleSplitMLConditionalDistribution) = 
+string_repr(estimate::SampleSplitMLJEstimate{ConditionalDistribution}) = 
     string("P̂(", estimate.estimand.outcome, " | ", join(estimate.estimand.parents, ", "), 
+    "), sample split with model: ", 
+    Base.typename(typeof(first(estimate.machines).model)).wrapper
+)
+
+string_repr(estimate::SampleSplitMLJEstimate{<:RieszRepresenter}) = 
+    string("α̂(", join(variables(estimate.estimand), ", "), 
     "), sample split with model: ", 
     Base.typename(typeof(first(estimate.machines).model)).wrapper
 )
@@ -59,7 +66,7 @@ string_repr(estimate::SampleSplitMLConditionalDistribution) =
 """
 Prediction for the subset of X identified by idx and fold.
 """
-function fold_prediction(estimate::SampleSplitMLConditionalDistribution, X, idx, fold)
+function fold_prediction(estimate::SampleSplitMLJEstimate, X, idx, fold)
     Xval = selectrows(X, idx)
     return predict(estimate.machines[fold], Xval)
 end
@@ -117,8 +124,8 @@ function cv_predict(estimate, X)
     return finalize_cv_preds(ŷ, first_preds)
 end
 
-function MLJBase.predict(estimate::SampleSplitMLConditionalDistribution, dataset)
-    X = selectcols(dataset, estimate.estimand.parents)
+function MLJBase.predict(estimate::SampleSplitMLJEstimate, dataset)
+    X = get_mlj_inputs(estimate.estimand, dataset)
     return cv_predict(estimate, X)
 end
 
@@ -126,7 +133,7 @@ end
 ###               ConditionalDistributionEstimate                 ###
 #####################################################################
 
-ConditionalDistributionEstimate = Union{MLJEstimate{ConditionalDistribution}, SampleSplitMLConditionalDistribution}
+ConditionalDistributionEstimate = Union{MLJEstimate{ConditionalDistribution}, SampleSplitMLJEstimate{ConditionalDistribution}}
 
 function expected_value(estimate::ConditionalDistributionEstimate, dataset)
     return expected_value(predict(estimate, dataset))

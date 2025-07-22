@@ -158,7 +158,7 @@ function (estimator::SampleSplitMLEstimator)(estimand, dataset;
         verbosity=verbosity-1,
         )
     # Build estimate
-    estimate = SampleSplitMLConditionalDistribution(estimand, estimator.train_validation_indices, machines)
+    estimate = SampleSplitMLJEstimate(estimand, estimator.train_validation_indices, machines)
     # Update cache
     update_cache!(cache, estimand, estimator, estimate)
 

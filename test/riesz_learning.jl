@@ -9,20 +9,12 @@ using Distributions
 using LogExpFunctions
 using CategoricalArrays
 using DataFrames
-using MLJModels
+using MLJBase
+import MLJModels
 
 TEST_DIR = joinpath(pkgdir(TMLE), "test")
 
 include(joinpath(TEST_DIR, "counterfactual_mean_based", "ate_simulations.jl"))
-
-riesznet = RieszNetModel(
-    lux_model=RieszLearning.MLP([5, 32, 8]),
-    hyper_parameters=(
-        rng=Xoshiro(123),
-        batch_size=10,
-        nepochs=100
-    )
-)
 
 Ψ = ATE(
     outcome = :Y,
@@ -30,11 +22,78 @@ riesznet = RieszNetModel(
     treatment_confounders = (T = [:W₁, :W₂, :W₃],)
 )
 
+riesz_learner(;hidden_layer=10, nepochs=5) = RieszLearning.RieszNetModel(
+    lux_model=RieszLearning.MLP([5, hidden_layer]),
+    hyper_parameters=(
+        batch_size=6,
+        nepochs=nepochs,
+        rng=StableRNG(123),
+    )
+)
+
+@testset "Test build_treatments_factor_estimator" begin
+    # When the estimand in the RieszRepresenter
+    riesz_representer = TMLE.RieszRepresenter(Ψ)
+    models = default_models()
+    dataset = nothing ## dataset is ignored
+    models[:riesz_representer] = riesz_learner()
+    ## No sample split
+    treatments_factor_estimator = TMLE.build_treatments_factor_estimator(
+        riesz_representer, 
+        models, 
+        dataset; 
+        train_validation_indices=nothing
+    )
+    @test treatments_factor_estimator isa TMLE.MLEstimator
+    ## Sample split
+    treatments_factor_estimator = TMLE.build_treatments_factor_estimator(
+        riesz_representer, 
+        models, 
+        dataset; 
+        train_validation_indices=[(1:50, 51:100), (51:100, 1:50)]
+    )
+    @test treatments_factor_estimator isa TMLE.SampleSplitMLEstimator
+end
+
+@testset "Test CMRelevantFactorsEstimator" begin
+    dataset, _ = continuous_outcome_binary_treatment_pb()
+    cache = Dict()
+    models = default_models()
+    models[:riesz_representer] = riesz_learner()
+    η = TMLE.get_relevant_factors(Ψ, models; collaborative_strategy=nothing)
+
+    # With Riesz Learning: All fits are new
+    models[:riesz_representer] = riesz_learner()
+    riesz_η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
+    riesz_fit_log = (
+        (:info, string("Required ", TMLE.string_repr(η))),
+        (:info, TMLE.fit_string(η.treatments_factor)),
+        (:info, TMLE.fit_string(η.outcome_mean)),
+    )
+    η̂ₙ = @test_logs riesz_fit_log... riesz_η̂(η, dataset; cache=cache, verbosity=1)
+    @test η̂ₙ.outcome_mean isa TMLE.MLJEstimate{TMLE.ConditionalDistribution}
+    @test η̂ₙ.treatments_factor isa TMLE.MLJEstimate{TMLE.RieszRepresenter{TMLE.StatisticalATE}}
+    ## Changing the riesz model, Q unchanged
+    models[:riesz_representer] = riesz_learner(hidden_layer=5)
+    riesz_η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
+    Q_reused_fit_log = (
+        (:info, string("Required ", TMLE.string_repr(η))),
+        (:info, TMLE.fit_string(η.treatments_factor)),
+        (:info, TMLE.reuse_string(η.outcome_mean)),
+    )
+    η̂ₙ = @test_logs Q_reused_fit_log... riesz_η̂(η, dataset; cache=cache, verbosity=1)
+    ## Using sample splitting:both are refit
+    train_validation_indices = MLJBase.train_test_pairs(CV(nfolds=3), 1:nrows(dataset), dataset)
+    riesz_η̂_cv = TMLE.CMRelevantFactorsEstimator(models=models, train_validation_indices=train_validation_indices)
+    η̂ₙ = @test_logs riesz_fit_log... riesz_η̂_cv(η, dataset; cache=cache, verbosity=1)
+end
+
 @testset "Test RieszRepresenterEstimator" begin
-    # Define atch of estimators
+    # Define set of estimators for which the performance will be checked
     # using the RieszNetModel as the representer
-    models = default_models(Q_continuous=DeterministicConstantRegressor())
-    models[:riesz_representer] = riesznet
+    # we use a misspecified model to make sure inference is driven by the RieszRepresenter
+    models = default_models(Q_continuous=MLJModels.DeterministicConstantRegressor())
+    models[:riesz_representer] = riesz_learner(nepochs=100)
     resampling = CV()
     riesz_estimators = (
         tmle = Tmle(models=models),
@@ -43,35 +102,34 @@ riesznet = RieszNetModel(
         cv_ose = Ose(models=models, resampling=resampling)
     )
 
-    tmle = riesz_estimators.tmle
-    ns = [100, 1000, 10_000, 100_000]
-    results = []
-    for n in ns
-        dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(n=n)
-        Ψ̂_tmle, cache = tmle(Ψ, dataset, verbosity=0);
-        Ψ̂_tmle
-        push!(results, Ψ̂_tmle)
-    end
-    TMLE.estimate.(results)
-
-
-    riesznet = RieszNetModel(
-        lux_model=RieszLearning.MLP([5, 10]),
-        hyper_parameters=(
-            rng=Xoshiro(123),
-            batch_size=10,
-            nepochs=5
-        )
+    Ψ₀ = 4
+    ns = [100, 1000, 10_000]
+    nrepeats = 10
+    rng = StableRNG(123)
+    results = Dict(estimator_name => Dict(n => [] for n in ns)
+        for estimator_name in keys(riesz_estimators)
     )
-    r = TMLE.RieszRepresenter(Ψ)
+    cache = Dict()
+    for n in ns
+        for repeat in 1:nrepeats
+            dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(;n=n, rng = rng)
+            for (estimator_name, estimator) in pairs(riesz_estimators)
+                Ψ̂, cache = estimator(Ψ, dataset, verbosity=0);
+                push!(results[estimator_name][n], Ψ̂)
+            end
+        end
+    end
+    
+    for (estimator_name, estimator_results) in pairs(results)
+        println("Estimator: ", estimator_name)
+        mean_bias_by_sample_size = [n => mean(abs.(TMLE.estimate.(n_results) .- Ψ₀)) for (n, n_results) in estimator_results]
+        mean_bias_sorted_by_sample_size = last.(sort(mean_bias_by_sample_size, by=x->x[1]))
+        println(mean_bias_sorted_by_sample_size)
+        # for i in 1:length(ns)-1
+        #     @test mean_bias_sorted_by_sample_size[i] >= mean_bias_sorted_by_sample_size[i+1]
+        # end
+    end   
 
-    X, y = TMLE.get_mlj_inputs_and_target(r, dataset)
-
-    mach = machine(riesznet, X, y)
-    fit!(mach, verbosity=1)
-
-    ose = Ose(models=models)
-    Ψ̂_ose, _ = ose(Ψ, dataset)
 end
 
 end

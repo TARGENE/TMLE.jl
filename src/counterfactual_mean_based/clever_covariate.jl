@@ -71,7 +71,7 @@ end
 
 function clever_covariate_and_weights(
     Ψ::StatisticalCMCompositeEstimand, 
-    riesz_representer_estimate::MLJEstimate{<:RieszRepresenter}, 
+    riesz_representer_estimate::RieszRepresenterEstimate, 
     dataset; 
     args...
     )

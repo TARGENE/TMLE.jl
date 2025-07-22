@@ -11,7 +11,6 @@ using CategoricalArrays
 using LogExpFunctions
 using MLJBase
 using CSV
-using RieszLearning
 
 DATADIR = joinpath(pkgdir(TMLE), "test", "data")
 
@@ -170,34 +169,7 @@ end
     )
     @test treatments_factor_estimator isa TMLE.JointConditionalDistributionEstimator
     @test treatments_factor_estimator.cd_estimators[:T₁] isa TMLE.SampleSplitMLEstimator
-
-    # When the estimand in the RieszRepresenter
-    riesz_representer = TMLE.RieszRepresenter(Ψ)
-    models[:riesz_representer] = RieszLearning.RieszNetModel(
-        lux_model=RieszLearning.MLP([5, 10]),
-        hyper_parameters=(
-            batch_size=10,
-            nepochs=5
-        )
-    )
-    ## No sample split
-    treatments_factor_estimator = TMLE.build_treatments_factor_estimator(
-        riesz_representer, 
-        models, 
-        dataset; 
-        train_validation_indices=nothing
-    )
-    @test treatments_factor_estimator isa TMLE.MLEstimator
-    ## Sample split
-    treatments_factor_estimator = TMLE.build_treatments_factor_estimator(
-        riesz_representer, 
-        models, 
-        dataset; 
-        train_validation_indices=[(1:50, 51:100), (51:100, 1:50)]
-    )
-    @test treatments_factor_estimator isa TMLE.SampleSplitMLEstimator
 end
-
 
 @testset "Test structs are concrete types" begin
     for type in (Ose, Tmle, Plugin)

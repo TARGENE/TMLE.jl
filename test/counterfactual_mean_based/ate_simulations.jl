@@ -24,9 +24,8 @@ end
 """
 From https://www.degruyter.com/document/doi/10.2202/1557-4679.1043/html
 """
-function continuous_outcome_binary_treatment_pb(;n=100)
+function continuous_outcome_binary_treatment_pb(;n=100, rng = StableRNG(123))
     # Dataset
-    rng = StableRNG(123)
     Unif = Uniform(0, 1)
     W = float(rand(rng, Bernoulli(0.5), n, 3))
     W₁, W₂, W₃ = W[:, 1], W[:, 2], W[:, 3]

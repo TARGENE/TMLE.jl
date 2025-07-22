@@ -208,3 +208,13 @@ outcome_mean_fluctuation_fit_error_msg(factor) = string(
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
 with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)
+
+"""
+Override for RieszRepresenter's inputs
+"""
+MLJBase.nrows((T, W)::Tuple{DataFrame, DataFrame}) = nrows(T)
+
+"""
+Override for RieszRepresenter's inputs
+"""
+MLJBase.selectrows((T, W)::Tuple{DataFrame, DataFrame}, idx) = (MLJBase.selectrows(T, idx), MLJBase.selectrows(W, idx))
