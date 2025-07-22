@@ -22,7 +22,7 @@ string_repr(estimate::MLCMRelevantFactors) = string(
 )
 
 #####################################################################
-###                       FoldsMLCMRelevantFactors                     ###
+###                  FoldsMLCMRelevantFactors                     ###
 #####################################################################
 
 struct FoldsMLCMRelevantFactors <: Estimate
