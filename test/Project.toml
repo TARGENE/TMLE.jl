@@ -32,6 +32,9 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
+[sources]
+RieszLearning = {url = "https://github.com/olivierlabayle/RieszLearning.jl", rev = "main"}
+
 [compat]
 CSV = "0.10"
 DataFrames = "1.5"
