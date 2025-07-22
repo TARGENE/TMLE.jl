@@ -73,6 +73,7 @@ end
     η̂ₙ = @test_logs riesz_fit_log... riesz_η̂(η, dataset; cache=cache, verbosity=1)
     @test η̂ₙ.outcome_mean isa TMLE.MLJEstimate{TMLE.ConditionalDistribution}
     @test η̂ₙ.treatments_factor isa TMLE.MLJEstimate{TMLE.RieszRepresenter{TMLE.StatisticalATE}}
+
     ## Changing the riesz model, Q unchanged
     models[:riesz_representer] = riesz_learner(hidden_layer=5)
     riesz_η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
@@ -82,10 +83,37 @@ end
         (:info, TMLE.reuse_string(η.outcome_mean)),
     )
     η̂ₙ = @test_logs Q_reused_fit_log... riesz_η̂(η, dataset; cache=cache, verbosity=1)
-    ## Using sample splitting:both are refit
+    
+    ## Using sample splitting: both are refit
     train_validation_indices = MLJBase.train_test_pairs(CV(nfolds=3), 1:nrows(dataset), dataset)
     riesz_η̂_cv = TMLE.CMRelevantFactorsEstimator(models=models, train_validation_indices=train_validation_indices)
     η̂ₙ = @test_logs riesz_fit_log... riesz_η̂_cv(η, dataset; cache=cache, verbosity=1)
+    @test η̂ₙ.outcome_mean isa TMLE.SampleSplitMLJEstimate{TMLE.ConditionalDistribution}
+    @test η̂ₙ.treatments_factor isa TMLE.SampleSplitMLJEstimate{TMLE.RieszRepresenter{TMLE.StatisticalATE}}
+    ### Check predictions are made out of fold
+    #### Outcome Mean
+    ŷ = predict(η̂ₙ.outcome_mean, dataset)
+    ŷ_expected = Vector{Normal{Float64}}(undef, 100)
+    for (index, mach) in enumerate(η̂ₙ.outcome_mean.machines)
+        _, val_idx = train_validation_indices[index]
+        X = selectrows(TMLE.get_mlj_inputs(η̂ₙ.outcome_mean.estimand, dataset), val_idx)
+        ŷ_expected[val_idx] = MLJBase.predict(mach, X)
+    end
+    @test getproperty.(ŷ, :μ) == getproperty.(ŷ_expected, :μ)
+    @test getproperty.(ŷ, :σ) == getproperty.(ŷ_expected, :σ)
+    #### Riesz Representer
+    α̂ = predict(η̂ₙ.treatments_factor, dataset)
+    α̂_expected = Vector{Float32}(undef, 100)
+    for (index, mach) in enumerate(η̂ₙ.treatments_factor.machines)
+        _, val_idx = train_validation_indices[index]
+        X = selectrows(TMLE.get_mlj_inputs(η̂ₙ.treatments_factor.estimand, dataset), val_idx)
+        α̂_expected[val_idx] = MLJBase.predict(mach, X)
+    end
+    @test α̂ == α̂_expected
+    #### clever covariate is the same as predict
+    H, w = TMLE.clever_covariate_and_weights(Ψ, η̂ₙ.treatments_factor, dataset)
+    @test H == α̂
+    @test w == ones(100)
 end
 
 @testset "Test RieszRepresenterEstimator" begin
@@ -94,7 +122,7 @@ end
     # we use a misspecified model to make sure inference is driven by the RieszRepresenter
     models = default_models(Q_continuous=MLJModels.DeterministicConstantRegressor())
     models[:riesz_representer] = riesz_learner(nepochs=100)
-    resampling = CV()
+    resampling = CausalStratifiedCV(StratifiedCV())
     riesz_estimators = (
         tmle = Tmle(models=models),
         ose = Ose(models=models),
@@ -128,7 +156,7 @@ end
         # for i in 1:length(ns)-1
         #     @test mean_bias_sorted_by_sample_size[i] >= mean_bias_sorted_by_sample_size[i+1]
         # end
-    end   
+    end
 
 end
 

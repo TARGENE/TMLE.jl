@@ -8,6 +8,15 @@ using MLJLinearModels
 using MLJModels
 using DataFrames
 
+@testset "Test nrows and selectrows for Riesz Learning" begin
+    T = DataFrame(A=1:10, B=11:20, C=21:30)
+    W = DataFrame(D=31:40, E=41:50)
+    X = (T, W)
+    @test MLJBase.nrows(X) == 10
+    @test MLJBase.selectrows(X, 1:5) == (T[1:5, :], W[1:5, :])
+    @test MLJBase.selectrows(X, [6, 7, 9]) == (T[[6, 7, 9], :], W[[6, 7, 9], :])
+end
+
 @testset "Test expected_value" begin
     n = 100
     X = MLJBase.table(rand(n, 3))
