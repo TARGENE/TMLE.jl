@@ -2,7 +2,7 @@
 
 julia_version = "1.11.6"
 manifest_format = "2.0"
-project_hash = "86bfb6a617e5b8307d7b5c682b2e1c290af4b936"
+project_hash = "5fa83c8440df0081deba6d01846bbe9134a41977"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "be7ae030256b8ef14a441726c4c37766b90b93a3"
@@ -1355,8 +1355,10 @@ uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.1"
 
 [[deps.RieszLearning]]
-deps = ["CategoricalArrays", "DataFrames", "Lux", "MLJBase", "MLUtils", "OneHotArrays", "Optimisers", "Printf", "Random", "Tables", "Zygote"]
-path = "../../RieszLearning"
+deps = ["CategoricalArrays", "DataFrames", "Lux", "MLJBase", "MLUtils", "OneHotArrays", "Optimisers", "Printf", "Random", "Zygote"]
+git-tree-sha1 = "7286462110962f437e16974b55aeb2c9f978ef7a"
+repo-rev = "main"
+repo-url = "https://github.com/olivierlabayle/RieszLearning.jl"
 uuid = "a0bf4b8b-e406-4596-8317-f128bc1688be"
 version = "0.0.1"
 
@@ -1656,6 +1658,12 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 deps = ["Artifacts", "Libdl", "libblastrampoline_jll"]
 uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
 version = "7.7.0+0"
+
+[[deps.Suppressor]]
+deps = ["Logging"]
+git-tree-sha1 = "6dbb5b635c5437c68c28c2ac9e39b87138f37c0a"
+uuid = "fd094767-a336-5f1f-9728-57cf17d0bbfb"
+version = "0.2.8"
 
 [[deps.TOML]]
 deps = ["Dates"]

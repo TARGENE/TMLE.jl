@@ -10,6 +10,7 @@ using LogExpFunctions
 using CategoricalArrays
 using DataFrames
 using MLJBase
+using Suppressor
 import MLJModels
 
 TEST_DIR = joinpath(pkgdir(TMLE), "test")
@@ -22,10 +23,10 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "ate_simulations.jl"))
     treatment_confounders = (T = [:W₁, :W₂, :W₃],)
 )
 
-riesz_learner(;hidden_layer=10, nepochs=5) = RieszLearning.RieszNetModel(
+riesz_learner(;hidden_layer=10, nepochs=5, batch_size=6) = RieszLearning.RieszNetModel(
     lux_model=RieszLearning.MLP([5, hidden_layer]),
     hyper_parameters=(
-        batch_size=6,
+        batch_size=batch_size,
         nepochs=nepochs,
         rng=StableRNG(123),
     )
@@ -83,7 +84,7 @@ end
         (:info, TMLE.reuse_string(η.outcome_mean)),
     )
     η̂ₙ = @test_logs Q_reused_fit_log... riesz_η̂(η, dataset; cache=cache, verbosity=1)
-    
+
     ## Using sample splitting: both are refit
     train_validation_indices = MLJBase.train_test_pairs(CV(nfolds=3), 1:nrows(dataset), dataset)
     riesz_η̂_cv = TMLE.CMRelevantFactorsEstimator(models=models, train_validation_indices=train_validation_indices)
@@ -121,7 +122,7 @@ end
     # using the RieszNetModel as the representer
     # we use a misspecified model to make sure inference is driven by the RieszRepresenter
     models = default_models(Q_continuous=MLJModels.DeterministicConstantRegressor())
-    models[:riesz_representer] = riesz_learner(nepochs=100)
+    models[:riesz_representer] = riesz_learner(nepochs=500, batch_size=32)
     resampling = CausalStratifiedCV(StratifiedCV())
     riesz_estimators = (
         tmle = Tmle(models=models),
@@ -131,31 +132,32 @@ end
     )
 
     Ψ₀ = 4
-    ns = [100, 1000, 10_000]
-    nrepeats = 10
+    ns = [100, 1000]
+    nrepeats = 5
     rng = StableRNG(123)
     results = Dict(estimator_name => Dict(n => [] for n in ns)
         for estimator_name in keys(riesz_estimators)
     )
+    
     cache = Dict()
     for n in ns
         for repeat in 1:nrepeats
             dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(;n=n, rng = rng)
             for (estimator_name, estimator) in pairs(riesz_estimators)
-                Ψ̂, cache = estimator(Ψ, dataset, verbosity=0);
-                push!(results[estimator_name][n], Ψ̂)
+                @suppress begin
+                    Ψ̂, cache = estimator(Ψ, dataset, verbosity=0);
+                    push!(results[estimator_name][n], Ψ̂)
+                end
             end
         end
     end
     
     for (estimator_name, estimator_results) in pairs(results)
-        println("Estimator: ", estimator_name)
         mean_bias_by_sample_size = [n => mean(abs.(TMLE.estimate.(n_results) .- Ψ₀)) for (n, n_results) in estimator_results]
         mean_bias_sorted_by_sample_size = last.(sort(mean_bias_by_sample_size, by=x->x[1]))
-        println(mean_bias_sorted_by_sample_size)
-        # for i in 1:length(ns)-1
-        #     @test mean_bias_sorted_by_sample_size[i] >= mean_bias_sorted_by_sample_size[i+1]
-        # end
+        for i in 1:length(ns)-1
+            @test mean_bias_sorted_by_sample_size[i] >= mean_bias_sorted_by_sample_size[i+1]
+        end
     end
 
 end
