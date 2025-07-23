@@ -150,34 +150,45 @@ Base.eltype(::Type{JointConditionalDistribution}) = ConditionalDistribution
 #####################################################################
 
 """
-Defines the riesz representer (see: https://arxiv.org/pdf/2501.04871) associated with agiven estimand Ψ.
+Defines the Riesz Representer associated with agiven estimand Ψ (see: https://arxiv.org/pdf/2501.04871). It is defined by:
+
+- Treatments variables: `treatment_variables`
+- Confounding variables: `confounding_variables`
+- The ``m`` function: `indicator_fns`
 """
-@auto_hash_equals struct RieszRepresenter{T<:Estimand} <: Estimand
-    Ψ::T
+@auto_hash_equals struct RieszRepresenter{T, W} <: Estimand
+    treatment_variables::Tuple{Vararg{Symbol, T}}
+    confounding_variables::Tuple{Vararg{Symbol, W}}
+    indicators::Dict{<:Tuple{Vararg{Any, T}}, Float64}
+    function RieszRepresenter(Ψ::Estimand, confounders_subset=nothing)
+        treatment_variables = Tuple(treatments(Ψ))
+        all_confounding_variables = Tuple(sort(unique(Iterators.flatten(values(Ψ.treatment_confounders)))))
+        confounding_variables = get_confounders_subset(all_confounding_variables, confounders_subset)
+        indicators = indicator_fns(Ψ)
+        return new{length(treatment_variables), length(confounding_variables)}(
+            treatment_variables, 
+            confounding_variables, 
+            indicators
+        )
+    end
 end
-
-RieszRepresenter(Ψ, collaborative_strategy::Nothing) = RieszRepresenter(Ψ)
-
-RieszRepresenter(Ψ, collaborative_strategy) = throw(ArgumentError("RieszLearning does not support collaborative strategies yet."))
 
 string_repr(estimand::RieszRepresenter) = 
-    string("Riesz Representer for ", string_repr(estimand.Ψ))
+    string("Riesz Representer: α(", join(variables(estimand), ", ")..., ")")
 
-function variables(estimand::RieszRepresenter)
-    confounders = sort(unique(Iterators.flatten(values(estimand.Ψ.treatment_confounders))))
-    return vcat(treatments(estimand.Ψ), confounders)
-end
+variables(estimand::RieszRepresenter) =
+    vcat(estimand.treatment_variables..., estimand.confounding_variables...)
 
 function get_mlj_inputs(estimand::RieszRepresenter, dataset)
-    T = TMLE.selectcols(dataset, treatments(estimand.Ψ))
+    T = TMLE.selectcols(dataset, estimand.treatment_variables)
     W = TMLE.selectcols(
         dataset, 
-        sort(unique(Iterators.flatten(values(estimand.Ψ.treatment_confounders))))
+        estimand.confounding_variables
     )
     return T, W
 end
 
-get_mlj_target(estimand::RieszRepresenter, dataset) = indicator_fns(estimand.Ψ)
+get_mlj_target(estimand::RieszRepresenter, dataset) = estimand.indicators
 
 #####################################################################
 ###                      JointEstimand                         ###

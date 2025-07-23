@@ -22,7 +22,12 @@ end
         treatment_confounders=(T_1=[:W₁, :W₂], T_2=[:A])
     )
     riesz_representer = TMLE.RieszRepresenter(Ψ)
-    @test riesz_representer.Ψ === Ψ
+    @test riesz_representer.treatment_variables == (:T_1, :T_2)
+    @test riesz_representer.confounding_variables == (:A, :W₁, :W₂)
+    @test riesz_representer.indicators == Dict(
+        (0, 0) => -1.0,
+        (1, 1) => 1.0
+    )
     @test TMLE.variables(riesz_representer) == [:T_1, :T_2, :A, :W₁, :W₂]
     
     dataset = DataFrame(
@@ -37,6 +42,11 @@ end
     @test T == dataset[!, [:T_1, :T_2]]
     @test W == dataset[!, [:A, :W₁, :W₂]]
     @test indic_fns == TMLE.indicator_fns(Ψ)
+    # With a subset of confounders
+    riesz_representer_subset = TMLE.RieszRepresenter(Ψ, [:W₁])
+    @test riesz_representer_subset.confounding_variables == (:W₁,)
+    riesz_representer_subset = TMLE.RieszRepresenter(Ψ, [])
+    @test riesz_representer_subset.confounding_variables == ()
 end
 
 @testset "Test JointConditionalDistribution" begin

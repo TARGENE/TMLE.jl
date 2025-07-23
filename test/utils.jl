@@ -8,6 +8,19 @@ using MLJLinearModels
 using MLJModels
 using DataFrames
 
+@testset "Test get_confounders_subset" begin
+    # Test with a tuple of confounders and no subset
+    confounders = (:W₁, :W₂, :W₃)
+    @test TMLE.get_confounders_subset(confounders, nothing) == confounders
+
+    # Test with a tuple of confounders and a subset
+    subset = (:W₁, :W₂)
+    @test TMLE.get_confounders_subset(confounders, subset) == (:W₁, :W₂)
+
+    # This signature is for collaborative strategies, by default return nothing
+    @test TMLE.get_confounders_subset(nothing) === nothing
+end
+
 @testset "Test nrows and selectrows for Riesz Learning" begin
     T = DataFrame(A=1:10, B=11:20, C=21:30)
     W = DataFrame(D=31:40, E=41:50)

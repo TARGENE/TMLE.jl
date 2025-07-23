@@ -9,10 +9,17 @@ A collaborative strategy must implement the interface.
 """
 abstract type CollaborativeStrategy end
 
+function get_treatments_factor(Ψ::StatisticalCMCompositeEstimand, collaborative_strategy::CollaborativeStrategy, models)
+    confounders_subset = get_confounders_subset(collaborative_strategy)
+    treatments_factor = get_treatments_factor(Ψ, models; confounders_subset=confounders_subset)
+    treatments_factor isa RieszRepresenter && throw(ArgumentError("C-TMLE does not support Riesz Learning yet."))
+    return treatments_factor
+end
+
 """
-Create a propensity score `JointConditionalDistribution` given the current state of `collaborative_strategy`
+Returns a list of confounders to be used to create the treatments factor.
 """
-propensity_score(Ψ, collaborative_strategy::CollaborativeStrategy) = error("Not Implemented Error.")
+get_confounders_subset(collaborative_strategy::CollaborativeStrategy) = error("Not Implemented Error.")
 
 """
 Initialises the collaborative strategy

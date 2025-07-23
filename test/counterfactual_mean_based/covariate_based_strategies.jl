@@ -22,11 +22,12 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "interactions_simulation
         )
     )
     # Define the strategy
+    models = default_models()
     adaptive_strategy = AdaptiveCorrelationStrategy()
     @test adaptive_strategy.patience == 10
     @test adaptive_strategy.remaining_confounders == Set{Symbol}()
     @test adaptive_strategy.current_confounders == Set{Symbol}()
-    g_init = TMLE.propensity_score(Ψ, adaptive_strategy)
+    g_init = TMLE.get_treatments_factor(Ψ, adaptive_strategy, models)
     @test g_init == TMLE.JointConditionalDistribution(
         TMLE.ConditionalDistribution(:T₁, (:T₂,)), 
         TMLE.ConditionalDistribution(:T₂, ())

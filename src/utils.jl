@@ -181,7 +181,6 @@ function try_fit_ml_estimator(ml_estimator, conditional_distribution, dataset;
     end
 end
 
-
 struct FitFailedError <: Exception
     estimand::Estimand
     msg::String
@@ -218,3 +217,18 @@ MLJBase.nrows((T, W)::Tuple{DataFrame, DataFrame}) = nrows(T)
 Override for RieszRepresenter's inputs
 """
 MLJBase.selectrows((T, W)::Tuple{DataFrame, DataFrame}, idx) = (MLJBase.selectrows(T, idx), MLJBase.selectrows(W, idx))
+
+"""
+By default, when no collaborative strategy is specified, there is no subset.
+"""
+get_confounders_subset(collaborative_strategy::Nothing) = nothing
+
+"""
+If there is no subset, just return the original list
+"""
+get_confounders_subset(confounders::Tuple, subset::Nothing) = confounders
+
+"""
+Fallback is to subset based on the provided subset.
+"""
+get_confounders_subset(confounders::Tuple, subset) = Tuple(intersect(confounders, subset))

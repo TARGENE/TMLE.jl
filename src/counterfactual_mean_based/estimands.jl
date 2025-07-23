@@ -121,29 +121,33 @@ outcome_mean(Ψ::StatisticalCMCompositeEstimand) = ExpectedValue(Ψ.outcome, Tup
 
 outcome_mean_key(Ψ::StatisticalCMCompositeEstimand) = variables(outcome_mean(Ψ))
 
-function propensity_score(Ψ::StatisticalCMCompositeEstimand, collaborative_strategy::Nothing=nothing)
+function propensity_score(Ψ::StatisticalCMCompositeEstimand, confounders_subset=nothing)
     Ψtreatments = TMLE.treatments(Ψ)
     conditional_distributions = map(eachindex(Ψtreatments)) do index
         T = Ψtreatments[index]
-        confounders = (Ψ.treatment_confounders[T]..., Ψtreatments[index+1:end]...)
-        ConditionalDistribution(T, confounders)
+        T_confounders = get_confounders_subset(Ψ.treatment_confounders[T], confounders_subset)
+        T_parents = (T_confounders..., Ψtreatments[index+1:end]...)
+        ConditionalDistribution(T, T_parents)
     end
     return JointConditionalDistribution(conditional_distributions...)
 end
 
 propensity_score_key(Ψ::StatisticalCMCompositeEstimand) = Tuple(variables(x) for x ∈ propensity_score(Ψ))
 
-function propensity_score_or_riesz_representer(Ψ::StatisticalCMCompositeEstimand, models; collaborative_strategy=nothing)
+function get_treatments_factor(Ψ::StatisticalCMCompositeEstimand, models::AbstractDict; confounders_subset=nothing)
     if haskey(models, :riesz_representer)
-        return RieszRepresenter(Ψ, collaborative_strategy)
+        return RieszRepresenter(Ψ, confounders_subset)
     else
-        return propensity_score(Ψ, collaborative_strategy)
+        return propensity_score(Ψ, confounders_subset)
     end
 end
 
-function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand, models; collaborative_strategy=nothing)
+get_treatments_factor(Ψ::StatisticalCMCompositeEstimand, collaborative_strategy::Nothing, models) =
+    get_treatments_factor(Ψ, models; confounders_subset=nothing)
+
+function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand, models::AbstractDict; collaborative_strategy=nothing)
     outcome_model = outcome_mean(Ψ)
-    treatment_factors = propensity_score_or_riesz_representer(Ψ, models; collaborative_strategy=collaborative_strategy)
+    treatment_factors = get_treatments_factor(Ψ, collaborative_strategy, models)
     return CMRelevantFactors(outcome_model, treatment_factors)
 end
 

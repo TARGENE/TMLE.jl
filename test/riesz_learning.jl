@@ -12,10 +12,19 @@ using DataFrames
 using MLJBase
 using Suppressor
 import MLJModels
+using Logging
 
 TEST_DIR = joinpath(pkgdir(TMLE), "test")
 
 include(joinpath(TEST_DIR, "counterfactual_mean_based", "ate_simulations.jl"))
+
+function filter_warnings(logger)
+    return filter(!=(nothing), map(logger.logs) do log
+        if log.level == Logging.Info
+            log.message
+        end
+    end)
+end
 
 Ψ = ATE(
     outcome = :Y,
@@ -61,36 +70,52 @@ end
     cache = Dict()
     models = default_models()
     models[:riesz_representer] = riesz_learner()
-    η = TMLE.get_relevant_factors(Ψ, models; collaborative_strategy=nothing)
+    η = TMLE.get_relevant_factors(Ψ, models)
 
     # With Riesz Learning: All fits are new
     models[:riesz_representer] = riesz_learner()
     riesz_η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
-    riesz_fit_log = (
-        (:info, string("Required ", TMLE.string_repr(η))),
-        (:info, TMLE.fit_string(η.treatments_factor)),
-        (:info, TMLE.fit_string(η.outcome_mean)),
-    )
-    η̂ₙ = @test_logs riesz_fit_log... riesz_η̂(η, dataset; cache=cache, verbosity=1)
+    riesz_fit_log = [
+        string("Required ", TMLE.string_repr(η)),
+        TMLE.fit_string(η.treatments_factor),
+        TMLE.fit_string(η.outcome_mean),
+    ]
+    test_logger = TestLogger()
+    η̂ₙ = with_logger(test_logger) do
+        riesz_η̂(η, dataset; cache=cache, verbosity=1)
+    end
+    info_logs = filter_warnings(test_logger)
+    @test info_logs == riesz_fit_log
     @test η̂ₙ.outcome_mean isa TMLE.MLJEstimate{TMLE.ConditionalDistribution}
-    @test η̂ₙ.treatments_factor isa TMLE.MLJEstimate{TMLE.RieszRepresenter{TMLE.StatisticalATE}}
+    @test η̂ₙ.treatments_factor isa TMLE.MLJEstimate{TMLE.RieszRepresenter{1, 3}}
 
     ## Changing the riesz model, Q unchanged
     models[:riesz_representer] = riesz_learner(hidden_layer=5)
     riesz_η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
-    Q_reused_fit_log = (
-        (:info, string("Required ", TMLE.string_repr(η))),
-        (:info, TMLE.fit_string(η.treatments_factor)),
-        (:info, TMLE.reuse_string(η.outcome_mean)),
-    )
-    η̂ₙ = @test_logs Q_reused_fit_log... riesz_η̂(η, dataset; cache=cache, verbosity=1)
+    Q_reused_fit_log = [
+        string("Required ", TMLE.string_repr(η)),
+        TMLE.fit_string(η.treatments_factor),
+        TMLE.reuse_string(η.outcome_mean),
+    ]
+    test_logger = TestLogger()
+    η̂ₙ = with_logger(test_logger) do
+        riesz_η̂(η, dataset; cache=cache, verbosity=1)
+    end
+    info_logs = filter_warnings(test_logger)
+    @test info_logs == Q_reused_fit_log
 
     ## Using sample splitting: both are refit
     train_validation_indices = MLJBase.train_test_pairs(CV(nfolds=3), 1:nrows(dataset), dataset)
     riesz_η̂_cv = TMLE.CMRelevantFactorsEstimator(models=models, train_validation_indices=train_validation_indices)
-    η̂ₙ = @test_logs riesz_fit_log... riesz_η̂_cv(η, dataset; cache=cache, verbosity=1)
+    test_logger = TestLogger()
+    η̂ₙ = with_logger(test_logger) do
+        riesz_η̂_cv(η, dataset; cache=cache, verbosity=1)
+    end
+    info_logs = filter_warnings(test_logger)
+    @test info_logs == riesz_fit_log
+
     @test η̂ₙ.outcome_mean isa TMLE.SampleSplitMLJEstimate{TMLE.ConditionalDistribution}
-    @test η̂ₙ.treatments_factor isa TMLE.SampleSplitMLJEstimate{TMLE.RieszRepresenter{TMLE.StatisticalATE}}
+    @test η̂ₙ.treatments_factor isa TMLE.SampleSplitMLJEstimate{TMLE.RieszRepresenter{1, 3}}
     ### Check predictions are made out of fold
     #### Outcome Mean
     ŷ = predict(η̂ₙ.outcome_mean, dataset)
@@ -128,7 +153,7 @@ end
         tmle = Tmle(models=models),
         ose = Ose(models=models),
         cv_tmle = Tmle(models=models, resampling=resampling),
-        cv_ose = Ose(models=models, resampling=resampling)
+        cv_ose = Ose(models=models, resampling=resampling),
     )
 
     Ψ₀ = 4
@@ -159,7 +184,14 @@ end
             @test mean_bias_sorted_by_sample_size[i] >= mean_bias_sorted_by_sample_size[i+1]
         end
     end
+end
 
+@testset "Test C-TMLE and Riesz useful error message" begin
+    models = default_models(Q_continuous=MLJModels.DeterministicConstantRegressor())
+    models[:riesz_representer] = riesz_learner()
+    dataset, Ψ₀ = continuous_outcome_binary_treatment_pb(;)
+    ctmle=Tmle(models=models, collaborative_strategy=AdaptiveCorrelationStrategy())
+    @test_throws ArgumentError("C-TMLE does not support Riesz Learning yet.") ctmle(Ψ, dataset)
 end
 
 end
