@@ -7,14 +7,14 @@ abstract type Estimator end
 @auto_hash_equals struct MLConditionalDistributionEstimator <: Estimator
     model::MLJBase.Supervised
     train_validation_indices
-    prevalence::Union{Nothing, Float64}
+    prevalence_weights::Union{Nothing, Vector{Float64}}
 end
 
-MLConditionalDistributionEstimator(models; train_validation_indices=nothing, prevalence=nothing) = 
-    MLConditionalDistributionEstimator(models, train_validation_indices, prevalence)
+MLConditionalDistributionEstimator(models; train_validation_indices=nothing, prevalence_weights=nothing) = 
+    MLConditionalDistributionEstimator(models, train_validation_indices, prevalence_weights)
 
-MLConditionalDistributionEstimator(models, train_validation_indices; prevalence=nothing) = 
-    MLConditionalDistributionEstimator(models, train_validation_indices, prevalence)
+MLConditionalDistributionEstimator(models, train_validation_indices; prevalence_weights=nothing) = 
+    MLConditionalDistributionEstimator(models, train_validation_indices, prevalence_weights)
 
 marginal_model(y::CategoricalVector) = ConstantClassifier()
 
@@ -97,8 +97,15 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
     # Fit Conditional DIstribution using MLJ
     X = TMLE.selectcols(relevant_dataset, estimand.parents)
     y = relevant_dataset[!, estimand.outcome]
-    # If a prevalence is specified, we use it to fit the model
-    weights = get_weights_from_prevalence(estimator.prevalence, y)
+    # If a prevalence weights are provided, we use it to fit the model
+    if isnothing(estimator.prevalence_weights)
+        weights = ones(size(y, 1))
+    elseif estimator.train_validation_indices !== nothing
+        # Subset weights to the training indices for this fold
+        weights = estimator.prevalence_weights[estimator.train_validation_indices[1]]
+    else
+        weights = estimator.prevalence_weights
+    end
     mach = fit_mlj_model(estimator.model, X, y; 
         parents=estimand.parents, 
         cache=machine_cache,
@@ -127,8 +134,11 @@ Estimates a conditional distribution (or regression) for each training set defin
 @auto_hash_equals struct SampleSplitMLConditionalDistributionEstimator <: Estimator
     model::MLJBase.Supervised
     train_validation_indices
-    prevalence::Union{Nothing, Float64}
+    prevalence_weights::Union{Nothing, Vector{Float64}}
 end
+
+SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices; prevalence_weights=nothing) =
+    SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices, prevalence_weights)
 
 function update_sample_split_machines_with_fold!(machines::Vector{Machine}, 
     estimator, 
@@ -136,14 +146,15 @@ function update_sample_split_machines_with_fold!(machines::Vector{Machine},
     dataset, 
     fold_id;
     machine_cache=false, 
-    prevalence=nothing,
+    prevalence_weights=nothing,
     verbosity=1
     )
     train_indices, _ = estimator.train_validation_indices[fold_id]
     train_dataset = selectrows(dataset, train_indices)
     Xtrain = selectcols(train_dataset, estimand.parents)
     ytrain = train_dataset[!, estimand.outcome]
-    weights = get_weights_from_prevalence(prevalence, ytrain)
+    
+    weights = isnothing(estimator.prevalence_weights) ? ones(size(ytrain, 1)) : selectrows(estimator.prevalence_weights, train_indices)
     machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
         parents=estimand.parents, 
         cache=machine_cache,
@@ -155,7 +166,7 @@ end
 function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPU1, estimator, estimand, dataset;
     machine_cache=false, 
     verbosity=1,
-    prevalence=nothing
+    prevalence_weights=nothing
     )
     nfolds = length(machines)
     for fold_id in 1:nfolds
@@ -165,7 +176,7 @@ function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPU
             dataset, 
             fold_id;
             machine_cache=machine_cache, 
-            prevalence=prevalence,
+            prevalence_weights=prevalence_weights,
             verbosity=verbosity
         )
     end
@@ -174,7 +185,7 @@ end
 function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPUThreads, estimator, estimand, dataset;
     machine_cache=false, 
     verbosity=1,
-    prevalence=nothing
+    prevalence_weights=nothing
     )
     nfolds = length(machines)
     @threads for fold_id in 1:nfolds
@@ -184,7 +195,7 @@ function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPU
             dataset, 
             fold_id;
             machine_cache=machine_cache, 
-            prevalence=prevalence,
+            prevalence_weights=prevalence_weights,
             verbosity=verbosity
         )
     end
@@ -195,7 +206,7 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     verbosity=1, 
     machine_cache=false,
     acceleration=CPU1(),
-    prevalence=nothing
+    prevalence_weights=nothing
     )
     # Lookup in cache
     estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
@@ -210,7 +221,7 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     # Fit Conditional Distribution on each training split using MLJ
     fit_sample_split_machines!(machines, acceleration, estimator, estimand, relevant_dataset;
         machine_cache=machine_cache, 
-        prevalence=prevalence,
+        prevalence_weights=prevalence_weights,
         verbosity=verbosity-1
         )
     # Build estimate
@@ -221,11 +232,11 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     return estimate
 end
 
-ConditionalDistributionEstimator(model, train_validation_indices::Union{Nothing,Tuple}; prevalence=nothing) =
-    MLConditionalDistributionEstimator(model, train_validation_indices, prevalence)
+ConditionalDistributionEstimator(model, train_validation_indices::Union{Nothing,Tuple}; prevalence_weights=nothing) =
+    MLConditionalDistributionEstimator(model, train_validation_indices, prevalence_weights)
 
-ConditionalDistributionEstimator(model, train_validation_indices::AbstractVector; prevalence=nothing) =
-    SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices, prevalence)
+ConditionalDistributionEstimator(model, train_validation_indices::AbstractVector; prevalence_weights=nothing) =
+    SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices, prevalence_weights)
 
     
 #####################################################################
@@ -368,4 +379,97 @@ end
 function covariance_matrix(estimates...)
     X = hcat([r.IC for r in estimates]...)
     return cov(X, dims=1, corrected=true)
+end
+
+#####################################################################
+###            EmpiricalMarginalDistributionEstimator             ###
+#####################################################################
+@auto_hash_equals struct EmpiricalMarginalDistributionEstimator <: Estimator
+  variable::Symbol
+  train_validation_indices
+  prevalence_weights::Union{Nothing,Vector{Float64}}
+end
+
+MarginalDistributionEstimator(variable::Symbol; train_validation_indices=nothing, prevalence_weights=nothing) = 
+    EmpiricalMarginalDistributionEstimator(variable, train_validation_indices, prevalence_weights)
+
+function (estimator::EmpiricalMarginalDistributionEstimator)(
+    estimand::MarginalDistribution, dataset;
+    cache=Dict(), 
+    verbosity=1, 
+    machine_cache=false, 
+    acceleration=CPU1()
+    )
+    relevant_dataset = training_rows(nomissing(dataset, (estimand.variable,)), estimator.train_validation_indices)
+    W = collect(relevant_dataset[!, estimand.variable])
+    all_idxs = collect(1:nrow(dataset))
+    nonmiss_idxs = filter(i -> !ismissing(dataset[i, estimand.variable]), all_idxs)
+    train_idxs = estimator.train_validation_indices === nothing ?
+                 nonmiss_idxs :
+                 intersect(nonmiss_idxs, estimator.train_validation_indices[1])
+    raw_weights = isnothing(estimator.prevalence_weights) ? ones(length(W)) : estimator.prevalence_weights[train_idxs]
+    w   = raw_weights ./ sum(raw_weights)
+    return WeightedEmpiricalDistributionEstimate(estimand, W, w)
+end
+
+#####################################################################
+###        SampleSplitEmpiricalMarginalDistributionEstimator      ###
+#####################################################################
+
+@auto_hash_equals struct SampleSplitEmpiricalMarginalDistributionEstimator <: Estimator
+  variable::Symbol
+  train_validation_indices
+  prevalence_weights::Union{Nothing,Vector{Float64}}
+end
+
+MarginalDistributionEstimator(model, train_validation_indices::Union{Nothing,Tuple}; prevalence_weights=nothing) =
+    EmpiricalMarginalDistributionEstimator(model, train_validation_indices, prevalence_weights)
+
+MarginalDistributionEstimator(model, train_validation_indices::AbstractVector; prevalence_weights=nothing) =
+    SampleSplitEmpiricalMarginalDistributionEstimator(model, train_validation_indices, prevalence_weights)
+
+SampleSplitEmpiricalMarginalDistributionEstimator(variable, train_validation_indices; prevalence_weights=nothing) =
+    SampleSplitEmpiricalMarginalDistributionEstimator(variable, train_validation_indices, prevalence_weights)
+
+function (estimator::SampleSplitEmpiricalMarginalDistributionEstimator)(
+    estimand::MarginalDistribution, dataset;
+    cache=Dict(),
+    verbosity=1,
+    machine_cache=false,
+    acceleration=CPU1()
+    )
+
+    estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
+    estimate !== nothing && return estimate
+
+    verbosity > 0 && @info("Estimating marginal distribution for", string_repr(estimand))
+
+    relevant_dataset = nomissing(dataset, (estimand.variable,))
+
+    nfolds = size(estimator.train_validation_indices, 1)
+    estimates = Vector{WeightedEmpiricalDistributionEstimate}(undef, nfolds)
+
+    for fold_id in 1:nfolds
+        train_idx, _ = estimator.train_validation_indices[fold_id]
+        w_train    = selectrows(relevant_dataset, train_idx)
+
+        W = collect(w_train[!, estimand.variable])
+
+        raw_weights = isnothing(estimator.prevalence_weights) ? 
+              ones(length(W)) : 
+              selectrows(estimator.prevalence_weights, train_idx)
+
+        w = raw_weights ./ sum(raw_weights)
+
+        estimates[fold_id] = WeightedEmpiricalDistributionEstimate(estimand, W, w)
+    end
+
+    estimate = SampleSplitWeightedEmpiricalDistributionEstimate(
+        estimand,
+        estimator.train_validation_indices,
+        estimates
+    )
+
+    update_cache!(cache, estimand, estimator, estimate)
+    return estimate
 end

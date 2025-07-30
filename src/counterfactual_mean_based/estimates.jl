@@ -10,13 +10,18 @@ struct MLCMRelevantFactors <: Estimate
     estimand::CMRelevantFactors
     outcome_mean::ConditionalDistributionEstimate
     propensity_score
+    marginal_w #::Union{WeightedEmpiricalDistributionEstimate, Nothing} can now be a vector of WeightedEmpiricalDistributionEstimates
 end
 
+MLCMRelevantFactors(estimand, outcome_mean, propensity_score; marginal_w=nothing) = 
+    MLCMRelevantFactors(estimand, outcome_mean, propensity_score, marginal_w)
+    
 string_repr(estimate::MLCMRelevantFactors) = string(
     "Composite Factor Estimate: \n",
     "-------------------------\n- ",
     string_repr(estimate.outcome_mean),"\n- ", 
-    join((string_repr(f) for f in estimate.propensity_score.components), "\n- ")
+    join((string_repr(f) for f in estimate.propensity_score.components), "\n- "),
+    string_repr(estimate.marginal_w), "\n- "
 )
 
 #####################################################################

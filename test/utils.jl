@@ -7,6 +7,7 @@ using CategoricalArrays
 using MLJLinearModels
 using MLJModels
 using DataFrames
+using Statistics
 
 @testset "Test expected_value" begin
     n = 100
@@ -172,6 +173,21 @@ end
     # No column results in empty dataframe
     selected_cols = TMLE.selectcols(dataset, [])
     @test selected_cols == DataFrame(INTERCEPT=[1, 1, 1, 1, 1, 1, 1, 1])
+end
+
+@testset "std overload " begin
+    IC       = [1.0, -1.0, 1.0, -1.0]          # ∑IC² = 4
+    n_cases  = 2
+    expected = sqrt(2.0)                       # √(4 / 2)
+    @test isapprox(std(IC, n_cases), expected; atol = 1e-12)
+
+    # several random vectors / n_cases pairs
+    for _ in 1:10
+        IC       = randn(rand(5:15))           # random length 5–15
+        n_cases  = rand(1:length(IC))          # any positive int ≤ length
+        rhs      = sqrt(sum(IC .^ 2) / n_cases)
+        @test isapprox(std(IC, n_cases), rhs; rtol = 1e-12)
+    end
 end
 
 end;

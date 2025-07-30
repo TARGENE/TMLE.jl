@@ -125,6 +125,8 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)
     ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
+    # Get prevalence weights for CCW-TMLE step 
+    prevalence_weights = get_weights_from_prevalence(tmle.prevalence, nomissing_dataset[!, relevant_factors.outcome_mean.outcome])
     # Fluctuation initial factors
     targeted_factors_estimator = get_targeted_estimator(
         Ψ, 
@@ -137,7 +139,7 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         weighted=tmle.weighted,
         machine_cache=tmle.machine_cache,
         models=tmle.models,
-        prevalence=tmle.prevalence
+        prevalence_weights=prevalence_weights
     )
     targeted_factors_estimate = targeted_factors_estimator(relevant_factors, nomissing_dataset; 
         cache=cache, 
@@ -149,8 +151,13 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     cache[:targeted_factors] = targeted_factors_estimate
     estimation_report = report(targeted_factors_estimate)
 
-    IC = last(estimation_report.gradients)
-    Ψ̂ = last(estimation_report.estimates)
+    if tmle.prevalence === nothing
+        IC = last(estimation_report.gradients)
+        Ψ̂ = last(estimation_report.estimates)
+    else
+        IC = ccw_IC(last(estimation_report.gradients), nomissing_dataset, relevant_factors, tmle.prevalence)
+        Ψ̂ = ccw_plugin_estimate(Ψ, targeted_factors_estimate, nomissing_dataset)   
+    end
     σ̂ = std(IC)
     n = size(IC, 1)
     verbosity >= 1 && @info "Done."

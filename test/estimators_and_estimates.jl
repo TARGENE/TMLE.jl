@@ -73,6 +73,43 @@ end
     @test offset == μ̂
 end
 
+@testset "Test MLConditionalDistributionEstimator: binary outcome with prevalence weights" begin
+    # Simulate a binary outcome with imbalanced classes
+    n = 100
+    X, y = make_moons(n)
+    y = copy(y)
+    y[1:80] .= 0  # Make one class more prevalent
+    binary_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
+    # Set prevalence to 0.5 (true prevalence in population)
+    prevalence = 0.5
+    weights = TMLE.get_weights_from_prevalence(prevalence, binary_dataset.Y)
+    estimand = TMLE.ConditionalDistribution(:Y, [:X₁, :X₂])
+    estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(), nothing, weights)
+
+    # Fit with prevalence weights
+    cache = Dict()
+    conditional_density_estimate = estimator(estimand, binary_dataset; cache=cache, verbosity=1)
+    @test conditional_density_estimate isa TMLE.MLConditionalDistribution
+
+    # Check that predictions are probabilities
+    ŷ = MLJBase.predict(conditional_density_estimate, binary_dataset)
+    @test all(0.0 .<= [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)] .<= 1.0)
+
+    # Check that weights are used (by comparing with unweighted fit)
+    estimator_unweighted = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
+    conditional_density_estimate_unweighted = estimator_unweighted(estimand, binary_dataset; cache=Dict(), verbosity=0)
+    ŷ_unweighted = MLJBase.predict(conditional_density_estimate_unweighted, binary_dataset)
+    μ̂_weighted = [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)]
+    μ̂_unweighted = [ŷ_unweighted[i].prob_given_ref[2] for i in eachindex(ŷ_unweighted)]
+    @test !all(isapprox.(μ̂_weighted, μ̂_unweighted; atol=1e-6))  # Should differ
+
+    # Check expected_value and offset
+    μ̂ = TMLE.expected_value(conditional_density_estimate, binary_dataset)
+    offset = TMLE.compute_offset(conditional_density_estimate, binary_dataset)
+    @test μ̂ == [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)]
+    @test offset == logit.(μ̂)
+end
+
 @testset "Test SampleSplitMLConditionalDistributionEstimator: Binary outcome" begin
     # Check predict / expected_value / compute_offset
     nfolds = 3
@@ -158,6 +195,48 @@ end
     @test offset == μ̂
 end
 
+@testset "Test SampleSplitMLConditionalDistributionEstimator: binary outcome with prevalence weights" begin
+    n = 100
+    X, y = make_moons(n)
+    y = copy(y)
+    y[1:80] .= 0  # Make class 0 much more prevalent
+    binary_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
+    prevalence = 0.5
+    weights = TMLE.get_weights_from_prevalence(prevalence, binary_dataset.Y)
+    nfolds = 3
+    train_validation_indices = Tuple(MLJBase.train_test_pairs(StratifiedCV(nfolds=nfolds), 1:n, binary_dataset, binary_dataset.Y))
+    estimand = TMLE.ConditionalDistribution(:Y, [:X₁, :X₂])
+    estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
+        LinearBinaryClassifier(),
+        train_validation_indices,
+        weights
+    )
+    cache = Dict()
+    conditional_density_estimate = estimator(estimand, binary_dataset; cache=cache, verbosity=1)
+    @test conditional_density_estimate isa TMLE.SampleSplitMLConditionalDistribution
+
+    # Check that predictions are probabilities
+    ŷ = MLJBase.predict(conditional_density_estimate, binary_dataset)
+    @test all(0.0 .<= [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)] .<= 1.0)
+
+    # Check that weights are used (by comparing with unweighted fit)
+    estimator_unweighted = TMLE.SampleSplitMLConditionalDistributionEstimator(
+        LinearBinaryClassifier(),
+        train_validation_indices
+    )
+    conditional_density_estimate_unweighted = estimator_unweighted(estimand, binary_dataset; cache=Dict(), verbosity=0)
+    ŷ_unweighted = MLJBase.predict(conditional_density_estimate_unweighted, binary_dataset)
+    μ̂_weighted = [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)]
+    μ̂_unweighted = [ŷ_unweighted[i].prob_given_ref[2] for i in eachindex(ŷ_unweighted)]
+    @test !all(isapprox.(μ̂_weighted, μ̂_unweighted; atol=1e-6))  # Should differ
+
+    # Check expected_value and offset
+    μ̂ = TMLE.expected_value(conditional_density_estimate, binary_dataset)
+    offset = TMLE.compute_offset(conditional_density_estimate, binary_dataset)
+    @test μ̂ == [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)]
+    @test offset == logit.(μ̂)
+end
+
 @testset "Test Conditional Distribution with no parents fits a marginal" begin
     binary_dataset = DataFrame(Y = categorical([1, 1, 0, 0, 0]))
     estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
@@ -170,6 +249,66 @@ end
     continuous_dataset = DataFrame(Y = [1., 2., 3., 4., 5.])
     @test_throws ArgumentError estimator(estimand, continuous_dataset,verbosity=0)
 
+end
+
+@testset "Test EmpiricalMarginalDistributionEstimator: unweighted and prevalence weights" begin
+    n = 100
+    w = vcat(fill(1, 20), fill(0, 80))
+    dataset = DataFrame(W = w)
+    estimand = TMLE.MarginalDistribution(:W)
+    # Unweighted
+    estimator = TMLE.EmpiricalMarginalDistributionEstimator(:W, nothing, nothing)
+    estimate = estimator(estimand, dataset)
+    @test estimate isa TMLE.WeightedEmpiricalDistributionEstimate
+    @test isapprox(sum(estimate.weights), 1.0; atol=1e-8)
+    @test all(estimate.weights .>= 0)
+    # Should match empirical proportions
+    @test isapprox(sum(estimate.weights[dataset.W .== 1]), 0.2; atol=1e-2)
+    @test isapprox(sum(estimate.weights[dataset.W .== 0]), 0.8; atol=1e-2)
+
+    # With prevalence weights
+    prevalence = 0.5
+    weights = TMLE.get_weights_from_prevalence(prevalence, dataset.W)
+    estimator = TMLE.EmpiricalMarginalDistributionEstimator(:W, nothing, weights)
+    estimate = estimator(estimand, dataset)
+    @test isapprox(sum(estimate.weights), 1.0; atol=1e-8)
+    # Should match target prevalence
+    @test isapprox(sum(estimate.weights[dataset.W .== 1]), 0.5; atol=1e-2)
+    @test isapprox(sum(estimate.weights[dataset.W .== 0]), 0.5; atol=1e-2)
+end
+
+@testset "Test SampleSplitEmpiricalMarginalDistributionEstimator: unweighted and prevalence weights" begin
+    n = 100
+    w = vcat(fill(1, 20), fill(0, 80))
+    dataset = DataFrame(W = w)
+    nfolds = 3
+    train_validation_indices = Tuple(MLJBase.train_test_pairs(StratifiedCV(nfolds=nfolds), 1:n, dataset, dataset.W))
+    estimand = TMLE.MarginalDistribution(:W)
+    # Unweighted
+    estimator = TMLE.SampleSplitEmpiricalMarginalDistributionEstimator(:W, train_validation_indices)
+    estimate = estimator(estimand, dataset)
+    @test estimate isa TMLE.SampleSplitWeightedEmpiricalDistributionEstimate
+    @test length(estimate.estimates) == nfolds
+    for est in estimate.estimates
+        @test isapprox(sum(est.weights), 1.0; atol=1e-8)
+        @test all(est.weights .>= 0)
+    end
+
+    # With prevalence weights
+    prevalence = 0.5
+    weights = TMLE.get_weights_from_prevalence(prevalence, dataset.W)
+    estimator = TMLE.SampleSplitEmpiricalMarginalDistributionEstimator(:W, train_validation_indices, weights)
+    estimate = estimator(estimand, dataset)
+    @test length(estimate.estimates) == nfolds
+    for fold in 1:nfolds
+        train_idx, _ = train_validation_indices[fold]
+        fold_w = dataset.W[train_idx]
+        fold_weights = estimate.estimates[fold].weights
+        @test isapprox(sum(fold_weights), 1.0; atol=1e-8)
+        # Should match target prevalence within fold
+        @test isapprox(sum(fold_weights[fold_w .== 1]), 0.5; atol=1e-1)
+        @test isapprox(sum(fold_weights[fold_w .== 0]), 0.5; atol=1e-1)
+    end
 end
 
 end

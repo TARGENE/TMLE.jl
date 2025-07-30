@@ -10,6 +10,12 @@ using Test
     @test TMLE.variables(distr) == (:Y, Symbol("1"), :A, :C)
 end
 
+@testset "Test MarginalDistribution" begin
+    W₀ = TMLE.MarginalDistribution("W")
+    @test W₀.variable === :W
+    @test TMLE.variables(W₀) == (:W,)
+end
+
 @testset "Test CMRelevantFactors" begin
     η = TMLE.CMRelevantFactors(
         outcome_mean=TMLE.ExpectedValue(:Y, [:T, :W]),
@@ -25,6 +31,13 @@ end
         )
     )
     @test TMLE.variables(η) == (:Y, :T, :W, :T₁, :W₁, :T₂, :W₂₁, :W₂₂)
+
+    η = TMLE.CMRelevantFactors(
+        outcome_mean=TMLE.ExpectedValue(:Y, [:T, :W]),
+        propensity_score=TMLE.ConditionalDistribution(:T, [:W]),
+        marginal_w=TMLE.MarginalDistribution(:W)
+    )
+    @test TMLE.variables(η) == (:Y, :T, :W)
 end
 
 @testset "Test JointEstimand and ComposedEstimand" begin

@@ -13,6 +13,8 @@ Base.show(io::IO, ::MIME"text/plain", estimand::Estimand) =
 
 treatments(Ψ::Estimand) = collect(keys(Ψ.treatment_values))
 
+confounders(Ψ::Estimand) = collect(values(Ψ.treatment_confounders))
+
 AbsentLevelError(treatment_name, key, val, levels) = ArgumentError(string(
     "The treatment variable ", treatment_name, "'s, '", key, "' level: '", val,
     "' in Ψ does not match any level in the dataset: ", levels))
@@ -85,6 +87,28 @@ string_repr(estimand::ConditionalDistribution) =
     string("P₀(", estimand.outcome, " | ", join(estimand.parents, ", "), ")")
 
 variables(estimand::ConditionalDistribution) = (estimand.outcome, estimand.parents...)
+
+#####################################################################
+###                   Marginal Distribution                    ###
+#####################################################################
+"""
+Defines a Marginal Distribution estimand `variable → P(variable)`.
+This implementation is only for the empirical distribution of a single variable.
+It is not estimated.
+"""
+@auto_hash_equals struct MarginalDistribution <: Estimand
+    variable::Symbol
+    function MarginalDistribution(variable)
+        variable = Symbol(variable)
+        return new(variable)
+    end
+end
+
+string_repr(estimand::MarginalDistribution) = 
+    string("P₀(", estimand.variable, ")")
+
+# Which columns of the dataset this estimand cares about:
+variables(estimand::MarginalDistribution) = (estimand.variable,)
 
 #####################################################################
 ###                        ExpectedValue                          ###

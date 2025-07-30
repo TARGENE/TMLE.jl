@@ -84,7 +84,10 @@ end
 end
 
 CMRelevantFactorsEstimator(;models, train_validation_indices=nothing, prevalence=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models, prevalence)
-
+"""
+Option to maintain compatibility with the old API.
+"""
+CMRelevantFactorsEstimator(train_validation_indices, models; prevalence=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models, prevalence)
 """
 If there is no collaborative strategy, we are in CV mode and `train_validation_indices` are used to build the initial estimator.
 """
@@ -109,13 +112,13 @@ end
 
 function build_propensity_score_estimator(propensity_score, models, dataset;
     train_validation_indices=nothing,
-    prevalence=nothing
+    prevalence_weights=nothing
     )
     cd_estimators = Dict()
     for conditional_distribution in propensity_score
         outcome = conditional_distribution.outcome
         model = acquire_model(models, outcome, dataset, true)
-        cd_estimators[outcome] = ConditionalDistributionEstimator(model, train_validation_indices, prevalence=prevalence)
+        cd_estimators[outcome] = ConditionalDistributionEstimator(model, train_validation_indices, prevalence_weights=prevalence_weights)
     end
     return JointConditionalDistributionEstimator(cd_estimators)
 end
@@ -126,14 +129,14 @@ function estimate_propensity_score(propensity_score, models, dataset;
     verbosity=1,
     machine_cache=false,
     acceleration=CPU1(),
-    prevalence=nothing
+    prevalence_weights=nothing
     )
     propensity_score_estimator = build_propensity_score_estimator(
         propensity_score, 
         models,  
         dataset;
         train_validation_indices=train_validation_indices,
-        prevalence=prevalence
+        prevalence_weights=prevalence_weights
     )
     return propensity_score_estimator(
         propensity_score, 
@@ -151,13 +154,13 @@ function estimate_outcome_mean(outcome_mean, models, dataset;
     verbosity=1,
     machine_cache=false,
     acceleration=CPU1(),
-    prevalence=nothing
+    prevalence_weights=nothing
     )
     outcome_model = acquire_model(models, outcome_mean.outcome, dataset, false)
     outcome_mean_estimator = ConditionalDistributionEstimator(
         outcome_model,
         train_validation_indices,
-        prevalence=prevalence 
+        prevalence_weights=prevalence_weights
     )
     return try_fit_ml_estimator(outcome_mean_estimator, outcome_mean, dataset;
         error_fn=outcome_mean_fit_error_msg,
@@ -178,14 +181,14 @@ function estimate_propensity_score_and_outcome_mean(
     cache=Dict(), 
     verbosity=1, 
     machine_cache=false,
-    prevalence=nothing
+    prevalence_weights=nothing
     )
     propensity_score_estimate = estimate_propensity_score(propensity_score, models, dataset;
         train_validation_indices=train_validation_indices,
         cache=cache,
         verbosity=verbosity,
         machine_cache=machine_cache,
-        prevalence=prevalence
+        prevalence_weights=prevalence_weights
     )
     # Estimate outcome mean
     outcome_mean_estimate = estimate_outcome_mean(outcome_mean, models, dataset;
@@ -193,7 +196,7 @@ function estimate_propensity_score_and_outcome_mean(
         cache=cache,
         verbosity=verbosity,
         machine_cache=machine_cache,
-        prevalence=prevalence
+        prevalence_weights=prevalence_weights
     )
     return (propensity_score_estimate, outcome_mean_estimate)
 end
@@ -208,7 +211,7 @@ function estimate_propensity_score_and_outcome_mean(
     cache=Dict(), 
     verbosity=1, 
     machine_cache=false,
-    prevalence=nothing
+    prevalence_weights=nothing
     )
     propensity_score_estimate = @spawn estimate_propensity_score(propensity_score, models, dataset;
         train_validation_indices=train_validation_indices,
@@ -216,14 +219,15 @@ function estimate_propensity_score_and_outcome_mean(
         verbosity=verbosity,
         machine_cache=machine_cache,
         acceleration=acceleration,
-        prevalence=prevalence
+        prevalence_weights=prevalence_weights
+
     )
     outcome_mean_estimate = @spawn estimate_outcome_mean(outcome_mean, models, dataset;
         train_validation_indices=train_validation_indices,
         cache=cache,
         verbosity=verbosity,
         machine_cache=machine_cache,
-        prevalence=prevalence,
+        prevalence_weights=prevalence_weights
     )
     return fetch.([propensity_score_estimate, outcome_mean_estimate])
 end
@@ -244,7 +248,9 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
     outcome_mean = estimand.outcome_mean
     propensity_score = estimand.propensity_score
     train_validation_indices = estimator.train_validation_indices
-    prevalence = estimator.prevalence
+    # Bug here for CMBasedCTMLE prevalence_weights are generated from the whole data
+    prevalence_weights = get_weights_from_prevalence(estimator.prevalence, dataset[!, outcome_mean.outcome])
+    
     # Estimate propensity score and outcome mean
     propensity_score_estimate, outcome_mean_estimate = estimate_propensity_score_and_outcome_mean(
         acceleration,
@@ -256,10 +262,32 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
         cache=cache,
         verbosity=verbosity,
         machine_cache=machine_cache,
-        prevalence=prevalence
+        prevalence_weights=prevalence_weights
     )
+    # If the prevalence is provided, estimate the marginal distribution of the covariates
+    if estimand.marginal_w !== nothing 
+        marginals = []
+        for w in estimand.marginal_w
+            marg_est = MarginalDistributionEstimator(
+                w.variable,
+                train_validation_indices;
+                prevalence_weights = prevalence_weights
+            )
+            push!(marginals, marg_est(
+                w,
+                dataset;
+                cache         = cache,
+                verbosity     = verbosity,
+                machine_cache = machine_cache,
+                acceleration  = acceleration
+            ))
+        end
+    else
+        marginals = nothing
+    end
+    
     # Build estimate
-    estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate)
+    estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate, marginals)
     # Update cache
     update_cache!(cache, estimand, estimator, estimate)
 
@@ -273,11 +301,14 @@ end
 struct CMBasedTMLE{T<:Union{Nothing, Tuple}}
     fluctuation::Fluctuation
     train_validation_indices::T
-    prevalence::Union{Nothing, Float64}
+    prevalence_weights::Union{Nothing, Vector{Float64}}
 end
 
-CMBasedTMLE(fluctuation::Fluctuation; train_validation_indices=nothing, prevalence=nothing) = 
-    CMBasedTMLE(fluctuation, train_validation_indices, prevalence)
+CMBasedTMLE(fluctuation::Fluctuation; train_validation_indices=nothing, prevalence_weights=nothing) = 
+    CMBasedTMLE(fluctuation, train_validation_indices, prevalence_weights)
+
+CMBasedTMLE(fluctuation::Fluctuation, train_validation_indices; prevalence_weights=nothing) = 
+    CMBasedTMLE(fluctuation, train_validation_indices, prevalence_weights)
 
 function (estimator::CMBasedTMLE)(estimand, dataset; 
     cache=Dict(), 
@@ -288,8 +319,7 @@ function (estimator::CMBasedTMLE)(estimand, dataset;
     fluctuation_model = estimator.fluctuation
     outcome_mean = fluctuation_model.initial_factors.outcome_mean.estimand
     # Fluctuate outcome model 
-    # This does not actually weight the fluctuation model as fit_mlj_model will ignore weights in this case
-    fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model, estimator.train_validation_indices, estimator.prevalence)
+    fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model, estimator.train_validation_indices, estimator.prevalence_weights)
     fluctuated_outcome_mean = try_fit_ml_estimator(fluctuated_estimator, outcome_mean, dataset;
         error_fn=outcome_mean_fluctuation_fit_error_msg,
         cache=cache,
@@ -298,8 +328,10 @@ function (estimator::CMBasedTMLE)(estimand, dataset;
     )
     # Do not fluctuate propensity score
     fluctuated_propensity_score = fluctuation_model.initial_factors.propensity_score
+    # Do not fluctuate marginal distribution of W 
+    marginal_w = fluctuation_model.initial_factors.marginal_w
     # Build estimate
-    estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score)
+    estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score, marginal_w)
 
     return estimate
 end
@@ -413,9 +445,11 @@ function (estimator::CMBasedCTMLE{S})(
     models = estimator.models
 
     # Initialize the collaborative strategy
+    verbosity > 0 && @info "Initializing collaborative strategy."
     TMLE.initialise!(collaborative_strategy, Ψ)
     
     # Initialize Candidates: the fluctuation is fitted through the initial outcome mean and propensity score
+    verbosity > 0 && @info "Initializing candidates."
     targeted_η̂ₙ, loss = TMLE.get_initial_candidate(η, fluctuation_model, dataset;
         verbosity=verbosity-1,
         cache=cache,
@@ -423,6 +457,7 @@ function (estimator::CMBasedCTMLE{S})(
     )
 
     # Initialise cross-validation loss
+    verbosity > 0 && @info "Initializing CV loss."
     cv_targeted_η̂ₙ, cv_loss = TMLE.get_initial_cv_candidate(η, dataset, fluctuation_model, train_validation_indices, models;
         cache=cache,
         verbosity=verbosity-1,
@@ -431,6 +466,7 @@ function (estimator::CMBasedCTMLE{S})(
     )
 
     # Collaborative Loop to find the best candidate
+    verbosity > 0 && @info "Finding optimal candidate."
     candidate_info = (targeted_η̂ₙ=targeted_η̂ₙ, loss=loss, cv_targeted_η̂ₙ=cv_targeted_η̂ₙ, cv_loss=cv_loss, id=1)
     best_candidate = TMLE.find_optimal_candidate(
         candidate_info, 
@@ -445,7 +481,7 @@ function (estimator::CMBasedCTMLE{S})(
         machine_cache=machine_cache,
         acceleration=acceleration
     )
-    
+    verbosity > 0 && @info "Finalizing."
     finalise!(collaborative_strategy)
 
     return best_candidate.targeted_η̂ₙ
@@ -462,7 +498,7 @@ function get_targeted_estimator(
     weighted=true,
     machine_cache=false,
     models=nothing,
-    prevalence=nothing
+    prevalence_weights=nothing
     )
     fluctuation_model = Fluctuation(Ψ, initial_factors_estimate; 
         tol=tol,
@@ -470,11 +506,11 @@ function get_targeted_estimator(
         ps_lowerbound=ps_lowerbound, 
         weighted=weighted,
         cache=machine_cache,
-        prevalence=prevalence
+        prevalence_weights=prevalence_weights
     )
     if collaborative_strategy isa CollaborativeStrategy
         return CMBasedCTMLE(fluctuation_model, collaborative_strategy, train_validation_indices, models)
     else
-        return CMBasedTMLE(fluctuation_model, train_validation_indices=nothing, prevalence=prevalence)
+        return CMBasedTMLE(fluctuation_model, train_validation_indices=nothing, prevalence_weights=prevalence_weights)
     end
 end
