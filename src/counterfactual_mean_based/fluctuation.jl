@@ -56,7 +56,8 @@ function initialize_observed_cache(model, X, y)
         ps_lowerbound=model.ps_lowerbound,
         weighted_fluctuation=model.weighted
     )
-    w .*= model.prevalence_weights
+    prevalence_weights = isnothing(model.prevalence_weights) ? ones(length(w)) : model.prevalence_weights
+    w .*= prevalence_weights
     ŷ = MLJBase.predict(Q⁰, X)
     return Dict{Symbol, Any}(:H => H, :w => w, :ŷ => ŷ, :y => float(y))
 end
@@ -76,8 +77,7 @@ function initialize_counterfactual_cache(model, X)
     Q⁰ = model.initial_factors.outcome_mean
     G⁰ = model.initial_factors.propensity_score
     Ψ = model.Ψ
-
-    counterfactual_cache = (predictions=[], signs=[], covariates=[], weights = [], prevalence_weights=model.prevalence_weights)
+    counterfactual_cache = (predictions=[], signs=[], covariates=[], weights = [], prevalence_weights=[])
     Ttemplate = selectcols(X, treatments(Ψ))
     
     for (vals, sign) in indicator_fns(Ψ)
@@ -106,6 +106,10 @@ function initialize_counterfactual_cache(model, X)
         push!(
             counterfactual_cache.weights, 
             w_ct
+        )
+        push!(
+            counterfactual_cache.prevalence_weights, 
+            isnothing(model.prevalence_weights) ? ones(length(w_ct)) : model.prevalence_weights
         )
     end
     return counterfactual_cache
@@ -179,10 +183,6 @@ The former stores the counterfactual predictions, signs and covariates.
 The latter stores the clever covariate, weights, predictions and the outcome in floating point representation.
 """
 function MLJBase.fit(model::Fluctuation, verbosity, X, y)
-    # Initialize prevalence weights
-    if isnothing(model.prevalence_weights)
-        model.prevalence_weights = ones(length(y))
-    end
     Q = model.initial_factors.outcome_mean
     fluctuation_model = one_dimensional_path(scitype(y))
     observed_cache = initialize_observed_cache(model, X, y)
