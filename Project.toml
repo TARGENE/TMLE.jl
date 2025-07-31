@@ -40,7 +40,7 @@ YAMLExt = "YAML"
 
 [compat]
 AutoHashEquals = "2.1.0"
-CategoricalArrays = "0.10"
+CategoricalArrays = "0.10, 1"
 CausalTables = "1.2.1"
 Combinatorics = "1.0.2"
 ComputationalResources = "0.3.2"
