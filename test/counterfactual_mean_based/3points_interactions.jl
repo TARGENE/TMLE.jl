@@ -44,10 +44,10 @@ end
     @test propensity_score[3] == TMLE.ConditionalDistribution(:T₃, (:W,))
     ## Define models
     models = Dict(
-        :Y  => with_encoder(InteractionTransformer(order=3) |> LinearRegressor()),
-        :T₁ => LogisticClassifier(lambda=0),
-        :T₂ => LogisticClassifier(lambda=0),
-        :T₃ => LogisticClassifier(lambda=0)
+        :Y  => ContinuousEncoder() |> InteractionTransformer(order=3) |> LinearRegressor(),
+        :T₁ => ContinuousEncoder() |> LogisticClassifier(lambda=0),
+        :T₂ => ContinuousEncoder() |> LogisticClassifier(lambda=0),
+        :T₃ => ContinuousEncoder() |> LogisticClassifier(lambda=0)
     )
     ## Estimate
     tmle = Tmle(models=models, weighted=false, machine_cache=true, max_iter=3, tol=0)
