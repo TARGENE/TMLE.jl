@@ -40,7 +40,6 @@ export compose
 export default_models, with_encoder
 export BackdoorAdjustment, identify
 export Configuration
-export brute_force_ordering, groups_ordering
 export gradients, epsilons, estimates
 export AdaptiveCorrelationStrategy, GreedyStrategy
 export CausalStratifiedCV, CV, StratifiedCV, Holdout
