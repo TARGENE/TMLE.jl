@@ -194,6 +194,10 @@ end
     @test_throws ArgumentError("C-TMLE does not support Riesz Learning yet.") ctmle(Ψ, dataset)
 end
 
+# TODO
+@test true == false
+# - [ ] Sort out the interface. estimator new field? Dispatch on G type for with encoder in models building?
+
 end
 
 true
