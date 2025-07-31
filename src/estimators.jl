@@ -257,9 +257,9 @@ the AD package. Simply call `vcat` in the future.
 joint_estimand(args...) = vcat(args...)
 
 """
-    compose(f, estimation_results::Vararg{EICEstimate, N}) where N
+    compose(f, Ψ̂::JointEstimate, backend)
 
-Provides an estimator of f(estimation_results...).
+Provides an estimator of f(Ψ̂).
 
 # Mathematical details
 
@@ -290,25 +290,14 @@ Hence, the only thing we need to do is:
 # Arguments
 
 - f: An array-input differentiable map.
-- estimation_results: 1 or more `EICEstimate` structs.
-
-# Examples
-
-Assuming `res₁` and `res₂` are TMLEs:
-
-```julia
-f(x, y) = [x^2 - y, y - 3x]
-compose(f, res₁, res₂)
-```
+- Ψ̂: A JointEstimate
+- backend: A differentiation backend, e.g., AutoZygote(), AutoEnzyme(), etc.
 """
-function compose(f, Ψ̂::JointEstimate; backend=AutoZygote())
-    point_estimate = estimate(Ψ̂)
-    Σ = Ψ̂.cov
-    f₀, J = value_and_jacobian(f, backend, point_estimate)
-    σ₀ = J * Σ * J'
-    estimand = ComposedEstimand(f, Ψ̂.estimand)
-    return ComposedEstimate(estimand, f₀, σ₀, Ψ̂.n)
-end
+function compose end
+    
+compose(f, Ψ̂::JointEstimate, backend::Nothing=nothing) = 
+    throw(ArgumentError("""In order to compose elements of a JointEstimate, you need to load `DifferentiationInterface` and a backend of your choice, e.g., `Zygote`. 
+    Then call `compose(f, Ψ̂, backend)`, for example: `using DifferentiationInterface, Zygote; compose(f, Ψ̂, AutoZygote())`"""))
 
 function covariance_matrix(estimates...)
     X = hcat([r.IC for r in estimates]...)

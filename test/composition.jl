@@ -1,11 +1,13 @@
 module TestComposition
 
 using Test
+using TMLE
+using DifferentiationInterface
+using Zygote
 using Random
 using StableRNGs
 using Distributions
 using MLJLinearModels
-using TMLE
 using CategoricalArrays
 using LogExpFunctions
 using HypothesisTests
@@ -64,10 +66,10 @@ end
 
     # Via Composition
     joint_tmle, cache = tmle(jointestimand, dataset; cache=cache, verbosity=0)
-    diff_tmle = compose(mydiff, joint_tmle)
+    diff_tmle = compose(mydiff, joint_tmle, AutoZygote())
     @test significance_test(diff_tmle) isa TMLE.OneSampleTTest
     joint_ose, cache = ose(jointestimand, dataset; cache=cache, verbosity=0)
-    diff_ose = compose(mydiff, joint_ose)
+    diff_ose = compose(mydiff, joint_ose, AutoZygote())
     @test significance_test(diff_ose) isa TMLE.OneSampleTTest
 
     # Via ATE
@@ -126,7 +128,7 @@ end
 
     Main.eval(:(f(x) = [x[1]^2 - x[2], 2x[1] + 3x[2]]))
 
-    composed_estimate = compose(Main.f, joint_estimate)
+    composed_estimate = compose(Main.f, joint_estimate, AutoZygote())
     @test significance_test(composed_estimate) isa TMLE.OneSampleHotellingT2Test
     @test estimate(composed_estimate) == Main.f(estimate(joint_estimate))
     @test size(composed_estimate.cov) == (2, 2)

@@ -10,10 +10,8 @@ using MLJModels
 using Missings
 using Statistics
 using Distributions
-using Zygote
 using LogExpFunctions
 using Random
-using DifferentiationInterface
 using Graphs
 using MetaGraphsNext
 using Combinatorics
