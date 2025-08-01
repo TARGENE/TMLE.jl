@@ -14,13 +14,25 @@ verbosity = 1
 n = 100
 X, y = make_moons(n)
 binary_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
-
+weights = rand(length(y))  # Random weights for testing
 X, y = make_regression(n)
 continuous_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
 
 estimand = TMLE.ConditionalDistribution(:Y, [:X₁, :X₂])
 fit_log = string("Estimating: ", TMLE.string_repr(estimand))
 reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
+
+@testset "fit_mlj_model supports weights" begin
+    # Model that supports weights
+    estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(),prevalence_weights=weights)
+    cache = Dict()
+    conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+
+    # Model that does NOT support weights (e.g., LogisticClassifier)
+    estimator = TMLE.MLConditionalDistributionEstimator(LogisticClassifier(), prevalence_weights=weights)
+    cache = Dict()
+    @test_throws ErrorException estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+end
 
 @testset "Test MLConditionalDistributionEstimator: binary outcome" begin
     # Check predict / expected_value / compute_offset

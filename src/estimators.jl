@@ -47,8 +47,8 @@ function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothi
     if !isnothing(weights) && MLJBase.supports_weights(model)
         mach = machine(model, X, y, weights; cache=cache)
     else
-        if !isnothing(weights) && verbosity >= 1
-            @warn("The model $(model) does not support weights. Weights will be ignored.")
+        if !isnothing(weights)
+            error("The model $(model) does not support weights.")
         end
         mach = machine(model, X, y; cache=cache)
     end
@@ -75,7 +75,7 @@ function get_weights_from_prevalence(prevalence::Union{Nothing, Float64}, y::Abs
         end
         return weights
     else
-        return ones(size(y,1))
+        return nothing
     end
     
 end
@@ -98,14 +98,9 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
     X = TMLE.selectcols(relevant_dataset, estimand.parents)
     y = relevant_dataset[!, estimand.outcome]
     # If a prevalence weights are provided, we use it to fit the model
-    if isnothing(estimator.prevalence_weights)
-        weights = ones(size(y, 1))
-    elseif estimator.train_validation_indices !== nothing
-        # Subset weights to the training indices for this fold
-        weights = estimator.prevalence_weights[estimator.train_validation_indices[1]]
-    else
-        weights = estimator.prevalence_weights
-    end
+    weights = !isnothing(estimator.train_validation_indices) && !isnothing(estimator.prevalence_weights) ? 
+        estimator.prevalence_weights[estimator.train_validation_indices[1]] : estimator.prevalence_weights
+    
     mach = fit_mlj_model(estimator.model, X, y; 
         parents=estimand.parents, 
         cache=machine_cache,
@@ -146,7 +141,6 @@ function update_sample_split_machines_with_fold!(machines::Vector{Machine},
     dataset, 
     fold_id;
     machine_cache=false, 
-    prevalence_weights=nothing,
     verbosity=1
     )
     train_indices, _ = estimator.train_validation_indices[fold_id]
@@ -154,7 +148,7 @@ function update_sample_split_machines_with_fold!(machines::Vector{Machine},
     Xtrain = selectcols(train_dataset, estimand.parents)
     ytrain = train_dataset[!, estimand.outcome]
     
-    weights = isnothing(estimator.prevalence_weights) ? ones(size(ytrain, 1)) : selectrows(estimator.prevalence_weights, train_indices)
+    weights = isnothing(estimator.prevalence_weights) ? nothing : selectrows(estimator.prevalence_weights, train_indices)
     machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
         parents=estimand.parents, 
         cache=machine_cache,
@@ -165,8 +159,7 @@ end
 
 function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPU1, estimator, estimand, dataset;
     machine_cache=false, 
-    verbosity=1,
-    prevalence_weights=nothing
+    verbosity=1
     )
     nfolds = length(machines)
     for fold_id in 1:nfolds
@@ -176,7 +169,6 @@ function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPU
             dataset, 
             fold_id;
             machine_cache=machine_cache, 
-            prevalence_weights=prevalence_weights,
             verbosity=verbosity
         )
     end
@@ -184,8 +176,7 @@ end
 
 function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPUThreads, estimator, estimand, dataset;
     machine_cache=false, 
-    verbosity=1,
-    prevalence_weights=nothing
+    verbosity=1
     )
     nfolds = length(machines)
     @threads for fold_id in 1:nfolds
@@ -194,8 +185,7 @@ function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPU
             estimand, 
             dataset, 
             fold_id;
-            machine_cache=machine_cache, 
-            prevalence_weights=prevalence_weights,
+            machine_cache=machine_cache,
             verbosity=verbosity
         )
     end
@@ -220,8 +210,7 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     machines = Vector{Machine}(undef, nfolds)
     # Fit Conditional Distribution on each training split using MLJ
     fit_sample_split_machines!(machines, acceleration, estimator, estimand, relevant_dataset;
-        machine_cache=machine_cache, 
-        prevalence_weights=prevalence_weights,
+        machine_cache=machine_cache,
         verbosity=verbosity-1
         )
     # Build estimate
@@ -397,7 +386,7 @@ function (estimator::EmpiricalMarginalDistributionEstimator)(
     estimand::MarginalDistribution, dataset;
     cache=Dict(), 
     verbosity=1, 
-    machine_cache=false, 
+    machine_cache=false,
     acceleration=CPU1()
     )
     relevant_dataset = training_rows(nomissing(dataset, (estimand.variable,)), estimator.train_validation_indices)

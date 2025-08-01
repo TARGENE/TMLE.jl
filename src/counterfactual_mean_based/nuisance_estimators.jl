@@ -80,23 +80,23 @@ end
 @auto_hash_equals struct CMRelevantFactorsEstimator <: Estimator
     train_validation_indices
     models::Dict
-    prevalence::Union{Nothing, Float64}
+    prevalence_weights::Union{Nothing, Vector{Float64}}
 end
 
-CMRelevantFactorsEstimator(;models, train_validation_indices=nothing, prevalence=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models, prevalence)
+CMRelevantFactorsEstimator(;models, train_validation_indices=nothing, prevalence_weights=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models, prevalence_weights)
 """
 Option to maintain compatibility with the old API.
 """
-CMRelevantFactorsEstimator(train_validation_indices, models; prevalence=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models, prevalence)
+CMRelevantFactorsEstimator(train_validation_indices, models; prevalence_weights=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models, prevalence_weights)
 """
 If there is no collaborative strategy, we are in CV mode and `train_validation_indices` are used to build the initial estimator.
 """
-CMRelevantFactorsEstimator(collaborative_strategy::Nothing; models, train_validation_indices=nothing, prevalence=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models, prevalence)
+CMRelevantFactorsEstimator(collaborative_strategy::Nothing; models, train_validation_indices=nothing, prevalence_weights=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models, prevalence_weights)
 
 """
 If there is a collaborative strategy, `train_validation_indices` are ignored to build the initial estimator.
 """
-CMRelevantFactorsEstimator(collaborative_strategy; models, train_validation_indices=nothing, prevalence=nothing) = CMRelevantFactorsEstimator(nothing, models, prevalence)
+CMRelevantFactorsEstimator(collaborative_strategy; models, train_validation_indices=nothing, prevalence_weights=nothing) = CMRelevantFactorsEstimator(nothing, models, prevalence_weights)
 
 function acquire_model(models, key, dataset, is_propensity_score)
     # If the model is in models return it
@@ -248,8 +248,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
     outcome_mean = estimand.outcome_mean
     propensity_score = estimand.propensity_score
     train_validation_indices = estimator.train_validation_indices
-    # Bug here for CMBasedCTMLE prevalence_weights are generated from the whole data
-    prevalence_weights = get_weights_from_prevalence(estimator.prevalence, dataset[!, outcome_mean.outcome])
+    prevalence_weights = estimator.prevalence_weights
     
     # Estimate propensity score and outcome mean
     propensity_score_estimate, outcome_mean_estimate = estimate_propensity_score_and_outcome_mean(

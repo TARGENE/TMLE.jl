@@ -108,13 +108,14 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices)
+    prevalence_weights = get_weights_from_prevalence(tmle.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])
+
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 
         models=tmle.models,
-        prevalence=tmle.prevalence
+        prevalence_weights=prevalence_weights
     )
     verbosity >= 1 && @info "Estimating nuisance parameters."
-    verbosity >= 1 && !isnothing(tmle.prevalence) && @info "With prevalence weights."
     
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
@@ -122,11 +123,11 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         machine_cache=tmle.machine_cache,
         acceleration=acceleration
     )
+    # Get prevalence weights may be different from the initial factors estimate depending on the strategy
+    prevalence_weights = get_weights_from_prevalence(tmle.prevalence, nomissing_dataset[!, relevant_factors.outcome_mean.outcome])
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)
     ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
-    # Get prevalence weights for CCW-TMLE step 
-    prevalence_weights = get_weights_from_prevalence(tmle.prevalence, nomissing_dataset[!, relevant_factors.outcome_mean.outcome])
     # Fluctuation initial factors
     targeted_factors_estimator = get_targeted_estimator(
         Ψ, 
