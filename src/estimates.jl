@@ -120,44 +120,6 @@ function MLJBase.predict(estimate::SampleSplitMLConditionalDistribution, dataset
 end
 
 #####################################################################
-###             WeightedEmpiricalDistributionEstimate             ###
-#####################################################################
-
-"""
-Holds the case‑control‑weighted empirical distribution estimate for a MarginalDistribution estimand.
-"""
-struct WeightedEmpiricalDistributionEstimate{T} <: Estimate
-  estimand::MarginalDistribution   
-  values::Vector{T}                
-  weights::Vector{Float64}         # normalized to sum to 1
-end
-
-function string_repr(est::WeightedEmpiricalDistributionEstimate)
-  n = length(est.values)
-  return "P̂ₙ(" * string(est.estimand.variable) * ") empirical, " *
-         string(n) * " points, case‑control weights"
-end
-
-#####################################################################
-###       SampleSplitWeightedEmpiricalDistributionEstimate        ###
-#####################################################################
-"""
-Holds a Sample Split Machine Learning estimate for a Weighted Marginal Distribution.
-Each estimate in `estiamtes` contains the emprical distribution of a variable corresponding 
-to a different training fold of the data.
-"""
-struct SampleSplitWeightedEmpiricalDistributionEstimate <: Estimate
-    estimand::MarginalDistribution
-    train_validation_indices
-    estimates::Vector{WeightedEmpiricalDistributionEstimate}
-end
-
-string_repr(estimate::SampleSplitWeightedEmpiricalDistributionEstimate) = 
-    string("P̂(", estimate.estimand.value, " , ", 
-    ")"
-)
-
-#####################################################################
 ###               ConditionalDistributionEstimate                 ###
 #####################################################################
 

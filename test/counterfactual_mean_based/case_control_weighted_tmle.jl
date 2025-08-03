@@ -107,7 +107,7 @@ end
 
     # CCW-TMLE confidence interval should cover the truth
     lb, ub = confint(significance_test(ccw_result))
-    @test lb - 1e-3 < true_rd < ub + 1e-3
+    @test lb < true_rd < ub
 end
 
 end

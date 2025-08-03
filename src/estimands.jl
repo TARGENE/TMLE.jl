@@ -89,28 +89,6 @@ string_repr(estimand::ConditionalDistribution) =
 variables(estimand::ConditionalDistribution) = (estimand.outcome, estimand.parents...)
 
 #####################################################################
-###                   Marginal Distribution                    ###
-#####################################################################
-"""
-Defines a Marginal Distribution estimand `variable → P(variable)`.
-This implementation is only for the empirical distribution of a single variable.
-It is not estimated.
-"""
-@auto_hash_equals struct MarginalDistribution <: Estimand
-    variable::Symbol
-    function MarginalDistribution(variable)
-        variable = Symbol(variable)
-        return new(variable)
-    end
-end
-
-string_repr(estimand::MarginalDistribution) = 
-    string("P₀(", estimand.variable, ")")
-
-# Which columns of the dataset this estimand cares about:
-variables(estimand::MarginalDistribution) = (estimand.variable,)
-
-#####################################################################
 ###                        ExpectedValue                          ###
 #####################################################################
 

@@ -64,21 +64,26 @@ Calculates weights for a case-control study to use in the fitting of nuisance fu
 - `prevalence`: The prevalence of the outcome in the population.
 - `y`: The outcome variable across observations, which should be binary vector.`
 """
-function get_weights_from_prevalence(prevalence::Union{Nothing, Float64}, y::AbstractVector)
-    if !isnothing(prevalence)
-        nC = sum(y .== 1)
-        nCo = sum(y .== 0)
-        weights = Vector{Float64}(undef, length(y))
-        
-        for i in eachindex(y)
-            weights[i] = y[i] == 1 ? prevalence : (1 - prevalence) / (nCo / nC)
-        end
-        return weights
-    else
-        return nothing
-    end
+function get_weights_from_prevalence(prevalence::Float64, y::AbstractVector)
+    nC = sum(y .== 1)
+    nCo = sum(y .== 0)
+    weights = Vector{Float64}(undef, length(y))
     
+    for i in eachindex(y)
+        weights[i] = y[i] == 1 ? prevalence : (1 - prevalence) / (nCo / nC)
+    end
+    return weights
 end
+
+get_weights_from_prevalence(prevalence::Nothing, y) = nothing
+
+get_subset_prevalence_weights(weights::Nothing, train_indices::Nothing) = nothing
+
+get_subset_prevalence_weights(weights::Nothing, train_indices) = nothing
+
+get_subset_prevalence_weights(weights, train_indices::Nothing) = weights
+
+get_subset_prevalence_weights(weights, train_indices) = weights[train_indices]
 
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
     cache=Dict(), 
@@ -98,8 +103,8 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
     X = TMLE.selectcols(relevant_dataset, estimand.parents)
     y = relevant_dataset[!, estimand.outcome]
     # If a prevalence weights are provided, we use it to fit the model
-    weights = !isnothing(estimator.train_validation_indices) && !isnothing(estimator.prevalence_weights) ? 
-        estimator.prevalence_weights[estimator.train_validation_indices[1]] : estimator.prevalence_weights
+    train_indices = isnothing(estimator.train_validation_indices) ? nothing : estimator.train_validation_indices[1]
+    weights = get_subset_prevalence_weights(estimator.prevalence_weights, train_indices)
     
     mach = fit_mlj_model(estimator.model, X, y; 
         parents=estimand.parents, 
@@ -148,7 +153,7 @@ function update_sample_split_machines_with_fold!(machines::Vector{Machine},
     Xtrain = selectcols(train_dataset, estimand.parents)
     ytrain = train_dataset[!, estimand.outcome]
     
-    weights = isnothing(estimator.prevalence_weights) ? nothing : selectrows(estimator.prevalence_weights, train_indices)
+    weights = get_subset_prevalence_weights(estimator.prevalence_weights, train_indices)
     machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
         parents=estimand.parents, 
         cache=machine_cache,
@@ -368,97 +373,4 @@ end
 function covariance_matrix(estimates...)
     X = hcat([r.IC for r in estimates]...)
     return cov(X, dims=1, corrected=true)
-end
-
-#####################################################################
-###            EmpiricalMarginalDistributionEstimator             ###
-#####################################################################
-@auto_hash_equals struct EmpiricalMarginalDistributionEstimator <: Estimator
-  variable::Symbol
-  train_validation_indices
-  prevalence_weights::Union{Nothing,Vector{Float64}}
-end
-
-MarginalDistributionEstimator(variable::Symbol; train_validation_indices=nothing, prevalence_weights=nothing) = 
-    EmpiricalMarginalDistributionEstimator(variable, train_validation_indices, prevalence_weights)
-
-function (estimator::EmpiricalMarginalDistributionEstimator)(
-    estimand::MarginalDistribution, dataset;
-    cache=Dict(), 
-    verbosity=1, 
-    machine_cache=false,
-    acceleration=CPU1()
-    )
-    relevant_dataset = training_rows(nomissing(dataset, (estimand.variable,)), estimator.train_validation_indices)
-    W = collect(relevant_dataset[!, estimand.variable])
-    all_idxs = collect(1:nrow(dataset))
-    nonmiss_idxs = filter(i -> !ismissing(dataset[i, estimand.variable]), all_idxs)
-    train_idxs = estimator.train_validation_indices === nothing ?
-                 nonmiss_idxs :
-                 intersect(nonmiss_idxs, estimator.train_validation_indices[1])
-    raw_weights = isnothing(estimator.prevalence_weights) ? ones(length(W)) : estimator.prevalence_weights[train_idxs]
-    w   = raw_weights ./ sum(raw_weights)
-    return WeightedEmpiricalDistributionEstimate(estimand, W, w)
-end
-
-#####################################################################
-###        SampleSplitEmpiricalMarginalDistributionEstimator      ###
-#####################################################################
-
-@auto_hash_equals struct SampleSplitEmpiricalMarginalDistributionEstimator <: Estimator
-  variable::Symbol
-  train_validation_indices
-  prevalence_weights::Union{Nothing,Vector{Float64}}
-end
-
-MarginalDistributionEstimator(model, train_validation_indices::Union{Nothing,Tuple}; prevalence_weights=nothing) =
-    EmpiricalMarginalDistributionEstimator(model, train_validation_indices, prevalence_weights)
-
-MarginalDistributionEstimator(model, train_validation_indices::AbstractVector; prevalence_weights=nothing) =
-    SampleSplitEmpiricalMarginalDistributionEstimator(model, train_validation_indices, prevalence_weights)
-
-SampleSplitEmpiricalMarginalDistributionEstimator(variable, train_validation_indices; prevalence_weights=nothing) =
-    SampleSplitEmpiricalMarginalDistributionEstimator(variable, train_validation_indices, prevalence_weights)
-
-function (estimator::SampleSplitEmpiricalMarginalDistributionEstimator)(
-    estimand::MarginalDistribution, dataset;
-    cache=Dict(),
-    verbosity=1,
-    machine_cache=false,
-    acceleration=CPU1()
-    )
-
-    estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
-    estimate !== nothing && return estimate
-
-    verbosity > 0 && @info("Estimating marginal distribution for", string_repr(estimand))
-
-    relevant_dataset = nomissing(dataset, (estimand.variable,))
-
-    nfolds = size(estimator.train_validation_indices, 1)
-    estimates = Vector{WeightedEmpiricalDistributionEstimate}(undef, nfolds)
-
-    for fold_id in 1:nfolds
-        train_idx, _ = estimator.train_validation_indices[fold_id]
-        w_train    = selectrows(relevant_dataset, train_idx)
-
-        W = collect(w_train[!, estimand.variable])
-
-        raw_weights = isnothing(estimator.prevalence_weights) ? 
-              ones(length(W)) : 
-              selectrows(estimator.prevalence_weights, train_idx)
-
-        w = raw_weights ./ sum(raw_weights)
-
-        estimates[fold_id] = WeightedEmpiricalDistributionEstimate(estimand, W, w)
-    end
-
-    estimate = SampleSplitWeightedEmpiricalDistributionEstimate(
-        estimand,
-        estimator.train_validation_indices,
-        estimates
-    )
-
-    update_cache!(cache, estimand, estimator, estimate)
-    return estimate
 end

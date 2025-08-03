@@ -263,30 +263,9 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
         machine_cache=machine_cache,
         prevalence_weights=prevalence_weights
     )
-    # If the prevalence is provided, estimate the marginal distribution of the covariates
-    if estimand.marginal_w !== nothing 
-        marginals = []
-        for w in estimand.marginal_w
-            marg_est = MarginalDistributionEstimator(
-                w.variable,
-                train_validation_indices;
-                prevalence_weights = prevalence_weights
-            )
-            push!(marginals, marg_est(
-                w,
-                dataset;
-                cache         = cache,
-                verbosity     = verbosity,
-                machine_cache = machine_cache,
-                acceleration  = acceleration
-            ))
-        end
-    else
-        marginals = nothing
-    end
     
     # Build estimate
-    estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate, marginals)
+    estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate)
     # Update cache
     update_cache!(cache, estimand, estimator, estimate)
 
@@ -317,8 +296,9 @@ function (estimator::CMBasedTMLE)(estimand, dataset;
     )
     fluctuation_model = estimator.fluctuation
     outcome_mean = fluctuation_model.initial_factors.outcome_mean.estimand
+
     # Fluctuate outcome model 
-    fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model, estimator.train_validation_indices, estimator.prevalence_weights)
+    fluctuated_estimator = MLConditionalDistributionEstimator(fluctuation_model, estimator.train_validation_indices)
     fluctuated_outcome_mean = try_fit_ml_estimator(fluctuated_estimator, outcome_mean, dataset;
         error_fn=outcome_mean_fluctuation_fit_error_msg,
         cache=cache,
@@ -327,10 +307,9 @@ function (estimator::CMBasedTMLE)(estimand, dataset;
     )
     # Do not fluctuate propensity score
     fluctuated_propensity_score = fluctuation_model.initial_factors.propensity_score
-    # Do not fluctuate marginal distribution of W 
-    marginal_w = fluctuation_model.initial_factors.marginal_w
+    
     # Build estimate
-    estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score, marginal_w)
+    estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score)
 
     return estimate
 end

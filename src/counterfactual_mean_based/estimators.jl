@@ -152,13 +152,8 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     cache[:targeted_factors] = targeted_factors_estimate
     estimation_report = report(targeted_factors_estimate)
 
-    if tmle.prevalence === nothing
-        IC = last(estimation_report.gradients)
-        Ψ̂ = last(estimation_report.estimates)
-    else
-        IC = ccw_IC(last(estimation_report.gradients), nomissing_dataset, relevant_factors, tmle.prevalence)
-        Ψ̂ = ccw_plugin_estimate(Ψ, targeted_factors_estimate, nomissing_dataset)   
-    end
+    IC = last(estimation_report.gradients)
+    Ψ̂ = last(estimation_report.estimates)
     σ̂ = std(IC)
     n = size(IC, 1)
     verbosity >= 1 && @info "Done."

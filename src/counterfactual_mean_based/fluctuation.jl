@@ -56,8 +56,10 @@ function initialize_observed_cache(model, X, y)
         ps_lowerbound=model.ps_lowerbound,
         weighted_fluctuation=model.weighted
     )
-    prevalence_weights = isnothing(model.prevalence_weights) ? ones(length(w)) : model.prevalence_weights
-    w .*= prevalence_weights
+    if !isnothing(model.prevalence_weights)
+        w .*= model.prevalence_weights
+        w .*= length(w) / sum(w)
+    end
     ŷ = MLJBase.predict(Q⁰, X)
     return Dict{Symbol, Any}(:H => H, :w => w, :ŷ => ŷ, :y => float(y))
 end
@@ -128,7 +130,8 @@ function compute_counterfactual_aggregate!(counterfactual_cache, Q)
         Xfluct = fluctuation_input(ct_covariates, ct_ŷ)
         new_ct_ŷ = MLJBase.predict(Q, Xfluct)
         # Update the counterfactual aggregate for this step (if prevalence was not specified weights == 1)
-        ct_aggregate .+= sign .* (prevalence_weights .* expected_value(new_ct_ŷ))
+        w̄ = sum(prevalence_weights) == length(prevalence_weights) ? prevalence_weights : prevalence_weights .* length(prevalence_weights) / sum(prevalence_weights)
+        ct_aggregate .+= sign .* (w̄ .* expected_value(new_ct_ŷ))
         # Update the cache with the new counterfactual predictions
         counterfactual_cache.predictions[idx] = new_ct_ŷ
     end

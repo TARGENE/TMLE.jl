@@ -263,66 +263,6 @@ end
 
 end
 
-@testset "Test EmpiricalMarginalDistributionEstimator: unweighted and prevalence weights" begin
-    n = 100
-    w = vcat(fill(1, 20), fill(0, 80))
-    dataset = DataFrame(W = w)
-    estimand = TMLE.MarginalDistribution(:W)
-    # Unweighted
-    estimator = TMLE.EmpiricalMarginalDistributionEstimator(:W, nothing, nothing)
-    estimate = estimator(estimand, dataset)
-    @test estimate isa TMLE.WeightedEmpiricalDistributionEstimate
-    @test isapprox(sum(estimate.weights), 1.0; atol=1e-8)
-    @test all(estimate.weights .>= 0)
-    # Should match empirical proportions
-    @test isapprox(sum(estimate.weights[dataset.W .== 1]), 0.2; atol=1e-2)
-    @test isapprox(sum(estimate.weights[dataset.W .== 0]), 0.8; atol=1e-2)
-
-    # With prevalence weights
-    prevalence = 0.5
-    weights = TMLE.get_weights_from_prevalence(prevalence, dataset.W)
-    estimator = TMLE.EmpiricalMarginalDistributionEstimator(:W, nothing, weights)
-    estimate = estimator(estimand, dataset)
-    @test isapprox(sum(estimate.weights), 1.0; atol=1e-8)
-    # Should match target prevalence
-    @test isapprox(sum(estimate.weights[dataset.W .== 1]), 0.5; atol=1e-2)
-    @test isapprox(sum(estimate.weights[dataset.W .== 0]), 0.5; atol=1e-2)
-end
-
-@testset "Test SampleSplitEmpiricalMarginalDistributionEstimator: unweighted and prevalence weights" begin
-    n = 100
-    w = vcat(fill(1, 20), fill(0, 80))
-    dataset = DataFrame(W = w)
-    nfolds = 3
-    train_validation_indices = Tuple(MLJBase.train_test_pairs(StratifiedCV(nfolds=nfolds), 1:n, dataset, dataset.W))
-    estimand = TMLE.MarginalDistribution(:W)
-    # Unweighted
-    estimator = TMLE.SampleSplitEmpiricalMarginalDistributionEstimator(:W, train_validation_indices)
-    estimate = estimator(estimand, dataset)
-    @test estimate isa TMLE.SampleSplitWeightedEmpiricalDistributionEstimate
-    @test length(estimate.estimates) == nfolds
-    for est in estimate.estimates
-        @test isapprox(sum(est.weights), 1.0; atol=1e-8)
-        @test all(est.weights .>= 0)
-    end
-
-    # With prevalence weights
-    prevalence = 0.5
-    weights = TMLE.get_weights_from_prevalence(prevalence, dataset.W)
-    estimator = TMLE.SampleSplitEmpiricalMarginalDistributionEstimator(:W, train_validation_indices, weights)
-    estimate = estimator(estimand, dataset)
-    @test length(estimate.estimates) == nfolds
-    for fold in 1:nfolds
-        train_idx, _ = train_validation_indices[fold]
-        fold_w = dataset.W[train_idx]
-        fold_weights = estimate.estimates[fold].weights
-        @test isapprox(sum(fold_weights), 1.0; atol=1e-8)
-        # Should match target prevalence within fold
-        @test isapprox(sum(fold_weights[fold_w .== 1]), 0.5; atol=1e-1)
-        @test isapprox(sum(fold_weights[fold_w .== 0]), 0.5; atol=1e-1)
-    end
-end
-
 end
 
 true

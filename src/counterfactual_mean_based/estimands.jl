@@ -9,54 +9,21 @@ Counterfactual Mean composite estimand (see `StatisticalCMCompositeEstimand`).
 @auto_hash_equals struct CMRelevantFactors <: Estimand
     outcome_mean::ConditionalDistribution
     propensity_score::Tuple{Vararg{ConditionalDistribution}}
-    marginal_w::Union{Tuple{Vararg{MarginalDistribution}}, Nothing}
 end
 
-CMRelevantFactors(outcome_mean, propensity_score::Tuple{Vararg{ConditionalDistribution}}; marginal_w=nothing) = 
-    CMRelevantFactors(outcome_mean, propensity_score, marginal_w)
+CMRelevantFactors(outcome_mean, propensity_score::ConditionalDistribution) = 
+    CMRelevantFactors(outcome_mean, (propensity_score,))
 
-CMRelevantFactors(outcome_mean, propensity_score::Tuple{Vararg{ConditionalDistribution}}, marginal_w::MarginalDistribution) = 
-    CMRelevantFactors(outcome_mean, propensity_score, (marginal_w,))
+CMRelevantFactors(;outcome_mean, propensity_score) = 
+    CMRelevantFactors(outcome_mean, propensity_score)
 
-CMRelevantFactors(outcome_mean, propensity_score::ConditionalDistribution; marginal_w=nothing) = 
-    CMRelevantFactors(outcome_mean, (propensity_score,), marginal_w)
+string_repr(estimand::CMRelevantFactors) = 
+    string("Relevant Factors: \n- ",
+        string_repr(estimand.outcome_mean),"\n- ", 
+        join((string_repr(f) for f in estimand.propensity_score), "\n- "))
 
-CMRelevantFactors(outcome_mean, propensity_score::ConditionalDistribution, marginal_w::MarginalDistribution) = 
-    CMRelevantFactors(outcome_mean, (propensity_score,), (marginal_w,))
-
-function CMRelevantFactors(;outcome_mean, propensity_score, marginal_w=nothing) 
-    if propensity_score isa ConditionalDistribution
-        if marginal_w isa MarginalDistribution
-            return CMRelevantFactors(outcome_mean, (propensity_score,), (marginal_w,))
-        else
-            return CMRelevantFactors(outcome_mean, (propensity_score,), marginal_w)
-        end
-    else
-        if marginal_w isa MarginalDistribution
-            return CMRelevantFactors(outcome_mean, propensity_score, (marginal_w,))
-        else
-            return CMRelevantFactors(outcome_mean, propensity_score, marginal_w)
-        end
-    end
-end
-
-string_repr(est::CMRelevantFactors) = string(
-  "Relevant Factors:\n- ",
-  join(
-    vcat(
-      [string_repr(est.outcome_mean)],
-      map(string_repr, est.propensity_score),
-      est.marginal_w === nothing ? String[] : [map(string_repr, est.marginal_w)]
-    ),
-    "\n- "
-  )
-)
-
-variables(estimand::CMRelevantFactors) = Tuple(union(
-    variables(estimand.outcome_mean),
-    (variables(q) for q in estimand.propensity_score)...,
-    (variables(q) for q in (estimand.marginal_w === nothing ? () : estimand.marginal_w))...
-))
+variables(estimand::CMRelevantFactors) = 
+    Tuple(union(variables(estimand.outcome_mean), (variables(est) for est in estimand.propensity_score)...))
 
 #####################################################################
 ###                         Functionals                           ###
@@ -168,16 +135,10 @@ end
 
 propensity_score_key(Ψ::StatisticalCMCompositeEstimand) = Tuple(variables(x) for x ∈ propensity_score(Ψ))
 
-function W_marginals(Ψ::StatisticalCMCompositeEstimand)
-    Ψconfounders = Iterators.flatten(values(TMLE.confounders(Ψ)))
-    return Tuple(MarginalDistribution(c) for c in Ψconfounders)
-end
-
 function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand; collaborative_strategy=nothing)
     outcome_model = outcome_mean(Ψ)
     treatment_factors = propensity_score(Ψ, collaborative_strategy)
-    marginal_confounders = W_marginals(Ψ)
-    return CMRelevantFactors(outcome_model, treatment_factors, marginal_confounders)
+    return CMRelevantFactors(outcome_model, treatment_factors)
 end
 
 n_uniques_nuisance_functions(Ψ::StatisticalCMCompositeEstimand) = length(propensity_score(Ψ)) + 1
