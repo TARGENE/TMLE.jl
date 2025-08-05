@@ -47,6 +47,8 @@ For the observed data, we store:
 - The weights
 - The observed predictions
 - The observed outcome in floating point representation
+
+If prevalence weights are provided, they are applied to the weights and normalized.
 """
 function initialize_observed_cache(model, X, y)
     Q⁰ = model.initial_factors.outcome_mean

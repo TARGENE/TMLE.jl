@@ -193,6 +193,18 @@ adapt_cor_strategy = AdaptiveCorrelationStrategy(patience=10)
 adapt_cor_ctmle = Tmle(collaborative_strategy=adapt_cor_strategy)
 ```
 
+## CCW-TMLE
+Case-Control Weighted TMLE (CCW-TMLE) is an estimation strategy for case-control study designs that uses known information about the population from which the observed data was sampled from to remove sampling bias from the resulting estimate. For more information about this method see [here](https://biostats.bepress.com/ucbbiostat/paper235/) and the theory [here](https://doi.org/10.2202/1557-4679.1114). Provided the population prevalence of the cases in an outcome is known, a simple weighting strategy can be applied to the TMLE to target the true parameter of the population rather than a parameter specific to the observed population. Currently, one can implement this information by specifying the `prevalence` parameter in the TMLE constructor:
+
+```@example estimation
+ccw_tmle = Tmle(prevalence=0.05)
+```
+
+Important considerations for this strategy are as follows:
+- CCW-TMLE can only be applied to binary outcomes as the prevalence parameter marks the frequency of a cases in a population composed of cases and controls.
+- It is apppropriate if the specified prevalence parameter is an estimate of the population prevalence.
+- CCW-TMLE is implemented for weighted TMLE (wTMLE) and canonical TMLE but not C-TMLE.
+
 ## Using the Cache
 
 TMLE and OSE are expensive procedures, it may therefore be useful to store some information for further reuse. This is the purpose of the `cache` object, which is produced as a byproduct of the estimation process. 
