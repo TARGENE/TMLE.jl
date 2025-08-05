@@ -79,7 +79,7 @@ function initialize_counterfactual_cache(model, X)
     Q⁰ = model.initial_factors.outcome_mean
     G⁰ = model.initial_factors.propensity_score
     Ψ = model.Ψ
-    counterfactual_cache = (predictions=[], signs=[], covariates=[], weights = [], prevalence_weights=[])
+    counterfactual_cache = (predictions=[], signs=[], covariates=[], weights = [])
     Ttemplate = selectcols(X, treatments(Ψ))
     
     for (vals, sign) in indicator_fns(Ψ)
@@ -109,29 +109,22 @@ function initialize_counterfactual_cache(model, X)
             counterfactual_cache.weights, 
             w_ct
         )
-        push!(
-            counterfactual_cache.prevalence_weights, 
-            isnothing(model.prevalence_weights) ? ones(length(w_ct)) : model.prevalence_weights
-        )
     end
     return counterfactual_cache
 end
 
 function compute_counterfactual_aggregate!(counterfactual_cache, Q)
     ct_aggregate = zeros(length(first(counterfactual_cache.predictions)))
-    for (idx, (ct_ŷ, sign, ct_covariates, weights, prevalence_weights)) in enumerate(zip(
+    for (idx, (ct_ŷ, sign, ct_covariates, weights)) in enumerate(zip(
             counterfactual_cache.predictions, 
             counterfactual_cache.signs, 
             counterfactual_cache.covariates,
-            counterfactual_cache.weights,
-            counterfactual_cache.prevalence_weights
+            counterfactual_cache.weights
         ))
         # Compute new counterfactual predictions
         Xfluct = fluctuation_input(ct_covariates, ct_ŷ)
         new_ct_ŷ = MLJBase.predict(Q, Xfluct)
-        # Update the counterfactual aggregate for this step (if prevalence was not specified weights == 1)
-        w̄ = sum(prevalence_weights) == length(prevalence_weights) ? prevalence_weights : prevalence_weights .* length(prevalence_weights) / sum(prevalence_weights)
-        ct_aggregate .+= sign .* (w̄ .* expected_value(new_ct_ŷ))
+        ct_aggregate .+= sign .* expected_value(new_ct_ŷ)
         # Update the cache with the new counterfactual predictions
         counterfactual_cache.predictions[idx] = new_ct_ŷ
     end
