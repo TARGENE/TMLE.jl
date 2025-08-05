@@ -125,7 +125,11 @@ default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(
     (key => with_encoder(val) for (key, val) in kwargs)...
 )
 
-MLJBase.supports_weights(::Type{<:ProbabilisticPipeline}) = true
+supervised_learner_supports_weights(learner) = 
+    MLJBase.supports_weights(learner)
+
+supervised_learner_supports_weights(learner::MLJBase.SupervisedPipeline) =
+    MLJBase.supports_weights(MLJBase.supervised_component(learner))
 
 is_binary(dataset, columnname) = Set(skipmissing(dataset[!, columnname])) == Set([0, 1])
 

@@ -44,7 +44,7 @@ Fits a MLJ model to the data X and y, using the specified model.
 function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothing, verbosity=1,)
     model = actual_model(model, parents, y)
 
-    if !isnothing(weights) && MLJBase.supports_weights(model)
+    if !isnothing(weights) && supervised_learner_supports_weights(model)
         mach = machine(model, X, y, weights; cache=cache)
     else
         if !isnothing(weights)

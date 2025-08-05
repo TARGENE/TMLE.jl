@@ -175,6 +175,23 @@ end
     @test selected_cols == DataFrame(INTERCEPT=[1, 1, 1, 1, 1, 1, 1, 1])
 end
 
+@testset "default_models and supervised_learner_supports_weights" begin
+    models = default_models()
+    # Check that each value is a ProbabilisticPipeline (from with_encoder)
+    @test all(val -> occursin("Pipeline", string(typeof(val))), values(models))
+
+    # Check that the supervised_learner_supports_weights works for a base learner
+    @test TMLE.supervised_learner_supports_weights(LogisticClassifier()) == MLJBase.supports_weights(LogisticClassifier())
+    # Check that the supervised_learner_supports_weights returns the same result for a Pipeline with an encoder
+    @test TMLE.supervised_learner_supports_weights(LogisticClassifier()) == TMLE.supervised_learner_supports_weights(with_encoder(LogisticClassifier()))
+
+    # Check that the supervised_learner_supports_weights works for Pipelines in default_models
+    for pipe in values(models)
+        @test TMLE.supervised_learner_supports_weights(pipe) == MLJBase.supports_weights(MLJBase.supervised_component(pipe))
+    end 
+
+end
+
 end;
 
 true
