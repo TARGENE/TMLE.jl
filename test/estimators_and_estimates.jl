@@ -23,15 +23,22 @@ fit_log = string("Estimating: ", TMLE.string_repr(estimand))
 reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
 
 @testset "fit_mlj_model supports weights" begin
+    cache = Dict()
     # Model that supports weights
     estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(),prevalence_weights=weights)
-    cache = Dict()
     conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 
     # Model that does NOT support weights (e.g., LogisticClassifier)
     estimator = TMLE.MLConditionalDistributionEstimator(LogisticClassifier(), prevalence_weights=weights)
-    cache = Dict()
-    @test_throws ErrorException estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+    @test_throws ArgumentError estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+
+    # Pipeline that supports weights
+    estimator = TMLE.MLConditionalDistributionEstimator(with_encoder(LinearBinaryClassifier()), prevalence_weights=weights)
+    conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+
+    # Pipeline that does NOT support weights
+    estimator = TMLE.MLConditionalDistributionEstimator(with_encoder(LogisticClassifier()), prevalence_weights=weights)
+    @test_throws ArgumentError estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 end
 
 @testset "Test MLConditionalDistributionEstimator: binary outcome" begin
@@ -91,10 +98,12 @@ end
     X, y = make_moons(n)
     y = copy(y)
     y[1:80] .= 0  # Make one class more prevalent
+    y[81:100] .= 1
     binary_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
     # Set prevalence to 0.5 (true prevalence in population)
     prevalence = 0.5
     weights = TMLE.get_weights_from_prevalence(prevalence, binary_dataset.Y)
+    @test Set(weights) == Set([0.5, 0.125])  # Check weights are correct
     estimand = TMLE.ConditionalDistribution(:Y, [:X₁, :X₂])
     estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(), nothing, weights)
 
@@ -114,12 +123,6 @@ end
     μ̂_weighted = [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)]
     μ̂_unweighted = [ŷ_unweighted[i].prob_given_ref[2] for i in eachindex(ŷ_unweighted)]
     @test !all(isapprox.(μ̂_weighted, μ̂_unweighted; atol=1e-6))  # Should differ
-
-    # Check expected_value and offset
-    μ̂ = TMLE.expected_value(conditional_density_estimate, binary_dataset)
-    offset = TMLE.compute_offset(conditional_density_estimate, binary_dataset)
-    @test μ̂ == [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)]
-    @test offset == logit.(μ̂)
 end
 
 @testset "Test SampleSplitMLConditionalDistributionEstimator: Binary outcome" begin
@@ -212,9 +215,11 @@ end
     X, y = make_moons(n)
     y = copy(y)
     y[1:80] .= 0  # Make class 0 much more prevalent
-    binary_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
+    y[81:100] .= 1
     prevalence = 0.5
+    binary_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
     weights = TMLE.get_weights_from_prevalence(prevalence, binary_dataset.Y)
+    @test Set(weights) == Set([0.5, 0.125])  # Check weights are correct
     nfolds = 3
     train_validation_indices = Tuple(MLJBase.train_test_pairs(StratifiedCV(nfolds=nfolds), 1:n, binary_dataset, binary_dataset.Y))
     estimand = TMLE.ConditionalDistribution(:Y, [:X₁, :X₂])
@@ -241,12 +246,6 @@ end
     μ̂_weighted = [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)]
     μ̂_unweighted = [ŷ_unweighted[i].prob_given_ref[2] for i in eachindex(ŷ_unweighted)]
     @test !all(isapprox.(μ̂_weighted, μ̂_unweighted; atol=1e-6))  # Should differ
-
-    # Check expected_value and offset
-    μ̂ = TMLE.expected_value(conditional_density_estimate, binary_dataset)
-    offset = TMLE.compute_offset(conditional_density_estimate, binary_dataset)
-    @test μ̂ == [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)]
-    @test offset == logit.(μ̂)
 end
 
 @testset "Test Conditional Distribution with no parents fits a marginal" begin

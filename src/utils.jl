@@ -209,11 +209,6 @@ Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
 with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)
 
-function is_binary_column(df::DataFrame, col::Symbol)
-    vals = unique(skipmissing(df[!, col]))
-    return length(vals) == 2 && all(x -> x in (0, 1) || x in (true, false), vals)
-end
-
 """
     ccw_check(prevalence::Union{Nothing, Float64}, dataset, relevant_factors)
 
@@ -224,10 +219,7 @@ If the dataset is suitable, it returns the dataset with missing values dropped f
 function ccw_check(prevalence::Union{Nothing, Float64}, dataset, relevant_factors)
     if !isnothing(prevalence)
         dataset = dropmissing(dataset, relevant_factors.outcome_mean.outcome)
-        is_binary_column(dataset, relevant_factors.outcome_mean.outcome) || 
+        is_binary(dataset, relevant_factors.outcome_mean.outcome) || 
             throw(ArgumentError("Outcome column must be binary for prevalence correction (CCW-TMLE)."))
-        return dataset
-    else
-        return dataset
     end
 end

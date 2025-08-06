@@ -38,6 +38,14 @@ Tolerance defaults to `1/n_samples`
 """
 hasconverged(gradient, tol::Nothing) = hasconverged(gradient, 1/length(gradient))
 
+update_fluctuation_weights_with_prevalence!(w, prevalence_weights::Nothing) = w
+
+function update_fluctuation_weights_with_prevalence!(w, prevalence_weights)
+    w .*= prevalence_weights
+    w .*= length(w) / sum(w)
+    return w
+end
+
 """
     initialize_observed_cache(model, X, y)
 
@@ -58,10 +66,7 @@ function initialize_observed_cache(model, X, y)
         ps_lowerbound=model.ps_lowerbound,
         weighted_fluctuation=model.weighted
     )
-    if !isnothing(model.prevalence_weights)
-        w .*= model.prevalence_weights
-        w .*= length(w) / sum(w)
-    end
+    update_fluctuation_weights_with_prevalence!(w, model.prevalence_weights)
     ŷ = MLJBase.predict(Q⁰, X)
     return Dict{Symbol, Any}(:H => H, :w => w, :ŷ => ŷ, :y => float(y))
 end
@@ -81,7 +86,7 @@ function initialize_counterfactual_cache(model, X)
     Q⁰ = model.initial_factors.outcome_mean
     G⁰ = model.initial_factors.propensity_score
     Ψ = model.Ψ
-    counterfactual_cache = (predictions=[], signs=[], covariates=[], weights = [])
+    counterfactual_cache = (predictions=[], signs=[], covariates=[])
     Ttemplate = selectcols(X, treatments(Ψ))
     
     for (vals, sign) in indicator_fns(Ψ)
@@ -107,21 +112,16 @@ function initialize_counterfactual_cache(model, X)
             counterfactual_cache.covariates, 
             covariates_ct
         )
-        push!(
-            counterfactual_cache.weights, 
-            w_ct
-        )
     end
     return counterfactual_cache
 end
 
 function compute_counterfactual_aggregate!(counterfactual_cache, Q)
     ct_aggregate = zeros(length(first(counterfactual_cache.predictions)))
-    for (idx, (ct_ŷ, sign, ct_covariates, weights)) in enumerate(zip(
+    for (idx, (ct_ŷ, sign, ct_covariates)) in enumerate(zip(
             counterfactual_cache.predictions, 
             counterfactual_cache.signs, 
-            counterfactual_cache.covariates,
-            counterfactual_cache.weights
+            counterfactual_cache.covariates
         ))
         # Compute new counterfactual predictions
         Xfluct = fluctuation_input(ct_covariates, ct_ŷ)
@@ -133,17 +133,22 @@ function compute_counterfactual_aggregate!(counterfactual_cache, Q)
     return ct_aggregate
 end
 
+weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights::Nothing) = ct_aggregate
+weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights) = ct_aggregate .*= prevalence_weights .* (length(prevalence_weights) / sum(prevalence_weights))
+
 function compute_gradient_and_estimate_from_caches!(
     observed_cache, 
     counterfactual_cache, 
     Q, 
-    Xfluct
+    Xfluct,
+    prevalence_weights
     )
     # Update predictions
     observed_cache[:ŷ] = MLJBase.predict(Q, Xfluct)
     # Compute gradient
     Ey = expected_value(observed_cache[:ŷ])
     ct_aggregate = compute_counterfactual_aggregate!(counterfactual_cache, Q)
+    weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights)
     Ψ̂ = plugin_estimate(ct_aggregate)
     gradient = ∇YX(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w]) .+ ∇W(ct_aggregate, Ψ̂)
     return gradient, Ψ̂
@@ -205,7 +210,8 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
             observed_cache, 
             counterfactual_cache, 
             Q, 
-            Xfluct
+            Xfluct,
+            model.prevalence_weights
         )
         update_report!(report, Ψ̂, gradient, fitted_params(Q).coef)
         if hasconverged(gradient, model.tol)

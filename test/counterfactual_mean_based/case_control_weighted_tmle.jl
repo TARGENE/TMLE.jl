@@ -31,10 +31,17 @@ function subsample_case_control(
     end
     ix_case = shuffle(rng, cases)[1:n_case]
     ix_ctl  = shuffle(rng, controls)[1:n_ctl]
-    sub_pop = pop[vcat(ix_case, ix_ctl), :]
+    ix = vcat(ix_case, ix_ctl)
+    ix = shuffle(rng, ix)
+    sub_pop = pop[ix, :]
     sub_pop.A = categorical(sub_pop.A)
     sub_pop.Y = categorical(sub_pop.Y)
     return sub_pop
+end
+
+function pY_given_A_W(A, W; α=-3, β=log(2), γ=log(1.5))
+    ηY = α .+ β .* A .+ γ .* W
+    return 1 ./ (1 .+ exp.(-ηY))
 end
 
 @testset "CCW-TMLE reduces bias compared to standard TMLE under case-control sampling" begin
@@ -52,21 +59,11 @@ end
     pop = DataFrame(W=W, A=A, Y=Y)
     q₀ = mean(pop.Y .== 1)
 
-    # Estimate true causal effect via g-computation
-    pop2 = copy(pop)
-    pop2.A = Float64.(pop2.A)
-    pop2.W = Float64.(pop2.W)
-    pop2.Y = categorical(pop2.Y)
-    Xpop = DataFrame(A=pop2.A, W=pop2.W)
-    ypop = pop2.Y
-    logreg = LogisticClassifier()
-    mach   = machine(logreg, Xpop, ypop)
-    fit!(mach)
-    df1 = DataFrame(A = ones(Float64, Npop), W = pop2.W)
-    df0 = DataFrame(A = zeros(Float64, Npop), W = pop2.W)
-    π1 = pdf.(predict(mach, df1), 1)
-    π0 = pdf.(predict(mach, df0), 1)
-    true_rd = mean(π1 .- π0)
+    # Obtain the true risk difference (RD)
+    Y_1 = pY_given_A_W(1, pop.W)
+    Y_0 = pY_given_A_W(0, pop.W)
+    true_rd = mean(Y_1 .- Y_0)
+
 
     # Draw a severely biased case-control sample (e.g., 20% cases, 80% controls)
     n_sample = 100_000

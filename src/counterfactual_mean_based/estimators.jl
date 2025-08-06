@@ -107,11 +107,11 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
+    # Check if the dataset is suitable for CCW-TMLE if prevalence is provided
+    ccw_check(tmle.prevalence, dataset, relevant_factors)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
-    # If prevalence is provided, we must ensure that the dataset has no missing values in the outcome column
-    dataset = ccw_check(tmle.prevalence, dataset, relevant_factors)
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices)
-    prevalence_weights = get_weights_from_prevalence(tmle.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])
+    prevalence_weights = get_weights_from_prevalence(tmle.prevalence, collect(skipmissing(initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])))
 
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 

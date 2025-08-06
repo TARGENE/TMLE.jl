@@ -13,8 +13,6 @@ Base.show(io::IO, ::MIME"text/plain", estimand::Estimand) =
 
 treatments(Ψ::Estimand) = collect(keys(Ψ.treatment_values))
 
-confounders(Ψ::Estimand) = collect(values(Ψ.treatment_confounders))
-
 AbsentLevelError(treatment_name, key, val, levels) = ArgumentError(string(
     "The treatment variable ", treatment_name, "'s, '", key, "' level: '", val,
     "' in Ψ does not match any level in the dataset: ", levels))

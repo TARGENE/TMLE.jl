@@ -285,9 +285,6 @@ end
 CMBasedTMLE(fluctuation::Fluctuation; train_validation_indices=nothing, prevalence_weights=nothing) = 
     CMBasedTMLE(fluctuation, train_validation_indices, prevalence_weights)
 
-CMBasedTMLE(fluctuation::Fluctuation, train_validation_indices; prevalence_weights=nothing) = 
-    CMBasedTMLE(fluctuation, train_validation_indices, prevalence_weights)
-
 function (estimator::CMBasedTMLE)(estimand, dataset; 
     cache=Dict(), 
     verbosity=1, 
@@ -338,7 +335,7 @@ function CMBasedFoldsTMLE(Ψ, initial_factors_estimate, train_validation_indices
             weighted=weighted,
             cache=machine_cache
         )
-        CMBasedTMLE(fluctuation_model, fold_train_val_indices)
+        CMBasedTMLE(fluctuation_model, train_validation_indices=fold_train_val_indices)
     end
 
     return CMBasedFoldsTMLE(estimators, train_validation_indices)
@@ -423,11 +420,9 @@ function (estimator::CMBasedCTMLE{S})(
     models = estimator.models
 
     # Initialize the collaborative strategy
-    verbosity > 0 && @info "Initializing collaborative strategy."
     TMLE.initialise!(collaborative_strategy, Ψ)
     
     # Initialize Candidates: the fluctuation is fitted through the initial outcome mean and propensity score
-    verbosity > 0 && @info "Initializing candidates."
     targeted_η̂ₙ, loss = TMLE.get_initial_candidate(η, fluctuation_model, dataset;
         verbosity=verbosity-1,
         cache=cache,
@@ -435,7 +430,6 @@ function (estimator::CMBasedCTMLE{S})(
     )
 
     # Initialise cross-validation loss
-    verbosity > 0 && @info "Initializing CV loss."
     cv_targeted_η̂ₙ, cv_loss = TMLE.get_initial_cv_candidate(η, dataset, fluctuation_model, train_validation_indices, models;
         cache=cache,
         verbosity=verbosity-1,
@@ -444,7 +438,6 @@ function (estimator::CMBasedCTMLE{S})(
     )
 
     # Collaborative Loop to find the best candidate
-    verbosity > 0 && @info "Finding optimal candidate."
     candidate_info = (targeted_η̂ₙ=targeted_η̂ₙ, loss=loss, cv_targeted_η̂ₙ=cv_targeted_η̂ₙ, cv_loss=cv_loss, id=1)
     best_candidate = TMLE.find_optimal_candidate(
         candidate_info, 
@@ -459,7 +452,6 @@ function (estimator::CMBasedCTMLE{S})(
         machine_cache=machine_cache,
         acceleration=acceleration
     )
-    verbosity > 0 && @info "Finalizing."
     finalise!(collaborative_strategy)
 
     return best_candidate.targeted_η̂ₙ

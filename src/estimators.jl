@@ -48,7 +48,7 @@ function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothi
         mach = machine(model, X, y, weights; cache=cache)
     else
         if !isnothing(weights)
-            error("The model $(model) does not support weights.")
+            throw(ArgumentError("The model $(model) does not support weights and cannot be used with prevalence."))
         end
         mach = machine(model, X, y; cache=cache)
     end
@@ -65,25 +65,24 @@ Calculates weights for a case-control study to use in the fitting of nuisance fu
 - `y`: The outcome variable across observations, which should be binary vector.`
 """
 function get_weights_from_prevalence(prevalence::Float64, y::AbstractVector)
-    nC = sum(y .== 1)
-    nCo = sum(y .== 0)
+    J = sum(y .== 0) / sum(y .== 1)
     weights = Vector{Float64}(undef, length(y))
     
     for i in eachindex(y)
-        weights[i] = y[i] == 1 ? prevalence : (1 - prevalence) / (nCo / nC)
+        weights[i] = y[i] == 1 ? prevalence : (1 - prevalence) / J
     end
     return weights
 end
 
-get_weights_from_prevalence(prevalence::Nothing, y) = nothing
+get_weights_from_prevalence(::Nothing, y) = nothing
 
-get_subset_prevalence_weights(weights::Nothing, train_indices::Nothing) = nothing
+get_subset_prevalence_weights(::Nothing, train_indices) = nothing
 
-get_subset_prevalence_weights(weights::Nothing, train_indices) = nothing
+get_subset_prevalence_weights(weights::AbstractVector, ::Nothing) = weights
 
-get_subset_prevalence_weights(weights, train_indices::Nothing) = weights
+get_subset_prevalence_weights(weights::AbstractVector, train_indices::Tuple) = weights[train_indices[1]]
 
-get_subset_prevalence_weights(weights, train_indices) = weights[train_indices]
+get_subset_prevalence_weights(weights::AbstractVector, train_indices::AbstractVector) = weights[train_indices]
 
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
     cache=Dict(), 
@@ -103,8 +102,7 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
     X = TMLE.selectcols(relevant_dataset, estimand.parents)
     y = relevant_dataset[!, estimand.outcome]
     # If a prevalence weights are provided, we use it to fit the model
-    train_indices = isnothing(estimator.train_validation_indices) ? nothing : estimator.train_validation_indices[1]
-    weights = get_subset_prevalence_weights(estimator.prevalence_weights, train_indices)
+    weights = get_subset_prevalence_weights(estimator.prevalence_weights, estimator.train_validation_indices)
     
     mach = fit_mlj_model(estimator.model, X, y; 
         parents=estimand.parents, 
@@ -200,8 +198,7 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     cache=Dict(), 
     verbosity=1, 
     machine_cache=false,
-    acceleration=CPU1(),
-    prevalence_weights=nothing
+    acceleration=CPU1()
     )
     # Lookup in cache
     estimate = estimate_from_cache(cache, estimand, estimator; verbosity=verbosity)
