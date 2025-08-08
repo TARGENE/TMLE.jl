@@ -101,17 +101,15 @@ function Tmle(;
 end
 
 function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
-    # Check the estimand against the dataset
-    check_treatment_levels(Ψ, dataset)
+    # Check if the inputs are suitable for the specified estimand
+    check_inputs(Ψ, dataset, tmle.prevalence, tmle.collaborative_strategy)
     # Make train-validation pairs
     train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
-    # Check if the dataset is suitable for CCW-TMLE if prevalence is provided
-    ccw_check(tmle.prevalence, dataset, relevant_factors)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices)
-    prevalence_weights = get_weights_from_prevalence(tmle.prevalence, collect(skipmissing(initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])))
+    prevalence_weights = get_weights_from_prevalence(tmle.prevalence, initial_factors_dataset, relevant_factors)
 
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 

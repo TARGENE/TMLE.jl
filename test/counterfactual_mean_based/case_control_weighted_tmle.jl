@@ -59,16 +59,10 @@ end
     pop = DataFrame(W=W, A=A, Y=Y)
     q₀ = mean(pop.Y .== 1)
 
-    # Obtain the true risk difference (RD)
+    # Obtain the true risk difference (ATE)
     Y_1 = pY_given_A_W(1, pop.W)
     Y_0 = pY_given_A_W(0, pop.W)
     true_rd = mean(Y_1 .- Y_0)
-
-
-    # Draw a severely biased case-control sample (e.g., 20% cases, 80% controls)
-    n_sample = 100_000
-    cc_prev = 0.2
-    sample = subsample_case_control(pop, n_sample, cc_prev)
 
     # Define ATE estimand
     Ψ = ATE(
@@ -76,35 +70,34 @@ end
         treatment_values=(A=(case=true, control=false),),
         treatment_confounders=(A=[:W],)
     )
-
     # Standard TMLE (no prevalence correction)
     tmle_std = Tmle(weighted=false)
-    std_result, _ = tmle_std(Ψ, sample; verbosity=0)
-
     # CCW-TMLE (with true prevalence)
     tmle_ccw = Tmle(prevalence=q₀, weighted=false)
-    ccw_result, _ = tmle_ccw(Ψ, sample; verbosity=0)
 
-    # Compare bias
-    std_bias = abs(std_result.estimate - true_rd)
-    ccw_bias = abs(ccw_result.estimate - true_rd)
+    # Draw a series of biased samples of size n_sample
+    n_sample = 100_000
+    cc_prev = 0.2
+    ccw_tmle_results = Vector{TmleResult}()
+    std_tmle_results = Vector{TmleResult}()
+    for i in 1:10
+        sample = subsample_case_control(pop, n_sample, cc_prev, rng=i)
+        std_result, _ = tmle_std(Ψ, sample; verbosity=0)
+        ccw_result, _ = tmle_ccw(Ψ, sample; verbosity=0)
+        push!(std_tmle_results, std_result)
+        push!(ccw_tmle_results, ccw_result)
+        # Compare bias
+        std_bias = abs(std_result.estimate - true_rd)
+        ccw_bias = abs(ccw_result.estimate - true_rd)
+        # CCW-TMLE should be much less biased than standard TMLE
+        @test ccw_bias < std_bias / 2
+        # CCW-TMLE confidence interval should cover the truth
+        lb, ub = confint(significance_test(ccw_result))
+        @test lb < true_rd < ub
+    end
+    # See if, on average, CCW-TMLE outperforms standard TMLE
+    @test (mean(ccw_tmle_results) - true_rd) < (mean(std_tmle_results) - true_rd)
 
-    @info "True causal RD" true_rd
-    @info "Standard TMLE estimate" std_result.estimate
-    @info "CCW-TMLE estimate" ccw_result.estimate
-    @info "Standard TMLE bias" std_bias
-    @info "CCW-TMLE bias" ccw_bias
-
-    # CCW-TMLE should be much less biased than standard TMLE
-    @test ccw_bias < std_bias / 2
-
-    # Both estimates should be finite
-    @test isfinite(std_result.estimate)
-    @test isfinite(ccw_result.estimate)
-
-    # CCW-TMLE confidence interval should cover the truth
-    lb, ub = confint(significance_test(ccw_result))
-    @test lb < true_rd < ub
 end
 
 end

@@ -44,15 +44,15 @@ Fits a MLJ model to the data X and y, using the specified model.
 function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothing, verbosity=1,)
     model = actual_model(model, parents, y)
 
-    if !isnothing(weights) && supervised_learner_supports_weights(model)
-        mach = machine(model, X, y, weights; cache=cache)
+    if isnothing(weights)
+        mach = machine(model, X, y; cache=cache)
     else
-        if !isnothing(weights)
+        if supervised_learner_supports_weights(model)
+            mach = machine(model, X, y, weights; cache=cache)
+        else
             throw(ArgumentError("The model $(model) does not support weights and cannot be used with prevalence."))
         end
-        mach = machine(model, X, y; cache=cache)
     end
-
     MLJBase.fit!(mach, verbosity=verbosity)
     return mach
 end
@@ -75,6 +75,11 @@ function get_weights_from_prevalence(prevalence::Float64, y::AbstractVector)
 end
 
 get_weights_from_prevalence(::Nothing, y) = nothing
+
+get_weights_from_prevalence(prevalence::Float64, dataset, relevant_factors) =
+    get_weights_from_prevalence(prevalence, collect(skipmissing(dataset[!, relevant_factors.outcome_mean.outcome])))
+
+get_weights_from_prevalence(::Nothing, dataset, relevant_factors) = nothing
 
 get_subset_prevalence_weights(::Nothing, train_indices) = nothing
 

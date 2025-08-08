@@ -208,6 +208,17 @@ outcome_mean_fluctuation_fit_error_msg(factor) = string(
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
 with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)
+"""
+    check_inputs(Ψ, dataset, prevalence, collaborative_strategy)
+
+Evaluate if the dataset is suitable for the estimand Ψ, checking the treatment levels and if the outcome column is binary when
+prevalence is provided. If the dataset is suitable, it will not throw an error.
+"""
+function check_inputs(Ψ, dataset, prevalence, collaborative_strategy)
+    check_treatment_levels(Ψ, dataset)
+    relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=collaborative_strategy)
+    ccw_check(prevalence, dataset, relevant_factors)
+end
 
 """
     ccw_check(prevalence::Union{Nothing, Float64}, dataset, relevant_factors)
@@ -217,8 +228,7 @@ If the dataset is suitable, it returns the dataset with missing values dropped f
 
 """
 function ccw_check(prevalence::Union{Nothing, Float64}, dataset, relevant_factors)
-    if !isnothing(prevalence)
-        dataset = dropmissing(dataset, relevant_factors.outcome_mean.outcome)
+    if !isnothing(prevalence) && !isnothing(relevant_factors)
         is_binary(dataset, relevant_factors.outcome_mean.outcome) || 
             throw(ArgumentError("Outcome column must be binary for prevalence correction (CCW-TMLE)."))
     end
