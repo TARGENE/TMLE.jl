@@ -1,5 +1,7 @@
 module TestRieszNet
 
+using Pkg
+Pkg.add(url="https://github.com/olivierlabayle/RieszLearning.jl", rev="main") # This is not ideal but adding this to the Manifest leads to issues in CI since the package is not registered.
 using Test
 using TMLE
 using RieszLearning
