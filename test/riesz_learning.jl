@@ -14,7 +14,9 @@ using DataFrames
 using MLJBase
 using Suppressor
 import MLJModels
+using MLJLinearModels
 using Logging
+using Base.Threads
 
 TEST_DIR = joinpath(pkgdir(TMLE), "test")
 
@@ -186,6 +188,119 @@ end
             @test mean_bias_sorted_by_sample_size[i] >= mean_bias_sorted_by_sample_size[i+1]
         end
     end
+end
+
+
+@testset "Test Riesz in high dimension and sparse overlap" begin
+    # Expected benefit of Riesz Learning: 
+    # - very high-dimensional covariates
+    # - sparse overlap (propensity scores near 0 or 1)
+    # - multi-valued or continuous treatment where PS modeling is tricky
+
+    """
+        make_correlated_dataset(;n = 1_000, p = 50, ρ = 0.99)
+
+    Generates a dataset with `n` samples and `p` categorical treatments with `n_levels` that are highly correlated.
+    """
+    function make_correlated_dataset(;n = 1_000, p = 50, ρ = 0.99, n_levels=2)
+        μ = zeros(p)
+        Σ = fill(ρ, p, p)
+        for i in 1:p
+            Σ[i,i] = 1
+        end
+        X = permutedims(rand(MultivariateNormal(μ, Σ), n))
+        quantiles = quantile(X, [l/n_levels for l in 1:n_levels-1])
+        bounds = [quantiles..., Inf]
+        T = zeros(Int, n, p)
+        for i in 1:p
+            for j in 1:n
+                # Find the first bound that is greater than or equal to X[j, i]
+                T[j, i] = findfirst(x -> X[j, i] <= x, bounds) - 1
+            end
+        end
+        Y = T[:, 1] + randn(n)
+        dataset = DataFrame(Y=Y)
+        for i in 1:p
+            dataset[!, Symbol("T$i")] = categorical(T[:, i])
+        end
+        correlations = [cor(T[:, 1], T[:, i]) for i in 2:p]
+        return dataset, correlations
+    end
+
+    function define_estimands_and_true_values(;p = 50, n_levels = 3)
+        if n_levels == 2
+            estimands = map(1:p) do i
+                treatment_values = NamedTuple{(Symbol("T$i"),)}([(case=1, control=0)])
+                treatment_confounders = [Symbol("T$j") for j in 1:p if j != i]
+                ATE(
+                    outcome = :Y,
+                    treatment_values = treatment_values,
+                    treatment_confounders = treatment_confounders
+                )
+            end
+            Ψ₀ = [1, fill(0, p-1)...]
+        else
+            estimands = map(1:p) do i
+                treatment_values = NamedTuple{(Symbol("T$i"),)}([collect(1:n_levels) .- 1])
+                treatment_confounders = [Symbol("T$j") for j in 1:p if j != i]
+                factorialEstimand(ATE, treatment_values, :Y; confounders=treatment_confounders)
+            end
+            Ψ₀ = [fill(1, n_levels-1), fill(fill(0, n_levels-1), p-1)...]
+        end
+        return estimands, Ψ₀
+    end
+
+    p = 50
+    n_levels = 2
+    n = 1_000
+    ρ = 0.99
+    # We estimate across all T variables but only the first one has non-zero ATE
+    estimands, Ψ₀ = define_estimands_and_true_values(;p=p, n_levels=n_levels)
+
+    # Riesz Estimator
+    riesz_models = default_models(Q_continuous=MLJModels.DeterministicConstantRegressor())
+    riesz_models[:riesz_representer] = RieszLearning.RieszNetModel(
+        lux_model=RieszLearning.MLP([p - 1 + n_levels, 16]),
+        hyper_parameters=(
+            batch_size=16,
+            nepochs=1000,
+            rng=StableRNG(123),
+        )
+    )
+    riesz_ose = Ose(models=riesz_models)
+    # Vanilla Estimator
+    models = default_models(Q_continuous=MLJModels.DeterministicConstantRegressor(), G=LogisticClassifier())
+    ose = Ose(models=models)
+    # Bootstrap
+    B = 10
+    riesz_fdrs = zeros(Float64, B)
+    fdrs = zeros(Float64, B)
+    Random.seed!(123)
+    Threads.@threads for b in 1:B
+        @info "Bootstrap iteration $b"
+        dataset, correlations = make_correlated_dataset(;n = n, p = p, ρ = ρ, n_levels=n_levels)
+        cache = Dict()
+        # Estimate with Riesz Ose
+        riesz_results = map(estimands) do Ψ
+            result, _, = riesz_ose(Ψ, dataset; cache=cache, verbosity=0);
+            result
+        end
+        riesz_pvalues = pvalue.(significance_test.(riesz_results)) 
+        riesz_fdr = sum( pvalue.(significance_test.(riesz_results, Ψ₀)) .< 0.05) / p
+        riesz_fdrs[b] = riesz_fdr
+        sortperm(riesz_pvalues)
+
+        # Estimate with Vanilla Ose
+        results = map(estimands) do Ψ
+            result, _, = ose(Ψ, dataset; cache=cache, verbosity=0);
+            result
+        end
+        pvalues = pvalue.(significance_test.(results))
+        fdr = sum( pvalue.(significance_test.(results, Ψ₀)) .< 0.05) / p
+        fdrs[b] = fdr
+        sortperm(pvalues)
+    end
+    @test mean(riesz_fdrs) < mean(fdrs)
 end
 
 @testset "Test C-TMLE and Riesz useful error message" begin
