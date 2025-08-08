@@ -6,5 +6,4 @@
 build/
 sandbox.jl
 /Manifest.toml
-test/Manifest.toml
 /docs/Manifest.toml

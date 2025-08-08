@@ -241,7 +241,7 @@ mutable struct Plugin <: Estimator
     model::MLJBase.Supervised
 end
 
-function (estimator::Plugin)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1)
+function (estimator::Plugin)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
     # Check the estimand against the dataset
     check_treatment_levels(Ψ, dataset)
     # Initial fit of the SCM's relevant factors
@@ -255,6 +255,14 @@ function (estimator::Plugin)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=
     )
     Ψ̂ = mean(counterfactual_aggregate(Ψ, outcome_mean_estimate, nomissing_dataset))
     return Ψ̂, cache
+end
+
+function (estimator::Plugin)(Ψ::JointEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
+    estimates = map(Ψ.args) do estimand 
+        estimate, _ = estimator(estimand, dataset; cache=cache, verbosity=verbosity, acceleration=acceleration)
+        estimate
+    end
+    return estimates, cache
 end
 
 #####################################################################

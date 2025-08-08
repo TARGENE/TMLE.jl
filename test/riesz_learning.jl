@@ -195,8 +195,8 @@ end
 end
 
 # TODO
-@test true == false
 # - [ ] Sort out the interface. estimator new field? Dispatch on G type for with encoder in models building?
+# - [ ] Test Joint Estimat with Plugin
 
 end
 
