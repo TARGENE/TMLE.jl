@@ -6,10 +6,11 @@ mutable struct Fluctuation <: MLJBase.Supervised
     ps_lowerbound::Float64
     weighted::Bool
     cache::Bool
+    prevalence_weights::Union{Nothing, Vector{Float64}}
 end
 
-Fluctuation(Ψ, initial_factors; tol=nothing, max_iter=1, ps_lowerbound=1e-8, weighted=false, cache=false) =
-    Fluctuation(Ψ, initial_factors, tol, max_iter, ps_lowerbound, weighted, cache)
+Fluctuation(Ψ, initial_factors; tol=nothing, max_iter=1, ps_lowerbound=1e-8, weighted=false, cache=false, prevalence_weights=nothing) =
+    Fluctuation(Ψ, initial_factors, tol, max_iter, ps_lowerbound, weighted, cache, prevalence_weights)
 
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:MLJBase.Continuous} = LinearRegressor(fit_intercept=false, offsetcol = :offset)
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:Finite} = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
@@ -37,6 +38,14 @@ Tolerance defaults to `1/n_samples`
 """
 hasconverged(gradient, tol::Nothing) = hasconverged(gradient, 1/length(gradient))
 
+update_fluctuation_weights_with_prevalence!(w, prevalence_weights::Nothing) = w
+
+function update_fluctuation_weights_with_prevalence!(w, prevalence_weights)
+    w .*= prevalence_weights
+    w .*= length(w) / sum(w)
+    return w
+end
+
 """
     initialize_observed_cache(model, X, y)
 
@@ -46,6 +55,8 @@ For the observed data, we store:
 - The weights
 - The observed predictions
 - The observed outcome in floating point representation
+
+If prevalence weights are provided, they are applied to the weights and normalized.
 """
 function initialize_observed_cache(model, X, y)
     Q⁰ = model.initial_factors.outcome_mean
@@ -55,6 +66,7 @@ function initialize_observed_cache(model, X, y)
         ps_lowerbound=model.ps_lowerbound,
         weighted_fluctuation=model.weighted
     )
+    update_fluctuation_weights_with_prevalence!(w, model.prevalence_weights)
     ŷ = MLJBase.predict(Q⁰, X)
     return Dict{Symbol, Any}(:H => H, :w => w, :ŷ => ŷ, :y => float(y))
 end
@@ -74,9 +86,9 @@ function initialize_counterfactual_cache(model, X)
     Q⁰ = model.initial_factors.outcome_mean
     G⁰ = model.initial_factors.propensity_score
     Ψ = model.Ψ
-
-    counterfactual_cache = (predictions=[], signs=[], covariates=[], weights=[])
+    counterfactual_cache = (predictions=[], signs=[], covariates=[])
     Ttemplate = selectcols(X, treatments(Ψ))
+    
     for (vals, sign) in indicator_fns(Ψ)
         T_ct = counterfactualTreatment(vals, Ttemplate)
         X_ct = DataFrame((;(Symbol(colname) => colname ∈ names(T_ct) ? T_ct[!, colname] : X[!, colname] for colname in names(X))...))
@@ -100,10 +112,6 @@ function initialize_counterfactual_cache(model, X)
             counterfactual_cache.covariates, 
             covariates_ct
         )
-        push!(
-            counterfactual_cache.weights, 
-            w_ct
-        )
     end
     return counterfactual_cache
 end
@@ -118,7 +126,6 @@ function compute_counterfactual_aggregate!(counterfactual_cache, Q)
         # Compute new counterfactual predictions
         Xfluct = fluctuation_input(ct_covariates, ct_ŷ)
         new_ct_ŷ = MLJBase.predict(Q, Xfluct)
-        # Update the counterfactual aggregate for this step
         ct_aggregate .+= sign .* expected_value(new_ct_ŷ)
         # Update the cache with the new counterfactual predictions
         counterfactual_cache.predictions[idx] = new_ct_ŷ
@@ -126,19 +133,68 @@ function compute_counterfactual_aggregate!(counterfactual_cache, Q)
     return ct_aggregate
 end
 
+weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights::Nothing) = ct_aggregate
+weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights) = ct_aggregate .*= prevalence_weights .* (length(prevalence_weights) / sum(prevalence_weights))
+
+function reduce_gradient(full_IC, y, prevalence_weights)
+    if isnothing(prevalence_weights)
+        return full_IC
+    else
+        case_indices = y .== 1
+        control_indices = y .== 0
+
+        case_IC = full_IC[case_indices]
+        control_IC = full_IC[control_indices]
+
+        n_cases = length(case_IC)
+        n_controls = length(control_IC)
+        J = n_controls ÷ n_cases 
+        remainder = n_controls % n_cases  # Remainder controls to distribute
+
+        case_weight = only(unique(prevalence_weights[case_indices]))
+        control_weight = only(unique(prevalence_weights[control_indices])) 
+
+        reduced_IC = zeros(n_cases)
+        control_idx = 1  # Track current position in control_IC
+
+        for i in 1:n_cases
+            case_contribution = case_weight * case_IC[i]
+            
+            # Each case gets J controls, plus 1 extra if i <= remainder
+            controls_for_this_case = J + (i <= remainder ? 1 : 0)
+            
+            # Get J controls for each case
+            control_end_idx = control_idx + controls_for_this_case - 1
+            control_group = control_IC[control_idx:control_end_idx]
+            control_contribution = (control_weight) * sum(control_group)
+            
+            reduced_IC[i] = case_contribution + control_contribution
+            
+            # Update position
+            control_idx = control_end_idx + 1
+        end
+
+        return reduced_IC
+    end
+end
+
 function compute_gradient_and_estimate_from_caches!(
     observed_cache, 
     counterfactual_cache, 
     Q, 
-    Xfluct
+    Xfluct,
+    prevalence_weights,
+    y
     )
     # Update predictions
     observed_cache[:ŷ] = MLJBase.predict(Q, Xfluct)
     # Compute gradient
     Ey = expected_value(observed_cache[:ŷ])
     ct_aggregate = compute_counterfactual_aggregate!(counterfactual_cache, Q)
+    weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights)
     Ψ̂ = plugin_estimate(ct_aggregate)
     gradient = ∇YX(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w]) .+ ∇W(ct_aggregate, Ψ̂)
+    gradient = reduce_gradient(gradient, y, prevalence_weights)
     return gradient, Ψ̂
 end
 
@@ -198,7 +254,9 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
             observed_cache, 
             counterfactual_cache, 
             Q, 
-            Xfluct
+            Xfluct,
+            model.prevalence_weights,
+            y
         )
         update_report!(report, Ψ̂, gradient, fitted_params(Q).coef)
         if hasconverged(gradient, model.tol)

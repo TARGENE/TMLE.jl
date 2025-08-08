@@ -125,6 +125,12 @@ default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(
     (key => with_encoder(val) for (key, val) in kwargs)...
 )
 
+supervised_learner_supports_weights(learner) = 
+    MLJBase.supports_weights(learner)
+
+supervised_learner_supports_weights(learner::MLJBase.SupervisedPipeline) =
+    MLJBase.supports_weights(MLJBase.supervised_component(learner))
+
 is_binary(dataset, columnname) = Set(skipmissing(dataset[!, columnname])) == Set([0, 1])
 
 function satisfies_positivity(Ψ, freq_table; positivity_constraint=0.01)
@@ -202,3 +208,27 @@ outcome_mean_fluctuation_fit_error_msg(factor) = string(
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
 with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)
+"""
+    check_inputs(Ψ, dataset, prevalence)
+
+Evaluate if the dataset is suitable for the estimand Ψ, checking the treatment levels and if the outcome column is binary when
+prevalence is provided. If the dataset is suitable, it will not throw an error.
+"""
+function check_inputs(Ψ, dataset, prevalence)
+    check_treatment_levels(Ψ, dataset)
+    ccw_check(prevalence, dataset, Ψ.outcome)
+end
+
+"""
+    ccw_check(prevalence::Union{Nothing, Float64}, dataset, outcome)
+
+Check if the dataset is suitable for prevalence correction (CCW-TMLE) throws an error if the outcome column is not binary when prevalence is provided.
+If the dataset is suitable, it returns the dataset with missing values dropped from the outcome column.
+
+"""
+function ccw_check(prevalence::Union{Nothing, Float64}, dataset, outcome)
+    if !isnothing(prevalence)
+        is_binary(dataset, outcome) || 
+            throw(ArgumentError("Outcome column must be binary for prevalence correction (CCW-TMLE)."))
+    end
+end
