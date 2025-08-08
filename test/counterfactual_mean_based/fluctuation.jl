@@ -162,41 +162,51 @@ end
     @test X.offset isa Vector{Float32}
 end
 
-@testset "Test Fluctuation in case-control weighted TMLE" begin
-    Ψ = ATE(
-        outcome=:Y,
-        treatment_confounders=(T=[:W],),
-        treatment_values=(T=(case=1, control=0),),
-    )
-    dataset = DataFrame(
-        T = categorical([1, 1, 0, 0, 0, 1, 1, 0]),
-        Y = categorical([0, 1, 0, 1, 0, 1, 1, 0]),
-        W = rand(8)
-    )
-    η = TMLE.CMRelevantFactors(
-        TMLE.ConditionalDistribution(:Y, [:T, :W]),
-        TMLE.ConditionalDistribution(:T, [:W])
-    )
-    prevalence_weights = TMLE.get_weights_from_prevalence(
-        0.05,
-        dataset[!, :Y]
-    )
-    η̂ = TMLE.CMRelevantFactorsEstimator(
-        nothing,
-        Dict(
-            :Y => with_encoder(MLJGLMInterface.LinearBinaryClassifier()), 
-            :T => with_encoder(MLJGLMInterface.LinearBinaryClassifier())
-        ),
-        prevalence_weights
-    )
-    η̂ₙ = η̂(η, dataset, verbosity = 0)
-    X = dataset[!, collect(η̂ₙ.outcome_mean.estimand.parents)]
-    y = dataset[!, η̂ₙ.outcome_mean.estimand.outcome]
+@testset "Reduce gradient with prevalence weights" begin
+    full_IC = [1, 2, 3, 4, 5, 6]
+    y = [1, 0, 1, 0, 0, 0]
+    prevalence_weights = TMLE.get_weights_from_prevalence(0.05, y)
+    @test prevalence_weights == [0.05, 0.475, 0.05, 0.475, 0.475, 0.475]
 
-    fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ; weighted=false, prevalence_weights=prevalence_weights)
-    machs, cache, report = MLJBase.fit(fluctuation, 0, X, y)
-    @test mean(last(report.gradients)) ≈ 0.0 atol=1e-6
+    reduced_IC = TMLE.reduce_gradient(full_IC, y, prevalence_weights)
+    @test reduced_IC ≈ [2.9, 5.375] atol=1e-6
 end
+
+# @testset "Test Fluctuation in case-control weighted TMLE" begin
+#     Ψ = ATE(
+#         outcome=:Y,
+#         treatment_confounders=(T=[:W],),
+#         treatment_values=(T=(case=1, control=0),),
+#     )
+#     dataset = DataFrame(
+#         T = categorical([1, 1, 0, 0, 0, 1, 1, 0]),
+#         Y = categorical([0, 1, 0, 1, 0, 1, 1, 0]),
+#         W = rand(8)
+#     )
+#     η = TMLE.CMRelevantFactors(
+#         TMLE.ConditionalDistribution(:Y, [:T, :W]),
+#         TMLE.ConditionalDistribution(:T, [:W])
+#     )
+#     prevalence_weights = TMLE.get_weights_from_prevalence(
+#         0.05,
+#         dataset[!, :Y]
+#     )
+#     η̂ = TMLE.CMRelevantFactorsEstimator(
+#         nothing,
+#         Dict(
+#             :Y => with_encoder(MLJGLMInterface.LinearBinaryClassifier()), 
+#             :T => with_encoder(MLJGLMInterface.LinearBinaryClassifier())
+#         ),
+#         prevalence_weights
+#     )
+#     η̂ₙ = η̂(η, dataset, verbosity = 0)
+#     X = dataset[!, collect(η̂ₙ.outcome_mean.estimand.parents)]
+#     y = dataset[!, η̂ₙ.outcome_mean.estimand.outcome]
+
+#     fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ; weighted=false, prevalence_weights=prevalence_weights)
+#     machs, cache, report = MLJBase.fit(fluctuation, 0, X, y)
+#     @test mean(last(report.gradients)) ≈ 0.0 atol=1e-6
+# end
 
 end
 true

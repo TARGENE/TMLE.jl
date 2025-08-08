@@ -227,7 +227,7 @@ If the dataset is suitable, it returns the dataset with missing values dropped f
 
 """
 function ccw_check(prevalence::Union{Nothing, Float64}, dataset, outcome)
-    if !isnothing(prevalence) && !isnothing(relevant_factors)
+    if !isnothing(prevalence)
         is_binary(dataset, outcome) || 
             throw(ArgumentError("Outcome column must be binary for prevalence correction (CCW-TMLE)."))
     end

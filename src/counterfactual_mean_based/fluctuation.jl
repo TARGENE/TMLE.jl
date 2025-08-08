@@ -136,21 +136,46 @@ end
 weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights::Nothing) = ct_aggregate
 weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights) = ct_aggregate .*= prevalence_weights .* (length(prevalence_weights) / sum(prevalence_weights))
 
-compute_gradient(H, ŷ, Ey, w, ct_aggregate, Ψ̂, y, prevalence_weights::Nothing) = ∇YX(H, ŷ, Ey, w) .+ ∇W(ct_aggregate, Ψ̂)
-function compute_gradient(H, ŷ, Ey, w, ct_aggregate, Ψ̂, y, prevalence_weights)
-    case_indices = y .== 1
-    control_indices = y .== 0
+function reduce_gradient(full_IC, y, prevalence_weights)
+    if isnothing(prevalence_weights)
+        return full_IC
+    else
+        case_indices = y .== 1
+        control_indices = y .== 0
 
-    full_IC = ∇YX(H, ŷ, Ey, w) .+ ∇W(ct_aggregate, Ψ̂)
+        case_IC = full_IC[case_indices]
+        control_IC = full_IC[control_indices]
 
-    case_IC = full_IC[case_indices]
-    control_IC = full_IC[control_indices]
+        n_cases = length(case_IC)
+        n_controls = length(control_IC)
+        J = n_controls ÷ n_cases 
+        remainder = n_controls % n_cases  # Remainder controls to distribute
 
-    case_weight = only(unique(prevalence_weights[case_indices]))
-    control_weight = only(unique(prevalence_weights[control_indices]))
+        case_weight = only(unique(prevalence_weights[case_indices]))
+        control_weight = only(unique(prevalence_weights[control_indices])) 
 
-    CCW_IC = (case_IC .* case_weight) .+ (control_weight * sum(control_IC))
-    return CCW_IC
+        reduced_IC = zeros(n_cases)
+        control_idx = 1  # Track current position in control_IC
+
+        for i in 1:n_cases
+            case_contribution = case_weight * case_IC[i]
+            
+            # Each case gets J controls, plus 1 extra if i <= remainder
+            controls_for_this_case = J + (i <= remainder ? 1 : 0)
+            
+            # Get J controls for each case
+            control_end_idx = control_idx + controls_for_this_case - 1
+            control_group = control_IC[control_idx:control_end_idx]
+            control_contribution = (control_weight) * sum(control_group)
+            
+            reduced_IC[i] = case_contribution + control_contribution
+            
+            # Update position
+            control_idx = control_end_idx + 1
+        end
+
+        return reduced_IC
+    end
 end
 
 function compute_gradient_and_estimate_from_caches!(
@@ -168,7 +193,8 @@ function compute_gradient_and_estimate_from_caches!(
     ct_aggregate = compute_counterfactual_aggregate!(counterfactual_cache, Q)
     weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights)
     Ψ̂ = plugin_estimate(ct_aggregate)
-    gradient = compute_gradient(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w], ct_aggregate, Ψ̂, y, prevalence_weights) #∇YX(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w]) .+ ∇W(ct_aggregate, Ψ̂)
+    gradient = ∇YX(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w]) .+ ∇W(ct_aggregate, Ψ̂)
+    gradient = reduce_gradient(gradient, y, prevalence_weights)
     return gradient, Ψ̂
 end
 
