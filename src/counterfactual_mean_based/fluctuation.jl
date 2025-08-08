@@ -136,12 +136,30 @@ end
 weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights::Nothing) = ct_aggregate
 weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights) = ct_aggregate .*= prevalence_weights .* (length(prevalence_weights) / sum(prevalence_weights))
 
+compute_gradient(H, ŷ, Ey, w, ct_aggregate, Ψ̂, y, prevalence_weights::Nothing) = ∇YX(H, ŷ, Ey, w) .+ ∇W(ct_aggregate, Ψ̂)
+function compute_gradient(H, ŷ, Ey, w, ct_aggregate, Ψ̂, y, prevalence_weights)
+    case_indices = y .== 1
+    control_indices = y .== 0
+
+    full_IC = ∇YX(H, ŷ, Ey, w) .+ ∇W(ct_aggregate, Ψ̂)
+
+    case_IC = full_IC[case_indices]
+    control_IC = full_IC[control_indices]
+
+    case_weight = only(unique(prevalence_weights[case_indices]))
+    control_weight = only(unique(prevalence_weights[control_indices]))
+
+    CCW_IC = (case_IC .* case_weight) .+ (control_weight * sum(control_IC))
+    return CCW_IC
+end
+
 function compute_gradient_and_estimate_from_caches!(
     observed_cache, 
     counterfactual_cache, 
     Q, 
     Xfluct,
-    prevalence_weights
+    prevalence_weights,
+    y
     )
     # Update predictions
     observed_cache[:ŷ] = MLJBase.predict(Q, Xfluct)
@@ -150,7 +168,7 @@ function compute_gradient_and_estimate_from_caches!(
     ct_aggregate = compute_counterfactual_aggregate!(counterfactual_cache, Q)
     weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights)
     Ψ̂ = plugin_estimate(ct_aggregate)
-    gradient = ∇YX(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w]) .+ ∇W(ct_aggregate, Ψ̂)
+    gradient = compute_gradient(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w], ct_aggregate, Ψ̂, y, prevalence_weights) #∇YX(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w]) .+ ∇W(ct_aggregate, Ψ̂)
     return gradient, Ψ̂
 end
 
@@ -211,7 +229,8 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
             counterfactual_cache, 
             Q, 
             Xfluct,
-            model.prevalence_weights
+            model.prevalence_weights,
+            y
         )
         update_report!(report, Ψ̂, gradient, fitted_params(Q).coef)
         if hasconverged(gradient, model.tol)

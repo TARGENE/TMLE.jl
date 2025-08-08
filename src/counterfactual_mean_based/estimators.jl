@@ -102,7 +102,7 @@ end
 
 function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
     # Check if the inputs are suitable for the specified estimand
-    check_inputs(Ψ, dataset, tmle.prevalence, tmle.collaborative_strategy)
+    check_inputs(Ψ, dataset, tmle.prevalence)
     # Make train-validation pairs
     train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors

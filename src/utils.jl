@@ -209,27 +209,26 @@ Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
 with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)
 """
-    check_inputs(Ψ, dataset, prevalence, collaborative_strategy)
+    check_inputs(Ψ, dataset, prevalence)
 
 Evaluate if the dataset is suitable for the estimand Ψ, checking the treatment levels and if the outcome column is binary when
 prevalence is provided. If the dataset is suitable, it will not throw an error.
 """
-function check_inputs(Ψ, dataset, prevalence, collaborative_strategy)
+function check_inputs(Ψ, dataset, prevalence)
     check_treatment_levels(Ψ, dataset)
-    relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=collaborative_strategy)
-    ccw_check(prevalence, dataset, relevant_factors)
+    ccw_check(prevalence, dataset, Ψ.outcome)
 end
 
 """
-    ccw_check(prevalence::Union{Nothing, Float64}, dataset, relevant_factors)
+    ccw_check(prevalence::Union{Nothing, Float64}, dataset, outcome)
 
 Check if the dataset is suitable for prevalence correction (CCW-TMLE) throws an error if the outcome column is not binary when prevalence is provided.
 If the dataset is suitable, it returns the dataset with missing values dropped from the outcome column.
 
 """
-function ccw_check(prevalence::Union{Nothing, Float64}, dataset, relevant_factors)
+function ccw_check(prevalence::Union{Nothing, Float64}, dataset, outcome)
     if !isnothing(prevalence) && !isnothing(relevant_factors)
-        is_binary(dataset, relevant_factors.outcome_mean.outcome) || 
+        is_binary(dataset, outcome) || 
             throw(ArgumentError("Outcome column must be binary for prevalence correction (CCW-TMLE)."))
     end
 end
