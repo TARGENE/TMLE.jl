@@ -4,7 +4,7 @@ CurrentModule = TMLE
 
 # Home
 
-TMLE.jl is a Julia package for estimating causal parameters using targeted minimum loss-based estimation (TMLE). Similar to [DoubleML](https://docs.doubleml.org/stable/index.html), it implements debiased, double-robust estimators that combine causal inference theory with modern machine learning. The key advantage of TMLE is that it performs the debiasing step in function space rather than in the parameter space, ensuring that the resulting estimates automatically respect the natural bounds of the estimand (e.g., probabilities remain between 0 and 1).
+TMLE.jl is a Julia package for estimating causal parameters using targeted minimum loss based estimation (TMLE). Like double machine leaninng (DML), TMLE provides, double-robust estimators that combine causal inference theory with modern machine learning algorithms. The key advantage of TMLE is that it performs the debiasing step in function space rather than in the parameter space, ensuring that resulting estimates inherently respect the natural bounds of the estimand (e.g., probabilities remain between 0 and 1).
 
 ## Installation
 
