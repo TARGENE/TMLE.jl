@@ -41,6 +41,12 @@ struct TMLEstimate{T<:AbstractFloat} <: Estimate
 end
 
 TMLEstimate(;estimand, estimate::T, std::T, n, IC) where T = TMLEstimate(estimand, estimate, std, n, convert(Vector{T}, IC))
+
+function print_header(io::IO, est::JointEstimate{T, E, N}) where {T, E <: TMLEstimate, N}
+    println(io, "Joint Targeted Minimum Loss Based Estimator")
+    println(io, "-------------------------------------------")
+end
+
 struct OSEstimate{T<:AbstractFloat} <: Estimate
     estimand::StatisticalCMCompositeEstimand
     estimate::T
@@ -50,6 +56,11 @@ struct OSEstimate{T<:AbstractFloat} <: Estimate
 end
 
 OSEstimate(;estimand, estimate::T, std::T, n, IC) where T = OSEstimate(estimand, estimate, std, n, convert(Vector{T}, IC))
+
+function print_header(io::IO, est::JointEstimate{T, E, N}) where {T, E <: OSEstimate, N}
+    println(io, "Joint One Step Estimator")
+    println(io, "------------------------")
+end
 
 const EICEstimate = Union{TMLEstimate, OSEstimate}
 

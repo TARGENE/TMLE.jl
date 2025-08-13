@@ -176,17 +176,6 @@ to_matrix(x) = reduce(hcat, x)
 JointEstimate(;estimand, estimates, cov, n) =
     JointEstimate(estimand, Tuple(estimates), to_matrix(cov), n)
 
-
-function print_header(io::IO, est::JointEstimate{T, E, N}) where {T, E <: TMLEstimate, N}
-    println(io, "Joint Targeted Minimum Loss Based Estimator")
-    println(io, "-------------------------------------------")
-end
-
-function print_header(io::IO, est::JointEstimate{T, E, N}) where {T, E <: OSEstimate, N}
-    println(io, "Joint One Step Estimator")
-    println(io, "------------------------")
-end
-
 function Base.show(io::IO, mime::MIME"text/plain", est::JointEstimate{T, E, N}) where {T, E, N}
     test_result = significance_test(est)
     print_header(io, est)
