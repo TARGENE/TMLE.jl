@@ -6,6 +6,79 @@ CurrentModule = TMLE
 
 TMLE.jl is a Julia package for estimating causal parameters using targeted minimum loss-based estimation (TMLE). Similar to [DoubleML](https://docs.doubleml.org/stable/index.html), it implements debiased, double-robust estimators that combine causal inference theory with modern machine learning. The key advantage of TMLE is that it performs the debiasing step in function space rather than in the parameter space, ensuring that the resulting estimates automatically respect the natural bounds of the estimand (e.g., probabilities remain between 0 and 1).
 
+## Installation
+
+TMLE.jl can be installed via the Package Manager and supports Julia `v1.10` and greater.
+
+```Pkg
+Pkg> add TMLE
+```
+
+## Quick Start
+
+To run an estimation procedure, we need 3 ingredients:
+
+### 1. A dataset: here a simulation dataset
+
+For illustration, assume we know the actual data generating process is as follows:
+
+```math
+\begin{aligned}
+W  &\sim \mathcal{Uniform}(0, 1) \\
+T  &\sim \mathcal{Bernoulli}(logistic(1-2 \cdot W)) \\
+Y  &\sim \mathcal{Normal}(1 + 3 \cdot T - T \cdot W, 0.01)
+\end{aligned}
+```
+
+Because we know the data generating process, we can simulate some data accordingly:
+
+```@example quick-start
+using TMLE
+using Distributions
+using StableRNGs
+using Random
+using CategoricalArrays
+using MLJLinearModels
+using LogExpFunctions
+using DataFrames
+
+rng = StableRNG(123)
+n = 100
+W = rand(rng, Uniform(), n)
+T = rand(rng, Uniform(), n) .< logistic.(1 .- 2W)
+Y = 1 .+ 3T .- T.*W .+ rand(rng, Normal(0, 0.01), n)
+dataset = DataFrame(Y=Y, T=categorical(T), W=W)
+nothing # hide
+```
+
+### 2. A quantity of interest: here the Average Treatment Effect (ATE)
+
+The Average Treatment Effect of ``T`` on ``Y`` confounded by ``W`` is defined as:
+
+```@example quick-start
+Ψ = ATE(
+    outcome=:Y, 
+    treatment_values=(T=(case=true, control = false),), 
+    treatment_confounders=(T=[:W],)
+)
+```
+
+### 3. An estimator: here a Targeted Maximum Likelihood Estimator (TMLE)
+
+```@example quick-start
+tmle = Tmle()
+result, _ = tmle(Ψ, dataset, verbosity=0);
+result
+```
+
+We are comforted to see that our estimator covers the ground truth! 🥳
+
+```@example quick-start
+using Test # hide
+@test pvalue(OneSampleTTest(result, 2.5)) > 0.05 # hide
+nothing # hide
+```
+
 ## Why TMLE?
 
 Most scientific questions are causal and can be answered by a finite dimensional causal estimand. Perhaps the most famous of them is the [Average Treatment Effect](https://academic.oup.com/aje/article/192/5/685/6991423). If certain conditions are met (no unobserved confounders, overlap), statistical methods can be employed to estimate these causal estimands from data. Semi-parametric methods have gained interest in the past decade because they are more likely to capture the true generating process than their restricted parametric counterparts. This is particularly true in modern days data science where datasets are increasingly complex and unlikely to be well represented by parametric models. 
@@ -111,79 +184,6 @@ save(joinpath("assets", "home_simulation.png"), fig)
 ```
 
 ![Home Illustration](assets/home_simulation.png)
-
-## Installation
-
-TMLE.jl can be installed via the Package Manager and supports Julia `v1.10` and greater.
-
-```Pkg
-Pkg> add TMLE
-```
-
-## Quick Start
-
-To run an estimation procedure, we need 3 ingredients:
-
-### 1. A dataset: here a simulation dataset
-
-For illustration, assume we know the actual data generating process is as follows:
-
-```math
-\begin{aligned}
-W  &\sim \mathcal{Uniform}(0, 1) \\
-T  &\sim \mathcal{Bernoulli}(logistic(1-2 \cdot W)) \\
-Y  &\sim \mathcal{Normal}(1 + 3 \cdot T - T \cdot W, 0.01)
-\end{aligned}
-```
-
-Because we know the data generating process, we can simulate some data accordingly:
-
-```@example quick-start
-using TMLE
-using Distributions
-using StableRNGs
-using Random
-using CategoricalArrays
-using MLJLinearModels
-using LogExpFunctions
-using DataFrames
-
-rng = StableRNG(123)
-n = 100
-W = rand(rng, Uniform(), n)
-T = rand(rng, Uniform(), n) .< logistic.(1 .- 2W)
-Y = 1 .+ 3T .- T.*W .+ rand(rng, Normal(0, 0.01), n)
-dataset = DataFrame(Y=Y, T=categorical(T), W=W)
-nothing # hide
-```
-
-### 2. A quantity of interest: here the Average Treatment Effect (ATE)
-
-The Average Treatment Effect of ``T`` on ``Y`` confounded by ``W`` is defined as:
-
-```@example quick-start
-Ψ = ATE(
-    outcome=:Y, 
-    treatment_values=(T=(case=true, control = false),), 
-    treatment_confounders=(T=[:W],)
-)
-```
-
-### 3. An estimator: here a Targeted Maximum Likelihood Estimator (TMLE)
-
-```@example quick-start
-tmle = Tmle()
-result, _ = tmle(Ψ, dataset, verbosity=0);
-result
-```
-
-We are comforted to see that our estimator covers the ground truth! 🥳
-
-```@example quick-start
-using Test # hide
-@test pvalue(OneSampleTTest(result, 2.5)) > 0.05 # hide
-nothing # hide
-```
 
 ## Scope and Distinguishing Features
 
