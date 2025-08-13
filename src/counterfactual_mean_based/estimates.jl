@@ -83,5 +83,23 @@ Distributions.estimate(Ψ̂::EICEstimate) = Ψ̂.estimate
 
 Statistics.std(Ψ̂::EICEstimate) = Ψ̂.std
 
-Base.show(io::IO, mime::MIME"text/plain", est::Union{EICEstimate, JointEstimate, ComposedEstimate}) =
-    show(io, mime, significance_test(est))
+
+function print_header(io::IO, Ψ̂::TMLEstimate)
+    println(io, "Targeted Minimum Loss Based Estimator")
+    println(io, "-------------------------------------")
+end
+
+function print_header(io::IO, Ψ̂::OSEstimate)
+    println(io, "One Step Estimator")
+    println(io, "------------------")
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", est::EICEstimate)
+    test_result = significance_test(est)
+    print_header(io, est)
+    println(io, "- point estimate         : ", @sprintf("%.4f", est.estimate))
+    println(io, "- 95% confidence interval: ", @sprintf("[%.4f, %.4f]", confint(test_result)...))
+    println(io, "- p-value                : ", pretty_pvalue(pvalue(test_result)))
+    println(io, "- mean influence curve   : ", @sprintf("%.2e", mean(est.IC)))
+    println(io, "\nFull test results can be obtained with `significance_test`")
+end

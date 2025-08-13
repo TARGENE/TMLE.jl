@@ -25,7 +25,7 @@ Performs a TTest
 significance_test(estimate::EICEstimate, Ψ₀=0) = OneSampleTTest(estimate, Ψ₀)
 
 """
-    significance_test(estimate::JointEstimate, Ψ₀=zeros(size(estimate.estimate, 1)))
+    significance_test(estimate::Union{JointEstimate, ComposedEstimate}, Ψ₀=zeros(size(estimate.estimate, 1)))
 
 Performs a TTest if the estimate is one dimensional and a HotellingT2Test otherwise.
 """
