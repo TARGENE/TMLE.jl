@@ -101,31 +101,18 @@ joint_estimand = JointEstimand(Ψ₃, ATE₁, ATE₂)</code></pre><pre class="do
 	- Outcome: Y
 	- Treatment: T₁ =&gt; (control = false, case = false) &amp; T₂ =&gt; (control = false, case = true)
 </code></pre><p>where the interaction <code>Ψ₃</code> was defined earlier. This joint estimand can be estimated like any other estimand using our estimator of choice:</p><pre><code class="language-julia hljs">joint_estimate, cache = tmle(joint_estimand, dataset, cache=cache, verbosity=0);
-joint_estimate</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">One sample Hotelling&#39;s T² test
-------------------------------
-Population details:
-    parameter of interest:   Mean vector
-    value under h_0:         [0.0, 0.0, 0.0]
-    point estimate:          [-2.99973, -1.97831, -0.00200541]
+joint_estimate</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Joint Targeted Minimum Loss Based Estimator
+-------------------------------------------
+- point estimate         : [-2.9997, -1.9783, -0.0020]
+- p-value                : &lt; 1e-99
+- mean influence curves  : [1.41e-15, -2.75e-16, 3.39e-16]
 
-Test summary:
-    outcome with 95% confidence: reject h_0
-    one-sided p-value:           &lt;1e-99
-
-Details:
-    number of observations: 10000
-    number of variables:    3
-    T² statistic:           10955.3
-    transformed statistic:  3651.03
-    degrees of freedom:     (3, 9997)
-    covariance matrix:
-        41.2613     0.011624  -0.0536921
-         0.011624   4.45667    0.022874
-        -0.0536921  0.022874   0.730662</code></pre><p>The printed output is the result of a Hotelling&#39;s T2 Test which is the multivariate counterpart of the Student&#39;s T Test. It tells us whether any of the component of this joint estimand is different from 0.</p><p>Then we can formally test our hypothesis by leveraging the multivariate Central Limit Theorem and Julia&#39;s automatic differentiation. For that, we need to import both <code>DifferentiationInterface</code> and a backend of our choice, here <code>Zygote</code>.</p><pre><code class="language-julia hljs">using DifferentiationInterface
+Full test results can be obtained with `significance_test`
+</code></pre><p>The printed output is the result of a Hotelling&#39;s T2 Test which is the multivariate counterpart of the Student&#39;s T Test. It tells us whether any of the component of this joint estimand is different from 0.</p><p>Then we can formally test our hypothesis by leveraging the multivariate Central Limit Theorem and Julia&#39;s automatic differentiation. For that, we need to import both <code>DifferentiationInterface</code> and a backend of our choice, here <code>Zygote</code>.</p><pre><code class="language-julia hljs">using DifferentiationInterface
 using Zygote
 composed_result = compose(x -&gt; x[1] - x[2] - x[3], joint_estimate, AutoZygote())
 isapprox(
     estimate(result₄),
     first(estimate(composed_result)),
     atol=0.1
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">true</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../estimands/">« Estimands</a><a class="docs-footer-nextpage" href="../resampling/">Resampling Strategies »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Thursday 31 July 2025 16:34">Thursday 31 July 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">true</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../estimands/">« Estimands</a><a class="docs-footer-nextpage" href="../resampling/">Resampling Strategies »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Wednesday 13 August 2025 16:45">Wednesday 13 August 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
