@@ -1,5 +1,5 @@
 ---
-title: 'TMLE.jl: Targeted Minimum Loss-Based Estimation In Julia.'
+title: 'TMLE.jl: Targeted Minimum Loss-Based Estimation in Julia'
 tags:
   - julia
   - statistics
@@ -39,7 +39,7 @@ bibliography: paper.bib
 
 # Summary
 
-TMLE.jl is a Julia package implementing targeted minimum loss-based estimation (TMLE), a general framework for causal effect estimation that unites modern machine learning with the theoretical guarantees of semiparametric statistics. TMLE yields doubly robust and semiparametrically efficient estimators, meaning it remains consistent if either the outcome model or the treatment assignment model is correctly specified, and it achieves the smallest possible asymptotic variance under standard regularity conditions. The package integrates with the broader Julia machine learning ecosystem and can be used in both observational and experimental settings. It is particularly well-suited for high-dimensional problems where robust inference is essential.
+TMLE.jl is a Julia [@julia] package implementing targeted minimum loss-based estimation (TMLE), a general framework for causal effect estimation that unites modern machine learning with the theoretical guarantees of semiparametric statistics. TMLE yields doubly robust and semiparametrically efficient estimators, meaning it remains consistent if either the outcome model or the treatment assignment model is correctly specified, and it achieves the smallest possible asymptotic variance under standard regularity conditions. The package integrates with the broader Julia machine learning ecosystem and can be used in both observational and experimental settings. It is particularly well-suited for high-dimensional problems where robust inference is essential.
 
 # Background
 
@@ -59,7 +59,7 @@ Despite its theoretical and practical advantages, targeted maximum likelihood es
 
 For practitioners and developers who prefer a performant, composable, and type-safe environment such as Julia, no native TMLE implementation previously existed. As causal inference methods gain traction in computational biology, health sciences, economics, and other data-intensive disciplines, the absence of robust, well-integrated TMLE tooling in modern scientific programming languages has become increasingly limiting. TMLE.jl addresses this gap by providing the first native Julia implementation of TMLE. It supports the estimation of a variety of causal estimands, including the counterfactual mean, average treatment effect, and average interaction effects of arbitrary order. Any differentiable transformation of these estimands (e.g., risk ratio, odds ratio) can be obtained via automatic differentiation. Both TMLE and one-step estimators (OSE) are available in canonical and cross-fitting variants through a unified interface, and selected C-TMLE instantiations (greedy and scalable) are also implemented. The package accommodates more than binary treatments, allowing for any number of categorical treatments, an important feature for studying combinatorial intervention effects.
 
-TMLE.jl is fully integrated into the broader Julia ecosystem. Machine learning models, including ensemble learners, can be specified via the MLJ toolbox [@blaom2020mlj]; datasets are represented as DataFrames [@bouchet2023dataframes]; and automatic differentiation is supported through any backend via DifferentiationInterface.jl [@dalle2025commoninterfaceautomaticdifferentiation;@schäfer2022abstractdifferentiationjlbackendagnosticdifferentiableprogramming]. Simulation datasets from CausalTables.jl [@Balkus2025] are also directly supported.
+TMLE.jl is fully integrated into the broader Julia ecosystem. Machine learning models, including ensemble learners, can be specified via the MLJ toolbox [@blaom2020mlj]; datasets are represented as DataFrames [@bouchet2023dataframes]; and automatic differentiation is supported through any backend via DifferentiationInterface.jl [@dalleDifferentiationInterface2025]. Simulation datasets from CausalTables.jl [@Balkus2025] are also directly supported.
 
 In doing so, TMLE.jl fills an important niche for causal inference in Julia, expanding the reach of TMLE beyond R and contributing to a growing ecosystem of open-source tools for rigorous, scalable, and reproducible statistical modelling.
 
