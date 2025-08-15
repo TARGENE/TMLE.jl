@@ -39,7 +39,7 @@ bibliography: paper.bib
 
 # Summary
 
-TMLE.jl is a Julia package implementing targeted minimum loss-based estimation (TMLE), a general framework for causal effect estimation that unites modern machine learning with the theoretical guarantees of semiparametric statistics. TMLE yields doubly robust and semiparametrically efficient estimators, meaning it remains consistent if either the outcome model or the treatment assignment model is correctly specified, and it achieves the smallest possible asymptotic variance under standard regularity conditions. The package integrates with the broader Julia machine learning ecosystem and can be used in both observational and experimental settings. It is particularly well-suited for high-dimensional problems where robust inference is essential.
+TMLE.jl is a Julia [@julia] package implementing targeted minimum loss-based estimation (TMLE), a general framework for causal effect estimation that unites modern machine learning with the theoretical guarantees of semiparametric statistics. TMLE yields doubly robust and semiparametrically efficient estimators, meaning it remains consistent if either the outcome model or the treatment assignment model is correctly specified, and it achieves the smallest possible asymptotic variance under standard regularity conditions. The package integrates with the broader Julia machine learning ecosystem and can be used in both observational and experimental settings. It is particularly well-suited for high-dimensional problems where robust inference is essential.
 
 # Background
 
