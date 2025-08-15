@@ -1,13 +1,37 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-authors:
-- family-names: "Labayle"
-  given-names: "Olivier"
-- family-names: "Beentjes"
-  given-names: "Sjoerd"
-- family-names: "Khamseh"
-  given-names: "Ava"
-- family-names: "Ponting"
-  given-names: "Chris"
-title: "TMLE.jl"
 url: "https://github.com/olivierlabayle/TMLE.jl"
+title: 'TMLE.jl: Targeted Minimum Loss-Based Estimation in Julia'
+tags:
+  - julia
+  - statistics
+  - semiparametric statistics
+  - machine learning
+  - causal inference
+authors:
+  - name: Olivier Labayle
+    orcid: 0000-0002-3708-3706
+    affiliation: "1"
+  - name: Chris P. Ponting
+    affiliation: "2"
+    orcid: 0000-0003-0202-7816
+  - name: Mark J. van der Laan
+    affiliation: "5"
+  - name: Ava Khamseh
+    affiliation: "2, 3, 5"
+    orcid: 0000-0001-5203-2205
+  - name: Sjoerd Viktor Beentjes
+    affiliation: "2, 4, 5"
+    orcid: 0000-0002-7998-4262
+affiliations:
+  - name: Institute for Regeneration and Repair, University of Edinburgh, Edinburgh EH16 4UU, United Kingdom
+    index: 1
+  - name: MRC Human Genetics Unit, Institute of Genetics and Cancer, University of Edinburgh, Edinburgh EH4 2XU, United Kingdom.
+    index: 2
+  - name: School of Informatics, University of Edinburgh, Edinburgh EH8 9AB, United Kingdom
+    index: 3
+  - name: School of Mathematics and Maxwell Institute for Mathematical Sciences, University of Edinburgh, Edinburgh EH9 3FD, United Kingdom
+    index: 4
+  - name: Division of Biostatistics, University of California, Berkeley, CA, USA
+    index: 5
+date: 15 August 2025
