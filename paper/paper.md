@@ -1,5 +1,5 @@
 ---
-title: 'TMLE.jl: Targeted Minimum Loss-Based Estimation In Julia.'
+title: 'TMLE.jl: Targeted Minimum Loss-Based Estimation in Julia'
 tags:
   - julia
   - statistics
