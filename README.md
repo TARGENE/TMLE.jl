@@ -4,7 +4,7 @@
 ![GitHub Workflow Status (with branch)](https://img.shields.io/github/actions/workflow/status/TARGENE/TMLE.jl/CI.yml?branch=main)
 ![Codecov](https://img.shields.io/codecov/c/github/TARGENE/TMLE.jl/main)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/TARGENE/TMLE.jl)
-[![DOI](https://zenodo.org/badge/{github_id}.svg)](https://zenodo.org/badge/latestdoi/{github_id})
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16884217.svg)](https://doi.org/10.5281/zenodo.16884217)
 
 Causal inference is essential for understanding the effect of interventions in real-world settings, such as determining whether a treatment improves health outcomes or whether a gene variant contributes to disease risk. Traditional statistical methods, such as linear regression or propensity score matching, often rely on strong modeling assumptions and may fail to provide valid inference when these assumptions are violated—particularly in the presence of high-dimensional data or model misspecification.
 
