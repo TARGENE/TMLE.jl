@@ -94,17 +94,17 @@ end
     @test TMLE.get_min_maxmem_lowerbound(statistical_estimands) == 3
 
     # The brute force solution returns the optimal solution
-    optimal_ordering = @test_logs (:info, "Lower bound reached, stopping.") brute_force_ordering(statistical_estimands, verbosity=1, rng=StableRNG(123))
+    optimal_ordering = @test_logs (:info, "Lower bound reached, stopping.") TMLE.brute_force_ordering(statistical_estimands, verbosity=1, rng=StableRNG(123))
     @test TMLE.evaluate_proxy_costs(optimal_ordering, η_counts) == (3, 11)
     # Creating a bad ordering
     bad_ordering = statistical_estimands[[1, 7, 3, 6, 2, 5, 8, 4]]
     @test TMLE.evaluate_proxy_costs(bad_ordering, η_counts) == (7, 11)
     # Without the brute force on groups, the solution is not necessarily optimal
     # but still improved
-    ordering_from_groups = groups_ordering(bad_ordering)
+    ordering_from_groups = TMLE.groups_ordering(bad_ordering)
     @test TMLE.evaluate_proxy_costs(ordering_from_groups, η_counts) == (4, 11)
     # Adding a layer of brute forcing results in an optimal ordering
-    ordering_from_groups_with_brute_force = groups_ordering(bad_ordering, brute_force=true)
+    ordering_from_groups_with_brute_force = TMLE.groups_ordering(bad_ordering, brute_force=true)
     @test TMLE.evaluate_proxy_costs(ordering_from_groups_with_brute_force, η_counts) == (3, 11)
 end
 
@@ -133,10 +133,10 @@ end
     @test TMLE.get_min_maxmem_lowerbound(estimands) == 2
     @test TMLE.evaluate_proxy_costs(estimands, η_counts) == (4, 4)
     # Brute Force
-    optimal_ordering = brute_force_ordering(estimands)
+    optimal_ordering = TMLE.brute_force_ordering(estimands)
     @test TMLE.evaluate_proxy_costs(optimal_ordering, η_counts) == (2, 4)
     # PS Group
-    grouped_ordering = groups_ordering(estimands, brute_force=true)
+    grouped_ordering = TMLE.groups_ordering(estimands, brute_force=true)
     @test TMLE.evaluate_proxy_costs(grouped_ordering, η_counts) == (2, 4)
 
 end

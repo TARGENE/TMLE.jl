@@ -148,12 +148,12 @@ get_frequency_table(positivity_constraint, dataset::Nothing, colnames) =
 get_frequency_table(positivity_constraint, dataset, colnames) = get_frequency_table(dataset, colnames)
 
 function get_frequency_table(dataset, colnames)
-    iterator = zip((dataset[!, colname] for colname in sort(collect(colnames)))...)
-    counts = groupcount(x -> x, iterator) 
-    for key in keys(counts)
-        counts[key] /= nrows(dataset)
-    end
-    return counts
+    n = nrows(dataset)
+    sorted_colnames = sort(collect(colnames))
+    return Dict(
+        values(groupkey) => nrows(group) / n 
+        for (groupkey, group) in pairs(groupby(dataset, sorted_colnames))
+    )
 end
 
 function try_fit_ml_estimator(ml_estimator, conditional_distribution, dataset;
@@ -202,3 +202,9 @@ outcome_mean_fluctuation_fit_error_msg(factor) = string(
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
 with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)
+
+###############################################################################
+##                           Printing Utilities                             ###
+###############################################################################
+
+pretty_pvalue(pvalue) = pvalue == 0 ? "< 1e-99" : @sprintf("%.2e", pvalue)

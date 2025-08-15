@@ -163,9 +163,9 @@ end
 ###                        Joint Estimate                         ###
 #####################################################################
 
-struct JointEstimate{T<:AbstractFloat} <: Estimate
+struct JointEstimate{T<:AbstractFloat, E, N} <: Estimate
     estimand::JointEstimand
-    estimates::Tuple
+    estimates::Tuple{Vararg{E, N}}
     cov::Matrix{T}
     n::Int
 end
@@ -176,6 +176,16 @@ to_matrix(x) = reduce(hcat, x)
 JointEstimate(;estimand, estimates, cov, n) =
     JointEstimate(estimand, Tuple(estimates), to_matrix(cov), n)
 
+function Base.show(io::IO, mime::MIME"text/plain", est::JointEstimate{T, E, N}) where {T, E, N}
+    test_result = significance_test(est)
+    print_header(io, est)
+    estimate_fmt = Printf.Format(string("[", join(fill("%.4f", N), ", "), "]"))
+    println(io, "- point estimate         : ", Printf.format(estimate_fmt, TMLE.estimate(est)...))
+    println(io, "- p-value                : ", pretty_pvalue(pvalue(test_result)))
+    ic_fmt = Printf.Format(string("[", join(fill("%.2e", N), ", "), "]"))
+    println(io, "- mean influence curves  : ", Printf.format(ic_fmt, (mean(Ψ̂ᵢ.IC) for Ψ̂ᵢ in est.estimates)...))
+    println(io, "\nFull test results can be obtained with `significance_test`")
+end
 """
     Distributions.estimate(r::JointEstimate)
 
@@ -226,4 +236,20 @@ function to_dict(Ψ̂::ComposedEstimate)
     :cov => Ψ̂.cov,
     :n => Ψ̂.n
 )
+end
+
+function print_header(io::IO, Ψ̂::ComposedEstimate)
+    println(io, "Composed Estimate")
+    println(io, "-----------------")
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", Ψ̂::ComposedEstimate)
+    test_result = significance_test(Ψ̂)
+    print_header(io, Ψ̂)
+    N = length(TMLE.estimate(Ψ̂))
+    estimate_fmt = N == 1 ? Printf.Format("%.4f") : Printf.Format(string("[", join(fill("%.4f", N), ", "), "]"))
+    println(io, "- function               : ", Ψ̂.estimand.f)
+    println(io, "- point estimate         : ", Printf.format(estimate_fmt, TMLE.estimate(Ψ̂)...))
+    println(io, "- p-value                : ", pretty_pvalue(pvalue(test_result)))
+    println(io, "\nFull test results can be obtained with `significance_test`")
 end

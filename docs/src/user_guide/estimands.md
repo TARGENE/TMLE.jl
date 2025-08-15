@@ -213,5 +213,5 @@ In some cases, like in factorial analyses where multiple versions of a treatment
 Once you have estimated a `JointEstimand` and have a `JointEstimate`, you may be interested to ask further questions. For instance whether two treatment versions have the same effect. This question is typically answered by testing if the difference in Average Treatment Effect is 0. Using the Delta Method and Julia's automatic differentiation, you don't need to explicitly define a semi-parametric estimator for it. You can simply call `compose`:
 
 ```julia
-ATEdiff = compose(x -> x[2] - x[1], joint_estimate)
+ATEdiff = compose(x -> x[2] - x[1], joint_estimate, backend)
 ```

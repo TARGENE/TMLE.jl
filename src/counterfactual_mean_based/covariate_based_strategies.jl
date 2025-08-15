@@ -2,6 +2,12 @@
 ###                      GreedyStrategy                           ###
 #####################################################################
 
+"""
+    GreedyStrategy(;patience=10, max_confounders=nothing)
+
+This is the original strategy proposed in [this paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC2898626/). At each step k, the algorithm selects the covariate which 
+minimises the cross-validated targeted outcome mean's loss.
+"""
 struct GreedyStrategy <: CollaborativeStrategy
     patience::Int
     max_confounders::Union{Nothing, Int}
@@ -38,9 +44,10 @@ end
 #####################################################################
 
 """
-    AdaptiveCorrelationStrategy()
+    AdaptiveCorrelationStrategy(;patience=10, max_confounders=nothing)
 
-This strategy adaptively selects the confounding variable that is the most correlated with the last residuals of the outcome mean estimator.
+This is a variation of the partial correlation pre-ordering strategy proposed [here](https://pmc.ncbi.nlm.nih.gov/articles/PMC6086775/). At each step k,
+the algorithm selects the covariate that is most correlated with the residuals of the last targeted outcome mean estimator.
 """
 struct AdaptiveCorrelationStrategy <: CollaborativeStrategy
     patience::Int
