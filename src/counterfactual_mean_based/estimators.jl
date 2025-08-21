@@ -108,9 +108,10 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     # Initial fit of the SCM's relevant factors
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
-    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices)
-    prevalence_weights = get_weights_from_prevalence(tmle.prevalence, initial_factors_dataset, relevant_factors)
-
+    # If prevalence is provided, we need to ensure we have a stable experimental unit (J controls per case)
+    !isnothing(tmle.prevalence) ? nomissing_dataset = get_matched_controls(nomissing_dataset, relevant_factors) : nomissing_dataset
+    prevalence_weights = get_weights_from_prevalence(tmle.prevalence, nomissing_dataset[!, relevant_factors.outcome_mean.outcome])
+    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices, tmle.prevalence)
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 
         models=tmle.models,
@@ -124,8 +125,6 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         machine_cache=tmle.machine_cache,
         acceleration=acceleration
     )
-    # Get prevalence weights may be different from the initial factors estimate depending on the strategy
-    prevalence_weights = get_weights_from_prevalence(tmle.prevalence, nomissing_dataset[!, relevant_factors.outcome_mean.outcome])
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)
     ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
@@ -154,9 +153,11 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     estimation_report = report(targeted_factors_estimate)
 
     IC = last(estimation_report.gradients)
-    Ψ̂ = last(estimation_report.estimates)
+    # If the prevalence weights are provided, we compute the IC based upon case-control experimental unit 
+    IC = isnothing(tmle.prevalence) ? IC : ccw_cluster_ic(IC, nomissing_dataset[!, relevant_factors.outcome_mean.outcome], tmle.prevalence)
     σ̂ = std(IC)
     n = size(IC, 1)
+    Ψ̂ = last(estimation_report.estimates)
     verbosity >= 1 && @info "Done."
     return TMLEstimate(Ψ, Ψ̂, σ̂, n, IC), cache
 end
@@ -218,7 +219,7 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     # Initial fit of the SCM's relevant factors
     initial_factors = get_relevant_factors(Ψ)
     nomissing_dataset = nomissing(dataset, variables(initial_factors))
-    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling)
+    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling, nothing)
     initial_factors_estimator = CMRelevantFactorsEstimator(train_validation_indices, ose.models)
     initial_factors_estimate = initial_factors_estimator(
         initial_factors, 

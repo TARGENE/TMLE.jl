@@ -38,12 +38,14 @@ Tolerance defaults to `1/n_samples`
 """
 hasconverged(gradient, tol::Nothing) = hasconverged(gradient, 1/length(gradient))
 
-update_fluctuation_weights_with_prevalence!(w, prevalence_weights::Nothing) = w
-
-function update_fluctuation_weights_with_prevalence!(w, prevalence_weights)
-    w .*= prevalence_weights
-    w .*= length(w) / sum(w)
-    return w
+function check_convergence(gradient, tol; weights=nothing)
+    if isnothing(weights)
+        return hasconverged(gradient, tol)
+    end
+    @assert length(weights) == length(gradient) "weights length must match gradient length"
+    tol = isnothing(tol) ? 1/length(gradient) : tol
+    μ = weighted_mean(gradient, weights)
+    return abs(μ) < tol
 end
 
 """
@@ -66,7 +68,6 @@ function initialize_observed_cache(model, X, y)
         ps_lowerbound=model.ps_lowerbound,
         weighted_fluctuation=model.weighted
     )
-    update_fluctuation_weights_with_prevalence!(w, model.prevalence_weights)
     ŷ = MLJBase.predict(Q⁰, X)
     return Dict{Symbol, Any}(:H => H, :w => w, :ŷ => ŷ, :y => float(y))
 end
@@ -133,68 +134,20 @@ function compute_counterfactual_aggregate!(counterfactual_cache, Q)
     return ct_aggregate
 end
 
-weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights::Nothing) = ct_aggregate
-weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights) = ct_aggregate .*= prevalence_weights .* (length(prevalence_weights) / sum(prevalence_weights))
-
-function reduce_gradient(full_IC, y, prevalence_weights)
-    if isnothing(prevalence_weights)
-        return full_IC
-    else
-        case_indices = y .== 1
-        control_indices = y .== 0
-
-        case_IC = full_IC[case_indices]
-        control_IC = full_IC[control_indices]
-
-        n_cases = length(case_IC)
-        n_controls = length(control_IC)
-        J = n_controls ÷ n_cases 
-        remainder = n_controls % n_cases  # Remainder controls to distribute
-
-        case_weight = only(unique(prevalence_weights[case_indices]))
-        control_weight = only(unique(prevalence_weights[control_indices])) 
-
-        reduced_IC = zeros(n_cases)
-        control_idx = 1  # Track current position in control_IC
-
-        for i in 1:n_cases
-            case_contribution = case_weight * case_IC[i]
-            
-            # Each case gets J controls, plus 1 extra if i <= remainder
-            controls_for_this_case = J + (i <= remainder ? 1 : 0)
-            
-            # Get J controls for each case
-            control_end_idx = control_idx + controls_for_this_case - 1
-            control_group = control_IC[control_idx:control_end_idx]
-            control_contribution = (control_weight) * sum(control_group)
-            
-            reduced_IC[i] = case_contribution + control_contribution
-            
-            # Update position
-            control_idx = control_end_idx + 1
-        end
-
-        return reduced_IC
-    end
-end
-
 function compute_gradient_and_estimate_from_caches!(
     observed_cache, 
     counterfactual_cache, 
     Q, 
     Xfluct,
-    prevalence_weights,
-    y
+    prevalence_weights
     )
     # Update predictions
     observed_cache[:ŷ] = MLJBase.predict(Q, Xfluct)
     # Compute gradient
     Ey = expected_value(observed_cache[:ŷ])
     ct_aggregate = compute_counterfactual_aggregate!(counterfactual_cache, Q)
-    weigh_counterfactual_aggregate!(ct_aggregate, prevalence_weights)
-    Ψ̂ = plugin_estimate(ct_aggregate)
+    Ψ̂ = plugin_estimate(ct_aggregate, prevalence_weights)
     gradient = ∇YX(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w]) .+ ∇W(ct_aggregate, Ψ̂)
-    gradient = reduce_gradient(gradient, y, prevalence_weights)
     return gradient, Ψ̂
 end
 
@@ -240,11 +193,12 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
         verbosity > 0 && @info(string("TMLE step: ", iter, "."))
         # Fit new fluctuation using observed data
         Xfluct = fluctuation_input(observed_cache[:H], observed_cache[:ŷ])
+        w_fluct = isnothing(model.prevalence_weights) ? observed_cache[:w] : observed_cache[:w] .* model.prevalence_weights
         Q = machine(
             fluctuation_model, 
             Xfluct, 
             y,
-            observed_cache[:w],
+            w_fluct,
             cache=model.cache
         )
         MLJBase.fit!(Q, verbosity=verbosity-1)
@@ -255,11 +209,11 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
             counterfactual_cache, 
             Q, 
             Xfluct,
-            model.prevalence_weights,
-            y
+            model.prevalence_weights
         )
+        # store the full data IC in report
         update_report!(report, Ψ̂, gradient, fitted_params(Q).coef)
-        if hasconverged(gradient, model.tol)
+        if check_convergence(gradient, model.tol, weights=model.prevalence_weights)
             verbosity > 0 && @info("Convergence criterion reached.")
             return machines, nothing, report
         end

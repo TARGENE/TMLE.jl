@@ -162,16 +162,6 @@ end
     @test X.offset isa Vector{Float32}
 end
 
-@testset "Reduce gradient with prevalence weights" begin
-    full_IC = [1, 2, 3, 4, 5, 6]
-    y = [1, 0, 1, 0, 0, 0]
-    prevalence_weights = TMLE.get_weights_from_prevalence(0.05, y)
-    @test prevalence_weights == [0.05, 0.475, 0.05, 0.475, 0.475, 0.475]
-
-    reduced_IC = TMLE.reduce_gradient(full_IC, y, prevalence_weights)
-    @test reduced_IC ≈ [2.9, 5.375] atol=1e-6
-end
-
 @testset "Test Fluctuation in case-control weighted TMLE" begin
     Ψ = ATE(
         outcome=:Y,
@@ -203,9 +193,10 @@ end
     X = dataset[!, collect(η̂ₙ.outcome_mean.estimand.parents)]
     y = dataset[!, η̂ₙ.outcome_mean.estimand.outcome]
 
-    fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ; weighted=false, prevalence_weights=prevalence_weights)
+    fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ; weighted=false, prevalence_weights=prevalence_weights, max_iter=5)
     machs, cache, report = MLJBase.fit(fluctuation, 0, X, y)
-    @test mean(last(report.gradients)) ≈ 0.0 atol=1e-6
+    gradient = TMLE.ccw_cluster_ic(last(report.gradients), dataset[!, η.outcome_mean.outcome], 0.05)
+    @test mean(gradient) ≈ 0.0 atol=1e-6
 end
 
 end

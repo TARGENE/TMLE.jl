@@ -24,7 +24,8 @@ function counterfactual_aggregate(Ψ::StatisticalCMCompositeEstimand, Q, dataset
     return ctf_agg
 end
 
-plugin_estimate(ctf_aggregate) = mean(ctf_aggregate)
+plugin_estimate(ctf_aggregate, prevalence_weights::Nothing) = mean(ctf_aggregate)
+plugin_estimate(ctf_aggregate, prevalence_weights::AbstractVector) = weighted_mean(ctf_aggregate, prevalence_weights)
 
 """
     ∇W(ctf_agg, Ψ̂)
@@ -65,7 +66,7 @@ function gradient_and_plugin_estimate(Ψ::StatisticalCMCompositeEstimand, factor
     Q = factors.outcome_mean
     G = factors.propensity_score
     ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
-    Ψ̂ = plugin_estimate(ctf_agg)
+    Ψ̂ = plugin_estimate(ctf_agg, nothing)
     IC = ∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound) .+ ∇W(ctf_agg, Ψ̂)
     return IC, Ψ̂
 end
@@ -75,3 +76,19 @@ train_validation_indices_from_ps(factor::SampleSplitMLConditionalDistribution) =
 
 train_validation_indices_from_factors(factors) = 
     train_validation_indices_from_ps(first(factors.propensity_score))
+
+function ccw_cluster_ic(IC_full::AbstractVector, y::AbstractVector, q0::Float64)
+    idx_case = findall(y .== 1)
+    idx_ctl  = findall(y .== 0)
+    nC  = length(idx_case)
+    nCo = length(idx_ctl)
+    J = nCo ÷ nC
+    # Assign exactly J controls to each case
+    ctl_blocks = Iterators.partition(idx_ctl[1:(J*nC)], J)
+    ic = similar(idx_case, Float64)
+    @inbounds for (i, (case_idx, block)) in enumerate(zip(idx_case, ctl_blocks))
+        ctl_sum = sum(IC_full[b] for b in block)
+        ic[i] = q0 * float(IC_full[case_idx]) + (1 - q0) * (ctl_sum / J)
+    end
+    return ic
+end
