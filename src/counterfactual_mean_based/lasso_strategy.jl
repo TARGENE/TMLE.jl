@@ -78,13 +78,12 @@ end
 
 Fits LASSO at the chosen lambda and returns a ConditionalDistribution object.
 """
-function propensity_score(Ψ::TMLE.StatisticalATE, strategy::LassoCTMLE)
-    dataset = strategy.dataset
+function propensity_score(Ψ::TMLE.StatisticalATE, strategy::LassoCTMLE, dataset::DataFrame)
     W = Matrix(DataFrames.select(dataset, strategy.confounders))
     A_cat = dataset[!, first(keys(Ψ.treatment_values))]
     A = Float64.([x for x in A_cat])
     λ = isnothing(strategy.best_lambda) ? [strategy.lambda_path[1]] : [strategy.best_lambda]
-    g_fit = GLMNet.glmnet(W, A, Binomial(); lambda = λ)
+    g_fit = GLMNet.glmnet(W, A; lambda = λ)
     return ConditionalDistribution(g_fit, strategy.confounders)
 end
 
@@ -102,9 +101,9 @@ function crossvalidate_lambda(strategy::LassoCTMLE, Ψ, dataset, cv_folds)
     for (train_idx, val_idx) in folds
         W_train, W_val = W[train_idx, :], W[val_idx, :]
         A_train, A_val = A[train_idx], A[val_idx]
-        g_fit = GLMNet.glmnet(W_train, A_train, Binomial(); lambda = strategy.lambda_path)
+        g_fit = GLMNet.glmnet(W_train, A_train; lambda = strategy.lambda_path)
         for (i, λ) in enumerate(g_fit.lambda)
-            g_pred = GLMNet.predict(g_fit, W_val, lambda = λ)
+            g_pred = GLMNet.predict(g_fit, W_val, lambda = [λ], type = :response)
             g_pred = clamp.(g_pred, 0.01, 0.99)
             losses[i] += -mean(A_val .* log.(g_pred) .+ (1 .- A_val) .* log.(1 .- g_pred))
         end
@@ -136,7 +135,7 @@ function Base.iterate(it::LassoCTMLEIterator, state = 1)
     A_cat = dataset[!, first(keys(Ψ.treatment_values))]
     A = Float64.([x for x in A_cat])
     λ = strategy.best_lambda
-    g_fit = GLMNet.glmnet(W, A, Binomial(); lambda = [λ])
+    g_fit = GLMNet.glmnet(W, A; lambda = [λ])
     ĝ = ConditionalDistribution(g_fit, strategy.confounders)
     return ((g_fit, ĝ), state+1)
 end
@@ -176,7 +175,12 @@ function step_k_best_candidate(
         LassoCTMLEIterator(collaborative_strategy, Ψ, dataset, models, last_targeted_η̂ₙ)
     (g, g_cd), _ = iterate(iterator, 1) 
 
-    ĝₙ = GLMNet.predict(g_cd, dataset)
+    ĝₙ = GLMNet.predict(
+        g,
+        Matrix(DataFrames.select(dataset, collaborative_strategy.confounders));
+        lambda = [collaborative_strategy.best_lambda],
+        type = :response
+        )
     targeted_η̂ₙ, loss = TMLE.get_new_targeted_candidate(
         last_targeted_η̂ₙ,
         ĝₙ,

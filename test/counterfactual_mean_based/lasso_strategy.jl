@@ -47,8 +47,7 @@ end
     )
     lasso_estimator = Tmle(
         collaborative_strategy = LassoCTMLE(
-            confounders = confounders,
-            dataset = dataset
+            confounders = confounders
         )
     )
     lasso_result, _ = lasso_estimator(Ψ, dataset; verbosity = 0)
