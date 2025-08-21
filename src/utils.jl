@@ -155,12 +155,12 @@ get_frequency_table(positivity_constraint, dataset::Nothing, colnames) =
 get_frequency_table(positivity_constraint, dataset, colnames) = get_frequency_table(dataset, colnames)
 
 function get_frequency_table(dataset, colnames)
-    iterator = zip((dataset[!, colname] for colname in sort(collect(colnames)))...)
-    counts = groupcount(x -> x, iterator) 
-    for key in keys(counts)
-        counts[key] /= nrows(dataset)
-    end
-    return counts
+    n = nrows(dataset)
+    sorted_colnames = sort(collect(colnames))
+    return Dict(
+        values(groupkey) => nrows(group) / n 
+        for (groupkey, group) in pairs(groupby(dataset, sorted_colnames))
+    )
 end
 
 function try_fit_ml_estimator(ml_estimator, conditional_distribution, dataset;
@@ -235,3 +235,9 @@ function ccw_check(prevalence::Union{Nothing, Float64}, dataset, outcome)
 end
 
 weighted_mean(x, w) = sum(w .* x) / sum(w)
+
+###############################################################################
+##                           Printing Utilities                             ###
+###############################################################################
+
+pretty_pvalue(pvalue) = pvalue == 0 ? "< 1e-99" : @sprintf("%.2e", pvalue)

@@ -274,6 +274,8 @@ mean(last(gradients(cache)))
 
 ## Joint Estimands and Composition
 
+Sometimes we are interested in testing hypotheses for a multiple estimands at once: is any of two average treatment effects different from 0? We may also be interested in functions of such estimands like a difference or a risk ratio. This is possible via `JointEstimand` and `compose`.
+
 As explained in [Joint And Composed Estimands](@ref), a joint estimand is simply a collection of estimands. Here, we will illustrate that an Average Interaction Effect is also defined as a difference in partial Average Treatment Effects.
 
 More precisely, we would like to see if the left-hand side of this equation is equal to the right-hand side:
@@ -317,15 +319,15 @@ joint_estimate
 
 The printed output is the result of a Hotelling's T2 Test which is the multivariate counterpart of the Student's T Test. It tells us whether any of the component of this joint estimand is different from 0.
 
-Then we can formally test our hypothesis by leveraging the multivariate Central Limit Theorem and Julia's automatic differentiation.
+Then we can formally test our hypothesis by leveraging the multivariate Central Limit Theorem and Julia's automatic differentiation. For that, we need to import both `DifferentiationInterface` and a backend of our choice, here `Zygote`.
 
 ```@example estimation
-composed_result = compose(x -> x[1] - x[2] - x[3], joint_estimate)
+using DifferentiationInterface
+using Zygote
+composed_result = compose(x -> x[1] - x[2] - x[3], joint_estimate, AutoZygote())
 isapprox(
     estimate(result₄),
     first(estimate(composed_result)),
     atol=0.1
 )
 ```
-
-By default, TMLE.jl will use [Zygote](https://fluxml.ai/Zygote.jl/latest/) but since we are using [DifferentiationInterface.jl](https://juliadiff.org/DifferentiationInterface.jl/DifferentiationInterface/stable/) you can change the backend to your favorite AD system.

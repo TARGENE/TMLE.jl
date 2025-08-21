@@ -1,7 +1,6 @@
 module TMLE
 
 using Tables
-using TableOperations
 using CategoricalArrays
 using MLJBase
 using HypothesisTests
@@ -11,14 +10,11 @@ using MLJModels
 using Missings
 using Statistics
 using Distributions
-using Zygote
 using LogExpFunctions
 using Random
-using DifferentiationInterface
 using Graphs
 using MetaGraphsNext
 using Combinatorics
-using SplitApplyCombine
 using OrderedCollections
 using AutoHashEquals
 using StatisticalMeasures
@@ -44,7 +40,6 @@ export compose
 export default_models, with_encoder
 export BackdoorAdjustment, identify
 export Configuration
-export brute_force_ordering, groups_ordering
 export gradients, epsilons, estimates
 export AdaptiveCorrelationStrategy, GreedyStrategy
 export CausalStratifiedCV, CV, StratifiedCV, Holdout

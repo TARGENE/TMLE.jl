@@ -1,13 +1,50 @@
-cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+cff-version: "1.2.0"
 authors:
-- family-names: "Labayle"
-  given-names: "Olivier"
-- family-names: "Beentjes"
-  given-names: "Sjoerd"
-- family-names: "Khamseh"
-  given-names: "Ava"
-- family-names: "Ponting"
-  given-names: "Chris"
-title: "TMLE.jl"
-url: "https://github.com/olivierlabayle/TMLE.jl"
+- family-names: Labayle
+  given-names: Olivier
+  orcid: "https://orcid.org/0000-0002-3708-3706"
+- family-names: Ponting
+  given-names: Chris P.
+  orcid: "https://orcid.org/0000-0003-0202-7816"
+- family-names: Laan
+  given-names: Mark J.
+  name-particle: van der
+- family-names: Khamseh
+  given-names: Ava
+  orcid: "https://orcid.org/0000-0001-5203-2205"
+- family-names: Beentjes
+  given-names: Sjoerd Viktor
+  orcid: "https://orcid.org/0000-0002-7998-4262"
+doi: 10.5281/zenodo.16884264
+message: If you use this software, please cite our article in the
+  Journal of Open Source Software.
+preferred-citation:
+  authors:
+  - family-names: Labayle
+    given-names: Olivier
+    orcid: "https://orcid.org/0000-0002-3708-3706"
+  - family-names: Ponting
+    given-names: Chris P.
+    orcid: "https://orcid.org/0000-0003-0202-7816"
+  - family-names: Laan
+    given-names: Mark J.
+    name-particle: van der
+  - family-names: Khamseh
+    given-names: Ava
+    orcid: "https://orcid.org/0000-0001-5203-2205"
+  - family-names: Beentjes
+    given-names: Sjoerd Viktor
+    orcid: "https://orcid.org/0000-0002-7998-4262"
+  date-published: 2025-08-18
+  doi: 10.21105/joss.08446
+  issn: 2475-9066
+  issue: 112
+  journal: Journal of Open Source Software
+  publisher:
+    name: Open Journals
+  start: 8446
+  title: "TMLE.jl: Targeted Minimum Loss-Based Estimation in Julia"
+  type: article
+  url: "https://joss.theoj.org/papers/10.21105/joss.08446"
+  volume: 10
+title: "TMLE.jl: Targeted Minimum Loss-Based Estimation in Julia"

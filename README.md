@@ -4,6 +4,8 @@
 ![GitHub Workflow Status (with branch)](https://img.shields.io/github/actions/workflow/status/TARGENE/TMLE.jl/CI.yml?branch=main)
 ![Codecov](https://img.shields.io/codecov/c/github/TARGENE/TMLE.jl/main)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/TARGENE/TMLE.jl)
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.08446/status.svg)](https://doi.org/10.21105/joss.08446)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16884217.svg)](https://doi.org/10.5281/zenodo.16884217)
 
 Causal inference is essential for understanding the effect of interventions in real-world settings, such as determining whether a treatment improves health outcomes or whether a gene variant contributes to disease risk. Traditional statistical methods, such as linear regression or propensity score matching, often rely on strong modeling assumptions and may fail to provide valid inference when these assumptions are violated—particularly in the presence of high-dimensional data or model misspecification.
 
@@ -28,16 +30,23 @@ If you use TMLE.jl for your own work and would like to cite us, here are the Bib
 - BibTeX
 
 ```bibtex
-@software{Labayle_TMLE_jl,
-    author = {Labayle, Olivier and Khamseh, Ava and Ponting, Chris and Beentjes, Sjoerd},
-    title = {{TMLE.jl}},
-    url = {https://github.com/TARGENE/TMLE.jl}
+@article{Labayle_TMLE_jl_Targeted_Minimum_2025,
+author = {Labayle, Olivier and Ponting, Chris P. and van der Laan, Mark J. and Khamseh, Ava and Beentjes, Sjoerd Viktor},
+doi = {10.21105/joss.08446},
+journal = {Journal of Open Source Software},
+month = aug,
+number = {112},
+pages = {8446},
+title = {{TMLE.jl: Targeted Minimum Loss-Based Estimation in Julia}},
+url = {https://joss.theoj.org/papers/10.21105/joss.08446},
+volume = {10},
+year = {2025}
 }
 ```
 
 - APA
 
-Labayle, O., Khamseh, A., & Ponting, C., Beentjes, S. TMLE.jl [Computer software]. https://github.com/TARGENE/TMLE.jl
+Labayle, O., Ponting, C. P., van der Laan, M. J., Khamseh, A., & Beentjes, S. V. (2025). TMLE.jl: Targeted Minimum Loss-Based Estimation in Julia. Journal of Open Source Software, 10(112), 8446. https://doi.org/10.21105/joss.08446
 
 ## Contact
 

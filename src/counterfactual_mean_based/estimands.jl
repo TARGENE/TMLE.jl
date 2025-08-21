@@ -146,14 +146,13 @@ n_uniques_nuisance_functions(Ψ::StatisticalCMCompositeEstimand) = length(propen
 nuisance_functions_iterator(Ψ::StatisticalCMCompositeEstimand) =
     (propensity_score(Ψ)..., outcome_mean(Ψ))
 
-function Base.show(io::IO, ::MIME"text/plain", Ψ::T) where T <: StatisticalCMCompositeEstimand 
-    param_string = string(
+function string_repr(Ψ::T) where T <: Union{CausalCMCompositeEstimands, StatisticalCMCompositeEstimand}
+    return string(
         replace(string(Base.typename(T).wrapper), "TMLE." => ""),
-        "\n- Outcome: ", Ψ.outcome,
-        "\n- Treatment: ", 
+        "\n\t- Outcome: ", Ψ.outcome,
+        "\n\t- Treatment: ", 
         join((string(key, " => ", val) for (key, val) in Ψ.treatment_values), " & ")
     )
-    println(io, param_string)
 end
 
 case_control_dict(case_control_nt::NamedTuple) = OrderedDict(pairs(case_control_nt))
@@ -224,9 +223,9 @@ function identify(method::BackdoorAdjustment, causal_estimand::T, scm::SCM) wher
 end
 
 function get_treatment_values(dataset, colname)
-    counts = groupcount(skipmissing(dataset[!, colname]))
-    sorted_counts = sort(collect(pairs(counts)), by = x -> x.second, rev=true)
-    return first.(sorted_counts)
+    counts = combine(groupby(dataset, colname, skipmissing=true), nrow)
+    sorted_counts = sort!(counts, :nrow, rev=true)
+    return sorted_counts[!, colname]
 end
 
 """
