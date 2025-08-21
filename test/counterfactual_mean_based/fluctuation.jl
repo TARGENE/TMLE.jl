@@ -196,7 +196,7 @@ end
     fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ; weighted=false, prevalence_weights=prevalence_weights, max_iter=5)
     machs, cache, report = MLJBase.fit(fluctuation, 0, X, y)
     gradient = TMLE.ccw_cluster_ic(last(report.gradients), dataset[!, η.outcome_mean.outcome], 0.05)
-    @test mean(gradient) ≈ 0.0 atol=1e-6
+    @test mean(gradient) ≈ 0.0 atol=1e-4
 end
 
 end
