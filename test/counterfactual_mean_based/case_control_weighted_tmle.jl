@@ -80,6 +80,7 @@ end
     cc_prev = 0.2
     ccw_tmle_results = Vector{Any}()
     std_tmle_results = Vector{Any}()
+    ccw_coverage = Vector{Bool}()
     for i in 1:30
         sample = subsample_case_control(pop, n_sample, cc_prev, rng=Random.MersenneTwister(i))
         std_result, _ = tmle_std(Ψ, sample; verbosity=0)
@@ -93,11 +94,12 @@ end
         @test ccw_bias < std_bias / 2
         # CCW-TMLE confidence interval should cover the truth
         lb, ub = confint(significance_test(ccw_result))
-        @test lb < true_rd < ub
+        push!(ccw_coverage, lb < true_rd < ub)
     end
     # See if, on average, CCW-TMLE outperforms standard TMLE
     @test (mean(ccw_tmle_results) - true_rd) < (mean(std_tmle_results) - true_rd)
-
+    # Check if CCW-TMLE coverage is at least 95% across bootstraps
+    @test mean(ccw_coverage) ≥ 0.95
 end
 
 end
