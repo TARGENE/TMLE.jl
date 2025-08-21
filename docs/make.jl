@@ -44,6 +44,7 @@ makedocs(;
             joinpath("examples", "super_learning.md"),
             joinpath("examples", "double_robustness.md"),
             joinpath("examples", "interactions_correlated.md"),
+            joinpath("examples", "case_control_experiment.md"),
             ],
         "Integrations" => "integrations.md",
         "Estimators' Cheat Sheet" => "estimators_cheatsheet.md",

@@ -44,7 +44,7 @@ function pY_given_A_W(A, W; α=-3, β=log(2), γ=log(1.5))
     return 1 ./ (1 .+ exp.(-ηY))
 end
 
-@testset "CCW-TMLE reduces bias compared to standard TMLE under case-control sampling" begin
+@testset "CCW-TMLE bootstrapping test" begin
     Random.seed!(42)
     Npop = 2_000_000
     # Simulate population
@@ -78,14 +78,14 @@ end
     # Draw a series of biased samples of size n_sample
     n_sample = 100_000
     cc_prev = 0.2
-    ccw_tmle_results = Vector{TmleResult}()
-    std_tmle_results = Vector{TmleResult}()
-    for i in 1:10
-        sample = subsample_case_control(pop, n_sample, cc_prev, rng=i)
+    ccw_tmle_results = Vector{Any}()
+    std_tmle_results = Vector{Any}()
+    for i in 1:30
+        sample = subsample_case_control(pop, n_sample, cc_prev, rng=Random.MersenneTwister(i))
         std_result, _ = tmle_std(Ψ, sample; verbosity=0)
         ccw_result, _ = tmle_ccw(Ψ, sample; verbosity=0)
-        push!(std_tmle_results, std_result)
-        push!(ccw_tmle_results, ccw_result)
+        push!(std_tmle_results, std_result.estimate)
+        push!(ccw_tmle_results, ccw_result.estimate)
         # Compare bias
         std_bias = abs(std_result.estimate - true_rd)
         ccw_bias = abs(ccw_result.estimate - true_rd)
