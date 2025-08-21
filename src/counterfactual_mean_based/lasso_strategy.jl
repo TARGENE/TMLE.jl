@@ -1,7 +1,6 @@
 ##################################################################
 ###                      LassoStrategy                         ###
 ##################################################################
-using DataFrames: select
 """
     LassoCTMLE <: CollaborativeStrategy
 
@@ -81,11 +80,11 @@ Fits LASSO at the chosen lambda and returns a ConditionalDistribution object.
 """
 function propensity_score(Ψ::TMLE.StatisticalATE, strategy::LassoCTMLE)
     dataset = strategy.dataset
-    W = Matrix(select(dataset, strategy.confounders))
+    W = Matrix(DataFrames.select(dataset, strategy.confounders))
     A_cat = dataset[!, first(keys(Ψ.treatment_values))]
     A = Float64.([x for x in A_cat])
     λ = isnothing(strategy.best_lambda) ? [strategy.lambda_path[1]] : [strategy.best_lambda]
-    g_fit = glmnet(W, A, Binomial(); lambda = λ)
+    g_fit = GLMNet.glmnet(W, A, Binomial(); lambda = λ)
     return ConditionalDistribution(g_fit, strategy.confounders)
 end
 
@@ -95,7 +94,7 @@ end
 Selects the best lambda from the path via cross-validated log-loss.
 """
 function crossvalidate_lambda(strategy::LassoCTMLE, Ψ, dataset, cv_folds)
-    W = Matrix(select(dataset, strategy.confounders))
+    W = Matrix(DataFrames.select(dataset, strategy.confounders))
     A_cat = dataset[!, first(keys(Ψ.treatment_values))]
     A = Float64.([x for x in A_cat])
     folds = stratified_kfold(A, cv_folds)
@@ -103,7 +102,7 @@ function crossvalidate_lambda(strategy::LassoCTMLE, Ψ, dataset, cv_folds)
     for (train_idx, val_idx) in folds
         W_train, W_val = W[train_idx, :], W[val_idx, :]
         A_train, A_val = A[train_idx], A[val_idx]
-        g_fit = glmnet(W_train, A_train, Binomial(); lambda = strategy.lambda_path)
+        g_fit = GLMNet.glmnet(W_train, A_train, Binomial(); lambda = strategy.lambda_path)
         for (i, λ) in enumerate(g_fit.lambda)
             g_pred = GLMNet.predict(g_fit, W_val, lambda = λ)
             g_pred = clamp.(g_pred, 0.01, 0.99)
@@ -133,11 +132,11 @@ function Base.iterate(it::LassoCTMLEIterator, state = 1)
         return nothing
     end
     strategy, Ψ, dataset = it.strategy, it.Ψ, it.dataset
-    W = Matrix(select(dataset, strategy.confounders))
+    W = Matrix(DataFrames.select(dataset, strategy.confounders))
     A_cat = dataset[!, first(keys(Ψ.treatment_values))]
     A = Float64.([x for x in A_cat])
     λ = strategy.best_lambda
-    g_fit = glmnet(W, A, Binomial(); lambda = [λ])
+    g_fit = GLMNet.glmnet(W, A, Binomial(); lambda = [λ])
     ĝ = ConditionalDistribution(g_fit, strategy.confounders)
     return ((g_fit, ĝ), state+1)
 end

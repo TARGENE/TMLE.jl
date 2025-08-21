@@ -23,8 +23,7 @@ using OrderedCollections
 using AutoHashEquals
 using StatisticalMeasures
 using DataFrames
-using GLMNet
-using ToeplitzMatrices
+import GLMNet
 using ComputationalResources
 using Base.Threads
 using Printf
