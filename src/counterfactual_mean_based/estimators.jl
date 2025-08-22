@@ -220,7 +220,7 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     initial_factors = get_relevant_factors(Ψ)
     nomissing_dataset = nomissing(dataset, variables(initial_factors))
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling, nothing)
-    initial_factors_estimator = CMRelevantFactorsEstimator(train_validation_indices, ose.models)
+    initial_factors_estimator = CMRelevantFactorsEstimator(;models=ose.models, train_validation_indices=train_validation_indices)
     initial_factors_estimate = initial_factors_estimator(
         initial_factors, 
         initial_factors_dataset;

@@ -127,6 +127,7 @@ function compute_counterfactual_aggregate!(counterfactual_cache, Q)
         # Compute new counterfactual predictions
         Xfluct = fluctuation_input(ct_covariates, ct_ŷ)
         new_ct_ŷ = MLJBase.predict(Q, Xfluct)
+        # Update the counterfactual aggregate for this step
         ct_aggregate .+= sign .* expected_value(new_ct_ŷ)
         # Update the cache with the new counterfactual predictions
         counterfactual_cache.predictions[idx] = new_ct_ŷ

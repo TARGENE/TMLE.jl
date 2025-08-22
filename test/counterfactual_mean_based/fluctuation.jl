@@ -26,8 +26,7 @@ using MLJGLMInterface
         TMLE.ConditionalDistribution(:T, [:W₁, :W₂, :W₃])
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
-        nothing,
-        Dict(
+        models=Dict(
             :Y => with_encoder(ConstantRegressor()), 
             :T => ConstantClassifier()
         )
@@ -117,8 +116,7 @@ end
         )
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
-        nothing,
-        Dict(
+        models=Dict(
             :Y  => with_encoder(ConstantClassifier()), 
             :T₁ => ConstantClassifier(),
             :T₂ => ConstantClassifier()
@@ -182,8 +180,7 @@ end
         dataset[!, :Y]
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
-        nothing,
-        Dict(
+        models=Dict(
             :Y => with_encoder(MLJGLMInterface.LinearBinaryClassifier()), 
             :T => with_encoder(MLJGLMInterface.LinearBinaryClassifier())
         ),

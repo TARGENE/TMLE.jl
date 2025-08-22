@@ -61,8 +61,7 @@ end
         TMLE.ConditionalDistribution(:T, [:W])
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
-        nothing,
-        Dict(
+        models=Dict(
             :Y => with_encoder(InteractionTransformer(order=2) |> LinearRegressor()), 
             :T => LogisticClassifier())
     )
