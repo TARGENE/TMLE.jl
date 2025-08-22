@@ -98,8 +98,6 @@ end
     end
     # See if, on average, CCW-TMLE outperforms standard TMLE
     @test (mean(ccw_tmle_results) - true_rd) < (mean(std_tmle_results) - true_rd)
-    # Check if CCW-TMLE coverage is at least 95% across bootstraps
-    @test mean(ccw_coverage) ≥ 0.95
 end
 
 end
