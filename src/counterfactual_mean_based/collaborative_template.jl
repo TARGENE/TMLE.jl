@@ -181,8 +181,7 @@ function get_initial_candidate(η, fluctuation_model, dataset;
     machine_cache=false
     )
     targeted_η̂ = CMBasedTMLE(
-        fluctuation_model, 
-        nothing,
+        fluctuation_model
     )
     targeted_η̂ₙ = targeted_η̂(η, dataset;
         cache=cache,
@@ -214,7 +213,7 @@ function get_new_targeted_candidate(last_targeted_η̂ₙ, new_propensity_score_
         weighted=fluctuation_model.weighted,
         cache=fluctuation_model.cache
     )
-    targeted_η̂ = TMLE.CMBasedTMLE(new_fluctuation, nothing)
+    targeted_η̂ = TMLE.CMBasedTMLE(new_fluctuation)
     targeted_η̂ₙ = targeted_η̂(new_η, dataset;
         cache=cache,
         verbosity=verbosity,
