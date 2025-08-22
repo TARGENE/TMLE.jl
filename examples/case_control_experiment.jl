@@ -5,7 +5,7 @@ In this example we aim to present a strategy for estimating causal parameters
 in experiments with biased sampling designs. The most well-known of these designs 
 in practice is the case-control study. 
 
-# Data Generating Process
+## Data Generating Process
 
 Let's consider the following structural causal model for our data generating 
 distribution $P₀$, in which there are no unobserved counfounders. 
@@ -48,7 +48,7 @@ function generate_population(;n=2_000_000)
 end
 
 #=
-# Sampling Bias
+## Sampling Bias
 We then define a biased sampling strategy to simulate a case-control study with case (Y = 1) prevalence of a specified `q`.
 As a consequence of this sampling design our observed data distribution P will not be equal to the true population distribution P₀. 
 Instead our experimental unit or set of observations will be represented by the following form:
@@ -96,7 +96,7 @@ function estimate_Ψ(sample::DataFrame, q0::Float64)
 end
 
 #=
-# CCW–TMLE vs Canonical TMLE in the Presence of Sampling Bias
+## CCW–TMLE vs Canonical TMLE in the Presence of Sampling Bias
 
 In this example we can clearly see that the CCW-TMLE outperforms the canonical TMLE in terms of bias and confidence interval coverage
 when the sampling prevalence deviates from the true population prevalence across a range of `q`.
