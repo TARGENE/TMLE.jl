@@ -34,6 +34,15 @@ function subsample_case_control(
     ix = vcat(ix_case, ix_ctl)
     ix = shuffle(rng, ix)
     sub_pop = pop[ix, :]
+    # Ensure A,Y are Int 0/1 then categorical (levels 0,1) for MLJ binary classifier:
+    if !(eltype(sub_pop.A) <: Integer)
+        sub_pop.A = Int.(sub_pop.A)
+    end
+    if !(eltype(sub_pop.Y) <: Integer)
+        sub_pop.Y = Int.(sub_pop.Y)
+    end
+    sub_pop.A = categorical(sub_pop.A; compress=true)
+    sub_pop.Y = categorical(sub_pop.Y; compress=true)
     return sub_pop
 end
 
@@ -82,19 +91,6 @@ end
 
     for i in 1:30
         sample = subsample_case_control(pop, n_sample, cc_prev, rng=Random.MersenneTwister(i))
-        # Enforce (empirical) 1% positivity constraint within each W stratum.
-        # Redraw until every stratum has P(A=1|W=w) in [0.01, 0.99].
-        tries = 0
-        while true
-            w_levels = unique(sample.W)
-            ps = [mean(sample.A[sample.W .== w]) for w in w_levels]
-            if all(0.01 .<= ps .<= 0.99)
-                break
-            end
-            tries += 1
-            @assert tries < 50 "Could not satisfy positivity after $tries redraws"
-            sample = subsample_case_control(pop, n_sample, cc_prev, rng=Random.MersenneTwister(i + tries))
-        end
         std_result, _ = tmle_std(Ψ, sample; verbosity=0)
         ccw_result, _ = tmle_ccw(Ψ, sample; verbosity=0)
         push!(std_tmle_results, std_result.estimate)

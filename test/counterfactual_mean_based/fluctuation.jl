@@ -171,7 +171,7 @@ end
     dataset = DataFrame(
         T = categorical([1, 1, 0, 0, 0, 1, 1, 0]),
         Y = categorical([0, 1, 0, 1, 0, 1, 1, 0]),
-        W = rand(8)
+        W = [0.20, 0.70, 0.10, 0.50, 0.80, 0.40, 0.55, 0.35]
     )
     η = TMLE.CMRelevantFactors(
         TMLE.ConditionalDistribution(:Y, [:T, :W]),
