@@ -147,7 +147,7 @@ function compute_gradient_and_estimate_from_caches!(
     # Compute gradient
     Ey = expected_value(observed_cache[:ŷ])
     ct_aggregate = compute_counterfactual_aggregate!(counterfactual_cache, Q)
-    Ψ̂ = plugin_estimate(ct_aggregate, prevalence_weights)
+    Ψ̂ = plugin_estimate(ct_aggregate; weights=prevalence_weights)
     gradient = ∇YX(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w]) .+ ∇W(ct_aggregate, Ψ̂)
     return gradient, Ψ̂
 end

@@ -24,8 +24,11 @@ function counterfactual_aggregate(Ψ::StatisticalCMCompositeEstimand, Q, dataset
     return ctf_agg
 end
 
-plugin_estimate(ctf_aggregate, prevalence_weights::Nothing) = mean(ctf_aggregate)
-plugin_estimate(ctf_aggregate, prevalence_weights::AbstractVector) = weighted_mean(ctf_aggregate, prevalence_weights)
+plugin_estimate(ctf_aggregate, weights::Nothing) = mean(ctf_aggregate)
+
+plugin_estimate(ctf_aggregate, weights::AbstractVector) = weighted_mean(ctf_aggregate, weights)
+
+plugin_estimate(ctf_aggregate; weights=nothing) = plugin_estimate(ctf_aggregate, weights)
 
 """
     ∇W(ctf_agg, Ψ̂)
@@ -66,7 +69,7 @@ function gradient_and_plugin_estimate(Ψ::StatisticalCMCompositeEstimand, factor
     Q = factors.outcome_mean
     G = factors.propensity_score
     ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
-    Ψ̂ = plugin_estimate(ctf_agg, nothing)
+    Ψ̂ = plugin_estimate(ctf_agg)
     IC = ∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound) .+ ∇W(ctf_agg, Ψ̂)
     return IC, Ψ̂
 end
