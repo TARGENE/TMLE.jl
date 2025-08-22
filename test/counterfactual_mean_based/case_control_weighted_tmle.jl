@@ -34,15 +34,8 @@ function subsample_case_control(
     ix = vcat(ix_case, ix_ctl)
     ix = shuffle(rng, ix)
     sub_pop = pop[ix, :]
-    # Ensure A,Y are Int 0/1 then categorical (levels 0,1) for MLJ binary classifier:
-    if !(eltype(sub_pop.A) <: Integer)
-        sub_pop.A = Int.(sub_pop.A)
-    end
-    if !(eltype(sub_pop.Y) <: Integer)
-        sub_pop.Y = Int.(sub_pop.Y)
-    end
-    sub_pop.A = categorical(sub_pop.A; compress=true)
-    sub_pop.Y = categorical(sub_pop.Y; compress=true)
+    sub_pop.A = categorical(Bool.(sub_pop.A))
+    sub_pop.Y = categorical(Bool.(sub_pop.Y))
     return sub_pop
 end
 
