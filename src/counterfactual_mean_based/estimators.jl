@@ -110,7 +110,7 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
     # If prevalence is provided, we need to ensure we have a stable experimental unit (J controls per case)
     !isnothing(tmle.prevalence) ? nomissing_dataset = get_matched_controls(nomissing_dataset, relevant_factors) : nomissing_dataset
-    prevalence_weights = get_weights_from_prevalence(tmle.prevalence, nomissing_dataset[!, relevant_factors.outcome_mean.outcome])
+    prevalence_weights = compute_prevalence_weights(tmle.prevalence, nomissing_dataset[!, relevant_factors.outcome_mean.outcome])
     initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices, tmle.prevalence)
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 

@@ -175,7 +175,7 @@ end
         TMLE.ConditionalDistribution(:Y, [:T, :W]),
         TMLE.ConditionalDistribution(:T, [:W])
     )
-    prevalence_weights = TMLE.get_weights_from_prevalence(
+    prevalence_weights = TMLE.compute_prevalence_weights(
         0.05,
         dataset[!, :Y]
     )

@@ -58,13 +58,13 @@ function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothi
 end
 
 """
-    get_weights_from_prevalence(prevalence, y)
+    compute_prevalence_weights(prevalence, y)
 
 Calculates weights for a case-control study to use in the fitting of nuisance functions.
 - `prevalence`: The prevalence of the outcome in the population.
 - `y`: The outcome variable across observations, which should be binary vector.`
 """
-function get_weights_from_prevalence(prevalence::Float64, y::AbstractVector)
+function compute_prevalence_weights(prevalence::Float64, y::AbstractVector)
     J = sum(y .== 0) ÷ sum(y .== 1)
     weights = Vector{Float64}(undef, length(y))
     for i in eachindex(y)
@@ -73,15 +73,15 @@ function get_weights_from_prevalence(prevalence::Float64, y::AbstractVector)
     return weights
 end
 
-get_weights_from_prevalence(::Nothing, y) = nothing
+compute_prevalence_weights(::Nothing, y) = nothing
 
-get_subset_prevalence_weights(::Nothing, train_indices) = nothing
+get_training_prevalence_weights(::Nothing, train_indices) = nothing
 
-get_subset_prevalence_weights(weights::AbstractVector, ::Nothing) = weights
+get_training_prevalence_weights(weights::AbstractVector, ::Nothing) = weights
 
-get_subset_prevalence_weights(weights::AbstractVector, train_indices::Tuple) = weights[train_indices[1]]
+get_training_prevalence_weights(weights::AbstractVector, train_indices::Tuple) = weights[train_indices[1]]
 
-get_subset_prevalence_weights(weights::AbstractVector, train_indices::AbstractVector) = weights[train_indices]
+get_training_prevalence_weights(weights::AbstractVector, train_indices::AbstractVector) = weights[train_indices]
 
 """
     get_matched_controls(dataset, relevant_factors, J)
@@ -128,7 +128,7 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
     X = TMLE.selectcols(relevant_dataset, estimand.parents)
     y = relevant_dataset[!, estimand.outcome]
     # If a prevalence weights are provided, we use it to fit the model
-    weights = get_subset_prevalence_weights(estimator.prevalence_weights, estimator.train_validation_indices)
+    weights = get_training_prevalence_weights(estimator.prevalence_weights, estimator.train_validation_indices)
     
     mach = fit_mlj_model(estimator.model, X, y; 
         parents=estimand.parents, 
@@ -177,7 +177,7 @@ function update_sample_split_machines_with_fold!(machines::Vector{Machine},
     Xtrain = selectcols(train_dataset, estimand.parents)
     ytrain = train_dataset[!, estimand.outcome]
     
-    weights = get_subset_prevalence_weights(estimator.prevalence_weights, train_indices)
+    weights = get_training_prevalence_weights(estimator.prevalence_weights, train_indices)
     machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
         parents=estimand.parents, 
         cache=machine_cache,
