@@ -108,8 +108,6 @@ function get_matched_controls(dataset, relevant_factors; rng=Random.GLOBAL_RNG)
     return dataset[keep_idx, :]
 end
 
-get_matched_controls(dataset, relevant_factors, ::Nothing) = dataset
-
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
     cache=Dict(), 
     verbosity=1, 
