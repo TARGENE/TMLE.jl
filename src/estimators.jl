@@ -75,11 +75,6 @@ end
 
 get_weights_from_prevalence(::Nothing, y) = nothing
 
-get_weights_from_prevalence(prevalence::Float64, dataset, relevant_factors) =
-    get_weights_from_prevalence(prevalence, collect(skipmissing(dataset[!, relevant_factors.outcome_mean.outcome])))
-
-get_weights_from_prevalence(::Nothing, dataset, relevant_factors) = nothing
-
 get_subset_prevalence_weights(::Nothing, train_indices) = nothing
 
 get_subset_prevalence_weights(weights::AbstractVector, ::Nothing) = weights
