@@ -153,8 +153,6 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     estimation_report = report(targeted_factors_estimate)
 
     IC = last(estimation_report.gradients)
-    # If the prevalence weights are provided, we compute the IC based upon case-control experimental unit 
-    IC = isnothing(tmle.prevalence) ? IC : ccw_cluster_ic(IC, nomissing_dataset[!, relevant_factors.outcome_mean.outcome], tmle.prevalence)
     σ̂ = std(IC)
     n = size(IC, 1)
     Ψ̂ = last(estimation_report.estimates)
