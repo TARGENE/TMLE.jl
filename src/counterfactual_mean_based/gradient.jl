@@ -24,11 +24,7 @@ function counterfactual_aggregate(Ψ::StatisticalCMCompositeEstimand, Q, dataset
     return ctf_agg
 end
 
-plugin_estimate(ctf_aggregate, weights::Nothing) = mean(ctf_aggregate)
-
-plugin_estimate(ctf_aggregate, weights::AbstractVector) = weighted_mean(ctf_aggregate, weights)
-
-plugin_estimate(ctf_aggregate; weights=nothing) = plugin_estimate(ctf_aggregate, weights)
+plugin_estimate(ctf_aggregate) = mean(ctf_aggregate)
 
 """
     ∇W(ctf_agg, Ψ̂)
@@ -79,19 +75,3 @@ train_validation_indices_from_ps(factor::SampleSplitMLConditionalDistribution) =
 
 train_validation_indices_from_factors(factors) = 
     train_validation_indices_from_ps(first(factors.propensity_score))
-
-function ccw_cluster_ic(IC_full::AbstractVector, y::AbstractVector, q0::Float64)
-    idx_case = findall(y .== 1)
-    idx_ctl  = findall(y .== 0)
-    nC  = length(idx_case)
-    nCo = length(idx_ctl)
-    J = nCo ÷ nC
-    # Assign exactly J controls to each case
-    ctl_blocks = Iterators.partition(idx_ctl[1:(J*nC)], J)
-    ic = similar(idx_case, Float64)
-    @inbounds for (i, (case_idx, block)) in enumerate(zip(idx_case, ctl_blocks))
-        ctl_sum = sum(IC_full[b] for b in block)
-        ic[i] = q0 * float(IC_full[case_idx]) + (1 - q0) * (ctl_sum / J)
-    end
-    return ic
-end

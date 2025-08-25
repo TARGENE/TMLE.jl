@@ -233,8 +233,6 @@ function ccw_check(dataset, outcome)
     counts[1] >= counts[2] || throw(ArgumentError("The dataset must contain more controls (0) than cases (1) when prevalence is provided."))
 end
 
-weighted_mean(x, w) = sum(w .* x) / sum(w)
-
 ###############################################################################
 ##                           Printing Utilities                             ###
 ###############################################################################

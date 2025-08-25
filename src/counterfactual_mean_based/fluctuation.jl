@@ -214,9 +214,10 @@ function gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights)
     @inbounds for (case_id, control_batch) in zip(1:nC, control_batches)
         ct_aggregate_case = ct_aggregate_cases[case_id]
         ct_aggregate_controls_batch = ct_aggregate_controls[control_batch]
-        ctl_sum = q̄₀_over_J * sum(gradient_Y_X_controls[control_batch] .+ ct_aggregate_controls_batch)
-        gradient[case_id] = q₀ * (gradient_Y_X_cases[case_id] + ct_aggregate_case) + ctl_sum
         point_estimate += q₀ * ct_aggregate_case + q̄₀_over_J * sum(ct_aggregate_controls_batch)
+        ct_aggregate_controls_batch .+= gradient_Y_X_controls[control_batch]
+        ctl_sum = q̄₀_over_J * sum(ct_aggregate_controls_batch)
+        gradient[case_id] = q₀ * (gradient_Y_X_cases[case_id] + ct_aggregate_case) + ctl_sum
     end
     point_estimate /= nC
     gradient .-= point_estimate
