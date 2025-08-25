@@ -126,7 +126,7 @@ function sampling_bias_analysis(
                         upper=Float64[])
 
     for q in qs
-        sample = subsample_case_control(pop, q; rng=rng)
+        sample = subsample_case_control(pop, q; n=n, rng=rng)
         est_plain, est_ccw = estimate_Ψ(sample, q0)
         ci_plain = confint(significance_test(est_plain))
         ci_ccw   = confint(significance_test(est_ccw))
