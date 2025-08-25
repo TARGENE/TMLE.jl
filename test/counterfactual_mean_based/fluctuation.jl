@@ -201,17 +201,19 @@ end
     gradient_Y_X = [1, 2, 3, 4, 5, 6, 7]
     y            = [0, 1, 0, 1, 0, 0, 0]
     weights      = [0.2, 0.8, 0.2, 0.8, 0.2, 0.2, 0.2]
+    q_0 = 0.8
+    q_0_bar_over_J = 0.2
     gradient, point_estimate = TMLE.gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights)
     # The 7ths control is not used in these computations
     @test point_estimate == 0.5*(
-        (0.8 * 2) + 0.2 * (1 + 3) # First case (idx=2) grouped with controls (idx=[1, 3])
+        (q_0 * 2) + q_0_bar_over_J * (1 + 3) # First case (idx=2) grouped with controls (idx=[1, 3])
         +
-        (0.8 * 4) + 0.2 * (5 + 6) # Second case (idx=4) grouped with controls (idx=[5, 6])
+        (q_0 * 4) + q_0_bar_over_J * (5 + 6) # Second case (idx=4) grouped with controls (idx=[5, 6])
     )
     # gradient_Y_X and ct_aggregate are summed together and the point estimate is removed
     @test gradient == [
-        (0.8 * (2 + 2)) + 0.2 * ((1 + 1) + (3 + 3)), # First case (idx=2) grouped with controls (idx=[1, 3])
-        (0.8 * (4 + 4)) + 0.2 * ((5 + 5) + (6 + 6))  # Second case (idx=4) grouped with controls (idx=[5, 6])
+        (q_0 * (2 + 2)) + q_0_bar_over_J * ((1 + 1) + (3 + 3)), # First case (idx=2) grouped with controls (idx=[1, 3])
+        (q_0 * (4 + 4)) + q_0_bar_over_J * ((5 + 5) + (6 + 6))  # Second case (idx=4) grouped with controls (idx=[5, 6])
     ] .- point_estimate
 end
 
