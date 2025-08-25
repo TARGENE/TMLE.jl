@@ -38,16 +38,6 @@ Tolerance defaults to `1/n_samples`
 """
 hasconverged(gradient, tol::Nothing) = hasconverged(gradient, 1/length(gradient))
 
-function check_convergence(gradient, tol; weights=nothing)
-    if isnothing(weights)
-        return hasconverged(gradient, tol)
-    end
-    @assert length(weights) == length(gradient) "weights length must match gradient length"
-    tol = isnothing(tol) ? 1/length(gradient) : tol
-    μ = weighted_mean(gradient, weights)
-    return abs(μ) < tol
-end
-
 """
     initialize_observed_cache(model, X, y)
 
@@ -147,9 +137,94 @@ function compute_gradient_and_estimate_from_caches!(
     # Compute gradient
     Ey = expected_value(observed_cache[:ŷ])
     ct_aggregate = compute_counterfactual_aggregate!(counterfactual_cache, Q)
+    gradient_Y_X = ∇YX(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w])
+    gradient, Ψ̂ =  gradient_and_estimate(ct_aggregate, gradient_Y_X, observed_cache[:y], prevalence_weights)
     Ψ̂ = plugin_estimate(ct_aggregate; weights=prevalence_weights)
     gradient = ∇YX(observed_cache[:H], observed_cache[:y], Ey, observed_cache[:w]) .+ ∇W(ct_aggregate, Ψ̂)
     return gradient, Ψ̂
+end
+
+
+"""
+Computes the classic gradient and TMLE point estimate.
+"""
+function gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights::Nothing)
+    Ψ̂ = plugin_estimate(ct_aggregate)
+    gradient = gradient_Y_X .+ ∇W(ct_aggregate, Ψ̂)
+    return gradient, Ψ̂
+end
+
+
+@doc raw"""
+Computes the case-control weighted gradient and TMLE point estimate.
+
+See: https://www.degruyterbrill.com/document/doi/10.2202/1557-4679.1114/html and https://biostats.bepress.com/cgi/viewcontent.cgi?article=1238&context=ucbbiostat
+
+In the case-control setting with prevalence weights (``q_0``) and ``J`` controls per case, the estimator for the counterfactual mean is:
+
+```math
+\hat{CM}_{q_0,T=1} = \frac{1}{Ncases} \sum_{i=1}^{Ncases}\bigl(q_0 \cdot Q(1, W_{1, i}) + \frac{1-q_0}{J}\sum_{j=1}^J Q(1, W_{0,i}^j)\bigr)
+```
+
+and the case control gradient can be expressed in terms of the original gradient is:
+
+```math
+D_{q_0}(g^*, Q^*)(O_i) = q_0 D(g^*, Q^*)(O_{1, i}) + \frac{1-q_0}{J} \sum_{j=1}^J D(g^*, Q^*)(O_{0, i}^j)
+```
+
+where, ``O_{1, i}`` is the case observation ``i`` and ``O_{0, i}^j`` one of the associated control observations 
+(in this implementation, the controls are not matchd but simply randomly assigned). In the above, we also have:
+
+- ``g^*``: is the MLE weighted propensity score
+- ``Q^* = (Q_Y^*, Q_W^*)``: where ``Q_Y^*`` is the weighted TMLE and ``Q_W^*`` the weighted empirical mean over ``W``.
+
+In particular, the point estimate to be used in the case control gradient is the case control point estimate. This point estimate is not yet available 
+but it can be noticed that if we let ``D(g^*, Q^*) = \bar{D}(g^*, Q^*) - \hat{\Psi}_{q_0}`` then:
+
+D_{q_0}(g^*, Q^*)(O_i) = q_0 \bar{D}(g^*, Q^*)(O_{1, i}) + \frac{1-q_0}{J} \sum_{j=1}^J \bar{D}(g^*, Q^*)(O_{0, i}^j) - \hat{\Psi}_{q_0}
+
+In the below implementation we:
+
+1. Batch control observations for each case
+2. Compute the pseudo gradient ``\bar{D} = gradient_Y_X + ct_aggregate`` for each case and its associated controls
+3. Compute the `point_estimate` using ``ct_aggregate`` because the estimands considered here are lienar in ``CM``
+4. Finalise the `point estimate` by taking the mean over cases
+5. Finalise the `gradient` by subtracting the `point_estimate`
+"""
+function gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights)
+    # Retrieve case and control indices
+    idx_cases = findall(y .== 1)
+    idx_ctls  = findall(y .== 0)
+    # Retrieve nC, nCo, J
+    nC  = length(idx_cases)
+    nCo = length(idx_ctls)
+    J = nCo ÷ nC
+    # gradient_Y_X: cases and controls
+    gradient_Y_X_cases = gradient_Y_X[idx_cases]
+    gradient_Y_X_controls = gradient_Y_X[idx_ctls]
+    # Counterfactual aggregate: cases and controls
+    ct_aggregate_cases = ct_aggregate[idx_cases]
+    ct_aggregate_controls = ct_aggregate[idx_ctls]
+    # Weights: cases and controls
+    q₀ = weights[first(idx_cases)]
+    q̄₀_over_J = weights[first(idx_ctls)]
+    # Pool J controls with each case
+    gradient = Vector{Float64}(undef, nC)
+    point_estimate = 0.0
+    control_batches = collect(Iterators.partition(1:nCo, J)) ## leads to dropping surplus controls --> could incorporate them in the last batch
+    # Assign exactly J controls to each case and compute gradient and estimate (zip will effectively terminate when nC is reached dropping the surplus)
+    @inbounds for (case_id, control_batch) in zip(1:nC, control_batches)
+        ct_aggregate_case = ct_aggregate_cases[case_id]
+        ct_aggregate_controls_batch = ct_aggregate_controls[control_batch]
+        ctl_sum = q̄₀_over_J * sum(gradient_Y_X_controls[control_batch] .+ ct_aggregate_controls_batch)
+        gradient[case_id] = q₀ * (gradient_Y_X_cases[case_id] + ct_aggregate_case) + ctl_sum
+        point_estimate += q₀ * ct_aggregate_case + q̄₀_over_J * sum(ct_aggregate_controls_batch)
+    end
+    point_estimate /= nC
+    gradient .-= point_estimate
+
+    return gradient, point_estimate
+
 end
 
 function update_report!(report, Ψ̂, gradient, epsilon)
@@ -157,6 +232,10 @@ function update_report!(report, Ψ̂, gradient, epsilon)
     push!(report.gradients, gradient)
     push!(report.epsilons, epsilon)
 end
+
+get_fluctuation_weights(prevalence_weights::Nothing, clever_covariate_weights) = clever_covariate_weights
+
+get_fluctuation_weights(prevalence_weights, clever_covariate_weights) = clever_covariate_weights .* prevalence_weights
 
 """
     MLJBase.fit(model::Fluctuation, verbosity, X, y)
@@ -194,7 +273,7 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
         verbosity > 0 && @info(string("TMLE step: ", iter, "."))
         # Fit new fluctuation using observed data
         Xfluct = fluctuation_input(observed_cache[:H], observed_cache[:ŷ])
-        w_fluct = isnothing(model.prevalence_weights) ? observed_cache[:w] : observed_cache[:w] .* model.prevalence_weights
+        w_fluct = get_fluctuation_weights(model.prevalence_weights, observed_cache[:w])
         Q = machine(
             fluctuation_model, 
             Xfluct, 
@@ -214,7 +293,7 @@ function MLJBase.fit(model::Fluctuation, verbosity, X, y)
         )
         # store the full data IC in report
         update_report!(report, Ψ̂, gradient, fitted_params(Q).coef)
-        if check_convergence(gradient, model.tol, weights=model.prevalence_weights)
+        if hasconverged(gradient, model.tol)
             verbosity > 0 && @info("Convergence criterion reached.")
             return machines, nothing, report
         end
