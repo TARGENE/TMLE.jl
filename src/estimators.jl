@@ -83,31 +83,6 @@ get_training_prevalence_weights(weights::AbstractVector, train_indices::Tuple) =
 
 get_training_prevalence_weights(weights::AbstractVector, train_indices::AbstractVector) = weights[train_indices]
 
-"""
-    get_matched_controls(dataset, relevant_factors, J)
-
-Returns the matched controls for each case in the dataset based on the intended number of controls per case (J).
-Randomly discards unmatched controls.
-
-Currently, this implementation is for independent case-control studies. Will be expanded for matched case-control studies in the future.
-"""
-function get_matched_controls(dataset, relevant_factors; rng=Random.GLOBAL_RNG)
-    y = dataset[!, relevant_factors.outcome_mean.outcome]
-    # Choose integer J (floor(nCo/nC))
-    J = sum(y .== 0) ÷ sum(y .== 1)
-    idx_case = findall(y .== 1)
-    idx_ctl  = findall(y .== 0)
-    nC  = length(idx_case)
-    nCo = length(idx_ctl)
-    @assert nC > 0 "No cases found"
-    @assert nCo >= nC * J "Not enough controls: need $(nC*J), have $nCo"
-    ctl_pool = copy(idx_ctl)
-    Random.shuffle!(rng, ctl_pool)
-    sel_ctl = ctl_pool[1:(Int(nC*J))]
-    keep_idx = sort!(vcat(idx_case, sel_ctl))
-    return dataset[keep_idx, :]
-end
-
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
     cache=Dict(), 
     verbosity=1, 

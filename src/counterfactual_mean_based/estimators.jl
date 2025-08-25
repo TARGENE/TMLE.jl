@@ -108,10 +108,8 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     # Initial fit of the SCM's relevant factors
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
-    # If prevalence is provided, we need to ensure we have a stable experimental unit (J controls per case)
-    !isnothing(tmle.prevalence) ? nomissing_dataset = get_matched_controls(nomissing_dataset, relevant_factors) : nomissing_dataset
-    prevalence_weights = compute_prevalence_weights(tmle.prevalence, nomissing_dataset[!, relevant_factors.outcome_mean.outcome])
-    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices, tmle.prevalence)
+    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices)
+    prevalence_weights = compute_prevalence_weights(tmle.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 
         models=tmle.models,
@@ -128,6 +126,10 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     # Get propensity score truncation threshold
     n = nrows(nomissing_dataset)
     ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
+
+    # Update prevalence_weights for the nomissing_dataset
+    prevalence_weights = compute_prevalence_weights(tmle.prevalence, nomissing_dataset[!, relevant_factors.outcome_mean.outcome])
+
     # Fluctuation initial factors
     targeted_factors_estimator = get_targeted_estimator(
         Ψ, 
@@ -217,7 +219,7 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     # Initial fit of the SCM's relevant factors
     initial_factors = get_relevant_factors(Ψ)
     nomissing_dataset = nomissing(dataset, variables(initial_factors))
-    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling, nothing)
+    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling)
     initial_factors_estimator = CMRelevantFactorsEstimator(;models=ose.models, train_validation_indices=train_validation_indices)
     initial_factors_estimate = initial_factors_estimator(
         initial_factors, 

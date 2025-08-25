@@ -192,11 +192,11 @@ end
 
     fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ; weighted=false, prevalence_weights=prevalence_weights, max_iter=5)
     machs, cache, report = MLJBase.fit(fluctuation, 0, X, y)
-    gradient = TMLE.ccw_cluster_ic(last(report.gradients), dataset[!, η.outcome_mean.outcome], 0.05)
+    gradient = report.gradients[1]
     @test mean(gradient) ≈ 0.0 atol=1e-4
 end
 
-@testset "Test TMLE.gradient_and_estimate: cqse control weighting" begin
+@testset "Test TMLE.gradient_and_estimate: case control weighting" begin
     ct_aggregate = [1, 2, 3, 4, 5, 6, 7]
     gradient_Y_X = [1, 2, 3, 4, 5, 6, 7]
     y            = [0, 1, 0, 1, 0, 0, 0]
