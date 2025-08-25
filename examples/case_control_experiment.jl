@@ -3,7 +3,12 @@
 
 In this example we aim to present a strategy for estimating causal parameters 
 in experiments with biased sampling designs. The most well-known of these designs 
-in practice is the case-control study. 
+in practice is the case-control study. Unfortunately, this bias in the sampling mechanism 
+will result in a systematic bias in the associated causal effects. However, the TMLE
+framework provides a way to adjust for this bias. The main requirement for this adjustment
+is knowledge of the true population prevalence of the outcome (``q_0``). In TMLE.jl, this can be
+provided to the `Tmle` estimator via the `prevalence` keyword argument. 
+We will call the resulting estimator the CCW-TMLE.
 
 ## Data Generating Process
 
@@ -12,8 +17,7 @@ distribution $P₀$, in which there are no unobserved counfounders.
 
 ![simple-causal-graph](../assets/simple_causal_graph.png)
 
-Here, we can define the model more explicitly with structural equations. 
-Where the set of confounders `W` is a binary random variable, `T` is a binary 
+Let's assume the following generating process where the set of confounders `W` is a binary random variable, `T` is a binary 
 treatment variable dependent on `W` and `Y` is the binary outcome dependent on both `T` and `W`.
 
 ```math
@@ -47,13 +51,18 @@ function generate_population(;n=2_000_000)
     return DataFrame(W=W, A=A, Y=Y)
 end
 
+Random.seed!(42)
+
+pop = generate_population()
+
+first(pop, 5)
+
 #=
 ## Sampling Bias
 We then define a biased sampling strategy to simulate a case-control study with case (Y = 1) prevalence of a specified `q`.
 As a consequence of this sampling design our observed data distribution P will not be equal to the true population distribution P₀. 
 Instead our experimental unit or set of observations will be represented by the following form:
-$$ O = ((W_1, A_1), (W^{j}_0, A^{j}_0):j=1...J) \sim P_0$$
-Where $$(W_1, A_1) \sim P₀|Y=1$$ and $$(W^{j}_0, A^{j}_0) \sim P₀|Y=0$$
+``O = ((W_1, A_1), (W^{j}_0, A^{j}_0):j=1...J) \sim P_0``, where ``(W_1, A_1) \sim P₀|Y=1`` and ``(W^{j}_0, A^{j}_0) \sim P₀|Y=0``.
 =#
 function subsample_case_control(
     pop::DataFrame,
@@ -75,9 +84,11 @@ function subsample_case_control(
     return sample
 end
 
+subsample_case_control(pop, 0.1; n = 5)
+
 #=
 We define a function to estimate the ATE using both the canonical TMLE and CCW-TMLE from the biased sample.
-Here, the CCW-TMLE is provided with the true population prevalence `q₀`. With the information, the CCW-TMLE 
+Here, the CCW-TMLE is provided with the true population prevalence `q₀`. With this information, the CCW-TMLE 
 can reconstruct the true population structure in the presence of biased sampling allowing for the estimation
 of the true population ATE. On the other hand, the canonical TMLE will estimate an ATE that is dependent on the
 observed population with a biased sturcture.
@@ -98,8 +109,20 @@ end
 #=
 ## CCW–TMLE vs Canonical TMLE in the Presence of Sampling Bias
 
-In this example we can clearly see that the CCW-TMLE outperforms the canonical TMLE in terms of bias and confidence interval coverage
-when the sampling prevalence deviates from the true population prevalence across a range of `q`.
+To illustrate, we select various levels of case-control prevalences `q` and compare the estimates from both the canonical TMLE and CCW-TMLE. 
+Because we know the true generating process and population, both the true causal effect and prevalence are known.
+=#
+
+q₀ = mean(pop.Y)
+W = pop.W
+π1 = pY_given_A_W.(1, W)
+π0 = pY_given_A_W.(0, W)
+true_RD = mean(π1 .- π0)
+
+#=
+The following code performs the following operations:
+1. For each prevalence `q`, it generates a case-control subsample and estimates the average treatment effect with both the classic TMLE and CCW-TMLE.
+2. It plots the estimation results.
 =#
 
 function ribbon!(ax, x, y, ylow, yhigh; color, label=nothing)
@@ -126,7 +149,7 @@ function sampling_bias_analysis(
                         upper=Float64[])
 
     for q in qs
-        sample = subsample_case_control(pop, q; rng=rng)
+        sample = subsample_case_control(pop, q; n=n, rng=rng)
         est_plain, est_ccw = estimate_Ψ(sample, q0)
         ci_plain = confint(significance_test(est_plain))
         ci_ccw   = confint(significance_test(est_ccw))
@@ -149,14 +172,6 @@ function sampling_bias_analysis(
     axislegend(ax, position=:rb)
     return results, fig
 end
-
-Random.seed!(42)
-pop = generate_population()
-q₀ = mean(pop.Y)
-W = pop.W
-π1 = pY_given_A_W.(1, W)
-π0 = pY_given_A_W.(0, W)
-true_RD = mean(π1 .- π0)
 
 results, figure = sampling_bias_analysis(pop, 100_000, (0.01, 0.5), 8, q₀, true_RD)
 figure

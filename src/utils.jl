@@ -32,16 +32,15 @@ unique_sorted_tuple(iter) = Tuple(sort(unique(Symbol(x) for x in iter)))
 For "vanilla" estimators, missingness management is deferred to the nuisance function estimators. 
 This is in order to maximize data usage.
 """
-choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices::Nothing, prevalence::Nothing) = dataset
+choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices::Nothing) = dataset
 
 """
 For cross-validated estimators, missing data are removed early on based on all columns relevant to the estimand. 
 This is to avoid the complications of:
     - Equally distributing missing across folds
     - Tracking sample_ids
-Furthermore, if prevalence is provided, the missing data must also be removed for the selection of adequate cases.
 """
-choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices, prevalence) = nomissing_dataset
+choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices) = nomissing_dataset
 
 """
 If no columns are provided, we return a single intercept column to accomodate marginal distribution fitting
@@ -209,32 +208,30 @@ outcome_mean_fluctuation_fit_error_msg(factor) = string(
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
 with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)
+
 """
     check_inputs(Ψ, dataset, prevalence)
 
-Evaluate if the dataset is suitable for the estimand Ψ, checking the treatment levels and if the outcome column is binary when
-prevalence is provided. If the dataset is suitable, it will not throw an error.
+Evaluate if the dataset is suitable for the estimand Ψ.
 """
 function check_inputs(Ψ, dataset, prevalence)
     check_treatment_levels(Ψ, dataset)
-    ccw_check(prevalence, dataset, Ψ.outcome)
+    !isnothing(prevalence) && ccw_check(dataset, Ψ.outcome)
 end
 
 """
-    ccw_check(prevalence::Union{Nothing, Float64}, dataset, outcome)
+    ccw_check(dataset, outcome)
 
-Check if the dataset is suitable for prevalence correction (CCW-TMLE) throws an error if the outcome column is not binary when prevalence is provided.
-If the dataset is suitable, it returns the dataset with missing values dropped from the outcome column.
-
+Check if the dataset is suitable for prevalence correction (CCW-TMLE) throws an error if the outcome column is not binary or if the number of controls is lower than the number of cases.
 """
-function ccw_check(prevalence::Union{Nothing, Float64}, dataset, outcome)
-    if !isnothing(prevalence)
-        is_binary(dataset, outcome) || 
-            throw(ArgumentError("Outcome column must be binary for prevalence correction (CCW-TMLE)."))
-    end
+function ccw_check(dataset, outcome)
+    nomissing_y = collect(skipmissing(dataset[!, outcome]))
+    unique_ys = Set(nomissing_y)
+    unique_ys == Set([0, 1]) || 
+        throw(ArgumentError("Outcome column must be binary when prevalence is specified."))
+    counts = [count(==(element), nomissing_y) for element in [0, 1]]
+    counts[1] >= counts[2] || throw(ArgumentError("The dataset must contain more controls (0) than cases (1) when prevalence is provided."))
 end
-
-weighted_mean(x, w) = sum(w .* x) / sum(w)
 
 ###############################################################################
 ##                           Printing Utilities                             ###

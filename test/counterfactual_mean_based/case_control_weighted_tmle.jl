@@ -53,16 +53,13 @@ end
     pA = 1 ./ (1 .+ exp.(-ηA))
     A = rand.(Bernoulli.(pA))
     α, β, γ = -3, log(2), log(1.5)
-    ηY = α .+ β .* A .+ γ .* W
-    pY = 1 ./ (1 .+ exp.(-ηY))
+    pY = pY_given_A_W(A, W; α=α, β=β, γ=γ)
     Y = rand.(Bernoulli.(pY))
     pop = DataFrame(W=W, A=A, Y=Y)
     q₀ = mean(pop.Y .== 1)
 
     # Obtain the true risk difference (ATE)
-    Y_1 = pY_given_A_W(1, pop.W)
-    Y_0 = pY_given_A_W(0, pop.W)
-    true_rd = mean(Y_1 .- Y_0)
+    true_rd = mean(pY_given_A_W(1, pop.W) .- pY_given_A_W(0, pop.W))
 
     # Define ATE estimand
     Ψ = ATE(
@@ -76,29 +73,35 @@ end
     tmle_ccw = Tmle(prevalence=q₀, weighted=false)
 
     # Draw a series of biased samples of size n_sample
-    n_sample = 100_000
+    n_sample = 10_000
     cc_prev = 0.2
-    ccw_tmle_results = Vector{Any}()
-    std_tmle_results = Vector{Any}()
-    ccw_coverage = Vector{Bool}()
+    B = 30
+    ccw_tmle_results = Vector{Any}(undef, B)
+    std_tmle_results = Vector{Any}(undef, B)
+    ccw_coverage = Vector{Bool}(undef, B)
+    std_coverage = Vector{Bool}(undef, B)
 
-    for i in 1:30
+    for i in 1:B
         sample = subsample_case_control(pop, n_sample, cc_prev, rng=Random.MersenneTwister(i))
         std_result, _ = tmle_std(Ψ, sample; verbosity=0)
         ccw_result, _ = tmle_ccw(Ψ, sample; verbosity=0)
-        push!(std_tmle_results, std_result.estimate)
-        push!(ccw_tmle_results, ccw_result.estimate)
-        # Compare bias
+        std_tmle_results[i] = std_result.estimate
+        ccw_tmle_results[i] = ccw_result.estimate
+        # Compare bias: CCW-TMLE should be much less biased than standard TMLE
         std_bias = abs(std_result.estimate - true_rd)
         ccw_bias = abs(ccw_result.estimate - true_rd)
-        # CCW-TMLE should be much less biased than standard TMLE
         @test ccw_bias < std_bias / 2
-        # CCW-TMLE confidence interval should cover the truth
+        # Retrieve coverage
         lb, ub = confint(significance_test(ccw_result))
-        push!(ccw_coverage, lb < true_rd < ub)
+        ccw_coverage[i] = lb < true_rd < ub
+        lb, ub = confint(significance_test(std_result))
+        std_coverage[i] = lb < true_rd < ub
     end
     # See if, on average, CCW-TMLE outperforms standard TMLE
     @test (mean(ccw_tmle_results) - true_rd) < (mean(std_tmle_results) - true_rd)
+    # Test coverage is improved as well
+    @test mean(ccw_coverage) > mean(std_coverage)
+    @test mean(ccw_coverage) > 0.80
 end
 
 end

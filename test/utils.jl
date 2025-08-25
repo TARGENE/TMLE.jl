@@ -188,8 +188,46 @@ end
     for pipe in values(models)
         @test TMLE.supervised_learner_supports_weights(pipe) == MLJBase.supports_weights(MLJBase.supervised_component(pipe))
     end 
-
 end
+
+@testset "Test check_inputs" begin
+    # Check treatment levels
+    Ψ = ATE(;
+        outcome=:Y,
+        treatment_values=(T=(case=1, control=0),),
+        treatment_confounders=[:W]
+    )
+    # The treatment levels correctly appear in the dataset
+    dataset = DataFrame(Y=rand(10), T=rand(0:1, 10), W=rand(10))
+    @test TMLE.check_inputs(Ψ, dataset, nothing) isa Any
+    # The treatment levels do not appear in the dataset
+    dataset = DataFrame(Y=rand(10), T=rand(2:3, 10), W=rand(10))
+    msg = "The treatment variable T's, 'control' level: '0' in Ψ does not match any level in the dataset: [2, 3]"
+    @test_throws ArgumentError(msg) TMLE.check_inputs(Ψ, dataset, nothing)
+
+    # Check with prevalence
+    prevalence = 0.1
+    Ψ = CM(
+        outcome = :Y, 
+        treatment_values = (T=1,), 
+        treatment_confounders = [:W]
+    )
+    ## The outcome must be binary
+    dataset = DataFrame(
+        Y = categorical([1, 0, 1, 0, 1, 1, 2]),
+        T = categorical([1, 1, 0, 1, 0, 2, 2]),
+        W = rand(7)
+    )
+    @test_throws ArgumentError("Outcome column must be binary when prevalence is specified.") TMLE.check_inputs(Ψ, dataset, prevalence)
+    ## The number of controls must be larger than the number of cases
+    dataset = DataFrame(
+        Y = categorical([1, 0, 1, 0, 1, 1, 0]),
+        T = categorical([1, 1, 0, 1, 0, 2, 2]),
+        W = rand(7)
+    )
+    @test_throws ArgumentError("The dataset must contain more controls (0) than cases (1) when prevalence is provided.") TMLE.check_inputs(Ψ, dataset, prevalence)
+end
+
 
 end;
 
