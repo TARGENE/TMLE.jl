@@ -209,7 +209,7 @@ function gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights)
     # Pool J controls with each case
     gradient = Vector{Float64}(undef, nC)
     point_estimate = 0.0
-    control_batches = collect(Iterators.partition(1:nCo, J)) ## leads to dropping surplus controls --> could incorporate them in the last batch
+    control_batches = Iterators.partition(1:nCo, J) ## leads to dropping surplus controls --> could incorporate them in the last batch
     # Assign exactly J controls to each case and compute gradient and estimate (zip will effectively terminate when nC is reached dropping the surplus)
     @inbounds for (case_id, control_batch) in zip(1:nC, control_batches)
         ct_aggregate_case = ct_aggregate_cases[case_id]
