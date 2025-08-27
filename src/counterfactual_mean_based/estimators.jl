@@ -11,6 +11,7 @@ mutable struct Tmle <: Estimator
     tol::Union{Float64, Nothing}
     max_iter::Int
     machine_cache::Bool
+    prevalence::Union{Nothing, Float64}
     function Tmle(
         models, 
         resampling, 
@@ -19,7 +20,8 @@ mutable struct Tmle <: Estimator
         weighted, 
         tol, 
         max_iter, 
-        machine_cache
+        machine_cache,
+        prevalence
     )
         if resampling === nothing && collaborative_strategy !== nothing
             @warn("Collaborative TMLE requires a resampling strategy but none was provided. Using the default resampling strategy.")
@@ -32,7 +34,8 @@ mutable struct Tmle <: Estimator
             ps_lowerbound, 
             weighted, tol, 
             max_iter, 
-            machine_cache
+            machine_cache,
+            prevalence
         )
     end
 end
@@ -56,6 +59,7 @@ been show to be more robust to positivity violation in practice.
 - tol (default: nothing): Convergence threshold for the TMLE algorithm iterations. If nothing (default), 1/(sample size) will be used. See also `max_iter`.
 - max_iter (default: 1): Maximum number of iterations for the TMLE algorithm.
 - machine_cache (default: false): Whether MLJ.machine created during estimation should cache data.
+- prevalence (default: nothing): If provided, the prevalence weights will be used to weight the observations to match the true prevalence of the source population. 
 
 # Run Argument
 
@@ -81,7 +85,8 @@ function Tmle(;
     weighted=true, 
     tol=nothing, 
     max_iter=1, 
-    machine_cache=false
+    machine_cache=false,
+    prevalence=nothing
     )
     Tmle(
         models, 
@@ -90,24 +95,36 @@ function Tmle(;
         ps_lowerbound, 
         weighted, tol, 
         max_iter, 
-        machine_cache
+        machine_cache,
+        prevalence
     )
 end
 
 function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
-    # Check the estimand against the dataset
-    check_treatment_levels(Ψ, dataset)
+    # Check if the inputs are suitable for the specified estimand
+    check_inputs(Ψ, dataset, tmle.prevalence)
     # Make train-validation pairs
     train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
-    nomissing_dataset = nomissing(dataset, variables(relevant_factors))
-    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices)
+    fluctuation_dataset = get_fluctuation_dataset(dataset, relevant_factors;
+        prevalence=tmle.prevalence, 
+        verbosity=verbosity
+    )
+
+    initial_factors_dataset = choose_initial_dataset(dataset, fluctuation_dataset; 
+        train_validation_indices=train_validation_indices, 
+        prevalence=tmle.prevalence
+    )
+
+    prevalence_weights = compute_prevalence_weights(tmle.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 
-        models=tmle.models
+        models=tmle.models,
+        prevalence_weights=prevalence_weights
     )
     verbosity >= 1 && @info "Estimating nuisance parameters."
+    
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
         verbosity=verbosity-1,
@@ -115,8 +132,9 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         acceleration=acceleration
     )
     # Get propensity score truncation threshold
-    n = nrows(nomissing_dataset)
+    n = nrows(fluctuation_dataset)
     ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
+
     # Fluctuation initial factors
     targeted_factors_estimator = get_targeted_estimator(
         Ψ, 
@@ -128,9 +146,10 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         ps_lowerbound=ps_lowerbound,
         weighted=tmle.weighted,
         machine_cache=tmle.machine_cache,
-        models=tmle.models
+        models=tmle.models,
+        prevalence_weights=prevalence_weights
     )
-    targeted_factors_estimate = targeted_factors_estimator(relevant_factors, nomissing_dataset; 
+    targeted_factors_estimate = targeted_factors_estimator(relevant_factors, fluctuation_dataset; 
         cache=cache, 
         verbosity=verbosity,
         machine_cache=tmle.machine_cache,
@@ -141,9 +160,9 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     estimation_report = report(targeted_factors_estimate)
 
     IC = last(estimation_report.gradients)
-    Ψ̂ = last(estimation_report.estimates)
     σ̂ = std(IC)
     n = size(IC, 1)
+    Ψ̂ = last(estimation_report.estimates)
     verbosity >= 1 && @info "Done."
     return TMLEstimate(Ψ, Ψ̂, σ̂, n, IC), cache
 end
@@ -205,8 +224,11 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     # Initial fit of the SCM's relevant factors
     initial_factors = get_relevant_factors(Ψ)
     nomissing_dataset = nomissing(dataset, variables(initial_factors))
-    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset, ose.resampling)
-    initial_factors_estimator = CMRelevantFactorsEstimator(train_validation_indices, ose.models)
+    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset;
+        train_validation_indices=train_validation_indices, 
+        prevalence=nothing
+    )
+    initial_factors_estimator = CMRelevantFactorsEstimator(;models=ose.models, train_validation_indices=train_validation_indices)
     initial_factors_estimate = initial_factors_estimator(
         initial_factors, 
         initial_factors_dataset;

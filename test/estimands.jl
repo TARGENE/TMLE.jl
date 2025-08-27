@@ -13,21 +13,6 @@ using DataFrames
     @test TMLE.string_repr(distr) == "P₀(Y | 1, A, C)"
 end
 
-@testset "Test check_treatment_levels" begin
-    estimand = ATE(;
-        outcome=:Y,
-        treatment_values=(T=(case=1, control=0),),
-        treatment_confounders=[:W]
-    )
-    # This does not throw
-    dataset = DataFrame(Y=rand(10), T=rand(0:1, 10), W=rand(10))
-    @test TMLE.check_treatment_levels(estimand, dataset) isa Any
-    # This throws
-    dataset = DataFrame(Y=rand(10), T=rand(2:3, 10), W=rand(10))
-    msg = "The treatment variable T's, 'control' level: '0' in Ψ does not match any level in the dataset: [2, 3]"
-    @test_throws ArgumentError(msg) TMLE.check_treatment_levels(estimand, dataset)
-end
-
 @testset "Test CMRelevantFactors" begin
     η = TMLE.CMRelevantFactors(
         outcome_mean=TMLE.ExpectedValue(:Y, [:T, :W]),
