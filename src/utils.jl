@@ -29,19 +29,19 @@ fit_string(estimand) = string("Estimating: ", string_repr(estimand))
 unique_sorted_tuple(iter) = Tuple(sort(unique(Symbol(x) for x in iter)))
 
 """
-For "vanilla" estimators, missingness management is deferred to the nuisance function estimators. 
-This is in order to maximize data usage.
-"""
-choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices::Nothing, prevalence::Nothing) = dataset
-
-"""
-For cross-validated estimators, missing data are removed early on based on all columns relevant to the estimand. 
-This is to avoid the complications of:
+For cross-validated and prevalence based estimators, the fluctuation dataset (see get_fluctuation_dataset)is used to fit the initial factors. 
+This is to avoid the expensive complications of:
     - Equally distributing missing across folds
     - Tracking sample_ids
-Furthermore, if prevalence is provided, the missing data must also be removed for the selection of adequate cases.
 """
-choose_initial_dataset(dataset, nomissing_dataset, train_validation_indices, prevalence) = nomissing_dataset
+function choose_initial_dataset(dataset, fluctuation_dataset; train_validation_indices=nothing, prevalence=nothing) 
+    # In CV mode or prevalence mode, we get back to the no fluctuation_dataset
+    if !isnothing(train_validation_indices) || !isnothing(prevalence)
+        return fluctuation_dataset
+    else
+        return dataset
+    end
+end
 
 """
 If no columns are provided, we return a single intercept column to accomodate marginal distribution fitting
@@ -70,6 +70,17 @@ function nomissing(dataset::DataFrame, colnames; disallowmissing=true, view=fals
     end
 end
 
+
+function get_fluctuation_dataset(dataset, relevant_factors; prevalence=nothing, verbosity = 1)
+    nomissing_dataset = nomissing(dataset, variables(relevant_factors))
+    if !isnothing(prevalence)
+        return get_matched_controls(nomissing_dataset, relevant_factors.outcome_mean.outcome; verbosity = verbosity)
+    else
+        return nomissing_dataset
+    end
+end
+
+
 function indicator_values(indicators, T)
     indic = zeros(Float64, nrows(T))
     for (index, row) in enumerate(Tables.namedtupleiterator(T))
@@ -91,8 +102,30 @@ function counterfactualTreatment(vals, Ts)
             ordered=isordered(T)
         )
     end
-    DataFrame(counterfactual_Ts, names(Ts))
     return DataFrame(counterfactual_Ts, names(Ts))
+end
+
+"""
+    get_matched_controls(dataset, relevant_factors, J)
+
+Returns the matched controls for each case in the dataset based on the intended number of controls per case (J).
+Randomly discards unmatched controls.
+Currently, this implementation is for independent case-control studies. Will be expanded for matched case-control studies in the future.
+"""
+function get_matched_controls(dataset, outcome; verbosity = 1)
+    y = dataset[!, outcome]
+    idx_case = findall(y .== 1)
+    idx_ctl  = findall(y .== 0)
+    nC  = length(idx_case)
+    nCo = length(idx_ctl)
+    J, surplus = divrem(nCo, nC)
+    if surplus !== 0
+        verbosity > 0 && @info("Dropping $surplus control(s) to ensure equal number of controls per case (J=$J). You can pre-drop these controls yourself to prevent this operation.")
+        samples_to_drop = shuffle!(idx_ctl)[1:surplus]
+        return dataset[Not(samples_to_drop), :]
+    else
+        return dataset
+    end
 end
 
 """
@@ -209,32 +242,30 @@ outcome_mean_fluctuation_fit_error_msg(factor) = string(
 Base.showerror(io::IO, e::FitFailedError) = print(io, e.msg)
 
 with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_factors = false)) = Pipeline(encoder,  model)
+
 """
     check_inputs(Ψ, dataset, prevalence)
 
-Evaluate if the dataset is suitable for the estimand Ψ, checking the treatment levels and if the outcome column is binary when
-prevalence is provided. If the dataset is suitable, it will not throw an error.
+Evaluate if the dataset is suitable for the estimand Ψ.
 """
 function check_inputs(Ψ, dataset, prevalence)
     check_treatment_levels(Ψ, dataset)
-    ccw_check(prevalence, dataset, Ψ.outcome)
+    !isnothing(prevalence) && ccw_check(dataset, Ψ.outcome)
 end
 
 """
-    ccw_check(prevalence::Union{Nothing, Float64}, dataset, outcome)
+    ccw_check(dataset, outcome)
 
-Check if the dataset is suitable for prevalence correction (CCW-TMLE) throws an error if the outcome column is not binary when prevalence is provided.
-If the dataset is suitable, it returns the dataset with missing values dropped from the outcome column.
-
+Check if the dataset is suitable for prevalence correction (CCW-TMLE) throws an error if the outcome column is not binary or if the number of controls is lower than the number of cases.
 """
-function ccw_check(prevalence::Union{Nothing, Float64}, dataset, outcome)
-    if !isnothing(prevalence)
-        is_binary(dataset, outcome) || 
-            throw(ArgumentError("Outcome column must be binary for prevalence correction (CCW-TMLE)."))
-    end
+function ccw_check(dataset, outcome)
+    nomissing_y = collect(skipmissing(dataset[!, outcome]))
+    unique_ys = Set(nomissing_y)
+    unique_ys == Set([0, 1]) || 
+        throw(ArgumentError("Outcome column must be binary when prevalence is specified."))
+    counts = [count(==(element), nomissing_y) for element in [0, 1]]
+    counts[1] >= counts[2] || throw(ArgumentError("The dataset must contain more controls (0) than cases (1) when prevalence is provided."))
 end
-
-weighted_mean(x, w) = sum(w .* x) / sum(w)
 
 ###############################################################################
 ##                           Printing Utilities                             ###

@@ -18,8 +18,8 @@ function (estimator::FoldsCMRelevantFactorsEstimator)(acceleration::CPU1, estima
     estimates = []
     for train_validation_indices in estimator.train_validation_indices
         η̂ = CMRelevantFactorsEstimator(
-            train_validation_indices, 
-            estimator.models
+            train_validation_indices=train_validation_indices, 
+            models=estimator.models
         )
         η̂ₙ = η̂(estimand, dataset; cache=cache, verbosity=verbosity, machine_cache=machine_cache)
         push!(estimates, η̂ₙ)
@@ -37,8 +37,8 @@ function (estimator::FoldsCMRelevantFactorsEstimator)(acceleration::CPUThreads, 
     @threads for fold_index in 1:nfolds
         train_validation_indices = estimator.train_validation_indices[fold_index]
         η̂ = CMRelevantFactorsEstimator(
-            train_validation_indices, 
-            estimator.models
+            train_validation_indices=train_validation_indices, 
+            models=estimator.models
         )
         η̂ₙ = η̂(estimand, dataset; cache=cache, verbosity=verbosity, machine_cache=machine_cache)
         estimates[fold_index] = η̂ₙ
@@ -84,10 +84,7 @@ end
 end
 
 CMRelevantFactorsEstimator(;models, train_validation_indices=nothing, prevalence_weights=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models, prevalence_weights)
-"""
-Option to maintain compatibility with the old API.
-"""
-CMRelevantFactorsEstimator(train_validation_indices, models; prevalence_weights=nothing) = CMRelevantFactorsEstimator(train_validation_indices, models, prevalence_weights)
+
 """
 If there is no collaborative strategy, we are in CV mode and `train_validation_indices` are used to build the initial estimator.
 """

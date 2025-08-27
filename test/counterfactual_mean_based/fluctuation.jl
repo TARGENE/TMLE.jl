@@ -26,8 +26,7 @@ using MLJGLMInterface
         TMLE.ConditionalDistribution(:T, [:W₁, :W₂, :W₃])
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
-        nothing,
-        Dict(
+        models=Dict(
             :Y => with_encoder(ConstantRegressor()), 
             :T => ConstantClassifier()
         )
@@ -117,8 +116,7 @@ end
         )
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
-        nothing,
-        Dict(
+        models=Dict(
             :Y  => with_encoder(ConstantClassifier()), 
             :T₁ => ConstantClassifier(),
             :T₂ => ConstantClassifier()
@@ -177,13 +175,12 @@ end
         TMLE.ConditionalDistribution(:Y, [:T, :W]),
         TMLE.ConditionalDistribution(:T, [:W])
     )
-    prevalence_weights = TMLE.get_weights_from_prevalence(
+    prevalence_weights = TMLE.compute_prevalence_weights(
         0.05,
         dataset[!, :Y]
     )
     η̂ = TMLE.CMRelevantFactorsEstimator(
-        nothing,
-        Dict(
+        models=Dict(
             :Y => with_encoder(MLJGLMInterface.LinearBinaryClassifier()), 
             :T => with_encoder(MLJGLMInterface.LinearBinaryClassifier())
         ),
@@ -195,8 +192,50 @@ end
 
     fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ; weighted=false, prevalence_weights=prevalence_weights, max_iter=5)
     machs, cache, report = MLJBase.fit(fluctuation, 0, X, y)
-    gradient = TMLE.ccw_cluster_ic(last(report.gradients), dataset[!, η.outcome_mean.outcome], 0.05)
+    gradient = report.gradients[1]
     @test mean(gradient) ≈ 0.0 atol=1e-4
+end
+
+@testset "Test TMLE.gradient_and_estimate: case control weighting" begin
+    # When there are not exactly J controls per case, the extra controls are ignored
+    ct_aggregate = [1, 2, 3, 4, 5, 6, 7]
+    gradient_Y_X = [1, 2, 3, 4, 5, 6, 7]
+    y            = [0, 1, 0, 1, 0, 0, 0]
+    weights      = [0.2, 0.8, 0.2, 0.8, 0.2, 0.2, 0.2]
+    q_0 = 0.8
+    q_0_bar_over_J = 0.2
+    gradient, point_estimate = TMLE.gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights)
+    # The 7ths control is not used in these computations
+    @test point_estimate == 0.5*(
+        (q_0 * 2) + q_0_bar_over_J * (1 + 3) # First case (idx=2) grouped with controls (idx=[1, 3])
+        +
+        (q_0 * 4) + q_0_bar_over_J * (5 + 6) # Second case (idx=4) grouped with controls (idx=[5, 6])
+    )
+    # gradient_Y_X and ct_aggregate are summed together and the point estimate is removed
+    @test gradient == [
+        (q_0 * (2 + 2)) + q_0_bar_over_J * ((1 + 1) + (3 + 3)), # First case (idx=2) grouped with controls (idx=[1, 3])
+        (q_0 * (4 + 4)) + q_0_bar_over_J * ((5 + 5) + (6 + 6))  # Second case (idx=4) grouped with controls (idx=[5, 6])
+    ] .- point_estimate
+
+    # When there is exactly J controls per case, all controls are used
+    ct_aggregate = [1, 2, 3, 4]
+    gradient_Y_X = [1, 2, 3, 4]
+    y            = [0, 1, 0, 1]
+    weights      = [0.2, 0.8, 0.2, 0.8]
+    q_0 = 0.8
+    q_0_bar_over_J = 0.2
+    gradient, point_estimate = TMLE.gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights)
+    # The 7ths control is not used in these computations
+    @test point_estimate ≈ 0.5*(
+        (q_0 * 2) + (q_0_bar_over_J * 1) # First case (idx=2) grouped with controls (idx=[1, 3])
+        +
+        (q_0 * 4) + (q_0_bar_over_J * 3) # Second case (idx=4) grouped with controls (idx=[5, 6])
+    ) atol=1e-10
+    # gradient_Y_X and ct_aggregate are summed together and the point estimate is removed
+    @test gradient == [
+        (q_0 * (2 + 2)) + q_0_bar_over_J * ((1 + 1)), # First case (idx=2) grouped with controls (idx=[1, 3])
+        (q_0 * (4 + 4)) + q_0_bar_over_J * ((3 + 3))  # Second case (idx=4) grouped with controls (idx=[5, 6])
+    ] .- point_estimate
 end
 
 end

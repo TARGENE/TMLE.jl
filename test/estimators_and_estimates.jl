@@ -102,7 +102,7 @@ end
     binary_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
     # Set prevalence to 0.5 (true prevalence in population)
     prevalence = 0.5
-    weights = TMLE.get_weights_from_prevalence(prevalence, binary_dataset.Y)
+    weights = TMLE.compute_prevalence_weights(prevalence, binary_dataset.Y)
     @test Set(weights) == Set([0.5, 0.125])  # Check weights are correct
     estimand = TMLE.ConditionalDistribution(:Y, [:X₁, :X₂])
     estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(), nothing, weights)
@@ -218,7 +218,7 @@ end
     y[81:100] .= 1
     prevalence = 0.5
     binary_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
-    weights = TMLE.get_weights_from_prevalence(prevalence, binary_dataset.Y)
+    weights = TMLE.compute_prevalence_weights(prevalence, binary_dataset.Y)
     @test Set(weights) == Set([0.5, 0.125])  # Check weights are correct
     nfolds = 3
     train_validation_indices = Tuple(MLJBase.train_test_pairs(StratifiedCV(nfolds=nfolds), 1:n, binary_dataset, binary_dataset.Y))

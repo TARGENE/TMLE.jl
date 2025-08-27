@@ -58,13 +58,13 @@ function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothi
 end
 
 """
-    get_weights_from_prevalence(prevalence, y)
+    compute_prevalence_weights(prevalence, y)
 
 Calculates weights for a case-control study to use in the fitting of nuisance functions.
 - `prevalence`: The prevalence of the outcome in the population.
 - `y`: The outcome variable across observations, which should be binary vector.`
 """
-function get_weights_from_prevalence(prevalence::Float64, y::AbstractVector)
+function compute_prevalence_weights(prevalence::Float64, y::AbstractVector)
     J = sum(y .== 0) ÷ sum(y .== 1)
     weights = Vector{Float64}(undef, length(y))
     for i in eachindex(y)
@@ -73,47 +73,15 @@ function get_weights_from_prevalence(prevalence::Float64, y::AbstractVector)
     return weights
 end
 
-get_weights_from_prevalence(::Nothing, y) = nothing
+compute_prevalence_weights(::Nothing, y) = nothing
 
-get_weights_from_prevalence(prevalence::Float64, dataset, relevant_factors) =
-    get_weights_from_prevalence(prevalence, collect(skipmissing(dataset[!, relevant_factors.outcome_mean.outcome])))
+get_training_prevalence_weights(::Nothing, train_indices) = nothing
 
-get_weights_from_prevalence(::Nothing, dataset, relevant_factors) = nothing
+get_training_prevalence_weights(weights::AbstractVector, ::Nothing) = weights
 
-get_subset_prevalence_weights(::Nothing, train_indices) = nothing
+get_training_prevalence_weights(weights::AbstractVector, train_indices::Tuple) = weights[train_indices[1]]
 
-get_subset_prevalence_weights(weights::AbstractVector, ::Nothing) = weights
-
-get_subset_prevalence_weights(weights::AbstractVector, train_indices::Tuple) = weights[train_indices[1]]
-
-get_subset_prevalence_weights(weights::AbstractVector, train_indices::AbstractVector) = weights[train_indices]
-
-"""
-    get_matched_controls(dataset, relevant_factors, J)
-
-Returns the matched controls for each case in the dataset based on the intended number of controls per case (J).
-Randomly discards unmatched controls.
-
-Currently, this implementation is for independent case-control studies. Will be expanded for matched case-control studies in the future.
-"""
-function get_matched_controls(dataset, relevant_factors; rng=Random.GLOBAL_RNG)
-    y = dataset[!, relevant_factors.outcome_mean.outcome]
-    # Choose integer J (floor(nCo/nC))
-    J = sum(y .== 0) ÷ sum(y .== 1)
-    idx_case = findall(y .== 1)
-    idx_ctl  = findall(y .== 0)
-    nC  = length(idx_case)
-    nCo = length(idx_ctl)
-    @assert nC > 0 "No cases found"
-    @assert nCo >= nC * J "Not enough controls: need $(nC*J), have $nCo"
-    ctl_pool = copy(idx_ctl)
-    Random.shuffle!(rng, ctl_pool)
-    sel_ctl = ctl_pool[1:(Int(nC*J))]
-    keep_idx = sort!(vcat(idx_case, sel_ctl))
-    return dataset[keep_idx, :]
-end
-
-get_matched_controls(dataset, relevant_factors, ::Nothing) = dataset
+get_training_prevalence_weights(weights::AbstractVector, train_indices::AbstractVector) = weights[train_indices]
 
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
     cache=Dict(), 
@@ -133,7 +101,7 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
     X = TMLE.selectcols(relevant_dataset, estimand.parents)
     y = relevant_dataset[!, estimand.outcome]
     # If a prevalence weights are provided, we use it to fit the model
-    weights = get_subset_prevalence_weights(estimator.prevalence_weights, estimator.train_validation_indices)
+    weights = get_training_prevalence_weights(estimator.prevalence_weights, estimator.train_validation_indices)
     
     mach = fit_mlj_model(estimator.model, X, y; 
         parents=estimand.parents, 
@@ -182,7 +150,7 @@ function update_sample_split_machines_with_fold!(machines::Vector{Machine},
     Xtrain = selectcols(train_dataset, estimand.parents)
     ytrain = train_dataset[!, estimand.outcome]
     
-    weights = get_subset_prevalence_weights(estimator.prevalence_weights, train_indices)
+    weights = get_training_prevalence_weights(estimator.prevalence_weights, train_indices)
     machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
         parents=estimand.parents, 
         cache=machine_cache,
