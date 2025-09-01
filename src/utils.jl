@@ -159,11 +159,26 @@ default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(
     (key => with_encoder(val) for (key, val) in kwargs)...
 )
 
-supervised_learner_supports_weights(learner) = 
+supervised_learner_supports_weights(learner; depth=50) = 
     MLJBase.supports_weights(learner)
 
-supervised_learner_supports_weights(learner::MLJBase.SupervisedPipeline) =
-    MLJBase.supports_weights(MLJBase.supervised_component(learner))
+function supervised_learner_supports_weights(learner::MLJBase.SupervisedPipeline; depth=50)
+    depth <= 0 && return false  # infinite recursion guard
+    comp = try
+        MLJBase.supervised_component(learner)
+    catch
+        learner
+    end
+    if comp === learner
+        return try
+            supervised_learner_supports_weights(comp)
+        catch
+            false
+        end
+    else
+        return supervised_learner_supports_weights(comp; depth=depth-1)
+    end
+end
 
 is_binary(dataset, columnname) = Set(skipmissing(dataset[!, columnname])) == Set([0, 1])
 
