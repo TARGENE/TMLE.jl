@@ -78,13 +78,8 @@ end
 
 Fits LASSO at the chosen lambda and returns a ConditionalDistribution object.
 """
-function propensity_score(Ψ::TMLE.StatisticalATE, strategy::LassoCTMLE, dataset::DataFrame)
-    W = Matrix(DataFrames.select(dataset, strategy.confounders))
-    A_cat = dataset[!, first(keys(Ψ.treatment_values))]
-    A = Float64.([x for x in A_cat])
-    λ = isnothing(strategy.best_lambda) ? [strategy.lambda_path[1]] : [strategy.best_lambda]
-    g_fit = GLMNet.glmnet(W, A; lambda = λ)
-    return ConditionalDistribution(g_fit, strategy.confounders)
+function propensity_score(Ψ::TMLE.StatisticalATE, collaborative_strategy::LassoCTMLE)
+    return propensity_score(Ψ)
 end
 
 """
