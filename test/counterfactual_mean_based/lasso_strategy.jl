@@ -27,17 +27,19 @@ function simulate_highdim_lasso_data(n::Int=1000, p::Int=100, rho::Float64=0.9, 
     logit_p = W * beta_
     prob_A = 1 ./ (1 .+ exp.(-logit_p))
     A = [rand(Bernoulli(p)) for p in prob_A]
+    A = convert(Vector{Int}, A)
 
     Y = 2 .* A .+ W * gamma_ .+ randn(n)
 
     colnames = [string("W", i) for i in 1:p]
     append!(colnames, ["A", "Y"])
     data = DataFrame(hcat(W, A, Y), colnames)
+    data.A = convert(Vector{Int}, data.A)
     return data
 end
 
 @testset "LassoCTMLE on simulated data" begin
-    Random.seed!(2024)  
+    Random.seed!(2025)  
     dataset = simulate_highdim_lasso_data(500, 10, 0.3, 3, 2.0, 2.0, 3) 
     confounders = Symbol.([string("W", i) for i in 1:10])
     Ψ = ATE(
