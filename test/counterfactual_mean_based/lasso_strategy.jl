@@ -2,6 +2,7 @@ using Test
 using TMLE
 using Random
 using Distributions
+using CategoricalArrays
 using LinearAlgebra
 using DataFrames
 using ToeplitzMatrices
@@ -28,31 +29,33 @@ function simulate_highdim_lasso_data(n::Int=1000, p::Int=100, rho::Float64=0.9, 
     prob_A = 1 ./ (1 .+ exp.(-logit_p))
     A = [rand(Bernoulli(p)) for p in prob_A]
     A = convert(Vector{Int}, A)
+    A = categorical(A)
 
-    Y = 2 .* A .+ W * gamma_ .+ randn(n)
+    Y = 2 .* levelcode.(A) .+ W * gamma_ .+ randn(n)
 
     colnames = [string("W", i) for i in 1:p]
     append!(colnames, ["A", "Y"])
     data = DataFrame(hcat(W, A, Y), colnames)
-    data.A = convert(Vector{Int}, data.A)
     return data
 end
 
-@testset "LassoCTMLE on simulated data" begin
-    Random.seed!(2025)  
-    dataset = simulate_highdim_lasso_data(500, 10, 0.3, 3, 2.0, 2.0, 3) 
-    confounders = Symbol.([string("W", i) for i in 1:10])
-    Ψ = ATE(
-        outcome = :Y,
-        treatment_values = (A = (case = 1, control = 0),),
-        treatment_confounders = (A = confounders,)
-    )
-    lasso_estimator = Tmle(
-        collaborative_strategy = LassoCTMLE(
-            confounders = confounders
+@testset "LASSO strategy" begin
+    @testset "LassoCTMLE on simulated data" begin
+        Random.seed!(2025)
+        dataset = simulate_highdim_lasso_data(500, 10, 0.3, 3, 2.0, 2.0, 3)
+        confounders = Symbol.([string("W", i) for i in 1:10])
+        Ψ = ATE(
+            outcome = :Y,
+            treatment_values = (A = (case = 1, control = 0),),
+            treatment_confounders = (A = confounders,)
         )
-    )
-    lasso_result, _ = lasso_estimator(Ψ, dataset; verbosity = 0)
-    @test !isnan(estimate(lasso_result))
-    @info "LassoCTMLE estimate on simulated data:" estimate(lasso_result)
+        lasso_estimator = Tmle(
+            collaborative_strategy = LassoCTMLE(
+                confounders = confounders
+            )
+        )
+        lasso_result, _ = lasso_estimator(Ψ, dataset; verbosity = 0)
+        @test !isnan(estimate(lasso_result))
+        @info "LassoCTMLE estimate on simulated data:" estimate(lasso_result)
+    end
 end
