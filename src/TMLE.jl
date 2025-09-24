@@ -19,6 +19,7 @@ using OrderedCollections
 using AutoHashEquals
 using StatisticalMeasures
 using DataFrames
+import GLMNet
 using ComputationalResources
 using Base.Threads
 using Printf
@@ -42,6 +43,7 @@ export BackdoorAdjustment, identify
 export Configuration
 export gradients, epsilons, estimates
 export AdaptiveCorrelationStrategy, GreedyStrategy
+export LassoCTMLE
 export CausalStratifiedCV, CV, StratifiedCV, Holdout
 export CPUThreads, CPU1
 
@@ -64,6 +66,7 @@ include("counterfactual_mean_based/fluctuation.jl")
 include("counterfactual_mean_based/collaborative_template.jl")
 include("counterfactual_mean_based/nuisance_estimators.jl")
 include("counterfactual_mean_based/covariate_based_strategies.jl")
+include("counterfactual_mean_based/lasso_strategy.jl")
 include("counterfactual_mean_based/estimators.jl")
 include("counterfactual_mean_based/clever_covariate.jl")
 include("counterfactual_mean_based/gradient.jl")
