@@ -174,20 +174,22 @@ end
     @test selected_cols == DataFrame(INTERCEPT=[1, 1, 1, 1, 1, 1, 1, 1])
 end
 
-@testset "default_models and supervised_learner_supports_weights" begin
+@testset "supervised_learner_supports_weights" begin
     models = default_models()
-    # Check that each value is a ProbabilisticPipeline (from with_encoder)
-    @test all(val -> occursin("Pipeline", string(typeof(val))), values(models))
-
-    # Check that the supervised_learner_supports_weights works for a base learner
-    @test TMLE.supervised_learner_supports_weights(LogisticClassifier()) == MLJBase.supports_weights(LogisticClassifier())
-    # Check that the supervised_learner_supports_weights returns the same result for a Pipeline with an encoder
-    @test TMLE.supervised_learner_supports_weights(LogisticClassifier()) == TMLE.supervised_learner_supports_weights(with_encoder(LogisticClassifier()))
-
-    # Check that the supervised_learner_supports_weights works for Pipelines in default_models
-    for pipe in values(models)
-        @test TMLE.supervised_learner_supports_weights(pipe) == MLJBase.supports_weights(MLJBase.supervised_component(pipe))
-    end 
+    # Model that does not support weights: LogisticClassifier
+    @test TMLE.supervised_learner_supports_weights(LogisticClassifier()) == false
+    # Model that supports weights: LinearBinaryClassifier
+    @test TMLE.supervised_learner_supports_weights(TMLE.LinearBinaryClassifier()) == true
+    # simple pipelines
+    @test all(TMLE.supervised_learner_supports_weights.(values(models))) == true # all default models support weights
+    @test TMLE.supervised_learner_supports_weights(Pipeline(OneHotEncoder(), LogisticClassifier())) == false # does not support weights
+    # Nested pipeline
+    pipe = Pipeline(OneHotEncoder(), Pipeline(Standardizer(), TMLE.LinearBinaryClassifier()))
+    @test TMLE.supervised_learner_supports_weights(pipe) == true # supports weights
+    pipe = Pipeline(OneHotEncoder(), Pipeline(Standardizer(), LogisticClassifier()))
+    @test TMLE.supervised_learner_supports_weights(pipe) == false # does not support weights
+    # Test clean error
+    @test_throws ArgumentError("Only learners of type `Supervised` and `SupervisedPipeline` are supported for CCW-TMLE. String is not.") TMLE.supervised_learner_supports_weights("Anything Else")
 end
 
 @testset "Test check_inputs" begin

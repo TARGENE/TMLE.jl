@@ -159,26 +159,16 @@ default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(
     (key => with_encoder(val) for (key, val) in kwargs)...
 )
 
-supervised_learner_supports_weights(learner; depth=50) = 
-    MLJBase.supports_weights(learner)
+supervised_learner_supports_weights(learner) = 
+    MLJBase.supports_weights(get_predictor(learner))
 
-function supervised_learner_supports_weights(learner::MLJBase.SupervisedPipeline; depth=50)
-    depth <= 0 && return false  # infinite recursion guard
-    comp = try
-        MLJBase.supervised_component(learner)
-    catch
-        learner
-    end
-    if comp === learner
-        return try
-            supervised_learner_supports_weights(comp)
-        catch
-            false
-        end
-    else
-        return supervised_learner_supports_weights(comp; depth=depth-1)
-    end
-end
+get_predictor(learner::MLJBase.SupervisedPipeline) = 
+    get_predictor(MLJBase.supervised_component(learner))
+
+get_predictor(learner::MLJBase.Supervised) = learner
+
+get_predictor(learner) = 
+    throw(ArgumentError("Only learners of type `Supervised` and `SupervisedPipeline` are supported for CCW-TMLE. $(typeof(learner)) is not."))
 
 is_binary(dataset, columnname) = Set(skipmissing(dataset[!, columnname])) == Set([0, 1])
 
