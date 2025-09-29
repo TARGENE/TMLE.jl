@@ -76,7 +76,7 @@ end
         (:info, TMLE.fit_string(G[1])),
         (:info, TMLE.fit_string(Q))
     )
-    train_validation_indices = MLJBase.train_test_pairs(CV(nfolds=3), 1:nrows(dataset), dataset)
+    train_validation_indices = MLJBase.train_test_pairs(CV(nfolds=3), 1:nrow(dataset), dataset)
     resampled_η̂ = TMLE.CMRelevantFactorsEstimator(models=models, train_validation_indices=train_validation_indices)
     η̂ₙ = @test_logs cv_fit_log... resampled_η̂(η, dataset; cache=cache, verbosity=1)
     @test length(η̂ₙ.outcome_mean.machines) == 3

@@ -26,7 +26,6 @@ end
 
 plugin_estimate(ctf_aggregate) = mean(ctf_aggregate)
 
-
 """
     ∇W(ctf_agg, Ψ̂)
 

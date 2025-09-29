@@ -7,10 +7,14 @@ abstract type Estimator end
 @auto_hash_equals struct MLConditionalDistributionEstimator <: Estimator
     model::MLJBase.Supervised
     train_validation_indices
+    prevalence_weights::Union{Nothing, Vector{Float64}}
 end
 
-MLConditionalDistributionEstimator(models; train_validation_indices=nothing) = 
-    MLConditionalDistributionEstimator(models, train_validation_indices)
+MLConditionalDistributionEstimator(models; train_validation_indices=nothing, prevalence_weights=nothing) = 
+    MLConditionalDistributionEstimator(models, train_validation_indices, prevalence_weights)
+
+MLConditionalDistributionEstimator(models, train_validation_indices; prevalence_weights=nothing) = 
+    MLConditionalDistributionEstimator(models, train_validation_indices, prevalence_weights)
 
 marginal_model(y::CategoricalVector) = ConstantClassifier()
 
@@ -31,12 +35,53 @@ Since there is no current understanding of when this could arise for a continuou
 actual_model(model, parents, y) =
     isempty(parents) ? marginal_model(y) : model
 
-function fit_mlj_model(model, X, y; parents=names(X), cache=false, verbosity=1)
+"""
+    fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothing, verbosity=1)
+Fits a MLJ model to the data X and y, using the specified model.
+- If the model has no parents, it is assumed to be a marginal model and a constant classifier is used.
+- If weights are provided in the case of a case-control study, they are used to fit the model.
+"""
+function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothing, verbosity=1,)
     model = actual_model(model, parents, y)
-    mach = machine(model, X, y, cache=cache)
+
+    if isnothing(weights)
+        mach = machine(model, X, y; cache=cache)
+    else
+        if supervised_learner_supports_weights(model)
+            mach = machine(model, X, y, weights; cache=cache)
+        else
+            throw(ArgumentError("The model $(model) does not support weights and cannot be used with prevalence."))
+        end
+    end
     MLJBase.fit!(mach, verbosity=verbosity)
     return mach
 end
+
+"""
+    compute_prevalence_weights(prevalence, y)
+
+Calculates weights for a case-control study to use in the fitting of nuisance functions.
+- `prevalence`: The prevalence of the outcome in the population.
+- `y`: The outcome variable across observations, which should be binary vector.`
+"""
+function compute_prevalence_weights(prevalence::Float64, y::AbstractVector)
+    J = sum(y .== 0) ÷ sum(y .== 1)
+    weights = Vector{Float64}(undef, length(y))
+    for i in eachindex(y)
+        weights[i] = y[i] == 1 ? prevalence : (1 - prevalence) / J
+    end
+    return weights
+end
+
+compute_prevalence_weights(::Nothing, y) = nothing
+
+get_training_prevalence_weights(::Nothing, train_indices) = nothing
+
+get_training_prevalence_weights(weights::AbstractVector, ::Nothing) = weights
+
+get_training_prevalence_weights(weights::AbstractVector, train_indices::Tuple) = weights[train_indices[1]]
+
+get_training_prevalence_weights(weights::AbstractVector, train_indices::AbstractVector) = weights[train_indices]
 
 function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
     cache=Dict(), 
@@ -55,9 +100,13 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
     # Fit Conditional DIstribution using MLJ
     X = TMLE.selectcols(relevant_dataset, estimand.parents)
     y = relevant_dataset[!, estimand.outcome]
+    # If a prevalence weights are provided, we use it to fit the model
+    weights = get_training_prevalence_weights(estimator.prevalence_weights, estimator.train_validation_indices)
+    
     mach = fit_mlj_model(estimator.model, X, y; 
         parents=estimand.parents, 
-        cache=machine_cache, 
+        cache=machine_cache,
+        weights=weights,
         verbosity=verbosity-1
     )
     # Build estimate
@@ -82,7 +131,11 @@ Estimates a conditional distribution (or regression) for each training set defin
 @auto_hash_equals struct SampleSplitMLConditionalDistributionEstimator <: Estimator
     model::MLJBase.Supervised
     train_validation_indices
+    prevalence_weights::Union{Nothing, Vector{Float64}}
 end
+
+SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices; prevalence_weights=nothing) =
+    SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices, prevalence_weights)
 
 function update_sample_split_machines_with_fold!(machines::Vector{Machine}, 
     estimator, 
@@ -96,9 +149,12 @@ function update_sample_split_machines_with_fold!(machines::Vector{Machine},
     train_dataset = selectrows(dataset, train_indices)
     Xtrain = selectcols(train_dataset, estimand.parents)
     ytrain = train_dataset[!, estimand.outcome]
+    
+    weights = get_training_prevalence_weights(estimator.prevalence_weights, train_indices)
     machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
         parents=estimand.parents, 
-        cache=machine_cache, 
+        cache=machine_cache,
+        weights=weights, 
         verbosity=verbosity
     )
 end
@@ -131,7 +187,7 @@ function fit_sample_split_machines!(machines::Vector{Machine}, acceleration::CPU
             estimand, 
             dataset, 
             fold_id;
-            machine_cache=machine_cache, 
+            machine_cache=machine_cache,
             verbosity=verbosity
         )
     end
@@ -155,8 +211,8 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     machines = Vector{Machine}(undef, nfolds)
     # Fit Conditional Distribution on each training split using MLJ
     fit_sample_split_machines!(machines, acceleration, estimator, estimand, relevant_dataset;
-        machine_cache=machine_cache, 
-        verbosity=verbosity-1,
+        machine_cache=machine_cache,
+        verbosity=verbosity-1
         )
     # Build estimate
     estimate = SampleSplitMLConditionalDistribution(estimand, estimator.train_validation_indices, machines)
@@ -166,11 +222,11 @@ function (estimator::SampleSplitMLConditionalDistributionEstimator)(estimand, da
     return estimate
 end
 
-ConditionalDistributionEstimator(model, train_validation_indices::Union{Nothing,Tuple}) =
-    MLConditionalDistributionEstimator(model, train_validation_indices)
+ConditionalDistributionEstimator(model, train_validation_indices::Union{Nothing,Tuple}; prevalence_weights=nothing) =
+    MLConditionalDistributionEstimator(model, train_validation_indices, prevalence_weights)
 
-ConditionalDistributionEstimator(model, train_validation_indices::AbstractVector) =
-    SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices)
+ConditionalDistributionEstimator(model, train_validation_indices::AbstractVector; prevalence_weights=nothing) =
+    SampleSplitMLConditionalDistributionEstimator(model, train_validation_indices, prevalence_weights)
 
     
 #####################################################################
