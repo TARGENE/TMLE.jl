@@ -1,7 +1,3 @@
-#!/usr/bin/env julia
-using Pkg
-Pkg.activate(".")
-
 using Test
 using TMLE
 using DataFrames
