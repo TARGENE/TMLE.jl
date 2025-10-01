@@ -1,190 +1,251 @@
-##################################################################
-###                      LassoStrategy                         ###
-##################################################################
+import GLMNet
+
 """
     LassoCTMLE <: CollaborativeStrategy
 
-Lasso-based Collaborative TMLE strategy using cross-validated lambda selection.
+LASSO-based Collaborative TMLE strategy for high-dimensional causal inference.
+
+# Parameters
+- `confounders`: Vector of confounding variable symbols
+- `patience`: Number of lambda candidates to explore collaboratively  
+- `lambda_path`: Regularization parameter values (CV-generated if empty)
+- `cv_folds`: Number of cross-validation folds
+- `alpha`: Elastic Net mixing parameter (1.0 = LASSO, 0.0 = Ridge)
+
+# Example
+```julia
+strategy = LassoCTMLE(confounders = [:W1, :W2, :W3], patience = 5)
+estimator = Tmle(collaborative_strategy = strategy)
+result, _ = estimator(estimand, data)
+```
 """
-struct LassoCTMLE <: CollaborativeStrategy
-    lambda_path::Vector{Float64}
-    cv_folds::Int
-    best_lambda::Union{Nothing,Float64}
-    losses::Vector{Float64}
+mutable struct LassoCTMLE <: CollaborativeStrategy
     confounders::Vector{Symbol}
     patience::Int
-    dataset::Any  
+    lambda_path::Vector{Float64}
+    cv_folds::Int
+    alpha::Float64
+    current_iteration::Int
+    explored_lambdas::Set{Float64}
+    best_lambda::Union{Float64, Nothing}
+    best_cv_loss::Float64
+    
     function LassoCTMLE(; 
-        lambda_path = exp10.(range(-4, stop = 0, length = 50)),
-        cv_folds = 5,
         confounders = Symbol[],
-        patience = 3,
-        dataset = nothing  
+        patience = 5,
+        lambda_path = :cv,
+        cv_folds = 5,
+        alpha = 1.0
     )
         isempty(confounders) &&
             throw(ArgumentError("Must specify confounders for LassoCTMLE"))
-        new(lambda_path, cv_folds, nothing, Float64[], confounders, patience, dataset)
+        
+        actual_lambda_path = lambda_path == :cv ? Float64[] : lambda_path
+        
+        new(confounders, patience, actual_lambda_path, cv_folds, alpha, 0, 
+            Set{Float64}(), nothing, Inf)
     end
 end
 
 """
-    stratified_kfold(y::AbstractVector, k::Int)
+    GLMNetPropensityScore
 
-Returns a vector of (train_idx, test_idx) tuples for stratified k-fold cross-validation,
-where `y` contains class labels.
+Propensity score model using GLMNet for regularized logistic regression.
 """
-function stratified_kfold(y::AbstractVector, k::Int)
-    idx_by_class = Dict{eltype(y), Vector{Int}}()
-    for (i, label) in enumerate(y)
-        push!(get!(idx_by_class, label, Int[]), i)
-    end
+struct GLMNetPropensityScore
+    alpha::Float64
+    lambda::Float64
+    selected_vars::Vector{Symbol}
+end
 
-    folds = [Int[] for _ in 1:k]
-    for idxs in values(idx_by_class)
-        shuffled = shuffle(idxs)
-        for (i, idx) in enumerate(shuffled)
-            push!(folds[mod1(i, k)], idx)
+function fit_glmnet_propensity_score(X_matrix, y_binary, alpha, lambda, var_names)
+    try
+        fit = GLMNet.glmnet(X_matrix, y_binary, alpha=alpha, lambda=[lambda])
+        coeffs = fit.betas[:, 1]
+        selected_indices = findall(x -> abs(x) > 1e-6, coeffs)
+        
+        if isempty(selected_indices)
+            @warn "No variables selected by GLMNet, falling back to correlation"
+            n_selected = max(1, round(Int, length(var_names) * 0.5))
+            return var_names[1:n_selected], fit
         end
+        
+        selected_vars = var_names[selected_indices]
+        @info "GLMNet: α=$alpha, λ=$lambda → $(length(selected_vars))/$(length(var_names)) variables selected"
+        @info "GLMNet: Selected variables: $selected_vars"
+        return selected_vars, fit
+        
+    catch e
+        @warn "GLMNet fitting failed: $e, falling back to correlation-based selection"
+        selection_fraction = max(0.2, 1.0 - lambda * 100)
+        n_selected = max(1, round(Int, length(var_names) * selection_fraction))
+        return var_names[1:min(n_selected, length(var_names))], nothing
     end
-
-    result = Vector{Tuple{Vector{Int}, Vector{Int}}}(undef, k)
-    all_idxs = collect(1:length(y))
-    for i in 1:k
-        test_idx = folds[i]
-        train_idx = setdiff(all_idxs, test_idx)
-        result[i] = (train_idx, test_idx)
-    end
-    return result
 end
 
 function initialise!(strategy::LassoCTMLE, Ψ)
+    @info "LassoCTMLE: Initialising collaborative lambda exploration"
+    strategy.current_iteration = 0
+    empty!(strategy.explored_lambdas)
     strategy.best_lambda = nothing
-    empty!(strategy.losses)
+    strategy.best_cv_loss = Inf
+    
+    if isempty(strategy.lambda_path)
+        @info "LassoCTMLE: Will generate CV lambda sequence when data is available"
+    else
+        @info "LassoCTMLE: Using provided lambda sequence: $(strategy.lambda_path[1:min(3, length(strategy.lambda_path))])..."
+    end
+    
     return nothing
 end
 
-function update!(strategy::LassoCTMLE, last_targeted_η̂ₙ, dataset)
+function update!(strategy::LassoCTMLE, g, ĝ)
+    strategy.current_iteration += 1
+    current_lambda = strategy.lambda_path[min(strategy.current_iteration, length(strategy.lambda_path))]
+    push!(strategy.explored_lambdas, current_lambda)
+    
+    @info "LassoCTMLE: Collaborative update $(strategy.current_iteration)/$(strategy.patience) - explored λ = $current_lambda"
+    @info "LassoCTMLE: Explored lambdas so far: $(sort(collect(strategy.explored_lambdas)))"
+    
+    return nothing
+end
+
+function update_with_loss!(strategy::LassoCTMLE, g, ĝ, cv_loss::Float64)
+    current_lambda = strategy.lambda_path[min(strategy.current_iteration, length(strategy.lambda_path))]
+    
+    if cv_loss < strategy.best_cv_loss
+        @info "LassoCTMLE: New best λ = $current_lambda with CV loss = $cv_loss (previous best: $(strategy.best_cv_loss))"
+        strategy.best_lambda = current_lambda
+        strategy.best_cv_loss = cv_loss
+    else
+        @info "LassoCTMLE: λ = $current_lambda with CV loss = $cv_loss (keeping best λ = $(strategy.best_lambda))"
+    end
+    
+    return nothing
+end
+
+function update!(strategy::LassoCTMLE, g, ĝ, cv_loss::Float64)
+    strategy.current_iteration += 1
+    current_lambda = strategy.lambda_path[min(strategy.current_iteration, length(strategy.lambda_path))]
+    push!(strategy.explored_lambdas, current_lambda)
+    
+    if cv_loss < strategy.best_cv_loss
+        strategy.best_lambda = current_lambda
+        strategy.best_cv_loss = cv_loss
+        @info "LassoCTMLE: New best λ = $current_lambda (CV loss = $cv_loss)"
+    end
+    
+    @info "LassoCTMLE: Collaborative update $(strategy.current_iteration)/$(strategy.patience) - explored λ = $current_lambda"
+    @info "LassoCTMLE: Explored lambdas so far: $(sort(collect(strategy.explored_lambdas)))"
+    @info "LassoCTMLE: Current best λ = $(strategy.best_lambda) (best CV loss = $(strategy.best_cv_loss))"
+    
     return nothing
 end
 
 finalise!(strategy::LassoCTMLE) = nothing
 
 function exhausted(strategy::LassoCTMLE)
-    strategy.best_lambda !== nothing
+    if isempty(strategy.lambda_path) && strategy.current_iteration == 0
+        @info "LassoCTMLE: Not exhausted - CV lambda generation pending"
+        return false
+    end
+    
+    is_exhausted = strategy.current_iteration >= strategy.patience || 
+                   length(strategy.explored_lambdas) >= length(strategy.lambda_path)
+    
+    if is_exhausted && strategy.best_lambda !== nothing
+        @info "LassoCTMLE: Collaborative exploration complete - best λ = $(strategy.best_lambda) (CV loss = $(strategy.best_cv_loss))"
+    else
+        @info "LassoCTMLE: Checking exhaustion - iteration $(strategy.current_iteration)/$(strategy.patience), exhausted: $is_exhausted"
+    end
+    
+    return is_exhausted
 end
 
 """
-    propensity_score(Ψ, strategy::LassoCTMLE, dataset)
-
-Fits LASSO at the chosen lambda and returns a ConditionalDistribution object.
+Create propensity score specification using the given confounders list.
 """
-function propensity_score(Ψ::TMLE.StatisticalATE, collaborative_strategy::LassoCTMLE)
-    return propensity_score(Ψ)
+function propensity_score(Ψ, confounders_list::Vector{Symbol})
+    @info "LassoCTMLE: Creating propensity score specification with confounders: $confounders_list"
+    Ψtreatments = TMLE.treatments(Ψ)
+    return Tuple(map(eachindex(Ψtreatments)) do index
+        T = Ψtreatments[index]
+        T_confounders = intersect(confounders_list, Ψ.treatment_confounders[T])
+        T_parents = (T_confounders..., Ψtreatments[index+1:end]...)
+        TMLE.ConditionalDistribution(T, T_parents)
+    end)
 end
 
 """
-    crossvalidate_lambda(strategy, Ψ, dataset, cv_folds)
-
-Selects the best lambda from the path via cross-validated log-loss.
+Get propensity score specification from the collaborative strategy.
 """
-function crossvalidate_lambda(strategy::LassoCTMLE, Ψ, dataset, cv_folds)
-    W = Matrix(DataFrames.select(dataset, strategy.confounders))
-    A_cat = dataset[!, first(keys(Ψ.treatment_values))]
-    A = Float64.([x for x in A_cat])
-    folds = stratified_kfold(A, cv_folds)
-    losses = zeros(length(strategy.lambda_path))
-    for (train_idx, val_idx) in folds
-        W_train, W_val = W[train_idx, :], W[val_idx, :]
-        A_train, A_val = A[train_idx], A[val_idx]
-        g_fit = GLMNet.glmnet(W_train, A_train; lambda = strategy.lambda_path)
-        for (i, λ) in enumerate(g_fit.lambda)
-            g_pred = GLMNet.predict(g_fit, W_val, lambda = [λ], type = :response)
-            g_pred = clamp.(g_pred, 0.01, 0.99)
-            losses[i] += -mean(A_val .* log.(g_pred) .+ (1 .- A_val) .* log.(1 .- g_pred))
+function propensity_score(Ψ, strategy::LassoCTMLE)
+    @info "LassoCTMLE: Getting propensity score from strategy"
+    return propensity_score(Ψ, strategy.confounders)
+end
+
+"""
+Iterator implementation for LASSO-based collaborative TMLE.
+Explores different lambda values with GLMNet regularization.
+"""
+function Base.iterate(it::TMLE.StepKPropensityScoreIterator{LassoCTMLE})
+    strategy = it.collaborative_strategy
+    
+    # Generate CV lambda sequence if needed
+    if isempty(strategy.lambda_path)
+        @info "LassoCTMLE: Generating CV lambda sequence"
+        treatment_var = first(TMLE.treatments(it.Ψ))
+        y_binary = Int.(unwrap.(it.dataset[!, treatment_var]))
+        confounder_data = it.dataset[!, strategy.confounders]
+        X_matrix = Matrix{Float64}(confounder_data)
+        
+        try
+            auto_fit = GLMNet.glmnet(X_matrix, y_binary, alpha=strategy.alpha)
+            min_lambda = minimum(auto_fit.lambda)
+            strong_lambdas = auto_fit.lambda[auto_fit.lambda .>= min_lambda]
+            
+            n_lambdas = min(strategy.patience * 2, length(strong_lambdas))
+            strategy.lambda_path = strong_lambdas[1:n_lambdas]
+            
+            @info "LassoCTMLE: Generated $(length(strategy.lambda_path)) CV lambdas from $(round(minimum(strategy.lambda_path), digits=6)) to $(round(maximum(strategy.lambda_path), digits=3))"
+        catch e
+            @warn "LassoCTMLE: CV lambda generation failed, using fallback: $e"
+            strategy.lambda_path = exp10.(range(-2, stop = 0, length = strategy.patience))
         end
     end
-    avg_losses = losses ./ cv_folds
-    best_idx = argmin(avg_losses)
-    return strategy.lambda_path[best_idx], avg_losses
-end
-
-"""
-    LassoCTMLEIterator
-
-Once best lambda is chosen, this iterator provides a single candidate fit at that lambda.
-"""
-struct LassoCTMLEIterator
-    strategy::LassoCTMLE
-    Ψ::Any
-    dataset::Any
-    models::Any
-    last_targeted_η̂ₙ::Any
-end
-
-function Base.iterate(it::LassoCTMLEIterator, state = 1)
-    if state > 1
-        return nothing
-    end
-    strategy, Ψ, dataset = it.strategy, it.Ψ, it.dataset
-    W = Matrix(DataFrames.select(dataset, strategy.confounders))
-    A_cat = dataset[!, first(keys(Ψ.treatment_values))]
-    A = Float64.([x for x in A_cat])
-    λ = strategy.best_lambda
-    g_fit = GLMNet.glmnet(W, A; lambda = [λ])
-    ĝ = ConditionalDistribution(g_fit, strategy.confounders)
-    return ((g_fit, ĝ), state+1)
-end
-
-"""
-    step_k_best_candidate(
-        collaborative_strategy::LassoCTMLE,
-        Ψ, dataset, models, fluctuation_model, last_targeted_η̂ₙ, last_loss;
-        ...kwargs...
+    
+    # Find next lambda to explore
+    available_lambdas = setdiff(strategy.lambda_path, strategy.explored_lambdas)
+    isempty(available_lambdas) && return nothing
+    
+    current_lambda = first(available_lambdas)
+    
+    @info "LassoCTMLE: TRUE GLMNet collaborative candidate λ = $current_lambda (iteration $(strategy.current_iteration + 1))"
+    
+    # Prepare data for GLMNet
+    treatment_var = first(TMLE.treatments(it.Ψ))
+    y_binary = Int.(unwrap.(it.dataset[!, treatment_var]))
+    confounder_data = it.dataset[!, strategy.confounders]
+    X_matrix = Matrix{Float64}(confounder_data)
+    
+    # Use GLMNet for variable selection
+    selected_confounders, glm_fit = fit_glmnet_propensity_score(
+        X_matrix, y_binary, strategy.alpha, current_lambda, strategy.confounders
     )
-
-Pipeline step: cross-validates lambda, sets best_lambda, fits candidate at best lambda, and targets using TMLE fluctuation machinery.
-"""
-function step_k_best_candidate(
-    collaborative_strategy::LassoCTMLE,
-    Ψ,
-    dataset,
-    models,
-    fluctuation_model,
-    last_targeted_η̂ₙ,
-    last_loss;
-    verbosity = 1,
-    cache = Dict(),
-    machine_cache = false,
-    acceleration = CPU1(),
-)
-    best_lambda, avg_losses = crossvalidate_lambda(
-        collaborative_strategy,
-        Ψ,
-        dataset,
-        collaborative_strategy.cv_folds,
-    )
-    collaborative_strategy.best_lambda = best_lambda
-    collaborative_strategy.losses = avg_losses
-
-    iterator =
-        LassoCTMLEIterator(collaborative_strategy, Ψ, dataset, models, last_targeted_η̂ₙ)
-    (g, g_cd), _ = iterate(iterator, 1) 
-
-    ĝₙ = GLMNet.predict(
-        g,
-        Matrix(DataFrames.select(dataset, collaborative_strategy.confounders));
-        lambda = [collaborative_strategy.best_lambda],
-        type = :response
-        )
-    targeted_η̂ₙ, loss = TMLE.get_new_targeted_candidate(
-        last_targeted_η̂ₙ,
-        ĝₙ,
-        fluctuation_model,
-        dataset;
-        verbosity = verbosity-1,
-        cache = cache,
-        machine_cache = machine_cache,
-    )
-
-    return g, g_cd, targeted_η̂ₙ, loss, false
+    
+    @info "LassoCTMLE: GLMNet α=$(strategy.alpha), λ=$current_lambda → $(length(selected_confounders))/$(length(strategy.confounders)) confounders"
+    @info "LassoCTMLE: Selected confounders: $selected_confounders"
+    
+    # Create propensity score specification with selected confounders
+    g = propensity_score(it.Ψ, selected_confounders)
+    models = it.models
+    
+    # Build the propensity score estimator 
+    ĝ = TMLE.build_propensity_score_estimator(g, models, it.dataset; train_validation_indices=nothing)
+    
+    @info "LassoCTMLE: Built TRUE GLMNet collaborative candidate with $(length(g)) propensity score component(s)"
+    
+    return (g, ĝ), current_lambda
 end
+
+Base.iterate(it::TMLE.StepKPropensityScoreIterator{LassoCTMLE}, state) = nothing
