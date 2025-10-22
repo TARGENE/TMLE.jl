@@ -1,26 +1,30 @@
 import GLMNet
 
 """
-    LassoCTMLE <: CollaborativeStrategy
+        LassoCTMLE <: CollaborativeStrategy
 
 LASSO-based Collaborative TMLE strategy for high-dimensional causal inference.
 
+# Notes
+- Confounders are automatically extracted from the provided `estimand` at runtime
+    (via `extract_confounders_from_estimand(Ψ)`). The constructor no longer requires
+    an explicit `confounders` argument; callers may still build custom propensity
+    specifications by calling `propensity_score(Ψ, confounders_list, strategy)`.
+
 # Parameters
-- `confounders`: Vector of confounding variable symbols
-- `patience`: Number of lambda candidates to explore collaboratively  
+- `patience`: Number of lambda candidates to explore collaboratively
 - `lambda_path`: Regularization parameter values (CV-generated if empty)
 - `cv_folds`: Number of cross-validation folds
 - `alpha`: Elastic Net mixing parameter (1.0 = LASSO, 0.0 = Ridge)
 
 # Example
 ```julia
-strategy = LassoCTMLE(confounders = [:W1, :W2, :W3], patience = 5)
+strategy = LassoCTMLE(patience = 5)
 estimator = Tmle(collaborative_strategy = strategy)
 result, _ = estimator(estimand, data)
 ```
 """
 mutable struct LassoCTMLE <: CollaborativeStrategy
-    confounders::Vector{Symbol}
     patience::Int
     lambda_path::Vector{Float64}
     cv_folds::Int
@@ -30,22 +34,16 @@ mutable struct LassoCTMLE <: CollaborativeStrategy
     explored_lambdas::Set{Float64}
     best_lambda::Union{Float64, Nothing}
     best_cv_loss::Float64
-    
+
     function LassoCTMLE(; 
-        confounders = Symbol[],
         patience = 5,
         lambda_path = :cv,
         cv_folds = 5,
         alpha = 1.0,
         verbose = false
     )
-        isempty(confounders) &&
-            throw(ArgumentError("Must specify confounders for LassoCTMLE"))
-        
         actual_lambda_path = lambda_path == :cv ? Float64[] : lambda_path
-        
-        new(confounders, patience, actual_lambda_path, cv_folds, alpha, verbose, 0, 
-            Set{Float64}(), nothing, Inf)
+        new(patience, actual_lambda_path, cv_folds, alpha, verbose, 0, Set{Float64}(), nothing, Inf)
     end
 end
 
@@ -86,6 +84,21 @@ function fit_glmnet_propensity_score(X_matrix, y_binary, alpha, lambda, var_name
         n_selected = max(1, round(Int, length(var_names) * selection_fraction))
         return var_names[1:min(n_selected, length(var_names))], nothing
     end
+end
+
+"""
+Extract a vector of confounder symbols from the estimand `Ψ`.
+Collects treatment-specific confounders (in order) and returns unique symbols.
+"""
+function extract_confounders_from_estimand(Ψ)
+    Ψtreatments = TMLE.treatments(Ψ)
+    all = Symbol[]
+    for T in Ψtreatments
+        if hasproperty(Ψ, :treatment_confounders) && haskey(Ψ.treatment_confounders, T)
+            append!(all, collect(Ψ.treatment_confounders[T]))
+        end
+    end
+    return unique(all)
 end
 
 function initialise!(strategy::LassoCTMLE, Ψ)
@@ -185,8 +198,9 @@ end
 Get propensity score specification from the collaborative strategy.
 """
 function propensity_score(Ψ, strategy::LassoCTMLE)
-    log_info(strategy, "LassoCTMLE: Getting propensity score from strategy")
-    return propensity_score(Ψ, strategy.confounders, strategy)
+    log_info(strategy, "LassoCTMLE: Getting propensity score from strategy (auto-extracting confounders from estimand)")
+    confounders = extract_confounders_from_estimand(Ψ)
+    return propensity_score(Ψ, confounders, strategy)
 end
 
 """
@@ -200,7 +214,8 @@ function Base.iterate(it::TMLE.StepKPropensityScoreIterator{LassoCTMLE})
         log_info(strategy, "LassoCTMLE: Generating CV lambda sequence")
         treatment_var = first(TMLE.treatments(it.Ψ))
         y_binary = Int.(unwrap.(it.dataset[!, treatment_var]))
-        confounder_data = it.dataset[!, strategy.confounders]
+        confounders = extract_confounders_from_estimand(it.Ψ)
+        confounder_data = it.dataset[!, confounders]
         X_matrix = Matrix{Float64}(confounder_data)
         
         try
@@ -227,14 +242,15 @@ function Base.iterate(it::TMLE.StepKPropensityScoreIterator{LassoCTMLE})
     
     treatment_var = first(TMLE.treatments(it.Ψ))
     y_binary = Int.(unwrap.(it.dataset[!, treatment_var]))
-    confounder_data = it.dataset[!, strategy.confounders]
+    confounders = extract_confounders_from_estimand(it.Ψ)
+    confounder_data = it.dataset[!, confounders]
     X_matrix = Matrix{Float64}(confounder_data)
-    
+
     selected_confounders, glm_fit = fit_glmnet_propensity_score(
-        X_matrix, y_binary, strategy.alpha, current_lambda, strategy.confounders, strategy
+        X_matrix, y_binary, strategy.alpha, current_lambda, confounders, strategy
     )
     
-    log_info(strategy, "LassoCTMLE: GLMNet α=$(strategy.alpha), λ=$current_lambda → $(length(selected_confounders))/$(length(strategy.confounders)) confounders")
+    log_info(strategy, "LassoCTMLE: GLMNet α=$(strategy.alpha), λ=$current_lambda → $(length(selected_confounders))/$(length(confounders)) confounders")
     log_info(strategy, "LassoCTMLE: Selected confounders: $selected_confounders")
     
     g = propensity_score(it.Ψ, selected_confounders, strategy)

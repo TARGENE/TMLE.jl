@@ -109,7 +109,13 @@ for i in 1:n_bootstrap
     boot_indices = sample(1:n, n, replace=true)
     boot_dataset = dataset[boot_indices, :]
     
-    standard_estimator = Tmle()
+    # Use GLMNet as the base learners for a fair comparison
+    models_glmnet = TMLE.default_models(
+        G = GLMNetClassifier(),
+        Q_continuous = GLMNetRegressor()
+    )
+
+    standard_estimator = Tmle(models = models_glmnet)
     try
         standard_result, _ = standard_estimator(estimand, boot_dataset; verbosity=0)
         push!(standard_estimates, estimate(standard_result))
@@ -118,11 +124,10 @@ for i in 1:n_bootstrap
     end
     
     lasso_strategy = LassoCTMLE(
-        confounders = all_confounders,
         patience = 4,  
         alpha = 1.0
     )
-    lasso_estimator = Tmle(collaborative_strategy = lasso_strategy)
+    lasso_estimator = Tmle(models = models_glmnet, collaborative_strategy = lasso_strategy)
     try
         lasso_result, _ = lasso_estimator(estimand, boot_dataset; verbosity=0)
         push!(lasso_estimates, estimate(lasso_result))

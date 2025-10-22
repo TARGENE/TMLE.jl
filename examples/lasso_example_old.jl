@@ -87,19 +87,23 @@ println("\n🔬 CAUSAL INFERENCE COMPARISON")
 println("=" ^ 50)
 
 println("\n1️⃣ Standard TMLE (uses all $p confounders)")
-standard_estimator = Tmle()
+models_glmnet = TMLE.default_models(
+    G = GLMNetClassifier(),
+    Q_continuous = GLMNetRegressor()
+)
+
+standard_estimator = Tmle(models = models_glmnet)
 standard_result, _ = standard_estimator(estimand, dataset; verbosity=0)
 std_estimate = estimate(standard_result)
 println("   Estimate: $(round(std_estimate, digits=3))")
 
 println("\n2️⃣ LASSO CTMLE (cv lambda selection)")
 lasso_strategy = LassoCTMLE(
-    confounders = all_confounders,
     patience = 6,
     alpha = 1.0
 )
 
-lasso_estimator = Tmle(collaborative_strategy = lasso_strategy)
+lasso_estimator = Tmle(models = models_glmnet, collaborative_strategy = lasso_strategy)
 lasso_result, _ = lasso_estimator(estimand, dataset; verbosity=0)
 lasso_estimate = estimate(lasso_result)
 println("   Estimate: $(round(lasso_estimate, digits=3))")

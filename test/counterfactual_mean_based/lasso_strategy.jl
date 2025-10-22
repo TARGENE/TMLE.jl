@@ -16,8 +16,7 @@ end
 @testset "LASSO Collaborative TMLE" begin
     
     @testset "Basic construction and defaults" begin
-        strategy = LassoCTMLE(confounders=[:W1, :W2, :W3])
-        @test strategy.confounders == [:W1, :W2, :W3]
+        strategy = LassoCTMLE()
         @test strategy.patience == 5
         @test length(strategy.lambda_path) == 0 
         @test strategy.alpha == 1.0 
@@ -34,8 +33,8 @@ end
             treatment_confounders = (A = confounders,)
         )
         
-        # Test LASSO CTMLE with default settings (automatic CV lambda)
-        lasso_strategy = LassoCTMLE(confounders = confounders)
+    # Test LASSO CTMLE with default settings (automatic CV lambda)
+    lasso_strategy = LassoCTMLE()
         lasso_estimator = Tmle(collaborative_strategy = lasso_strategy)
         lasso_result, _ = lasso_estimator(estimand, dataset; verbosity = 0)
         
