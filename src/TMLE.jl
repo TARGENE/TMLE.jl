@@ -49,6 +49,7 @@ export brute_force_ordering, groups_ordering
 export gradients, epsilons, estimates
 export AdaptiveCorrelationStrategy, GreedyStrategy
 export LassoCTMLE
+export GLMNetRegressor, GLMNetClassifier
 export CausalStratifiedCV, CV, StratifiedCV, Holdout
 export CPUThreads, CPU1
 
@@ -75,6 +76,7 @@ include("counterfactual_mean_based/lasso_strategy.jl")
 include("counterfactual_mean_based/estimators.jl")
 include("counterfactual_mean_based/clever_covariate.jl")
 include("counterfactual_mean_based/gradient.jl")
+include("counterfactual_mean_based/glmnet-mlj.jl")
 
 include("configuration.jl")
 include("testing.jl")
