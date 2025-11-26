@@ -181,6 +181,32 @@ ConditionalDistributionEstimator(model, train_validation_indices::AbstractVector
     cd_estimators::Dict{Symbol, Any}
 end
 
+#####################################################################
+###       PrefitGLMNetJointConditionalDistributionEstimator       ###
+#####################################################################
+
+"""
+Estimator that returns prefit GLMNet estimates without refitting.
+Used internally by LassoCTMLE to avoid refitting per lambda.
+"""
+@auto_hash_equals struct PrefitGLMNetJointConditionalDistributionEstimator <: Estimator
+    components::Dict{Symbol, Tuple}  # outcome => (varnames, coeffs, intercept)
+end
+
+function (estimator::PrefitGLMNetJointConditionalDistributionEstimator)(conditional_distributions, dataset; 
+    cache=Dict(), 
+    verbosity=1, 
+    machine_cache=false,
+    acceleration=CPU1()
+    )
+    estimates = map(conditional_distributions) do cd
+        outcome = cd.outcome
+        varnames, coeffs, intercept = estimator.components[outcome]
+        PrefitGLMNetConditionalDistribution(cd, varnames, coeffs, intercept)
+    end
+    return JointConditionalDistributionEstimate(conditional_distributions, Tuple(estimates))
+end
+
 function fit_conditional_distributions(acceleration::CPU1, cd_estimators, conditional_distributions, dataset; cache=Dict(), verbosity=1, machine_cache=false)
     return map(conditional_distributions) do conditional_distribution
         cd_estimator = cd_estimators[conditional_distribution.outcome]

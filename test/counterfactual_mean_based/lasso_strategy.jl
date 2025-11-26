@@ -17,10 +17,10 @@ end
     
     @testset "Basic construction and defaults" begin
         strategy = LassoCTMLE()
-        @test strategy.patience == 5
-        @test length(strategy.lambda_path) == 0 
+        @test strategy.cv_folds == 5
         @test strategy.alpha == 1.0 
-        @test strategy.current_iteration == 0
+        @test strategy.initial_fit === nothing
+        @test strategy.used == false
     end
 
     @testset "LASSO CTMLE with automatic CV lambda selection" begin

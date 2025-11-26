@@ -31,6 +31,35 @@ function MLJBase.predict(estimate::MLConditionalDistribution, dataset)
     return predict(estimate.machine, X)
 end
 
+#####################################################################
+###          PrefitGLMNetConditionalDistribution                  ###
+#####################################################################
+
+"""
+Holds a precomputed GLMNet estimate that uses stored coefficients without refitting.
+Used internally by LassoCTMLE strategy to avoid refitting per lambda candidate.
+"""
+struct PrefitGLMNetConditionalDistribution <: Estimate
+    estimand::ConditionalDistribution
+    varnames::Vector{Symbol}
+    coeffs::Vector{Float64}
+    intercept::Float64
+end
+
+string_repr(estimate::PrefitGLMNetConditionalDistribution) = 
+    string("P̂(", estimate.estimand.outcome, " | ", join(estimate.estimand.parents, ", "), 
+    "), prefit GLMNet with ", length(estimate.varnames), " variables")
+
+function MLJBase.predict(estimate::PrefitGLMNetConditionalDistribution, dataset)
+    X = selectcols(dataset, estimate.varnames)
+    Xmat = Matrix{Float64}(X)
+    η = estimate.intercept .+ Xmat * estimate.coeffs
+    ps = 1 ./ (1 .+ exp.(-η))
+    # Return UnivariateFinite for binary outcomes (compatible with categorical treatment)
+    outcome_levels = [0, 1]
+    probs = hcat(1 .- ps, ps)
+    return MLJBase.UnivariateFinite(outcome_levels, probs, pool=missing)
+end
 
 #####################################################################
 ###             SampleSplitMLConditionalDistribution              ###
@@ -123,16 +152,16 @@ end
 ###               ConditionalDistributionEstimate                 ###
 #####################################################################
 
-ConditionalDistributionEstimate = Union{MLConditionalDistribution, SampleSplitMLConditionalDistribution}
+ConditionalDistributionEstimate = Union{MLConditionalDistribution, SampleSplitMLConditionalDistribution, PrefitGLMNetConditionalDistribution}
 
 function expected_value(estimate::ConditionalDistributionEstimate, dataset)
     return expected_value(predict(estimate, dataset))
 end
 
 function likelihood(estimate::ConditionalDistributionEstimate, dataset)
-    ŷ = predict(estimate, dataset)
+    ŷ = predict(estimate, dataset)
     y = dataset[!, estimate.estimand.outcome]
-    return pdf.(ŷ, y)
+    return pdf.(ŷ, y)
 end
 
 function compute_offset(ŷ::AbstractVector{<:UnivariateFinite{<:Union{OrderedFactor{2}, Multiclass{2}}}})

@@ -20,7 +20,6 @@ using DataFrames
 using CategoricalArrays
 using GLMNet
 using Distributions
-using LinearAlgebra
 using StatsBase
 
 """
