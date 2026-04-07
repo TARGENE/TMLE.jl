@@ -110,8 +110,9 @@ function Tmle(;
 end
 
 function load_prevalence_map(prevalence_file::AbstractString)
-    df = CSV.read(prevalence_file, DataFrame; delim='\t')
+    df = CSV.read(prevalence_file, DataFrame; delim='\t',header=F)
     isempty(df) && return nothing
+    rename!(df, [:trait, :prevalence])
     return Dict(Symbol(df.trait[i]) => Float64(df.prevalence[i]) for i in 1:nrow(df))
 end
 
