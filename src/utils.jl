@@ -253,9 +253,9 @@ with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_fa
 
 Evaluate if the dataset is suitable for the estimand Ψ.
 """
-function check_inputs(Ψ, dataset, prevalence)
+function check_inputs(Ψ, dataset, prevalence, prevalence_file)
     check_treatment_levels(Ψ, dataset)
-    !isnothing(prevalence) && ccw_check(dataset, Ψ.outcome)
+    (!isnothing(prevalence) || !isnothing(prevalence_file)) && ccw_check(dataset, Ψ.outcome)
 end
 
 """
