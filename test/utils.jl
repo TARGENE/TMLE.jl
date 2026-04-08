@@ -8,8 +8,6 @@ using MLJLinearModels
 using MLJModels
 using DataFrames
 
-TEST_DIR = joinpath(dirname(dirname(pathof(TMLE))), "test")
-
 @testset "Test expected_value" begin
     n = 100
     X = MLJBase.table(rand(n, 3))
