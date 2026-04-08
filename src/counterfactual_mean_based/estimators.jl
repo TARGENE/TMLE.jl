@@ -12,7 +12,6 @@ mutable struct Tmle <: Estimator
     max_iter::Int
     machine_cache::Bool
     prevalence::Union{Nothing, Float64, Dict{Symbol, Float64}}
-    prevalence_file::Union{Nothing, String}
     function Tmle(
         models, 
         resampling, 
@@ -22,8 +21,7 @@ mutable struct Tmle <: Estimator
         tol, 
         max_iter, 
         machine_cache,
-        prevalence,
-        prevalence_file
+        prevalence
     )
         if resampling === nothing && collaborative_strategy !== nothing
             @warn("Collaborative TMLE requires a resampling strategy but none was provided. Using the default resampling strategy.")
@@ -37,8 +35,7 @@ mutable struct Tmle <: Estimator
             weighted, tol, 
             max_iter, 
             machine_cache,
-            prevalence,
-            prevalence_file
+            prevalence
         )
     end
 end
@@ -62,8 +59,7 @@ been show to be more robust to positivity violation in practice.
 - tol (default: nothing): Convergence threshold for the TMLE algorithm iterations. If nothing (default), 1/(sample size) will be used. See also `max_iter`.
 - max_iter (default: 1): Maximum number of iterations for the TMLE algorithm.
 - machine_cache (default: false): Whether MLJ.machine created during estimation should cache data.
-- prevalence (default: nothing): If provided, the prevalence weights will be used to weight the observations to match the true prevalence of the source population.
-- prevalence_file (default: nothing): A file including the prevalence for each trait can also be provided. This must be a TSV with the first column including the traits, and the second column including the prevalences. 
+- prevalence (default: nothing): If provided, the prevalence weights will be used to weight the observations to match the true prevalence of the source population. This can either be a single value to be uniformly applied, or a Dict that maps each trait to a prevalence value.
 
 # Run Argument
 
@@ -90,11 +86,8 @@ function Tmle(;
     tol=nothing, 
     max_iter=1, 
     machine_cache=false,
-    prevalence=nothing,
-    prevalence_file=nothing
+    prevalence=nothing
     )
-
-    prevalence_parsed = prevalence_file !== nothing ? load_prevalence_map(prevalence_file) : prevalence
 
     Tmle(
         models, 
@@ -104,21 +97,8 @@ function Tmle(;
         weighted, tol, 
         max_iter, 
         machine_cache,
-        prevalence_parsed,
-        prevalence_file
+        prevalence
     )
-end
-
-function load_prevalence_map(prevalence_file::AbstractString)
-    lines = readlines(prevalence_file)
-    isempty(lines) && return nothing
-
-    d = Dict{Symbol, Float64}()
-    for line in lines
-        trait, prev = split(line, '\t')
-        d[Symbol(trait)] = parse(Float64, prev)
-    end
-    return d
 end
 
 function prevalence_for_estimand(Ψ, prevalence)
