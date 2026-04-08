@@ -11,8 +11,6 @@ using MLJLinearModels
 using Statistics
 using CSV
 
-DATADIR = joinpath(pkgdir(TMLE), "test", "data")
-
 # Helper: Draw a case-control sample with specified prevalence
 function subsample_case_control(
     pop::DataFrame,
@@ -208,8 +206,7 @@ end
 
         # Dict-based prevalence and scalar prevalence should agree closely
         @test isapprox(mean(prev_dict_estimates), mean(ccw_estimates); atol=1e-3)
-
-        # CCW should be closer to the truth than standard TMLE
+        # Bias should be reduced with correct prevalence specified
         @test abs(mean(ccw_estimates) - true_rd_trait) < abs(mean(std_estimates) - true_rd_trait)
     end
 end
