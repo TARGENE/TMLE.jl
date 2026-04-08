@@ -9,6 +9,9 @@ using Distributions
 using MLJBase
 using MLJLinearModels
 using Statistics
+using CSV
+
+DATADIR = joinpath(pkgdir(TMLE), "test", "data")
 
 # Helper: Draw a case-control sample with specified prevalence
 function subsample_case_control(
@@ -20,28 +23,45 @@ function subsample_case_control(
 )
     n_case = round(Int, prevalence * n)
     n_ctl  = n - n_case
-    Ycol     = pop[!, outcome_col]
-    cases    = findall(Ycol .== 1)
-    controls = findall(Ycol .== 0)
+
+    ycol = pop[!, outcome_col]
+    cases = findall(ycol .== 1)
+    controls = findall(ycol .== 0)
     if length(cases) < n_case
-        throw(ArgumentError("Not enough cases: have $(length(cases)), need $n_case"))
+        throw(ArgumentError("Not enough cases for $outcome_col: have $(length(cases)), need $n_case"))
     end
     if length(controls) < n_ctl
-        throw(ArgumentError("Not enough controls: have $(length(controls)), need $n_ctl"))
+        throw(ArgumentError("Not enough controls for $outcome_col: have $(length(controls)), need $n_ctl"))
     end
     ix_case = shuffle(rng, cases)[1:n_case]
     ix_ctl  = shuffle(rng, controls)[1:n_ctl]
-    ix = vcat(ix_case, ix_ctl)
-    ix = shuffle(rng, ix)
+    ix = shuffle(rng, vcat(ix_case, ix_ctl))
+
     sub_pop = pop[ix, :]
     sub_pop.A = categorical(Bool.(sub_pop.A))
-    sub_pop.Y = categorical(Bool.(sub_pop.Y))
+    sub_pop[!, outcome_col] = categorical(Bool.(sub_pop[!, outcome_col]))
+
     return sub_pop
 end
 
 function pY_given_A_W(A, W; α=-3, β=log(2), γ=log(1.5))
     ηY = α .+ β .* A .+ γ .* W
     return 1 ./ (1 .+ exp.(-ηY))
+end
+
+function make_population(Npop::Int)
+    W = rand(Bernoulli(0.5), Npop)
+    ηA = -0.2 .+ 0.8 .* W
+    pA = 1 ./ (1 .+ exp.(-ηA))
+    A = rand.(Bernoulli.(pA))
+
+    pY1 = pY_given_A_W(A, W; α=-3.0, β=log(2.0), γ=log(1.5))
+    pY2 = pY_given_A_W(A, W; α=-2.2, β=log(1.4), γ=log(1.8))
+
+    Y1 = rand.(Bernoulli.(pY1))
+    Y2 = rand.(Bernoulli.(pY2))
+
+    return DataFrame(W=W, A=A, Y1=Y1, Y2=Y2)
 end
 
 @testset "CCW-TMLE bootstrapping test" begin
@@ -102,6 +122,100 @@ end
     # Test coverage is improved as well
     @test mean(ccw_coverage) > mean(std_coverage)
     @test mean(ccw_coverage) > 0.80
+end
+
+@testset "Test multi-trait CCW run with prevalence TSV file" begin
+    Random.seed!(42)
+    pop = make_population(200_000)
+
+    # For running full model, copy pop
+    pop_copy = deepcopy(pop)
+    pop_copy.A  = categorical(pop_copy.A)
+    pop_copy.Y1 = categorical(pop_copy.Y1)
+    pop_copy.Y2 = categorical(pop_copy.Y2)
+
+    # Define prevalences
+    prevalence_file = joinpath(DATADIR, "prevalences.tsv")
+    prevalence_df = CSV.read(prevalence_file, DataFrame, header=false, delim="\t")
+    rename!(prevalence_df, [:trait, :prevalence])
+
+    prevalence_by_trait = Dict(
+        Symbol(row.trait) => Float64(row.prevalence)
+        for row in eachrow(prevalence_df)
+    )
+
+    # First, compute ground truth, with params used to generate Y1 and Y2 above
+    # This is used to compare true values in the loop below
+    trait_params = Dict(
+        :Y1 => (α = -3.0, β = log(2.0),   γ = log(1.5)),
+        :Y2 => (α = -2.2, β = log(1.4),   γ = log(1.8)),
+    )
+    true_rd_by_trait = Dict{Symbol, Float64}()
+    for trait in [:Y1, :Y2]
+        p = trait_params[trait]
+        true_rd_by_trait[trait] = mean(
+            pY_given_A_W(1, pop.W; α=p.α, β=p.β, γ=p.γ) .-
+            pY_given_A_W(0, pop.W; α=p.α, β=p.β, γ=p.γ)
+        )
+    end
+
+    # Now run bootstrap across both traits
+    traits = [:Y1, :Y2]
+    n_sample = 10_000
+    B = 10
+
+    for trait in traits
+        trait_prev = prevalence_by_trait[trait]
+        true_rd_trait = true_rd_by_trait[trait]
+
+        Ψ = ATE(
+            outcome = trait,
+            treatment_values = (A = (case = true, control = false),),
+            treatment_confounders = (A = [:W],)
+        )
+
+        tmle_std = Tmle(weighted=false)
+        tmle_ccw = Tmle(prevalence=trait_prev, weighted=false)
+        tmle_ccw_prev_file = Tmle(prevalence_file=prevalence_file, weighted=false) 
+
+        # First, check on full population to see if prev_file and prev give the same result 
+        ccw_full_result, _ = tmle_ccw(Ψ, pop_copy; verbosity=0) 
+        prev_file_full_result, _ = tmle_ccw_prev_file(Ψ, pop_copy; verbosity=0) 
+        @test isapprox(ccw_full_result.estimate, prev_file_full_result.estimate; atol=1e-3)
+
+        std_estimates = Float64[]
+        ccw_estimates = Float64[]
+        prev_file_estimates = Float64[]
+
+        for b in 1:B
+            sample = subsample_case_control(
+                pop,
+                n_sample,
+                trait_prev;
+                outcome_col = trait,
+                rng = Random.MersenneTwister(1000 + b),
+            )
+
+            std_result, _ = tmle_std(Ψ, sample; verbosity=0)
+            ccw_result, _ = tmle_ccw(Ψ, sample; verbosity=0)
+
+            # This is the extra check: prevalence loaded from the TSV file directly
+            prev_file_result, _ = tmle_ccw_prev_file(Ψ, sample, verbosity=0)
+
+            push!(std_estimates, std_result.estimate)
+            push!(ccw_estimates, ccw_result.estimate)
+            push!(prev_file_estimates, prev_file_result.estimate)
+
+            @test isfinite(std_result.estimate)
+            @test isfinite(ccw_result.estimate)
+            @test isfinite(prev_file_result.estimate)
+        end
+
+        # Check prev_file estimates and CCW are approx equal, and bias is reduced compard to std
+        @test isapprox(mean(prev_file_estimates), mean(ccw_estimates); atol=1e-3)
+        @test abs(mean(ccw_estimates) - true_rd_trait) < abs(mean(std_estimates) - true_rd_trait)
+
+    end
 end
 
 end
