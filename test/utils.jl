@@ -222,8 +222,9 @@ end
         T = categorical([1, 1, 0, 1, 0, 2, 2]),
         W = rand(7)
     )
+    prevalence_file = joinpath(TEST_DIR,"data","prevalences.tsv")
     @test_throws ArgumentError("Outcome column must be binary when prevalence is specified.") TMLE.check_inputs(Ψ, dataset, prevalence)
-    @test_throws ArgumentError("Outcome column must be binary when prevalence file is specified.") TMLE.check_inputs(Ψ, dataset, nothing; joinpath(TEST_DIR,"data","prevalences.tsv"))
+    @test_throws ArgumentError("Outcome column must be binary when prevalence file is specified.") TMLE.check_inputs(Ψ, dataset, nothing; prevalence_file=prevalence_file)
     ## The number of controls must be larger than the number of cases
     dataset = DataFrame(
         Y = categorical([1, 0, 1, 0, 1, 1, 0]),
