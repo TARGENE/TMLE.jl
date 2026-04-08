@@ -124,7 +124,7 @@ end
     @test mean(ccw_coverage) > 0.80
 end
 
-@testset "Test multi-trait CCW run with prevalence TSV file" begin
+@testset "Test multi-trait CCW run with prevalence dictionary" begin
     Random.seed!(42)
     pop = make_population(200_000)
 
@@ -134,22 +134,18 @@ end
     pop_copy.Y1 = categorical(pop_copy.Y1)
     pop_copy.Y2 = categorical(pop_copy.Y2)
 
-    # Define prevalences
-    prevalence_file = joinpath(DATADIR, "prevalences.tsv")
-    prevalence_df = CSV.read(prevalence_file, DataFrame, header=false, delim="\t")
-    rename!(prevalence_df, [:trait, :prevalence])
-
+    # True prevalences computed from the population
     prevalence_by_trait = Dict(
-        Symbol(row.trait) => Float64(row.prevalence)
-        for row in eachrow(prevalence_df)
+        :Y1 => mean(pop.Y1),
+        :Y2 => mean(pop.Y2),
     )
 
-    # First, compute ground truth, with params used to generate Y1 and Y2 above
-    # This is used to compare true values in the loop below
+    # Ground truth for each trait, using the parameters that generated them
     trait_params = Dict(
-        :Y1 => (α = -3.0, β = log(2.0),   γ = log(1.5)),
-        :Y2 => (α = -2.2, β = log(1.4),   γ = log(1.8)),
+        :Y1 => (α = -3.0, β = log(2.0), γ = log(1.5)),
+        :Y2 => (α = -2.2, β = log(1.4), γ = log(1.8)),
     )
+
     true_rd_by_trait = Dict{Symbol, Float64}()
     for trait in [:Y1, :Y2]
         p = trait_params[trait]
@@ -159,7 +155,6 @@ end
         )
     end
 
-    # Now run bootstrap across both traits
     traits = [:Y1, :Y2]
     n_sample = 10_000
     B = 10
@@ -176,16 +171,16 @@ end
 
         tmle_std = Tmle(weighted=false)
         tmle_ccw = Tmle(prevalence=trait_prev, weighted=false)
-        tmle_ccw_prev_file = Tmle(prevalence_file=prevalence_file, weighted=false) 
+        tmle_ccw_prev_dict = Tmle(prevalence=prevalence_by_trait, weighted=false)
 
-        # First, check on full population to see if prev_file and prev give the same result 
-        ccw_full_result, _ = tmle_ccw(Ψ, pop_copy; verbosity=0) 
-        prev_file_full_result, _ = tmle_ccw_prev_file(Ψ, pop_copy; verbosity=0) 
-        @test isapprox(ccw_full_result.estimate, prev_file_full_result.estimate; atol=1e-3)
+        # Check on full population: dict-based prevalence vs scalar prevalence
+        ccw_full_result, _ = tmle_ccw(Ψ, pop_copy; verbosity=0)
+        prev_dict_full_result, _ = tmle_ccw_prev_dict(Ψ, pop_copy; verbosity=0)
+        @test isapprox(ccw_full_result.estimate, prev_dict_full_result.estimate; atol=1e-3)
 
         std_estimates = Float64[]
         ccw_estimates = Float64[]
-        prev_file_estimates = Float64[]
+        prev_dict_estimates = Float64[]
 
         for b in 1:B
             sample = subsample_case_control(
@@ -199,22 +194,23 @@ end
             std_result, _ = tmle_std(Ψ, sample; verbosity=0)
             ccw_result, _ = tmle_ccw(Ψ, sample; verbosity=0)
 
-            # This is the extra check: prevalence loaded from the TSV file directly
-            prev_file_result, _ = tmle_ccw_prev_file(Ψ, sample, verbosity=0)
+            # Dictionary-based prevalence run
+            prev_dict_result, _ = tmle_ccw_prev_dict(Ψ, sample; verbosity=0)
 
             push!(std_estimates, std_result.estimate)
             push!(ccw_estimates, ccw_result.estimate)
-            push!(prev_file_estimates, prev_file_result.estimate)
+            push!(prev_dict_estimates, prev_dict_result.estimate)
 
             @test isfinite(std_result.estimate)
             @test isfinite(ccw_result.estimate)
-            @test isfinite(prev_file_result.estimate)
+            @test isfinite(prev_dict_result.estimate)
         end
 
-        # Check prev_file estimates and CCW are approx equal, and bias is reduced compard to std
-        @test isapprox(mean(prev_file_estimates), mean(ccw_estimates); atol=1e-3)
-        @test abs(mean(ccw_estimates) - true_rd_trait) < abs(mean(std_estimates) - true_rd_trait)
+        # Dict-based prevalence and scalar prevalence should agree closely
+        @test isapprox(mean(prev_dict_estimates), mean(ccw_estimates); atol=1e-3)
 
+        # CCW should be closer to the truth than standard TMLE
+        @test abs(mean(ccw_estimates) - true_rd_trait) < abs(mean(std_estimates) - true_rd_trait)
     end
 end
 
