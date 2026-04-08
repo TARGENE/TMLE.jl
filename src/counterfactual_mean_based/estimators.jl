@@ -110,10 +110,15 @@ function Tmle(;
 end
 
 function load_prevalence_map(prevalence_file::AbstractString)
-    df = CSV.read(prevalence_file, DataFrame; delim='\t',header=F)
-    isempty(df) && return nothing
-    rename!(df, [:trait, :prevalence])
-    return Dict(Symbol(df.trait[i]) => Float64(df.prevalence[i]) for i in 1:nrow(df))
+    lines = readlines(prevalence_file)
+    isempty(lines) && return nothing
+
+    d = Dict{Symbol, Float64}()
+    for line in lines
+        trait, prev = split(line, '\t')
+        d[Symbol(trait)] = parse(Float64, prev)
+    end
+    return d
 end
 
 function prevalence_for_estimand(Ψ, prevalence)
@@ -122,7 +127,7 @@ function prevalence_for_estimand(Ψ, prevalence)
     if prevalence isa Float64
         return prevalence
     elseif prevalence isa Dict{Symbol, Float64}
-        return prevalence[get_outcome(Ψ)]
+        return prevalence[Ψ.outcome]
     else
         @error("Unsupported prevalence type: $(typeof(prevalence))")
     end
