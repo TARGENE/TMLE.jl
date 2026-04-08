@@ -35,7 +35,7 @@ This is to avoid the expensive complications of:
     - Tracking sample_ids
 """
 function choose_initial_dataset(dataset, fluctuation_dataset; train_validation_indices=nothing, prevalence=nothing) 
-    # In CV mode or prevalence mode, we get back to the no fluctuation_dataset
+    # In CV mode or case-control weighted mode, we get back to the no fluctuation_dataset
     if !isnothing(train_validation_indices) || !isnothing(prevalence)
         return fluctuation_dataset
     else

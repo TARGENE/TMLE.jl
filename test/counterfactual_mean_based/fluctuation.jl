@@ -190,7 +190,7 @@ end
     X = dataset[!, collect(η̂ₙ.outcome_mean.estimand.parents)]
     y = dataset[!, η̂ₙ.outcome_mean.estimand.outcome]
 
-    fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ; weighted=false, prevalence_weights=prevalence_weights, max_iter=5)
+    fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ; weighted=false, prevalence_weights=prevalence_weights, max_iter=5, ps_lowerbound=nothing)
     machs, cache, report = MLJBase.fit(fluctuation, 0, X, y)
     gradient = report.gradients[1]
     @test mean(gradient) ≈ 0.0 atol=1e-4
@@ -205,17 +205,18 @@ end
     q_0 = 0.8
     q_0_bar_over_J = 0.2
     gradient, point_estimate = TMLE.gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights)
-    # The 7ths control is not used in these computations
-    @test point_estimate == 0.5*(
-        (q_0 * 2) + q_0_bar_over_J * (1 + 3) # First case (idx=2) grouped with controls (idx=[1, 3])
-        +
-        (q_0 * 4) + q_0_bar_over_J * (5 + 6) # Second case (idx=4) grouped with controls (idx=[5, 6])
-    )
-    # gradient_Y_X and ct_aggregate are summed together and the point estimate is removed
-    @test gradient == [
-        (q_0 * (2 + 2)) + q_0_bar_over_J * ((1 + 1) + (3 + 3)), # First case (idx=2) grouped with controls (idx=[1, 3])
-        (q_0 * (4 + 4)) + q_0_bar_over_J * ((5 + 5) + (6 + 6))  # Second case (idx=4) grouped with controls (idx=[5, 6])
-    ] .- point_estimate
+    # The 7th control is not used in these computations
+    # With new formula: point_estimate = raw_sum / sum(weights), gradient scaled by nC/sum(weights)
+    raw_point_sum = (q_0 * 2) + q_0_bar_over_J * (1 + 3) + (q_0 * 4) + q_0_bar_over_J * (5 + 6)
+    @test point_estimate ≈ raw_point_sum / sum(weights) atol=1e-10
+    # gradient components scaled by nC / sum(weights) = 2/2.6, then point_estimate subtracted
+    nC = 2
+    scale_factor = nC / sum(weights)
+    raw_gradient = [
+        (q_0 * (2 + 2)) + q_0_bar_over_J * ((1 + 1) + (3 + 3)),
+        (q_0 * (4 + 4)) + q_0_bar_over_J * ((5 + 5) + (6 + 6))
+    ]
+    @test gradient ≈ raw_gradient .* scale_factor .- point_estimate atol=1e-10
 
     # When there is exactly J controls per case, all controls are used
     ct_aggregate = [1, 2, 3, 4]
@@ -225,17 +226,17 @@ end
     q_0 = 0.8
     q_0_bar_over_J = 0.2
     gradient, point_estimate = TMLE.gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights)
-    # The 7ths control is not used in these computations
+    # sum(weights) = 2.0 = nC, so scale_factor = 1.0 and old/new formulas agree
     @test point_estimate ≈ 0.5*(
-        (q_0 * 2) + (q_0_bar_over_J * 1) # First case (idx=2) grouped with controls (idx=[1, 3])
+        (q_0 * 2) + (q_0_bar_over_J * 1)
         +
-        (q_0 * 4) + (q_0_bar_over_J * 3) # Second case (idx=4) grouped with controls (idx=[5, 6])
+        (q_0 * 4) + (q_0_bar_over_J * 3)
     ) atol=1e-10
-    # gradient_Y_X and ct_aggregate are summed together and the point estimate is removed
-    @test gradient == [
-        (q_0 * (2 + 2)) + q_0_bar_over_J * ((1 + 1)), # First case (idx=2) grouped with controls (idx=[1, 3])
-        (q_0 * (4 + 4)) + q_0_bar_over_J * ((3 + 3))  # Second case (idx=4) grouped with controls (idx=[5, 6])
-    ] .- point_estimate
+    # gradient_Y_X and ct_aggregate are summed together and the point estimate is removed
+    @test gradient ≈ [
+        (q_0 * (2 + 2)) + q_0_bar_over_J * ((1 + 1)),
+        (q_0 * (4 + 4)) + q_0_bar_over_J * ((3 + 3))
+    ] .- point_estimate atol=1e-10
 end
 
 end

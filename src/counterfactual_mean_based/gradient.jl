@@ -52,7 +52,7 @@ Computes the projection of the gradient on the (Y | X) space.
 
 This part of the gradient is evaluated on the original dataset. All quantities have been precomputed and cached.
 """
-function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound=1e-8)
+function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound=nothing)
     # Maybe can cache some results (H and E[Y|X]) to improve perf here
     H, w = clever_covariate_and_weights(Ψ, G, dataset; ps_lowerbound=ps_lowerbound)
     y = float(dataset[!, Q.estimand.outcome])
@@ -61,7 +61,7 @@ function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound=
 end
 
 
-function gradient_and_plugin_estimate(Ψ::StatisticalCMCompositeEstimand, factors, dataset; ps_lowerbound=1e-8)
+function gradient_and_plugin_estimate(Ψ::StatisticalCMCompositeEstimand, factors, dataset; ps_lowerbound=nothing)
     Q = factors.outcome_mean
     G = factors.propensity_score
     ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)

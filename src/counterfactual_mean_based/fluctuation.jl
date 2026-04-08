@@ -3,13 +3,13 @@ mutable struct Fluctuation <: MLJBase.Supervised
     initial_factors::MLCMRelevantFactors
     tol::Union{Nothing, Float64}
     max_iter::Int
-    ps_lowerbound::Float64
+    ps_lowerbound::Union{Float64, Nothing}
     weighted::Bool
     cache::Bool
     prevalence_weights::Union{Nothing, Vector{Float64}}
 end
 
-Fluctuation(Ψ, initial_factors; tol=nothing, max_iter=1, ps_lowerbound=1e-8, weighted=false, cache=false, prevalence_weights=nothing) =
+Fluctuation(Ψ, initial_factors; tol=nothing, max_iter=1, ps_lowerbound=nothing, weighted=false, cache=false, prevalence_weights=nothing) =
     Fluctuation(Ψ, initial_factors, tol, max_iter, ps_lowerbound, weighted, cache, prevalence_weights)
 
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:MLJBase.Continuous} = LinearRegressor(fit_intercept=false, offsetcol = :offset)
@@ -219,7 +219,14 @@ function gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights)
         ctl_sum = q̄₀_over_J * sum(ct_aggregate_controls_batch)
         gradient[case_id] = q₀ * (gradient_Y_X_cases[case_id] + ct_aggregate_case) + ctl_sum
     end
-    point_estimate /= nC
+    # Normalize by sum of weights - this gives the correct point estimate
+    # for both normalized and unnormalized weights
+    weight_sum = sum(weights)
+    point_estimate /= weight_sum
+    # Rescale gradient to match: when weights are normalized, gradient components
+    # are scaled by n/nC, so we need to scale them back by nC/n = nC/weight_sum
+    scale_factor = nC / weight_sum
+    gradient .*= scale_factor
     gradient .-= point_estimate
 
     return gradient, point_estimate

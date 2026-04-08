@@ -12,6 +12,7 @@ mutable struct Tmle <: Estimator
     max_iter::Int
     machine_cache::Bool
     prevalence::Union{Nothing, Float64}
+    normalise_weights::Bool
     function Tmle(
         models, 
         resampling, 
@@ -21,7 +22,8 @@ mutable struct Tmle <: Estimator
         tol, 
         max_iter, 
         machine_cache,
-        prevalence
+        prevalence,
+        normalise_weights
     )
         if resampling === nothing && collaborative_strategy !== nothing
             @warn("Collaborative TMLE requires a resampling strategy but none was provided. Using the default resampling strategy.")
@@ -35,13 +37,14 @@ mutable struct Tmle <: Estimator
             weighted, tol, 
             max_iter, 
             machine_cache,
-            prevalence
+            prevalence,
+            normalise_weights
         )
     end
 end
 
 """
-    Tmle(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, weighted=false, tol=nothing, machine_cache=false)
+    Tmle(;models=default_models(), resampling=nothing, ps_lowerbound=nothing, weighted=false, tol=nothing, machine_cache=false)
 
 Defines a TMLE estimator using the specified models for estimation of the nuisance parameters. The estimator is a 
 function that can be applied to estimate estimands for a dataset.
@@ -52,8 +55,9 @@ function that can be applied to estimate estimands for a dataset.
 - collaborative_strategy (default: nothing): A collaborative strategy to use for the estimation. Then the resampling strategy is used  to evaluate the candidates.
 - resampling (default: `default_resampling(collaborative_strategy)`): Outer resampling strategy. Setting it to `nothing` (default) falls back to vanilla TMLE while 
 any valid `MLJ.ResamplingStrategy` will result in CV-TMLE.
-- ps_lowerbound (default: 1e-8): Lowerbound for the propensity score to avoid division by 0. The special value `nothing` will 
-result in a data adaptive definition as described in [here](https://pubmed.ncbi.nlm.nih.gov/35512316/).
+- ps_lowerbound (default: nothing): Lowerbound for the propensity score to avoid division by 0. The default `nothing` 
+uses data-adaptive truncation as described in [Gruber et al. (2022)](https://pubmed.ncbi.nlm.nih.gov/35512316/): `5/(√n * log(n/5))`.
+A fixed value can also be provided.
 - weighted (default: false): Whether the fluctuation model is a classig GLM or a weighted version. The weighted fluctuation has 
 been show to be more robust to positivity violation in practice.
 - tol (default: nothing): Convergence threshold for the TMLE algorithm iterations. If nothing (default), 1/(sample size) will be used. See also `max_iter`.
@@ -81,12 +85,13 @@ function Tmle(;
     models=default_models(), 
     collaborative_strategy=nothing,
     resampling=default_resampling(collaborative_strategy), 
-    ps_lowerbound=1e-8, 
+    ps_lowerbound=nothing, 
     weighted=true, 
     tol=nothing, 
     max_iter=1, 
     machine_cache=false,
-    prevalence=nothing
+    prevalence=nothing,
+    normalise_weights=true
     )
     Tmle(
         models, 
@@ -96,7 +101,8 @@ function Tmle(;
         weighted, tol, 
         max_iter, 
         machine_cache,
-        prevalence
+        prevalence,
+        normalise_weights
     )
 end
 
@@ -117,7 +123,7 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         prevalence=tmle.prevalence
     )
 
-    prevalence_weights = compute_prevalence_weights(tmle.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])
+    prevalence_weights = compute_prevalence_weights(tmle.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome], normalisation = tmle.normalise_weights)
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 
         models=tmle.models,
@@ -167,7 +173,7 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     return TMLEstimate(Ψ, Ψ̂, σ̂, n, IC), cache
 end
 
-gradient_and_estimate(::Tmle, Ψ, factors, dataset; ps_lowerbound=1e-8) = 
+gradient_and_estimate(::Tmle, Ψ, factors, dataset; ps_lowerbound=nothing) = 
     gradient_and_plugin_estimate(Ψ, factors, dataset; ps_lowerbound=ps_lowerbound)
 
 #####################################################################
@@ -182,7 +188,7 @@ mutable struct Ose <: Estimator
 end
 
 """
-    Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false)
+    Ose(;models=default_models(), resampling=nothing, ps_lowerbound=nothing, machine_cache=false)
 
 Defines a One Step Estimator using the specified models for estimation of the nuisance parameters. The estimator is a 
 function that can be applied to estimate estimands for a dataset.
@@ -192,8 +198,8 @@ function that can be applied to estimate estimands for a dataset.
 - models: A Dict(variable => model, ...) where the `variables` are the outcome variables modeled by the `models`.
 - resampling: Outer resampling strategy. Setting it to `nothing` (default) falls back to vanilla estimation while 
 any valid `MLJ.ResamplingStrategy` will result in CV-OSE.
-- ps_lowerbound: Lowerbound for the propensity score to avoid division by 0. The special value `nothing` will 
-result in a data adaptive definition as described in [here](https://pubmed.ncbi.nlm.nih.gov/35512316/).
+- ps_lowerbound: Lowerbound for the propensity score to avoid division by 0. The special value `nothing` (default) will 
+result in a data adaptive definition as described in [Gruber et al. (2022)](https://pubmed.ncbi.nlm.nih.gov/35512316/).
 - machine_cache: Whether MLJ.machine created during estimation should cache data.
 
 # Run Argument
@@ -213,7 +219,7 @@ ose = Ose()
 Ψ̂ₙ, cache = ose(Ψ, dataset)
 ```
 """
-Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false) = 
+Ose(;models=default_models(), resampling=nothing, ps_lowerbound=nothing, machine_cache=false) = 
     Ose(models, resampling, ps_lowerbound, machine_cache)
 
 function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
@@ -248,7 +254,7 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     return OSEstimate(Ψ, Ψ̂, σ̂, n, IC), cache
 end
 
-function gradient_and_estimate(::Ose, Ψ, factors, dataset; ps_lowerbound=1e-8)
+function gradient_and_estimate(::Ose, Ψ, factors, dataset; ps_lowerbound=nothing)
     IC, Ψ̂ = gradient_and_plugin_estimate(Ψ, factors, dataset; ps_lowerbound=ps_lowerbound)
     IC_mean = mean(IC)
     IC .-= IC_mean

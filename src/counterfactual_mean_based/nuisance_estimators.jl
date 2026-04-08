@@ -320,7 +320,7 @@ end
 function CMBasedFoldsTMLE(Ψ, initial_factors_estimate, train_validation_indices;
     tol=nothing, 
     max_iter=1, 
-    ps_lowerbound=1e-8, 
+    ps_lowerbound=nothing, 
     weighted=false, 
     machine_cache=false,
     )
@@ -461,7 +461,7 @@ function get_targeted_estimator(
     initial_factors_estimate;
     tol=nothing,
     max_iter=1,
-    ps_lowerbound=1e-8,
+    ps_lowerbound=nothing,
     weighted=true,
     machine_cache=false,
     models=nothing,

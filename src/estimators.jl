@@ -64,16 +64,20 @@ Calculates weights for a case-control study to use in the fitting of nuisance fu
 - `prevalence`: The prevalence of the outcome in the population.
 - `y`: The outcome variable across observations, which should be binary vector.`
 """
-function compute_prevalence_weights(prevalence::Float64, y::AbstractVector)
+function compute_prevalence_weights(prevalence::Float64, y::AbstractVector; normalisation=true)
     J = sum(y .== 0) ÷ sum(y .== 1)
     weights = Vector{Float64}(undef, length(y))
     for i in eachindex(y)
         weights[i] = y[i] == 1 ? prevalence : (1 - prevalence) / J
     end
-    return weights
+    if normalisation
+        return (weights/sum(weights))*length(weights)
+    else    
+        return weights
+    end
 end
 
-compute_prevalence_weights(::Nothing, y) = nothing
+compute_prevalence_weights(::Nothing, y; normalisation=true) = nothing
 
 get_training_prevalence_weights(::Nothing, train_indices) = nothing
 

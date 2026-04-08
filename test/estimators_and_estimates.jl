@@ -26,7 +26,7 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
     cache = Dict()
     # Model that supports weights
     estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(),prevalence_weights=weights)
-    conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+    conditional_density_estimate = @test_logs (:info, fit_log) match_mode=:any estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 
     # Model that does NOT support weights (e.g., LogisticClassifier)
     estimator = TMLE.MLConditionalDistributionEstimator(LogisticClassifier(), prevalence_weights=weights)
@@ -34,7 +34,7 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
 
     # Pipeline that supports weights
     estimator = TMLE.MLConditionalDistributionEstimator(with_encoder(LinearBinaryClassifier()), prevalence_weights=weights)
-    conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+    conditional_density_estimate = @test_logs (:info, fit_log) match_mode=:any estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 
     # Pipeline that does NOT support weights
     estimator = TMLE.MLConditionalDistributionEstimator(with_encoder(LogisticClassifier()), prevalence_weights=weights)
@@ -93,33 +93,34 @@ end
 end
 
 @testset "Test MLConditionalDistributionEstimator: binary outcome with prevalence weights" begin
-    # Simulate a binary outcome with imbalanced classes
-    n = 100
-    X, y = make_moons(n)
-    y = copy(y)
+    # Binary outcome with imbalanced classes
+    y = copy(binary_dataset[!, :Y])
     y[1:80] .= 0  # Make one class more prevalent
     y[81:100] .= 1
-    binary_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
+    case_control_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
     # Set prevalence to 0.5 (true prevalence in population)
     prevalence = 0.5
-    weights = TMLE.compute_prevalence_weights(prevalence, binary_dataset.Y)
-    @test Set(weights) == Set([0.5, 0.125])  # Check weights are correct
+    weights = TMLE.compute_prevalence_weights(prevalence, case_control_dataset.Y, normalisation = false)
+    @test Set(weights) == Set([0.5, 0.125])  # Check weights are correct (non-normalised)
+    weights = TMLE.compute_prevalence_weights(prevalence, case_control_dataset.Y)
+    @test sum(weights) == n #Check normalised weights sum to n
+
     estimand = TMLE.ConditionalDistribution(:Y, [:X₁, :X₂])
     estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(), nothing, weights)
 
     # Fit with prevalence weights
     cache = Dict()
-    conditional_density_estimate = estimator(estimand, binary_dataset; cache=cache, verbosity=1)
+    conditional_density_estimate = estimator(estimand, case_control_dataset; cache=cache, verbosity=1)
     @test conditional_density_estimate isa TMLE.MLConditionalDistribution
 
     # Check that predictions are probabilities
-    ŷ = MLJBase.predict(conditional_density_estimate, binary_dataset)
+    ŷ = MLJBase.predict(conditional_density_estimate, case_control_dataset)
     @test all(0.0 .<= [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)] .<= 1.0)
 
     # Check that weights are used (by comparing with unweighted fit)
     estimator_unweighted = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
-    conditional_density_estimate_unweighted = estimator_unweighted(estimand, binary_dataset; cache=Dict(), verbosity=0)
-    ŷ_unweighted = MLJBase.predict(conditional_density_estimate_unweighted, binary_dataset)
+    conditional_density_estimate_unweighted = estimator_unweighted(estimand, case_control_dataset; cache=Dict(), verbosity=0)
+    ŷ_unweighted = MLJBase.predict(conditional_density_estimate_unweighted, case_control_dataset)
     μ̂_weighted = [ŷ[i].prob_given_ref[2] for i in eachindex(ŷ)]
     μ̂_unweighted = [ŷ_unweighted[i].prob_given_ref[2] for i in eachindex(ŷ_unweighted)]
     @test !all(isapprox.(μ̂_weighted, μ̂_unweighted; atol=1e-6))  # Should differ
@@ -219,7 +220,7 @@ end
     prevalence = 0.5
     binary_dataset = DataFrame(Y=y, X₁=X.x1, X₂=X.x2)
     weights = TMLE.compute_prevalence_weights(prevalence, binary_dataset.Y)
-    @test Set(weights) == Set([0.5, 0.125])  # Check weights are correct
+    @test Set(weights) == Set([2.5, 0.625])  # Check normalized weights are correct
     nfolds = 3
     train_validation_indices = Tuple(MLJBase.train_test_pairs(StratifiedCV(nfolds=nfolds), 1:n, binary_dataset, binary_dataset.Y))
     estimand = TMLE.ConditionalDistribution(:Y, [:X₁, :X₂])

@@ -1,9 +1,15 @@
 
 """
-    data_adaptive_ps_lower_bound(Ψ::StatisticalCMCompositeEstimand)
+    data_adaptive_ps_lower_bound(n::Int; max_lb=0.1)
 
-This startegy is from [this paper](https://academic.oup.com/aje/article/191/9/1640/6580570?login=false) 
-but the study does not show strictly better behaviour of the strategy so not a default for now.
+Data-adaptive propensity score truncation level from Gruber et al. (2022):
+"Data-Adaptive Selection of the Propensity Score Truncation Level for 
+Inverse-Probability–Weighted and Targeted Maximum Likelihood Estimators 
+of Marginal Point Treatment Effects" (doi:10.1093/aje/kwac087).
+
+This sets the propensity score lower bound to `5/(√n * log(n/5))`, capped at `max_lb`.
+The paper formula is `5/(√n * ln(n))` but uses a slightly modified version here.
+This is the default when `ps_lowerbound=nothing`.
 """
 data_adaptive_ps_lower_bound(n::Int; max_lb=0.1) = 
     min(5 / (√(n)*log(n/5)), max_lb)
@@ -18,12 +24,14 @@ function truncate!(v::AbstractVector, ps_lowerbound::AbstractFloat)
     end
 end
 
-function balancing_weights(G, dataset; ps_lowerbound=1e-8)
-    jointlikelihood = ones(nrows(dataset))
+function balancing_weights(G, dataset; ps_lowerbound=nothing)
+    n = nrows(dataset)
+    jointlikelihood = ones(n)
     for Gᵢ ∈ G.components
         jointlikelihood .*= likelihood(Gᵢ, dataset)
     end
-    truncate!(jointlikelihood, ps_lowerbound)
+    actual_lowerbound = ps_lower_bound(n, ps_lowerbound)
+    truncate!(jointlikelihood, actual_lowerbound)
     return 1. ./ jointlikelihood
 end
 
@@ -32,7 +40,7 @@ end
         Ψ::StatisticalCMCompositeEstimand, 
         Gs::Tuple{Vararg{ConditionalDistributionEstimate}}, 
         dataset; 
-        ps_lowerbound=1e-8, 
+        ps_lowerbound=nothing, 
         weighted_fluctuation=false
     )
 
@@ -54,7 +62,7 @@ function clever_covariate_and_weights(
     Ψ::StatisticalCMCompositeEstimand, 
     G, 
     dataset; 
-    ps_lowerbound=1e-8, 
+    ps_lowerbound=nothing, 
     weighted_fluctuation=false
     )
     # Compute the indicator values
