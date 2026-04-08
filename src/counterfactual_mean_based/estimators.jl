@@ -11,7 +11,7 @@ mutable struct Tmle <: Estimator
     tol::Union{Float64, Nothing}
     max_iter::Int
     machine_cache::Bool
-    prevalence::Union{Nothing, Float64}
+    prevalence::Union{Nothing, Float64, Dict{Symbol, Float64}}
     function Tmle(
         models, 
         resampling, 
@@ -59,7 +59,7 @@ been show to be more robust to positivity violation in practice.
 - tol (default: nothing): Convergence threshold for the TMLE algorithm iterations. If nothing (default), 1/(sample size) will be used. See also `max_iter`.
 - max_iter (default: 1): Maximum number of iterations for the TMLE algorithm.
 - machine_cache (default: false): Whether MLJ.machine created during estimation should cache data.
-- prevalence (default: nothing): If provided, the prevalence weights will be used to weight the observations to match the true prevalence of the source population. 
+- prevalence (default: nothing): If provided, the prevalence weights will be used to weight the observations to match the true prevalence of the source population. This can either be a single value to be uniformly applied, or a Dict that maps each trait to a prevalence value.
 
 # Run Argument
 
@@ -88,6 +88,7 @@ function Tmle(;
     machine_cache=false,
     prevalence=nothing
     )
+
     Tmle(
         models, 
         resampling, 
@@ -100,24 +101,38 @@ function Tmle(;
     )
 end
 
+function prevalence_for_estimand(Ψ, prevalence)
+    prevalence === nothing && return nothing
+
+    if prevalence isa Float64
+        return prevalence
+    elseif prevalence isa Dict{Symbol, Float64}
+        return prevalence[Ψ.outcome]
+    else
+        @error("Unsupported prevalence type: $(typeof(prevalence))")
+    end
+end
+
 function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
+    prevalence = prevalence_for_estimand(Ψ, tmle.prevalence)
+
     # Check if the inputs are suitable for the specified estimand
-    check_inputs(Ψ, dataset, tmle.prevalence)
+    check_inputs(Ψ, dataset, prevalence)
     # Make train-validation pairs
     train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
     fluctuation_dataset = get_fluctuation_dataset(dataset, relevant_factors;
-        prevalence=tmle.prevalence, 
+        prevalence=prevalence, 
         verbosity=verbosity
     )
 
     initial_factors_dataset = choose_initial_dataset(dataset, fluctuation_dataset; 
         train_validation_indices=train_validation_indices, 
-        prevalence=tmle.prevalence
+        prevalence=prevalence
     )
 
-    prevalence_weights = compute_prevalence_weights(tmle.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])
+    prevalence_weights = compute_prevalence_weights(prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 
         models=tmle.models,
