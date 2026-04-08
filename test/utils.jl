@@ -8,6 +8,8 @@ using MLJLinearModels
 using MLJModels
 using DataFrames
 
+TEST_DIR = joinpath(dirname(dirname(pathof(TMLE))), "test")
+
 @testset "Test expected_value" begin
     n = 100
     X = MLJBase.table(rand(n, 3))
@@ -221,6 +223,7 @@ end
         W = rand(7)
     )
     @test_throws ArgumentError("Outcome column must be binary when prevalence is specified.") TMLE.check_inputs(Ψ, dataset, prevalence)
+    @test_throws ArgumentError("Outcome column must be binary when prevalence is specified.") TMLE.check_inputs(Ψ, dataset, nothing, joinpath(TEST_DIR,"data","prevalences.tsv"))
     ## The number of controls must be larger than the number of cases
     dataset = DataFrame(
         Y = categorical([1, 0, 1, 0, 1, 1, 0]),
