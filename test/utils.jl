@@ -211,27 +211,36 @@ end
 
     # Check with prevalence
     prevalence = 0.1
+    prevalence_dict = Dict(:Y => 0.1)
+
     Ψ = CM(
         outcome = :Y, 
         treatment_values = (T=1,), 
         treatment_confounders = [:W]
     )
+
     ## The outcome must be binary
     dataset = DataFrame(
-        Y = categorical([1, 0, 1, 0, 1, 1, 2]),
+        Y = categorical([1, 0, 1, 0, 1, 1, 2]),  # not binary
         T = categorical([1, 1, 0, 1, 0, 2, 2]),
         W = rand(7)
     )
-    prevalence_file = joinpath(TEST_DIR,"data","prevalences.tsv")
+
     @test_throws ArgumentError("Outcome column must be binary when prevalence is specified.") TMLE.check_inputs(Ψ, dataset, prevalence)
-    @test_throws ArgumentError("Outcome column must be binary when prevalence file is specified.") TMLE.check_inputs(Ψ, dataset, nothing; prevalence_file=prevalence_file)
+
+    # Same check but using dict instead of scalar
+    @test_throws ArgumentError("Outcome column must be binary when prevalence is specified.") TMLE.check_inputs(Ψ, dataset, prevalence_dict)
+
     ## The number of controls must be larger than the number of cases
     dataset = DataFrame(
-        Y = categorical([1, 0, 1, 0, 1, 1, 0]),
+        Y = categorical([1, 0, 1, 0, 1, 1, 0]),  # more cases than controls
         T = categorical([1, 1, 0, 1, 0, 2, 2]),
         W = rand(7)
     )
+
     @test_throws ArgumentError("The dataset must contain more controls (0) than cases (1) when prevalence is provided.") TMLE.check_inputs(Ψ, dataset, prevalence)
+    # Same check with dict
+    @test_throws ArgumentError("The dataset must contain more controls (0) than cases (1) when prevalence is provided.") TMLE.check_inputs(Ψ, dataset, prevalence_dict)
 end
 
 @testset "Test get_fluctuation_dataset" begin
