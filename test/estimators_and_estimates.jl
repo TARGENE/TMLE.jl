@@ -46,7 +46,7 @@ end
     estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
     # Fitting with no cache
     cache = Dict()
-    conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+    conditional_density_estimate = @test_logs (:info, fit_log) match_mode=:any estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
     expected_features = collect(estimand.parents)
     @test conditional_density_estimate isa TMLE.MLConditionalDistribution
     @test fitted_params(conditional_density_estimate.machine).features == expected_features
@@ -64,7 +64,7 @@ end
     @test_logs (:info, reuse_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
     ## Changing the model leads to refit
     new_estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(fit_intercept=false))
-    @test_logs (:info, fit_log) new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+    @test_logs (:info, fit_log) match_mode=:any new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 end
 
 @testset "Test MLConditionalDistributionEstimator: continuous outcome" begin
