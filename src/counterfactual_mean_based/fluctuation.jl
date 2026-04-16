@@ -219,14 +219,8 @@ function gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights)
         ctl_sum = q̄₀_over_J * sum(ct_aggregate_controls_batch)
         gradient[case_id] = q₀ * (gradient_Y_X_cases[case_id] + ct_aggregate_case) + ctl_sum
     end
-    # Normalize by sum of weights - this gives the correct point estimate
-    # for both normalized and unnormalized weights
-    weight_sum = sum(weights)
-    point_estimate /= weight_sum
-    # Rescale gradient to match: when weights are normalized, gradient components
-    # are scaled by n/nC, so we need to scale them back by nC/n = nC/weight_sum
-    scale_factor = nC / weight_sum
-    gradient .*= scale_factor
+    
+    point_estimate /= nC
     gradient .-= point_estimate
 
     return gradient, point_estimate
@@ -241,7 +235,10 @@ end
 
 get_fluctuation_weights(prevalence_weights::Nothing, clever_covariate_weights) = clever_covariate_weights
 
-get_fluctuation_weights(prevalence_weights, clever_covariate_weights) = clever_covariate_weights .* prevalence_weights
+function get_fluctuation_weights(prevalence_weights, clever_covariate_weights)
+    normalised_prevalence_weights = (prevalence_weights / sum(prevalence_weights)) * length(prevalence_weights)
+    return clever_covariate_weights .* normalised_prevalence_weights
+end
 
 """
     MLJBase.fit(model::Fluctuation, verbosity, X, y)

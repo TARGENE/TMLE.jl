@@ -12,7 +12,6 @@ mutable struct Tmle <: Estimator
     max_iter::Int
     machine_cache::Bool
     prevalence::Union{Nothing, Float64}
-    normalise_weights::Bool
     function Tmle(
         models, 
         resampling, 
@@ -22,8 +21,7 @@ mutable struct Tmle <: Estimator
         tol, 
         max_iter, 
         machine_cache,
-        prevalence,
-        normalise_weights
+        prevalence
     )
         if resampling === nothing && collaborative_strategy !== nothing
             @warn("Collaborative TMLE requires a resampling strategy but none was provided. Using the default resampling strategy.")
@@ -37,8 +35,7 @@ mutable struct Tmle <: Estimator
             weighted, tol, 
             max_iter, 
             machine_cache,
-            prevalence,
-            normalise_weights
+            prevalence
         )
     end
 end
@@ -90,8 +87,7 @@ function Tmle(;
     tol=nothing, 
     max_iter=1, 
     machine_cache=false,
-    prevalence=nothing,
-    normalise_weights=true
+    prevalence=nothing
     )
     Tmle(
         models, 
@@ -101,14 +97,15 @@ function Tmle(;
         weighted, tol, 
         max_iter, 
         machine_cache,
-        prevalence,
-        normalise_weights
+        prevalence
     )
 end
 
 function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
     # Check if the inputs are suitable for the specified estimand
     check_inputs(Ψ, dataset, tmle.prevalence)
+    # Reset collaborative strategy state before building relevant factors
+    tmle.collaborative_strategy !== nothing && initialise!(tmle.collaborative_strategy, Ψ)
     # Make train-validation pairs
     train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors
@@ -123,7 +120,7 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         prevalence=tmle.prevalence
     )
 
-    prevalence_weights = compute_prevalence_weights(tmle.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome], normalisation = tmle.normalise_weights)
+    prevalence_weights = compute_prevalence_weights(tmle.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 
         models=tmle.models,

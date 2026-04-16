@@ -48,7 +48,9 @@ function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothi
         mach = machine(model, X, y; cache=cache)
     else
         if supervised_learner_supports_weights(model)
-            mach = machine(model, X, y, weights; cache=cache)
+            # Normalise weights at point-of-use
+            normalised_weights = (weights / sum(weights)) * length(weights)
+            mach = machine(model, X, y, normalised_weights; cache=cache)
         else
             throw(ArgumentError("The model $(model) does not support weights and cannot be used with prevalence."))
         end
@@ -61,23 +63,20 @@ end
     compute_prevalence_weights(prevalence, y)
 
 Calculates weights for a case-control study to use in the fitting of nuisance functions.
+Returns raw (unnormalised) weights. Normalisation happens at point-of-use in fit_mlj_model and fluctuation.
 - `prevalence`: The prevalence of the outcome in the population.
 - `y`: The outcome variable across observations, which should be binary vector.`
 """
-function compute_prevalence_weights(prevalence::Float64, y::AbstractVector; normalisation=true)
+function compute_prevalence_weights(prevalence::Float64, y::AbstractVector)
     J = sum(y .== 0) ÷ sum(y .== 1)
     weights = Vector{Float64}(undef, length(y))
     for i in eachindex(y)
         weights[i] = y[i] == 1 ? prevalence : (1 - prevalence) / J
     end
-    if normalisation
-        return (weights/sum(weights))*length(weights)
-    else    
-        return weights
-    end
+    return weights
 end
 
-compute_prevalence_weights(::Nothing, y; normalisation=true) = nothing
+compute_prevalence_weights(::Nothing, y) = nothing
 
 get_training_prevalence_weights(::Nothing, train_indices) = nothing
 

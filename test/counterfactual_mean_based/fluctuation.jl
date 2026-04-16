@@ -205,18 +205,18 @@ end
     q_0 = 0.8
     q_0_bar_over_J = 0.2
     gradient, point_estimate = TMLE.gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights)
-    # The 7th control is not used in these computations
-    # With new formula: point_estimate = raw_sum / sum(weights), gradient scaled by nC/sum(weights)
-    raw_point_sum = (q_0 * 2) + q_0_bar_over_J * (1 + 3) + (q_0 * 4) + q_0_bar_over_J * (5 + 6)
-    @test point_estimate ≈ raw_point_sum / sum(weights) atol=1e-10
-    # gradient components scaled by nC / sum(weights) = 2/2.6, then point_estimate subtracted
+    # The 7th control is not used in these computations (J = 5÷2 = 2 controls per case)
+    # Cases at indices 2, 4; Controls at indices 1, 3, 5, 6, 7 (7th dropped)
+    # point_estimate = sum over cases of (q₀*ct_case + q̄₀/J*sum(ct_controls)) / nC
     nC = 2
-    scale_factor = nC / sum(weights)
+    raw_point_sum = (q_0 * 2) + q_0_bar_over_J * (1 + 3) + (q_0 * 4) + q_0_bar_over_J * (5 + 6)
+    @test point_estimate ≈ raw_point_sum / nC atol=1e-10
+    # gradient = q₀*(ct_case + grad_case) + q̄₀/J*sum(ct_ctl + grad_ctl) - point_estimate
     raw_gradient = [
         (q_0 * (2 + 2)) + q_0_bar_over_J * ((1 + 1) + (3 + 3)),
         (q_0 * (4 + 4)) + q_0_bar_over_J * ((5 + 5) + (6 + 6))
     ]
-    @test gradient ≈ raw_gradient .* scale_factor .- point_estimate atol=1e-10
+    @test gradient ≈ raw_gradient .- point_estimate atol=1e-10
 
     # When there is exactly J controls per case, all controls are used
     ct_aggregate = [1, 2, 3, 4]
@@ -226,7 +226,7 @@ end
     q_0 = 0.8
     q_0_bar_over_J = 0.2
     gradient, point_estimate = TMLE.gradient_and_estimate(ct_aggregate, gradient_Y_X, y, weights)
-    # sum(weights) = 2.0 = nC, so scale_factor = 1.0 and old/new formulas agree
+    # Cases at indices 2, 4; Controls at indices 1, 3 (J = 2÷2 = 1 control per case)
     @test point_estimate ≈ 0.5*(
         (q_0 * 2) + (q_0_bar_over_J * 1)
         +

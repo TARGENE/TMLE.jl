@@ -12,7 +12,7 @@ using DataFrames
     # Nothing results in data adaptive lower bound no lower than max_lb
     @test TMLE.ps_lower_bound(n, nothing) == max_lb
     @test TMLE.data_adaptive_ps_lower_bound(n) == max_lb
-    @test TMLE.data_adaptive_ps_lower_bound(1000) == 0.02984228238321508
+    @test TMLE.data_adaptive_ps_lower_bound(1000) ≈ 5 / (√1000 * log(1000))
     # Otherwise use the provided threhsold provided it's lower than max_lb
     @test TMLE.ps_lower_bound(n, 1e-8) == 1.0e-8
     @test TMLE.ps_lower_bound(n, 1) == 0.1
@@ -135,6 +135,47 @@ end
     )
     @test cov ≈ [0, 8.575, -21.4375, 8.575, 0, -4.2875, -4.2875] atol=1e-3
     @test w == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+end
+
+@testset "Test clever_covariate_and_weights: Data-Adapative 1 treatment" begin
+    Ψ = ATE(
+        outcome=:Y, 
+        treatment_values=(T=(case="a", control="b"),),
+        treatment_confounders=(T=[:W],),
+    )
+    n = 150
+    dataset = DataFrame(
+        T = categorical(vcat(fill("a", 149), ["b"])),
+        Y = collect(1.0:n),
+        W = rand(n),
+    )
+
+    propensity_score_estimator = TMLE.JointConditionalDistributionEstimator(Dict(:T => TMLE.MLConditionalDistributionEstimator(ConstantClassifier())))
+    propensity_score_estimate = propensity_score_estimator(
+        (TMLE.ConditionalDistribution(:T, [:W]),),
+        dataset,
+        verbosity=0
+    )
+
+    # Se
+    weighted_fluctuation = true
+    ps_lowerbound = nothing
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset; 
+        ps_lowerbound=ps_lowerbound, 
+        weighted_fluctuation=weighted_fluctuation
+    )
+
+    @test w[1:149] ≈ fill(1/(149/150), 149)
+    @test w[150] ≈ 1/(5/(sqrt(n)*log(n)))
+
+    weighted_fluctuation = false
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
+        ps_lowerbound=ps_lowerbound,
+        weighted_fluctuation=weighted_fluctuation
+    )
+    @test cov[1:149] ≈ fill(1/(149/150), 149)
+    @test cov[150] ≈ -1/(5/(sqrt(n)*log(n)))
+    @test w == ones(150)
 end
 
 end

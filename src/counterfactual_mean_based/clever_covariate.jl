@@ -7,12 +7,11 @@ Data-adaptive propensity score truncation level from Gruber et al. (2022):
 Inverse-Probability–Weighted and Targeted Maximum Likelihood Estimators 
 of Marginal Point Treatment Effects" (doi:10.1093/aje/kwac087).
 
-This sets the propensity score lower bound to `5/(√n * log(n/5))`, capped at `max_lb`.
-The paper formula is `5/(√n * ln(n))` but uses a slightly modified version here.
-This is the default when `ps_lowerbound=nothing`.
+This is the default when `ps_lowerbound=nothing`. Here a maximum lower bound
+is applied to prevent extreme truncation in small samples.
 """
 data_adaptive_ps_lower_bound(n::Int; max_lb=0.1) = 
-    min(5 / (√(n)*log(n/5)), max_lb)
+    min(5 / (√(n)*log(n)), max_lb)
 
 ps_lower_bound(n::Int, lower_bound::Nothing; max_lb=0.1) = data_adaptive_ps_lower_bound(n; max_lb=max_lb)
 ps_lower_bound(n::Int, lower_bound; max_lb=0.1) = min(max_lb, lower_bound)
