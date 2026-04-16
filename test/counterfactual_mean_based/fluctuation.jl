@@ -43,20 +43,20 @@ using MLJGLMInterface
     expected_value = [4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0] # Constant predictions of the mean as per Q⁰
     @test mean.(counterfactual_cache.predictions[1]) == mean.(counterfactual_cache.predictions[2]) == expected_value
     @test counterfactual_cache.signs == [1., -1.]
-    @test counterfactual_cache.covariates == [
-        [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
-    ]
+    # Counterfactual covariates are now n×K matrices
+    @test size(counterfactual_cache.covariates[1]) == (7, 2)
+    @test size(counterfactual_cache.covariates[2]) == (7, 2)
     observed_cache = TMLE.initialize_observed_cache(weighted_fluctuation, X, y)
-    @test observed_cache[:ŷ] isa Vector{<:Normal}
-    @test observed_cache[:H] == [1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0] # This is used to fit, so weight has been removed
+    @test observed_cache[:ŷ] isa Vector{<:Normal}
+    @test size(observed_cache[:H]) == (7, 2)
+    @test observed_cache[:H] * observed_cache[:signs] == [1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0]
     @test observed_cache[:w] == [1.75, 3.5, 7., 1.75, 1.75, 3.5, 1.75] # weight is separate
     @test observed_cache[:y] isa Vector{Float64}
     ## Second fit the fluctuation
     w_machines, cache, w_report = MLJBase.fit(weighted_fluctuation, 0, X, y)
     ### Only one machine, only fitted the clever covariate 
     mach = only(w_machines)
-    @test fitted_params(mach).features == [:covariate]
+    @test fitted_params(mach).features == [:H_1, :H_2]
     ### Report entries
     @test length(w_report.epsilons) == length(w_report.estimates) == length(w_report.gradients) == 1
     @test w_report.epsilons[1][1] !== 0
@@ -70,7 +70,7 @@ using MLJGLMInterface
     unweighted_fluctuation = TMLE.Fluctuation(Ψ, η̂ₙ; weighted=false, tol=0, max_iter=3)
     ## First check the weight and covariates from the observed cache
     observed_cache = TMLE.initialize_observed_cache(unweighted_fluctuation, X, y)
-    @test observed_cache[:H] == [1.75, -3.5, 0.0, 1.75, 1.75, -3.5, 1.75]
+    @test observed_cache[:H] * observed_cache[:signs] == [1.75, -3.5, 0.0, 1.75, 1.75, -3.5, 1.75]
     @test observed_cache[:w] == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     ## Second fit the fluctuation
     logs = [(:info, "TMLE step: 1."), (:info, "TMLE step: 2."), (:info, "TMLE step: 3."), (:info, "Convergence criterion not reached.")]
@@ -138,7 +138,8 @@ end
     @test length(counterfactual_cache.covariates) == 4
     observed_cache = TMLE.initialize_observed_cache(fluctuation, X, y)
     @test observed_cache[:ŷ] isa UnivariateFiniteVector
-    @test isapprox(observed_cache[:H], [2.44, -3.26, -3.26, 2.44, 2.44, -6.12, 8.16], atol=0.1)
+    @test size(observed_cache[:H]) == (7, 4)
+    @test isapprox(observed_cache[:H] * observed_cache[:signs], [2.44, -3.26, -3.26, 2.44, 2.44, -6.12, 8.16], atol=0.1)
     @test observed_cache[:w] == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     @test observed_cache[:y] isa Vector{Float64}
 

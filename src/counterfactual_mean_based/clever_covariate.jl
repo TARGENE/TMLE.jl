@@ -43,19 +43,24 @@ end
         weighted_fluctuation=false
     )
 
-Computes the clever covariate and weights that are used to fluctuate the initial Q.
+Computes the clever covariate matrix, weights, and signs used to fluctuate the initial Q.
+
+Returns a tuple `(H, w, signs)` where:
+- `H` is an `n × K` matrix, one column per counterfactual in `indicator_fns(Ψ)`.
+- `w` is a length-`n` weight vector.
+- `signs` is a length-`K` vector of signs from `indicator_fns(Ψ)`.
 
 if `weighted_fluctuation = false`:
 
-- ``clever_covariate(t, w) = \\frac{SpecialIndicator(t)}{p(t|w)}`` 
-- ``weight(t, w) = 1``
+- ``H_{k}(t, w) = \\frac{I_k(t)}{p(t|w)}`` 
+- ``w(t, w) = 1``
 
 if `weighted_fluctuation = true`:
 
-- ``clever_covariate(t, w) = SpecialIndicator(t)`` 
-- ``weight(t, w) = \\frac{1}{p(t|w)}``
+- ``H_{k}(t, w) = I_k(t)`` 
+- ``w(t, w) = \\frac{1}{p(t|w)}``
 
-where SpecialIndicator(t) is defined in `indicator_fns`.
+where ``I_k(t)`` is the unsigned indicator for the k-th counterfactual.
 """
 function clever_covariate_and_weights(
     Ψ::StatisticalCMCompositeEstimand, 
@@ -64,14 +69,14 @@ function clever_covariate_and_weights(
     ps_lowerbound=nothing, 
     weighted_fluctuation=false
     )
-    # Compute the indicator values
+    # Compute the indicator matrix (n×K) and signs (K,)
     T = selectcols(dataset, (p.estimand.outcome for p in G.components))
-    indic_vals = indicator_values(indicator_fns(Ψ), T)
+    indic_mat, signs = indicator_matrix(indicator_fns(Ψ), T)
     weights = balancing_weights(G, dataset; ps_lowerbound=ps_lowerbound)
     if weighted_fluctuation
-        return indic_vals, weights
+        return indic_mat, weights, signs
     end
     # Vanilla unweighted fluctuation
-    indic_vals .*= weights
-    return indic_vals, ones(size(weights, 1))
+    indic_mat .*= weights
+    return indic_mat, ones(size(weights, 1)), signs
 end

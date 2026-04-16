@@ -38,20 +38,21 @@ end
     )
     weighted_fluctuation = true
     ps_lowerbound = 1e-8
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset; 
+    H, w, signs = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset; 
         ps_lowerbound=ps_lowerbound, 
         weighted_fluctuation=weighted_fluctuation
     )
 
-    @test cov == [1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0]
+    @test size(H) == (7, 2)
+    @test H * signs == [1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0]
     @test w == [1.75, 3.5, 7.0, 1.75, 1.75, 3.5, 1.75]
 
     weighted_fluctuation = false
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
+    H, w, signs = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
         ps_lowerbound=ps_lowerbound,
         weighted_fluctuation=weighted_fluctuation
     )
-    @test cov == [1.75, -3.5, 0.0, 1.75, 1.75, -3.5, 1.75]
+    @test H * signs == [1.75, -3.5, 0.0, 1.75, 1.75, -3.5, 1.75]
     @test w == ones(7)
 end
 
@@ -84,11 +85,12 @@ end
     ps_lowerbound = 1e-8
     weighted_fluctuation = false
 
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
+    H, w, signs = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
         ps_lowerbound=ps_lowerbound,
         weighted_fluctuation=weighted_fluctuation
     )
-    @test cov ≈ [2.45, -3.266, -3.266, 2.45, 2.45, -6.125, 8.166] atol=1e-2
+    @test size(H) == (7, 4)
+    @test H * signs ≈ [2.45, -3.266, -3.266, 2.45, 2.45, -6.125, 8.166] atol=1e-2
     @test w == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 end
 
@@ -129,11 +131,12 @@ end
         verbosity=0
     )
 
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
+    H, w, signs = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
         ps_lowerbound=ps_lowerbound, 
         weighted_fluctuation=weighted_fluctuation
     )
-    @test cov ≈ [0, 8.575, -21.4375, 8.575, 0, -4.2875, -4.2875] atol=1e-3
+    @test size(H) == (7, 8)
+    @test H * signs ≈ [0, 8.575, -21.4375, 8.575, 0, -4.2875, -4.2875] atol=1e-3
     @test w == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 end
 
@@ -160,7 +163,7 @@ end
     # Se
     weighted_fluctuation = true
     ps_lowerbound = nothing
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset; 
+    H, w, signs = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset; 
         ps_lowerbound=ps_lowerbound, 
         weighted_fluctuation=weighted_fluctuation
     )
@@ -169,12 +172,13 @@ end
     @test w[150] ≈ 1/(5/(sqrt(n)*log(n)))
 
     weighted_fluctuation = false
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
+    H, w, signs = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
         ps_lowerbound=ps_lowerbound,
         weighted_fluctuation=weighted_fluctuation
     )
-    @test cov[1:149] ≈ fill(1/(149/150), 149)
-    @test cov[150] ≈ -1/(5/(sqrt(n)*log(n)))
+    combined = H * signs
+    @test combined[1:149] ≈ fill(1/(149/150), 149)
+    @test combined[150] ≈ -1/(5/(sqrt(n)*log(n)))
     @test w == ones(150)
 end
 

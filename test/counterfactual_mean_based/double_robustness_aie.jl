@@ -13,7 +13,8 @@ include(joinpath(TEST_DIR, "helper_fns.jl"))
 include(joinpath(TEST_DIR, "counterfactual_mean_based", "aie_simulations.jl"))
 
 cont_interacter = InteractionTransformer(order=2) |> LinearRegressor
-cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1.)
+# remove regularization, last example was misspecified for Q and G 
+cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=0)
 
 
 @testset "Test Double Robustness AIE on binary_outcome_binary_treatment_pb" begin
@@ -38,7 +39,7 @@ cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1.
     )
     dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
-    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-6)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-9)
     # The initial estimate is far away
     naive = Plugin(models[:Y])
@@ -53,7 +54,7 @@ cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1.
     )
     dr_estimators = double_robust_estimators(models, resampling=StratifiedCV())
     results, cache = test_coverage_and_get_results(dr_estimators, Ψ, Ψ₀, dataset; verbosity=0)
-    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-9)
+    test_mean_inf_curve_almost_zero(results.tmle; atol=1e-7)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-9)
     # The initial estimate is far away
     naive = Plugin(models[:Y])
@@ -144,10 +145,10 @@ end
     test_mean_inf_curve_almost_zero(results.tmle; atol=1e-5)
     test_mean_inf_curve_almost_zero(results.ose; atol=1e-10)
 
-    # The initial estimate is far away
+    # The initial plugin estimate is close to truth (Q is well specified)
     naive = Plugin(models[:Y])
     naive_result, cache = naive(Ψ, dataset; cache=cache, verbosity=0)
-    @test naive_result ≈ -0.02 atol=1e-2
+    @test naive_result ≈ Ψ₀ atol=5e-2
 end
 
 

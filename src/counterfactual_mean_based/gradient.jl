@@ -54,10 +54,11 @@ This part of the gradient is evaluated on the original dataset. All quantities h
 """
 function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound=nothing)
     # Maybe can cache some results (H and E[Y|X]) to improve perf here
-    H, w = clever_covariate_and_weights(Ψ, G, dataset; ps_lowerbound=ps_lowerbound)
+    H, w, signs = clever_covariate_and_weights(Ψ, G, dataset; ps_lowerbound=ps_lowerbound)
     y = float(dataset[!, Q.estimand.outcome])
     Ey = expected_value(Q, dataset)
-    return ∇YX(H, y, Ey, w)
+    H_combined = H * signs
+    return ∇YX(H_combined, y, Ey, w)
 end
 
 

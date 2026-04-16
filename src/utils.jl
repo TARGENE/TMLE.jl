@@ -89,6 +89,31 @@ function indicator_values(indicators, T)
     return indic
 end
 
+"""
+    indicator_matrix(indicators, T)
+
+Returns a tuple `(mat, signs)` where:
+- `mat` is an `n × K` matrix of unsigned indicator columns (1.0 where treatment 
+  values match, 0.0 otherwise), one column per entry in `indicators`.
+- `signs` is a length-K vector of the corresponding signs from `indicators`.
+"""
+function indicator_matrix(indicators, T)
+    n = nrows(T)
+    indicator_keys = sort(collect(keys(indicators)), by=string)
+    signs = [indicators[k] for k in indicator_keys]
+    K = length(indicator_keys)
+    mat = zeros(Float64, n, K)
+    for (i, row) in enumerate(Tables.namedtupleiterator(T))
+        vals = values(row)
+        for (j, key) in enumerate(indicator_keys)
+            if vals == key
+                mat[i, j] = 1.0
+            end
+        end
+    end
+    return mat, signs
+end
+
 expected_value(ŷ::AbstractArray{<:UnivariateFinite{<:Union{OrderedFactor{2}, Multiclass{2}}}}) = pdf.(ŷ, levels(first(ŷ))[2])
 expected_value(ŷ::AbstractVector{<:Distributions.UnivariateDistribution}) = mean.(ŷ)
 expected_value(ŷ::AbstractVector{<:Real}) = ŷ

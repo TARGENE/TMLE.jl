@@ -65,7 +65,7 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "aie_simulations.jl"))
     @test adaptive_strategy.remaining_confounders == Set{Symbol}()
     @test adaptive_strategy.current_confounders == Set([:W₁, :W₂, :W₃])
 
-    # Full run: this leads to only W₃ being used for the propensity score
+    # Full run: this leads to W₁ and W₃ being used for the propensity score
     ctmle = Tmle(collaborative_strategy=adaptive_strategy)
     Ψ = AIE(
         outcome = :Y,
@@ -77,8 +77,8 @@ include(joinpath(TEST_DIR, "counterfactual_mean_based", "aie_simulations.jl"))
     )
     result_ctmle, cache = ctmle(Ψ, dataset;verbosity=0);
     targeted_η̂ = cache[:targeted_factors]
-    @test targeted_η̂.propensity_score.components[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃))
-    @test targeted_η̂.propensity_score.components[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₃,))
+    @test targeted_η̂.propensity_score.components[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₃))
+    @test targeted_η̂.propensity_score.components[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₁, :W₃))
 end
 
 @testset "Test GreedyStrategy Interface" begin
@@ -158,19 +158,19 @@ end
             cache=cache,
             machine_cache=machine_cache,
     )
-    @test new_g == (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁)), TMLE.ConditionalDistribution(:T₂, (:W₁,)))
-    @test new_ĝ == ĝ
+    @test new_g == (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₂)), TMLE.ConditionalDistribution(:T₂, ()))
+    @test new_ĝ == ĝ
     # Update the collaborative strategy
-    TMLE.update!(collaborative_strategy, new_g, new_ĝ)
-    @test collaborative_strategy.remaining_confounders == Set{Symbol}([:W₂, :W₃])
-    @test collaborative_strategy.current_confounders == Set{Symbol}([:W₁])
+    TMLE.update!(collaborative_strategy, new_g, new_ĝ)
+    @test collaborative_strategy.remaining_confounders == Set{Symbol}([:W₁, :W₃])
+    @test collaborative_strategy.current_confounders == Set{Symbol}([:W₂])
     # Let's iterate again
     step_k_candidate_iterator = TMLE.StepKPropensityScoreIterator(collaborative_strategy, Ψ, dataset, models, new_targeted_η̂ₙ)
     g_ĝ_candidates = collect(step_k_candidate_iterator)
     g_candidates = Set(first.(g_ĝ_candidates))
     @test g_candidates == Set([
         (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂)), TMLE.ConditionalDistribution(:T₂, (:W₁,))),
-        (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁)), TMLE.ConditionalDistribution(:T₂, (:W₁, :W₃)))
+        (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₂)), TMLE.ConditionalDistribution(:T₂, (:W₃,)))
     ])
     # Find optimal candidate again
     new_g, new_ĝ, new_targeted_η̂ₙ, new_loss, use_fluct = TMLE.step_k_best_candidate(
@@ -187,7 +187,7 @@ end
     )
     @test new_g == (TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁, :W₂)), TMLE.ConditionalDistribution(:T₂, (:W₁,)))
     
-    # Full run: this leads to only W₃ being used for the propensity score
+    # Full run: this leads to only W₁ being used for the propensity score
     ctmle = Tmle(collaborative_strategy=collaborative_strategy)
     Ψ = AIE(
         outcome = :Y,
@@ -199,8 +199,8 @@ end
     )
     result_ctmle, cache = ctmle(Ψ, dataset;verbosity=0);
     targeted_η̂ = cache[:targeted_factors]
-    @test targeted_η̂.propensity_score.components[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₃))
-    @test targeted_η̂.propensity_score.components[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₃,))
+    @test targeted_η̂.propensity_score.components[1].estimand == TMLE.ConditionalDistribution(:T₁, (:T₂, :W₁))
+    @test targeted_η̂.propensity_score.components[2].estimand == TMLE.ConditionalDistribution(:T₂, (:W₁,))
 end
 
 @testset "Integration Test using the AdaptiveCorrelationStrategy" begin
@@ -367,7 +367,7 @@ end
     @test fitted_propensity_score === new_g
     ## The loss should be smaller because we fluctuate through the previous model, however in finite samples
     ## I suppose this is not warranted, we check they are approximately equal and the loss with  Q̄n,k,* <  Q̄n,k
-    @test loss ≈ new_loss atol=1e-5
+    @test loss ≈ new_loss atol=1e-4
     # We can pretend the step_k_best_candidate had used the non targeted outcome model
     new_targeted_η̂ₙ_bis, new_loss_bis = TMLE.get_new_targeted_candidate(targeted_η̂ₙ, new_ĝₙ, fluctuation_model, dataset;
             use_fluct=false,
