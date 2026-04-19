@@ -84,7 +84,7 @@ result</code></pre><pre class="documenter-example-output"><code class="nohighlig
 - point estimate         : 1.8180
 - 95% confidence interval: [1.6436, 1.9924]
 - p-value                : 5.80e-78
-- mean influence curve   : -2.95e-17
+- mean influence curve   : -6.15e-17
 
 Full test results can be obtained with `significance_test`
 </code></pre><p>Statistical Estimands can be estimated without a <span>$SCM$</span>, let&#39;s use the One-Step estimator:</p><pre><code class="language-julia hljs">ose = Ose()
@@ -94,7 +94,7 @@ result</code></pre><pre class="documenter-example-output"><code class="nohighlig
 - point estimate         : -0.7882
 - 95% confidence interval: [-1.1691, -0.4073]
 - p-value                : 5.27e-05
-- mean influence curve   : -1.16e-16
+- mean influence curve   : 6.75e-17
 
 Full test results can be obtained with `significance_test`
 </code></pre><h2 id="Hypothesis-Testing"><a class="docs-heading-anchor" href="#Hypothesis-Testing">Hypothesis Testing</a><a id="Hypothesis-Testing-1"></a><a class="docs-heading-anchor-permalink" href="#Hypothesis-Testing" title="Permalink"></a></h2><p>Both TMLE and OSE asymptotically follow a Normal distribution. It means we can perform standard T/Z tests of null hypothesis. TMLE.jl extends the method provided by the <a href="https://juliastats.org/HypothesisTests.jl/stable/">HypothesisTests.jl</a> package that can be used as follows.</p><pre><code class="language-julia hljs">OneSampleTTest(result)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">One sample t-test
@@ -111,7 +111,7 @@ Test summary:
 
 Details:
     number of observations:   1000
-    t-statistic:              -4.061009640600248
+    t-statistic:              -4.0610096406002425
     degrees of freedom:       999
-    empirical standard error: 0.19408734027943547
-</code></pre><p>If the estimate is high-dimensional, a <code>OneSampleHotellingT2Test</code> should be performed instead. Alternatively, the <code>significance_test</code> function will automatically select the appropriate test for the estimate and return its result.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../user_guide/scm/">Structural Causal Models »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Thursday 16 April 2026 17:54">Thursday 16 April 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+    empirical standard error: 0.19408734027943542
+</code></pre><p>If the estimate is high-dimensional, a <code>OneSampleHotellingT2Test</code> should be performed instead. Alternatively, the <code>significance_test</code> function will automatically select the appropriate test for the estimate and return its result.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../user_guide/scm/">Structural Causal Models »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Sunday 19 April 2026 21:17">Sunday 19 April 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
