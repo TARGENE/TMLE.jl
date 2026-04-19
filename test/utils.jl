@@ -200,7 +200,7 @@ end
         treatment_confounders=[:W]
     )
     # The treatment levels correctly appear in the dataset
-    dataset = DataFrame(Y=rand(10), T=rand(0:1, 10), W=rand(10))
+    dataset = DataFrame(Y=rand(10), T=repeat([0, 1], 5), W=rand(10))
     @test TMLE.check_inputs(Ψ, dataset, nothing) isa Any
     # The treatment levels do not appear in the dataset
     dataset = DataFrame(Y=rand(10), T=rand(2:3, 10), W=rand(10))

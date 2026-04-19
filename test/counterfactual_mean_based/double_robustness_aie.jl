@@ -13,8 +13,8 @@ include(joinpath(TEST_DIR, "helper_fns.jl"))
 include(joinpath(TEST_DIR, "counterfactual_mean_based", "aie_simulations.jl"))
 
 cont_interacter = InteractionTransformer(order=2) |> LinearRegressor
-# remove regularization, last example was misspecified for Q and G 
-cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=0)
+# add some regularization
+cat_interacter = InteractionTransformer(order=2) |> LogisticClassifier(lambda=1e-6)
 
 
 @testset "Test Double Robustness AIE on binary_outcome_binary_treatment_pb" begin
