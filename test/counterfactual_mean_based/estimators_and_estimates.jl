@@ -48,7 +48,7 @@ end
         (:info, TMLE.fit_string(Q))
     )
     cache = Dict()
-    η̂ₙ = @test_logs fit_log... η̂(η, dataset; cache=cache, verbosity=1)
+    η̂ₙ = @test_logs fit_log... match_mode=:any η̂(η, dataset; cache=cache, verbosity=1)
     # Test both sub estimands have been fitted
     @test η̂ₙ.outcome_mean isa TMLE.MLConditionalDistribution
     @test fitted_params(η̂ₙ.outcome_mean.machine) isa NamedTuple
@@ -59,7 +59,7 @@ end
     # Both models unchanged, η̂ₙ is fully reused
     new_η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
     full_reuse_log = (:info, TMLE.reuse_string(η))
-    @test_logs full_reuse_log new_η̂(η, dataset; cache=cache, verbosity=1)
+    @test_logs full_reuse_log match_mode=:any new_η̂(η, dataset; cache=cache, verbosity=1)
     # Changing one model, only the other one is refitted
     models[:T₁] = LogisticClassifier(fit_intercept=false)
     new_η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
@@ -68,7 +68,7 @@ end
         (:info, TMLE.fit_string(G[1])),
         (:info, TMLE.reuse_string(Q))
     )
-    @test_logs partial_reuse_log... new_η̂(η, dataset; cache=cache, verbosity=1)
+    @test_logs partial_reuse_log... match_mode=:any new_η̂(η, dataset; cache=cache, verbosity=1)
 
     # Adding a resampling strategy
     cv_fit_log = (
@@ -78,7 +78,7 @@ end
     )
     train_validation_indices = MLJBase.train_test_pairs(CV(nfolds=3), 1:nrow(dataset), dataset)
     resampled_η̂ = TMLE.CMRelevantFactorsEstimator(models=models, train_validation_indices=train_validation_indices)
-    η̂ₙ = @test_logs cv_fit_log... resampled_η̂(η, dataset; cache=cache, verbosity=1)
+    η̂ₙ = @test_logs cv_fit_log... match_mode=:any resampled_η̂(η, dataset; cache=cache, verbosity=1)
     @test length(η̂ₙ.outcome_mean.machines) == 3
     ps_component = only(η̂ₙ.propensity_score.components)
     @test length(ps_component.machines) == 3

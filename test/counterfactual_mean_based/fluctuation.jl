@@ -74,7 +74,7 @@ using MLJGLMInterface
     @test observed_cache[:w] == [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     ## Second fit the fluctuation
     logs = [(:info, "TMLE step: 1."), (:info, "TMLE step: 2."), (:info, "TMLE step: 3."), (:info, "Convergence criterion not reached.")]
-    uw_machines, cache, uw_report = @test_logs logs... MLJBase.fit(unweighted_fluctuation, 1, X, y);
+    uw_machines, cache, uw_report = @test_logs logs... match_mode=:any MLJBase.fit(unweighted_fluctuation, 1, X, y);
     ### Only one machine, only fitted the clever covariate 
     @test length(uw_machines) == 3
     ### Report entries
