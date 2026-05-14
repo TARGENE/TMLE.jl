@@ -48,7 +48,9 @@ function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothi
         mach = machine(model, X, y; cache=cache)
     else
         if supervised_learner_supports_weights(model)
-            mach = machine(model, X, y, weights; cache=cache)
+            # Normalise weights at point-of-use
+            normalised_weights = (weights / sum(weights)) * length(weights)
+            mach = machine(model, X, y, normalised_weights; cache=cache)
         else
             throw(ArgumentError("The model $(model) does not support weights and cannot be used with prevalence."))
         end
