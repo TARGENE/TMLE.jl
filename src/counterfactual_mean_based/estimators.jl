@@ -179,10 +179,11 @@ mutable struct Ose <: Estimator
     resampling::Union{Nothing, ResamplingStrategy}
     ps_lowerbound::Union{Float64, Nothing}
     machine_cache::Bool
+    prevalence::Union{Nothing, Float64}
 end
 
 """
-    Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false)
+    Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false, prevalence=nothing)
 
 Defines a One Step Estimator using the specified models for estimation of the nuisance parameters. The estimator is a 
 function that can be applied to estimate estimands for a dataset.
@@ -195,7 +196,8 @@ any valid `MLJ.ResamplingStrategy` will result in CV-OSE.
 - ps_lowerbound: Lowerbound for the propensity score to avoid division by 0. The special value `nothing` will 
 result in a data adaptive definition as described in [here](https://pubmed.ncbi.nlm.nih.gov/35512316/).
 - machine_cache: Whether MLJ.machine created during estimation should cache data.
-
+- prevalence: The prevalence of the outcome in the population. If provided, the estimator will use case control 
+weights to correct for biased sampling.
 # Run Argument
 
 - Ψ: parameter of interest
@@ -213,22 +215,26 @@ ose = Ose()
 Ψ̂ₙ, cache = ose(Ψ, dataset)
 ```
 """
-Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false) = 
-    Ose(models, resampling, ps_lowerbound, machine_cache)
+Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false, prevalence=nothing) = 
+    Ose(models, resampling, ps_lowerbound, machine_cache, prevalence)
 
 function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
     # Check the estimand against the dataset
-    check_treatment_levels(Ψ, dataset)
+    check_inputs(Ψ, dataset, ose.prevalence)
     # Make train-validation pairs
     train_validation_indices = get_train_validation_indices(ose.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors
     initial_factors = get_relevant_factors(Ψ)
-    nomissing_dataset = nomissing(dataset, variables(initial_factors))
-    initial_factors_dataset = choose_initial_dataset(dataset, nomissing_dataset;
-        train_validation_indices=train_validation_indices, 
-        prevalence=nothing
+    fluctuation_dataset = get_fluctuation_dataset(dataset, initial_factors;
+        prevalence=ose.prevalence,
+        verbosity=verbosity
     )
-    initial_factors_estimator = CMRelevantFactorsEstimator(;models=ose.models, train_validation_indices=train_validation_indices)
+    initial_factors_dataset = choose_initial_dataset(dataset, fluctuation_dataset;
+        train_validation_indices=train_validation_indices, 
+        prevalence=ose.prevalence
+    )
+    prevalence_weights = compute_prevalence_weights(ose.prevalence, initial_factors_dataset[!, initial_factors.outcome_mean.outcome])
+    initial_factors_estimator = CMRelevantFactorsEstimator(;models=ose.models, train_validation_indices=train_validation_indices, prevalence_weights=prevalence_weights)
     initial_factors_estimate = initial_factors_estimator(
         initial_factors, 
         initial_factors_dataset;
@@ -237,19 +243,31 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
         acceleration=acceleration
     )
     # Get propensity score truncation threshold
-    n = nrows(nomissing_dataset)
+    n = nrows(fluctuation_dataset)
     ps_lowerbound = ps_lower_bound(n, ose.ps_lowerbound)
 
     # Gradient and estimate
-    IC, Ψ̂ = gradient_and_estimate(ose, Ψ, initial_factors_estimate, nomissing_dataset; ps_lowerbound=ps_lowerbound)
+    IC, Ψ̂ = gradient_and_estimate(ose, Ψ, initial_factors_estimate, fluctuation_dataset, prevalence_weights; ps_lowerbound=ps_lowerbound)
     σ̂ = std(IC)
     n = size(IC, 1)
     verbosity >= 1 && @info "Done."
     return OSEstimate(Ψ, Ψ̂, σ̂, n, IC), cache
 end
 
-function gradient_and_estimate(::Ose, Ψ, factors, dataset; ps_lowerbound=1e-8)
+function gradient_and_estimate(::Ose, Ψ, factors, dataset, prevalence_weights::Nothing; ps_lowerbound=1e-8)
     IC, Ψ̂ = gradient_and_plugin_estimate(Ψ, factors, dataset; ps_lowerbound=ps_lowerbound)
+    IC_mean = mean(IC)
+    IC .-= IC_mean
+    return IC, Ψ̂ + IC_mean
+end
+
+function gradient_and_estimate(::Ose, Ψ, factors, dataset, prevalence_weights; ps_lowerbound=1e-8)
+    Q = factors.outcome_mean
+    G = factors.propensity_score
+    ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
+    gradient_Y_X = ∇YX(Ψ, Q, G, dataset; ps_lowerbound=ps_lowerbound)
+    y = float(dataset[!, Q.estimand.outcome])
+    IC, Ψ̂ = gradient_and_estimate(ctf_agg, gradient_Y_X, y, prevalence_weights)
     IC_mean = mean(IC)
     IC .-= IC_mean
     return IC, Ψ̂ + IC_mean

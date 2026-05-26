@@ -26,7 +26,7 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
     cache = Dict()
     # Model that supports weights
     estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(),prevalence_weights=weights)
-    conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+    conditional_density_estimate = @test_logs (:info, fit_log) match_mode=:any estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 
     # Model that does NOT support weights (e.g., LogisticClassifier)
     estimator = TMLE.MLConditionalDistributionEstimator(LogisticClassifier(), prevalence_weights=weights)
@@ -34,7 +34,7 @@ reuse_log = string("Reusing estimate for: ", TMLE.string_repr(estimand))
 
     # Pipeline that supports weights
     estimator = TMLE.MLConditionalDistributionEstimator(with_encoder(LinearBinaryClassifier()), prevalence_weights=weights)
-    conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+    conditional_density_estimate = @test_logs (:info, fit_log) match_mode=:any estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 
     # Pipeline that does NOT support weights
     estimator = TMLE.MLConditionalDistributionEstimator(with_encoder(LogisticClassifier()), prevalence_weights=weights)
@@ -46,7 +46,7 @@ end
     estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
     # Fitting with no cache
     cache = Dict()
-    conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+    conditional_density_estimate = @test_logs (:info, fit_log) match_mode=:any estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
     expected_features = collect(estimand.parents)
     @test conditional_density_estimate isa TMLE.MLConditionalDistribution
     @test fitted_params(conditional_density_estimate.machine).features == expected_features
@@ -61,10 +61,10 @@ end
     # Check cache management
     ## Uses the cache instead of fitting
     new_estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier())
-    @test_logs (:info, reuse_log) estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+    @test_logs (:info, reuse_log) match_mode=:any estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
     ## Changing the model leads to refit
     new_estimator = TMLE.MLConditionalDistributionEstimator(LinearBinaryClassifier(fit_intercept=false))
-    @test_logs (:info, fit_log) new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+    @test_logs (:info, fit_log) match_mode=:any new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 end
 
 @testset "Test MLConditionalDistributionEstimator: continuous outcome" begin
@@ -72,7 +72,7 @@ end
     ## Probabilistic Model
     model = MLJGLMInterface.LinearRegressor()
     estimator = TMLE.MLConditionalDistributionEstimator(model)
-    conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, continuous_dataset; cache=Dict(), verbosity=verbosity)
+    conditional_density_estimate = @test_logs (:info, fit_log) match_mode=:any estimator(estimand, continuous_dataset; cache=Dict(), verbosity=verbosity)
     ŷ = MLJBase.predict(conditional_density_estimate, continuous_dataset)
     @test ŷ isa Vector{Normal{Float64}}
     μ̂ = TMLE.expected_value(conditional_density_estimate, continuous_dataset)
@@ -135,7 +135,7 @@ end
         train_validation_indices
     )
     cache = Dict()
-    conditional_density_estimate = @test_logs (:info, fit_log) estimator(estimand, binary_dataset;cache=cache, verbosity=verbosity)
+    conditional_density_estimate = @test_logs (:info, fit_log) match_mode=:any estimator(estimand, binary_dataset;cache=cache, verbosity=verbosity)
     @test conditional_density_estimate isa TMLE.SampleSplitMLConditionalDistribution
     expected_features = collect(estimand.parents)
     @test all(fitted_params(mach).features == expected_features for mach in conditional_density_estimate.machines)
@@ -159,21 +159,21 @@ end
         LinearBinaryClassifier(),
         train_validation_indices
     )
-    @test_logs (:info, reuse_log) estimator(estimand, binary_dataset;cache=cache, verbosity=verbosity)
+    @test_logs (:info, reuse_log) match_mode=:any estimator(estimand, binary_dataset;cache=cache, verbosity=verbosity)
     ## Changing the model leads to refit
     new_model = LinearBinaryClassifier(fit_intercept=false)
     new_estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
         new_model,
         train_validation_indices
     )
-    @test_logs (:info, fit_log) new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+    @test_logs (:info, fit_log) match_mode=:any new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
     ## Changing the train/validation splits leads to refit
     train_validation_indices = Tuple(MLJBase.train_test_pairs(CV(nfolds=4), 1:n, binary_dataset))
     new_estimator = TMLE.SampleSplitMLConditionalDistributionEstimator(
         new_model,
         train_validation_indices
     )
-    @test_logs (:info, fit_log) new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
+    @test_logs (:info, fit_log) match_mode=:any new_estimator(estimand, binary_dataset; cache=cache, verbosity=verbosity)
 end
 
 @testset "Test SampleSplitMLConditionalDistributionEstimator: Continuous outcome" begin
