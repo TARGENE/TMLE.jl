@@ -10,14 +10,24 @@ struct MLCMRelevantFactors <: Estimate
     estimand::CMRelevantFactors
     outcome_mean::ConditionalDistributionEstimate
     propensity_score
+    censoring_score::Union{Nothing, ConditionalDistributionEstimate}
 end
 
-string_repr(estimate::MLCMRelevantFactors) = string(
-    "Composite Factor Estimate: \n",
-    "-------------------------\n- ",
-    string_repr(estimate.outcome_mean),"\n- ", 
-    join((string_repr(f) for f in estimate.propensity_score.components), "\n- ")
-)
+MLCMRelevantFactors(estimand, outcome_mean, propensity_score) =
+    MLCMRelevantFactors(estimand, outcome_mean, propensity_score, nothing)
+
+function string_repr(estimate::MLCMRelevantFactors)
+    parts = [
+        "Composite Factor Estimate: \n",
+        "-------------------------\n- ",
+        string_repr(estimate.outcome_mean), "\n- ",
+        join((string_repr(f) for f in estimate.propensity_score.components), "\n- ")
+    ]
+    if estimate.censoring_score !== nothing
+        push!(parts, "\n- ", string_repr(estimate.censoring_score))
+    end
+    return string(parts...)
+end
 
 #####################################################################
 ###                       FoldsMLCMRelevantFactors                     ###

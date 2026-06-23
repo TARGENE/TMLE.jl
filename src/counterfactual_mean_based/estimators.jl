@@ -59,7 +59,24 @@ been show to be more robust to positivity violation in practice.
 - tol (default: nothing): Convergence threshold for the TMLE algorithm iterations. If nothing (default), 1/(sample size) will be used. See also `max_iter`.
 - max_iter (default: 1): Maximum number of iterations for the TMLE algorithm.
 - machine_cache (default: false): Whether MLJ.machine created during estimation should cache data.
-- prevalence (default: nothing): If provided, the prevalence weights will be used to weight the observations to match the true prevalence of the source population. 
+- prevalence (default: nothing): If provided, the prevalence weights will be used to weight the observations to match the true prevalence of the source population.
+
+# Missing outcomes (IPCW)
+
+When the outcome column contains `missing` values, Inverse Probability of Censoring Weighting
+(IPCW) is automatically applied. A binary censoring model `π(W) = P(Δ=1 | W)` is fit to predict
+whether the outcome is observed, and the efficient influence curve is reweighted by `Δ/π` to
+correct for outcome missingness. This is valid under a Missing at Random (MAR) assumption — i.e.
+the probability of observing the outcome may depend on treatments and covariates, but not on the
+(unobserved) outcome value itself.
+
+The censoring model's covariates default to the same parents as the outcome mean model. To use a
+custom censoring model, pass it via the `models` dict under the key `:C_default` or under the
+censoring indicator name (e.g. `Symbol("Δ_Y")`). See also `default_models`.
+
+The outcome mean (Q) is always fit on complete cases only, while the propensity score (G) and
+censoring model (π) are fit on all observations. The influence curve and plugin estimate are
+evaluated on all observations with non-missing covariates.
 
 # Run Argument
 
@@ -103,10 +120,15 @@ end
 function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
     # Check if the inputs are suitable for the specified estimand
     check_inputs(Ψ, dataset, tmle.prevalence)
+    # Detect missing outcomes and add censoring indicator if needed
+    ipcw = has_missing_outcomes(dataset, Ψ.outcome)
+    if ipcw
+        add_censoring_indicator!(dataset, Ψ.outcome)
+    end
     # Make train-validation pairs
     train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, dataset)
-    # Initial fit of the SCM's relevant factors
-    relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
+    # Initial fit of the SCM's relevant factors (pass dataset for IPCW detection)
+    relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy, dataset=ipcw ? dataset : nothing)
     fluctuation_dataset = get_fluctuation_dataset(dataset, relevant_factors;
         prevalence=tmle.prevalence, 
         verbosity=verbosity
@@ -135,6 +157,9 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     n = nrows(fluctuation_dataset)
     ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
 
+    # Compute IPCW weights if needed
+    ipcw_weights = compute_ipcw_weights(initial_factors_estimate, fluctuation_dataset; ps_lowerbound=ps_lowerbound)
+
     # Fluctuation initial factors
     targeted_factors_estimator = get_targeted_estimator(
         Ψ, 
@@ -147,7 +172,8 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         weighted=tmle.weighted,
         machine_cache=tmle.machine_cache,
         models=tmle.models,
-        prevalence_weights=prevalence_weights
+        prevalence_weights=prevalence_weights,
+        ipcw_weights=ipcw_weights
     )
     targeted_factors_estimate = targeted_factors_estimator(relevant_factors, fluctuation_dataset; 
         cache=cache, 
@@ -198,6 +224,13 @@ result in a data adaptive definition as described in [here](https://pubmed.ncbi.
 - machine_cache: Whether MLJ.machine created during estimation should cache data.
 - prevalence: The prevalence of the outcome in the population. If provided, the estimator will use case control 
 weights to correct for biased sampling.
+
+# Missing outcomes (IPCW)
+
+When the outcome column contains `missing` values, Inverse Probability of Censoring Weighting
+(IPCW) is automatically applied. See the `Tmle` docstring for details on the IPCW mechanism,
+modeling assumptions, and how to customize the censoring model.
+
 # Run Argument
 
 - Ψ: parameter of interest
@@ -221,10 +254,15 @@ Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_ca
 function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
     # Check the estimand against the dataset
     check_inputs(Ψ, dataset, ose.prevalence)
+    # Detect missing outcomes and add censoring indicator if needed
+    ipcw = has_missing_outcomes(dataset, Ψ.outcome)
+    if ipcw
+        add_censoring_indicator!(dataset, Ψ.outcome)
+    end
     # Make train-validation pairs
     train_validation_indices = get_train_validation_indices(ose.resampling, Ψ, dataset)
-    # Initial fit of the SCM's relevant factors
-    initial_factors = get_relevant_factors(Ψ)
+    # Initial fit of the SCM's relevant factors (pass dataset for IPCW detection)
+    initial_factors = get_relevant_factors(Ψ; dataset=ipcw ? dataset : nothing)
     fluctuation_dataset = get_fluctuation_dataset(dataset, initial_factors;
         prevalence=ose.prevalence,
         verbosity=verbosity
@@ -265,7 +303,7 @@ function gradient_and_estimate(::Ose, Ψ, factors, dataset, prevalence_weights; 
     Q = factors.outcome_mean
     G = factors.propensity_score
     ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
-    gradient_Y_X = ∇YX(Ψ, Q, G, dataset; ps_lowerbound=ps_lowerbound)
+    gradient_Y_X = ∇YX(Ψ, Q, G, dataset; ps_lowerbound=ps_lowerbound, censoring_score=factors.censoring_score)
     y = float(dataset[!, Q.estimand.outcome])
     IC, Ψ̂ = gradient_and_estimate(ctf_agg, gradient_Y_X, y, prevalence_weights)
     IC_mean = mean(IC)

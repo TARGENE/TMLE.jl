@@ -49,10 +49,10 @@ end
 @testset "Test estimation with missing values and ordered factor treatment" begin
     dataset = dataset_with_missing_and_ordered_treatment(;n=1000)
     Ψ = ATE(
-        outcome=:Y, 
+        outcome=:Y,
         treatment_values=(T=(case=1, control=0),),
         treatment_confounders=(T=[:W],))
-    models = Dict(:Y => with_encoder(LinearRegressor()), :T => LogisticClassifier(lambda=0))
+    models = default_models(Y=LinearRegressor(), T=LogisticClassifier(lambda=0))
     tmle = Tmle(models=models, machine_cache=true)
     tmle_result, cache = tmle(Ψ, dataset; verbosity=0)
     test_coverage(tmle_result, 1)

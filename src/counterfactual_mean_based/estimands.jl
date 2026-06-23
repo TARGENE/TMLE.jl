@@ -9,21 +9,38 @@ Counterfactual Mean composite estimand (see `StatisticalCMCompositeEstimand`).
 @auto_hash_equals struct CMRelevantFactors <: Estimand
     outcome_mean::ConditionalDistribution
     propensity_score::Tuple{Vararg{ConditionalDistribution}}
+    censoring_score::Union{Nothing, ConditionalDistribution}
 end
 
-CMRelevantFactors(outcome_mean, propensity_score::ConditionalDistribution) = 
-    CMRelevantFactors(outcome_mean, (propensity_score,))
 
-CMRelevantFactors(;outcome_mean, propensity_score) = 
-    CMRelevantFactors(outcome_mean, propensity_score)
+CMRelevantFactors(outcome_mean, propensity_score::ConditionalDistribution, censoring_score::Union{Nothing, ConditionalDistribution}=nothing) =
+    CMRelevantFactors(outcome_mean, (propensity_score,), censoring_score)
 
-string_repr(estimand::CMRelevantFactors) = 
-    string("Relevant Factors: \n- ",
-        string_repr(estimand.outcome_mean),"\n- ", 
-        join((string_repr(f) for f in estimand.propensity_score), "\n- "))
+CMRelevantFactors(;outcome_mean, propensity_score, censoring_score=nothing) =
+    CMRelevantFactors(outcome_mean, propensity_score, censoring_score)
 
-variables(estimand::CMRelevantFactors) = 
-    Tuple(union(variables(estimand.outcome_mean), (variables(est) for est in estimand.propensity_score)...))
+CMRelevantFactors(outcome_mean, propensity_score) =
+    CMRelevantFactors(outcome_mean, propensity_score, nothing)
+
+function string_repr(estimand::CMRelevantFactors)
+    parts = [
+        "Relevant Factors: \n- ",
+        string_repr(estimand.outcome_mean), "\n- ",
+        join((string_repr(f) for f in estimand.propensity_score), "\n- ")
+    ]
+    if estimand.censoring_score !== nothing
+        push!(parts, "\n- ", string_repr(estimand.censoring_score))
+    end
+    return string(parts...)
+end
+
+function variables(estimand::CMRelevantFactors)
+    vars = union(variables(estimand.outcome_mean), (variables(est) for est in estimand.propensity_score)...)
+    if estimand.censoring_score !== nothing
+        vars = union(vars, variables(estimand.censoring_score))
+    end
+    return Tuple(vars)
+end
 
 #####################################################################
 ###                         Functionals                           ###
@@ -135,10 +152,35 @@ end
 
 propensity_score_key(Ψ::StatisticalCMCompositeEstimand) = Tuple(variables(x) for x ∈ propensity_score(Ψ))
 
-function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand; collaborative_strategy=nothing)
+"""
+    get_relevant_factors(Ψ; collaborative_strategy=nothing, dataset=nothing)
+
+Returns the `CMRelevantFactors` needed to estimate `Ψ`: an outcome mean, propensity score(s),
+and optionally a censoring score for IPCW.
+
+## IPCW for missing outcomes
+
+When `dataset` is provided and the outcome column contains missing values, a censoring score
+model is automatically included. This enables Inverse Probability of Censoring Weighting (IPCW)
+to correct for outcome missingness under a Missing at Random (MAR) assumption.
+
+The censoring model `P(Δ=1 | parents)` is a binary classifier predicting whether the outcome
+is observed (Δ=1) or missing (Δ=0). Its parents are set to the same variables as the outcome
+mean model (treatments + confounders + extra covariates). This is a conservative default that
+conditions on all available covariates; it does not derive the censoring parents from an SCM
+or causal graph. The censoring mechanism is treated as a statistical nuisance, not a structural
+feature of the causal model.
+"""
+function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand; collaborative_strategy=nothing, dataset=nothing)
     outcome_model = outcome_mean(Ψ)
     treatment_factors = propensity_score(Ψ, collaborative_strategy)
-    return CMRelevantFactors(outcome_model, treatment_factors)
+    censoring_factor = nothing
+    if dataset !== nothing && has_missing_outcomes(dataset, Ψ.outcome)
+        censoring_outcome = censoring_indicator_name(Ψ.outcome)
+        censoring_parents = outcome_model.parents
+        censoring_factor = ConditionalDistribution(censoring_outcome, censoring_parents)
+    end
+    return CMRelevantFactors(outcome_model, treatment_factors, censoring_factor)
 end
 
 n_uniques_nuisance_functions(Ψ::StatisticalCMCompositeEstimand) = length(propensity_score(Ψ)) + 1

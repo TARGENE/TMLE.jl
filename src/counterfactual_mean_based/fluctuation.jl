@@ -7,10 +7,11 @@ mutable struct Fluctuation <: MLJBase.Supervised
     weighted::Bool
     cache::Bool
     prevalence_weights::Union{Nothing, Vector{Float64}}
+    ipcw_weights::Union{Nothing, Vector{Float64}}
 end
 
-Fluctuation(Ψ, initial_factors; tol=nothing, max_iter=1, ps_lowerbound=1e-8, weighted=false, cache=false, prevalence_weights=nothing) =
-    Fluctuation(Ψ, initial_factors, tol, max_iter, ps_lowerbound, weighted, cache, prevalence_weights)
+Fluctuation(Ψ, initial_factors; tol=nothing, max_iter=1, ps_lowerbound=1e-8, weighted=false, cache=false, prevalence_weights=nothing, ipcw_weights=nothing) =
+    Fluctuation(Ψ, initial_factors, tol, max_iter, ps_lowerbound, weighted, cache, prevalence_weights, ipcw_weights)
 
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:MLJBase.Continuous} = LinearRegressor(fit_intercept=false, offsetcol = :offset)
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:Finite} = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
@@ -58,6 +59,10 @@ function initialize_observed_cache(model, X, y)
         ps_lowerbound=model.ps_lowerbound,
         weighted_fluctuation=model.weighted
     )
+    # IPCW: incorporate precomputed Δ/π weights
+    if model.ipcw_weights !== nothing
+        w .*= model.ipcw_weights
+    end
     ŷ = MLJBase.predict(Q⁰, X)
     return Dict{Symbol, Any}(:H => H, :w => w, :ŷ => ŷ, :y => float(y))
 end

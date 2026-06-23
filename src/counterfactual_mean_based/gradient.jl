@@ -52,12 +52,20 @@ Computes the projection of the gradient on the (Y | X) space.
 
 This part of the gradient is evaluated on the original dataset. All quantities have been precomputed and cached.
 """
-function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound=1e-8)
+function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound=1e-8, censoring_score=nothing)
     # Maybe can cache some results (H and E[Y|X]) to improve perf here
     H, w = clever_covariate_and_weights(Ψ, G, dataset; ps_lowerbound=ps_lowerbound)
     y = float(dataset[!, Q.estimand.outcome])
     Ey = expected_value(Q, dataset)
-    return ∇YX(H, y, Ey, w)
+    grad = ∇YX(H, y, Ey, w)
+    # IPCW: multiply by Δ/π to reweight for missing outcomes
+    if censoring_score !== nothing
+        Δ = get_censoring_indicator(dataset, Q.estimand.outcome)
+        π = likelihood(censoring_score, dataset)
+        truncate!(π, ps_lowerbound)
+        grad .*= Δ ./ π
+    end
+    return grad
 end
 
 
@@ -66,7 +74,7 @@ function gradient_and_plugin_estimate(Ψ::StatisticalCMCompositeEstimand, factor
     G = factors.propensity_score
     ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
     Ψ̂ = plugin_estimate(ctf_agg)
-    IC = ∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound) .+ ∇W(ctf_agg, Ψ̂)
+    IC = ∇YX(Ψ, Q, G, dataset; ps_lowerbound=ps_lowerbound, censoring_score=factors.censoring_score) .+ ∇W(ctf_agg, Ψ̂)
     return IC, Ψ̂
 end
 

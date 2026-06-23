@@ -61,6 +61,29 @@ end
 
 ismissingtype(T) = nonmissingtype(T) !== T
 
+censoring_indicator_name(outcome::Symbol) = Symbol(:Δ_, outcome)
+
+has_missing_outcomes(dataset, outcome::Symbol) = ismissingtype(eltype(dataset[!, outcome]))
+
+function add_censoring_indicator!(dataset, outcome::Symbol)
+    col = dataset[!, outcome]
+    indicator_col = categorical(ifelse.(ismissing.(col), 0, 1), ordered=true)
+    dataset[!, censoring_indicator_name(outcome)] = indicator_col
+    return dataset
+end
+
+get_censoring_indicator(dataset, outcome::Symbol) =
+    Float64.(unwrap.(dataset[!, censoring_indicator_name(outcome)]))
+
+function compute_ipcw_weights(factors, dataset; ps_lowerbound=1e-8)
+    factors.censoring_score === nothing && return nothing
+    outcome = factors.outcome_mean.estimand.outcome
+    Δ = get_censoring_indicator(dataset, outcome)
+    π = likelihood(factors.censoring_score, dataset)
+    truncate!(π, ps_lowerbound)
+    return Δ ./ π
+end
+
 function nomissing(dataset::DataFrame, colnames; disallowmissing=true, view=false, copycols=false)
     subdataset = TMLE.selectcols(dataset, colnames, copycols=copycols)
     return if all(!ismissingtype(eltype(c)) for c in eachcol(subdataset))
@@ -129,15 +152,20 @@ function get_matched_controls(dataset, outcome; verbosity = 1)
 end
 
 """
-    default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier()) = (
+    default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier(), C=LinearBinaryClassifier())
 
 Create a Dictionary containing default models to be used by downstream estimators. 
 Each provided model is prepended (in a `MLJ.Pipeline`) with an `MLJ.ContinuousEncoder`.
 
 By default:
-    - Q_binary is a LinearBinaryClassifier
-    - Q_continuous is a LinearRegressor
-    - G is a LinearBinaryClassifier
+    - Q_binary is a LinearBinaryClassifier (binary outcome mean)
+    - Q_continuous is a LinearRegressor (continuous outcome mean)
+    - G is a LinearBinaryClassifier (propensity score)
+    - C is a LinearBinaryClassifier (censoring score for IPCW)
+
+The `C` model is used when outcome missingness triggers IPCW (see `Tmle` / `Ose`). It models
+`P(Δ=1 | W)`, the probability of observing the outcome given covariates. You can also assign
+a model to the censoring indicator name directly (e.g. `Symbol("Δ_Y") => your_model`).
 
 # Example
 
@@ -152,10 +180,11 @@ models = default_models(
 ```
 
 """
-default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier(), kwargs...) = Dict(
+default_models(;Q_binary=LinearBinaryClassifier(), Q_continuous=LinearRegressor(), G=LinearBinaryClassifier(), C=LinearBinaryClassifier(), kwargs...) = Dict(
     :Q_binary_default     => with_encoder(Q_binary),
     :Q_continuous_default => with_encoder(Q_continuous),
     :G_default            => with_encoder(G),
+    :C_default            => with_encoder(C),
     (key => with_encoder(val) for (key, val) in kwargs)...
 )
 
