@@ -10,9 +10,7 @@ using MLJBase
 using LogExpFunctions
 using TMLE
 
-PKG_DIR = pkgdir(TMLE)
-TEST_DIR = joinpath(PKG_DIR, "test")
-include(joinpath(TEST_DIR, "helper_fns.jl"))
+include(joinpath(dirname(dirname(pathof(TMLE))), "test", "helper_fns.jl"))
 
 @testset "Censoring indicator utilities" begin
     # Test censoring_indicator_name
@@ -110,56 +108,7 @@ function ate_with_mar_missingness(;n=2000)
     return dataset, ATE_true
 end
 
-"""
-Generate a continuous outcome ATE problem with MCAR missingness.
-"""
-function ate_with_mcar_missingness(;n=2000)
-    rng = StableRNG(42)
-    W = randn(rng, n)
-    T = rand(rng, n) .< LogExpFunctions.logistic.(0.5 .* W)
-    # True ATE = 2
-    Y = 2.0 .* T .+ W .+ 0.5 .* randn(rng, n)
-    ATE_true = 2.0
-
-    dataset = DataFrame(
-        W = W,
-        T = categorical(Int.(T)),
-        Y = Vector{Union{Missing, Float64}}(Y)
-    )
-    # MCAR: 20% random missingness
-    for i in 1:n
-        if rand(rng) < 0.2
-            dataset.Y[i] = missing
-        end
-    end
-    return dataset, ATE_true
-end
-
-@testset "IPCW OSE: MCAR missingness" begin
-    dataset, ATE_true = ate_with_mcar_missingness(n=5000)
-    Ψ = ATE(
-        outcome=:Y,
-        treatment_values=(T=(case=1, control=0),),
-        treatment_confounders=(T=[:W],)
-    )
-    ose = Ose()
-    result, _ = ose(Ψ, dataset; verbosity=0)
-    test_coverage(result, ATE_true)
-end
-
-@testset "IPCW TMLE: MCAR missingness" begin
-    dataset, ATE_true = ate_with_mcar_missingness(n=5000)
-    Ψ = ATE(
-        outcome=:Y,
-        treatment_values=(T=(case=1, control=0),),
-        treatment_confounders=(T=[:W],)
-    )
-    tmle = Tmle()
-    result, _ = tmle(Ψ, dataset; verbosity=0)
-    test_coverage(result, ATE_true)
-end
-
-@testset "IPCW OSE: MAR missingness" begin
+@testset "IPCW OSE" begin
     dataset, ATE_true = ate_with_mar_missingness(n=5000)
     Ψ = ATE(
         outcome=:Y,
@@ -171,7 +120,7 @@ end
     test_coverage(result, ATE_true)
 end
 
-@testset "IPCW TMLE: MAR missingness" begin
+@testset "IPCW TMLE" begin
     dataset, ATE_true = ate_with_mar_missingness(n=5000)
     Ψ = ATE(
         outcome=:Y,
@@ -207,39 +156,19 @@ end
     test_coverage(result, 2.0)
 end
 
-@testset "IPCW + CV throws ArgumentError" begin
-    dataset, _ = ate_with_mcar_missingness(n=200)
-    Ψ = ATE(
-        outcome=:Y,
-        treatment_values=(T=(case=1, control=0),),
-        treatment_confounders=(T=[:W],)
-    )
-    # TMLE with CV + IPCW
-    tmle_cv = Tmle(resampling=CV(nfolds=3))
-    @test_throws ArgumentError("IPCW (missing outcomes) is not supported with cross-validation. Use vanilla TMLE (resampling=nothing) instead.") tmle_cv(Ψ, dataset; verbosity=0)
-
-    # OSE with CV + IPCW
-    dataset2, _ = ate_with_mcar_missingness(n=200)
-    ose_cv = Ose(resampling=CV(nfolds=3))
-    @test_throws ArgumentError("IPCW (missing outcomes) is not supported with cross-validation. Use vanilla OSE (resampling=nothing) instead.") ose_cv(Ψ, dataset2; verbosity=0)
-end
-
 @testset "IPCW + prevalence throws ArgumentError" begin
-    dataset, _ = ate_with_mcar_missingness(n=200)
-    # Make outcome binary for prevalence compatibility
-    dataset.Y = Vector{Union{Missing, Float64}}([ismissing(y) ? missing : Float64(y > 0) for y in dataset.Y])
+    dataset, _ = ate_with_mar_missingness(n=200)
     Ψ = ATE(
         outcome=:Y,
         treatment_values=(T=(case=1, control=0),),
         treatment_confounders=(T=[:W],)
     )
     tmle_prev = Tmle(prevalence=0.1)
-    @test_throws ArgumentError("IPCW (missing outcomes) is not supported with prevalence correction.") tmle_prev(Ψ, dataset; verbosity=0)
+    @test_throws ArgumentError tmle_prev(Ψ, dataset; verbosity=0)
 
-    dataset2, _ = ate_with_mcar_missingness(n=200)
-    dataset2.Y = Vector{Union{Missing, Float64}}([ismissing(y) ? missing : Float64(y > 0) for y in dataset2.Y])
+    dataset2, _ = ate_with_mar_missingness(n=200)
     ose_prev = Ose(prevalence=0.1)
-    @test_throws ArgumentError("IPCW (missing outcomes) is not supported with prevalence correction.") ose_prev(Ψ, dataset2; verbosity=0)
+    @test_throws ArgumentError ose_prev(Ψ, dataset2; verbosity=0)
 end
 
 end

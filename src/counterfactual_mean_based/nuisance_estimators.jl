@@ -285,7 +285,8 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
         prevalence_weights=prevalence_weights
     )
 
-    # Estimate censoring score if needed
+    # Estimate censoring score if needed (no prevalence_weights: censoring
+    # model should not be reweighted by case-control prevalence)
     censoring_score_estimate = nothing
     if estimand.censoring_score !== nothing
         censoring_score_estimate = estimate_censoring_score(
@@ -293,8 +294,7 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
             train_validation_indices=train_validation_indices,
             cache=cache,
             verbosity=verbosity,
-            machine_cache=machine_cache,
-            prevalence_weights=prevalence_weights
+            machine_cache=machine_cache
         )
     end
 

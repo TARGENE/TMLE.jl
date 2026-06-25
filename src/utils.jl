@@ -61,13 +61,16 @@ end
 get_censoring_indicator(dataset, outcome::Symbol) =
     Float64.(unwrap.(dataset[!, censoring_indicator_name(outcome)]))
 
-function compute_ipcw_weights(factors, dataset; ps_lowerbound=1e-8)
-    factors.censoring_score === nothing && return nothing
-    outcome = factors.outcome_mean.estimand.outcome
+function compute_ipcw_weights(censoring_score, dataset, outcome::Symbol; ps_lowerbound=1e-8)
     Δ = get_censoring_indicator(dataset, outcome)
-    π = likelihood(factors.censoring_score, dataset)
+    π = likelihood(censoring_score, dataset)
     truncate!(π, ps_lowerbound)
     return Δ ./ π
+end
+
+function compute_ipcw_weights(factors, dataset; ps_lowerbound=1e-8)
+    factors.censoring_score === nothing && return nothing
+    return compute_ipcw_weights(factors.censoring_score, dataset, factors.outcome_mean.estimand.outcome; ps_lowerbound=ps_lowerbound)
 end
 
 function nomissing(dataset::DataFrame, colnames; disallowmissing=true, view=false, copycols=false)
@@ -81,7 +84,7 @@ end
 
 
 """
-    get_evaluation_dataset(dataset, relevant_factors; prevalence=nothing, verbosity=1)
+    get_fluctuation_dataset(dataset, relevant_factors; prevalence=nothing, verbosity=1)
 
 Build the dataset used for IC/fluctuation evaluation from the original `dataset`.
 
@@ -91,7 +94,7 @@ Build the dataset used for IC/fluctuation evaluation from the original `dataset`
 - **Non-IPCW mode**: drops all rows with any missing relevant variable. If `prevalence` is
   provided, additionally applies matched-controls subsampling via `get_matched_controls`.
 """
-function get_evaluation_dataset(dataset, relevant_factors; prevalence=nothing, verbosity=1)
+function get_fluctuation_dataset(dataset, relevant_factors; prevalence=nothing, verbosity=1)
     outcome = relevant_factors.outcome_mean.outcome
     if relevant_factors.censoring_score !== nothing
         # IPCW: keep covariate-complete rows, coalesce missing Y to 0
@@ -101,7 +104,15 @@ function get_evaluation_dataset(dataset, relevant_factors; prevalence=nothing, v
         dropmissing!(eval_data, covariate_vars)
         y = eval_data[!, outcome]
         if ismissingtype(eltype(y))
-            eval_data[!, outcome] = coalesce.(y, zero(nonmissingtype(eltype(y))))
+            if y isa CategoricalVector
+                # For categorical Y, replace missing in-place then rebuild without Missing
+                lvls = levels(y)
+                ord = isordered(y)
+                raw = [ismissing(v) ? lvls[1] : unwrap(v) for v in y]
+                eval_data[!, outcome] = categorical(raw, levels=lvls, ordered=ord)
+            else
+                eval_data[!, outcome] = coalesce.(y, zero(nonmissingtype(eltype(y))))
+            end
         end
         disallowmissing!(eval_data)
         return eval_data
@@ -114,6 +125,25 @@ function get_evaluation_dataset(dataset, relevant_factors; prevalence=nothing, v
     return nomissing_dataset
 end
 
+
+"""
+    get_fitting_dataset(dataset, relevant_factors)
+
+Build the dataset used for nuisance fitting in IPCW+CV mode. Same row filtering as
+`get_fluctuation_dataset` (drops covariate-missing rows) but keeps Y as `missing` instead of
+coalescing to 0. This way, per-fold `dropmissing` in the sample-split estimator correctly
+excludes censored rows when training Q, while G and C (whose variables don't include Y)
+train on all covariate-complete rows.
+"""
+function get_fitting_dataset(dataset, relevant_factors)
+    outcome = relevant_factors.outcome_mean.outcome
+    all_vars = collect(variables(relevant_factors))
+    covariate_vars = filter(v -> v != outcome, all_vars)
+    fit_data = DataFrames.select(dataset, all_vars, copycols=true)
+    dropmissing!(fit_data, covariate_vars)
+    disallowmissing!(fit_data, covariate_vars)
+    return fit_data
+end
 
 function indicator_values(indicators, T)
     indic = zeros(Float64, nrows(T))

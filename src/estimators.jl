@@ -60,22 +60,38 @@ function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothi
 end
 
 """
-    compute_prevalence_weights(prevalence, y)
+    compute_prevalence_weights(prevalence, y; observed=nothing)
 
 Calculates weights for a case-control study to use in the fitting of nuisance functions.
 - `prevalence`: The prevalence of the outcome in the population.
-- `y`: The outcome variable across observations, which should be binary vector.`
+- `y`: The outcome variable across observations, which should be binary vector.
+- `observed`: Optional boolean-like vector indicating which rows have observed outcomes
+  (e.g. censoring indicator Δ). When provided, case/control counts use only observed rows,
+  and unobserved rows get weight 1.0 (neutral; zeroed by IPCW's Δ/π).
 """
-function compute_prevalence_weights(prevalence::Float64, y::AbstractVector)
-    J = sum(y .== 0) ÷ sum(y .== 1)
+function compute_prevalence_weights(prevalence::Float64, y::AbstractVector; observed=nothing)
+    if observed !== nothing
+        n_cases = count(i -> observed[i] == 1 && y[i] == 1, eachindex(y))
+        n_controls = count(i -> observed[i] == 1 && y[i] == 0, eachindex(y))
+    else
+        n_cases = count(==(1), y)
+        n_controls = count(==(0), y)
+    end
+    J = n_controls ÷ n_cases
     weights = Vector{Float64}(undef, length(y))
     for i in eachindex(y)
-        weights[i] = y[i] == 1 ? prevalence : (1 - prevalence) / J
+        if observed !== nothing && observed[i] != 1
+            weights[i] = 1.0  # neutral weight; zeroed by IPCW's Δ/π
+        elseif y[i] == 1
+            weights[i] = prevalence
+        else
+            weights[i] = (1 - prevalence) / J
+        end
     end
     return weights
 end
 
-compute_prevalence_weights(::Nothing, y) = nothing
+compute_prevalence_weights(::Nothing, y; observed=nothing) = nothing
 
 get_training_prevalence_weights(::Nothing, train_indices) = nothing
 
@@ -97,13 +113,22 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
 
     verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
     # Otherwise estimate
-    relevant_dataset = nomissing(dataset, variables(estimand))
+    relevant_dataset = TMLE.selectcols(dataset, variables(estimand))
+    # Track which rows are complete for weight alignment
+    complete_rows = completecases(relevant_dataset)
+    relevant_dataset = relevant_dataset[complete_rows, :]
+    disallowmissing!(relevant_dataset)
     relevant_dataset = training_rows(relevant_dataset, estimator.train_validation_indices)
     # Fit Conditional DIstribution using MLJ
     X = TMLE.selectcols(relevant_dataset, estimand.parents)
     y = relevant_dataset[!, estimand.outcome]
-    # If a prevalence weights are provided, we use it to fit the model
-    weights = get_training_prevalence_weights(estimator.prevalence_weights, estimator.train_validation_indices)
+    # If prevalence weights are provided, filter to match complete rows then training rows
+    weights = if estimator.prevalence_weights !== nothing
+        filtered = estimator.prevalence_weights[complete_rows]
+        get_training_prevalence_weights(filtered, estimator.train_validation_indices)
+    else
+        nothing
+    end
     
     mach = fit_mlj_model(estimator.model, X, y; 
         parents=estimand.parents, 
@@ -149,10 +174,19 @@ function update_sample_split_machines_with_fold!(machines::Vector{Machine},
     )
     train_indices, _ = estimator.train_validation_indices[fold_id]
     train_dataset = selectrows(dataset, train_indices)
+    # Track complete rows before dropping for weight alignment
+    complete_rows = completecases(train_dataset)
+    train_dataset = train_dataset[complete_rows, :]
+    disallowmissing!(train_dataset)
     Xtrain = selectcols(train_dataset, estimand.parents)
     ytrain = train_dataset[!, estimand.outcome]
-    
-    weights = get_training_prevalence_weights(estimator.prevalence_weights, train_indices)
+
+    weights = if estimator.prevalence_weights !== nothing
+        filtered = get_training_prevalence_weights(estimator.prevalence_weights, train_indices)
+        filtered[complete_rows]
+    else
+        nothing
+    end
     machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
         parents=estimand.parents, 
         cache=machine_cache,

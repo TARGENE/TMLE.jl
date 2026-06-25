@@ -118,13 +118,10 @@ function Tmle(;
 end
 
 function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
-    # Detect missing outcomes and guard unsupported IPCW combinations early
+    # Detect missing outcomes
     ipcw = has_missing_outcomes(dataset, Ψ.outcome)
-    if ipcw && tmle.resampling !== nothing
-        throw(ArgumentError("IPCW (missing outcomes) is not supported with cross-validation. Use vanilla TMLE (resampling=nothing) instead."))
-    end
     if ipcw && tmle.prevalence !== nothing
-        throw(ArgumentError("IPCW (missing outcomes) is not supported with prevalence correction."))
+        throw(ArgumentError("IPCW (missing outcomes) is not yet supported with prevalence correction. The interaction between case-control weights and censoring weights requires a specialized influence function."))
     end
     # Check if the inputs are suitable for the specified estimand
     check_inputs(Ψ, dataset, tmle.prevalence)
@@ -132,18 +129,22 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     if ipcw
         add_censoring_indicator!(dataset, Ψ.outcome)
     end
-    # Make train-validation pairs
-    train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors (pass dataset for IPCW detection)
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy, dataset=ipcw ? dataset : nothing)
-    evaluation_dataset = get_evaluation_dataset(dataset, relevant_factors;
-        prevalence=tmle.prevalence,
+    fluctuation_dataset = get_fluctuation_dataset(dataset, relevant_factors;
+        prevalence=tmle.prevalence, 
         verbosity=verbosity
     )
+    # Make train-validation pairs from the evaluation dataset so fold indices align
+    train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, fluctuation_dataset)
 
-    # Nuisance fitting: original dataset in vanilla mode (each estimator filters internally),
-    # evaluation dataset in CV/prevalence mode (for fold index consistency / matched controls)
-    fitting_dataset = (train_validation_indices !== nothing || tmle.prevalence !== nothing) ? evaluation_dataset : dataset
+    fitting_dataset = if ipcw
+        get_fitting_dataset(dataset, relevant_factors)
+    elseif train_validation_indices !== nothing || tmle.prevalence !== nothing
+        fluctuation_dataset
+    else
+        dataset
+    end
 
     prevalence_weights = compute_prevalence_weights(tmle.prevalence, fitting_dataset[!, relevant_factors.outcome_mean.outcome])
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy;
@@ -154,22 +155,22 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     verbosity >= 1 && @info "Estimating nuisance parameters."
 
     initial_factors_estimate = initial_factors_estimator(relevant_factors, fitting_dataset;
-        cache=cache,
+        cache=cache, 
         verbosity=verbosity-1,
         machine_cache=tmle.machine_cache,
         acceleration=acceleration
     )
     # Get propensity score truncation threshold
-    n = nrows(evaluation_dataset)
+    n = nrows(fluctuation_dataset)
     ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
 
     # Compute IPCW weights if needed
-    ipcw_weights = compute_ipcw_weights(initial_factors_estimate, evaluation_dataset; ps_lowerbound=ps_lowerbound)
+    ipcw_weights = compute_ipcw_weights(initial_factors_estimate, fluctuation_dataset; ps_lowerbound=ps_lowerbound)
 
     # Fluctuation initial factors
     targeted_factors_estimator = get_targeted_estimator(
-        Ψ,
-        tmle.collaborative_strategy,
+        Ψ, 
+        tmle.collaborative_strategy, 
         train_validation_indices,
         initial_factors_estimate;
         tol=tmle.tol,
@@ -181,8 +182,8 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         prevalence_weights=prevalence_weights,
         ipcw_weights=ipcw_weights
     )
-    targeted_factors_estimate = targeted_factors_estimator(relevant_factors, evaluation_dataset;
-        cache=cache,
+    targeted_factors_estimate = targeted_factors_estimator(relevant_factors, fluctuation_dataset; 
+        cache=cache, 
         verbosity=verbosity,
         machine_cache=tmle.machine_cache,
         acceleration=acceleration
@@ -258,13 +259,10 @@ Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_ca
     Ose(models, resampling, ps_lowerbound, machine_cache, prevalence)
 
 function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
-    # Detect missing outcomes and guard unsupported IPCW combinations early
+    # Detect missing outcomes
     ipcw = has_missing_outcomes(dataset, Ψ.outcome)
-    if ipcw && ose.resampling !== nothing
-        throw(ArgumentError("IPCW (missing outcomes) is not supported with cross-validation. Use vanilla OSE (resampling=nothing) instead."))
-    end
     if ipcw && ose.prevalence !== nothing
-        throw(ArgumentError("IPCW (missing outcomes) is not supported with prevalence correction."))
+        throw(ArgumentError("IPCW (missing outcomes) is not yet supported with prevalence correction. The interaction between case-control weights and censoring weights requires a specialized influence function."))
     end
     # Check the estimand against the dataset
     check_inputs(Ψ, dataset, ose.prevalence)
@@ -272,18 +270,22 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     if ipcw
         add_censoring_indicator!(dataset, Ψ.outcome)
     end
-    # Make train-validation pairs
-    train_validation_indices = get_train_validation_indices(ose.resampling, Ψ, dataset)
     # Initial fit of the SCM's relevant factors (pass dataset for IPCW detection)
     initial_factors = get_relevant_factors(Ψ; dataset=ipcw ? dataset : nothing)
-    evaluation_dataset = get_evaluation_dataset(dataset, initial_factors;
+    fluctuation_dataset = get_fluctuation_dataset(dataset, initial_factors;
         prevalence=ose.prevalence,
         verbosity=verbosity
     )
+    # Make train-validation pairs from the evaluation dataset so fold indices align
+    train_validation_indices = get_train_validation_indices(ose.resampling, Ψ, fluctuation_dataset)
 
-    # Nuisance fitting: original dataset in vanilla mode (each estimator filters internally),
-    # evaluation dataset in CV/prevalence mode (for fold index consistency / matched controls)
-    fitting_dataset = (train_validation_indices !== nothing || ose.prevalence !== nothing) ? evaluation_dataset : dataset
+    fitting_dataset = if ipcw
+        get_fitting_dataset(dataset, initial_factors)
+    elseif train_validation_indices !== nothing || ose.prevalence !== nothing
+        fluctuation_dataset
+    else
+        dataset
+    end
 
     prevalence_weights = compute_prevalence_weights(ose.prevalence, fitting_dataset[!, initial_factors.outcome_mean.outcome])
     initial_factors_estimator = CMRelevantFactorsEstimator(;models=ose.models, train_validation_indices=train_validation_indices, prevalence_weights=prevalence_weights)
@@ -295,11 +297,11 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
         acceleration=acceleration
     )
     # Get propensity score truncation threshold
-    n = nrows(evaluation_dataset)
+    n = nrows(fluctuation_dataset)
     ps_lowerbound = ps_lower_bound(n, ose.ps_lowerbound)
 
     # Gradient and estimate
-    IC, Ψ̂ = gradient_and_estimate(ose, Ψ, initial_factors_estimate, evaluation_dataset, prevalence_weights; ps_lowerbound=ps_lowerbound)
+    IC, Ψ̂ = gradient_and_estimate(ose, Ψ, initial_factors_estimate, fluctuation_dataset, prevalence_weights; ps_lowerbound=ps_lowerbound)
     σ̂ = std(IC)
     n = size(IC, 1)
     verbosity >= 1 && @info "Done."

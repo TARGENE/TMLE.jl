@@ -230,7 +230,7 @@ end
     @test_throws ArgumentError("The dataset must contain more controls (0) than cases (1) when prevalence is provided.") TMLE.check_inputs(Ψ, dataset, prevalence)
 end
 
-@testset "Test get_evaluation_dataset" begin
+@testset "Test get_fluctuation_dataset" begin
     # Non-IPCW: missing values relevant to the estimation process are filtered
     dataset = DataFrame(
         Y = categorical([1, 0, 1, 0, 0, 0, 0, 0]),
@@ -243,13 +243,13 @@ end
         treatment_confounders=[:W]
     )
     relevant_factors = TMLE.get_relevant_factors(Ψ)
-    eval_data = TMLE.get_evaluation_dataset(dataset, relevant_factors)
+    eval_data = TMLE.get_fluctuation_dataset(dataset, relevant_factors)
     @test eval_data == dataset[Not([7]), :]
 
     # Non-IPCW with prevalence: surplus controls are dropped
     prevalence = 0.1
     expected_log = (:info, "Dropping 1 control(s) to ensure equal number of controls per case (J=2). You can pre-drop these controls yourself to prevent this operation.")
-    eval_data = @test_logs expected_log TMLE.get_evaluation_dataset(dataset, relevant_factors; prevalence=prevalence, verbosity=1)
+    eval_data = @test_logs expected_log TMLE.get_fluctuation_dataset(dataset, relevant_factors; prevalence=prevalence, verbosity=1)
     @test nrow(eval_data) == 6
 
     # Non-IPCW no-op case: no missing, integer controls per case
@@ -258,7 +258,7 @@ end
         T = categorical([1, 1, 0, 1]),
         W = rand(4)
     )
-    eval_data = TMLE.get_evaluation_dataset(dataset, relevant_factors; prevalence=prevalence)
+    eval_data = TMLE.get_fluctuation_dataset(dataset, relevant_factors; prevalence=prevalence)
     @test eval_data.Y === dataset.Y
     @test eval_data.T === dataset.T
     @test eval_data.W === dataset.W
@@ -277,7 +277,7 @@ end
         ATE(outcome=:Y, treatment_values=(T=(case=1, control=0),), treatment_confounders=(T=[:W],));
         dataset=dataset_ipcw
     )
-    eval_data = TMLE.get_evaluation_dataset(dataset_ipcw, rf_ipcw)
+    eval_data = TMLE.get_fluctuation_dataset(dataset_ipcw, rf_ipcw)
     # All rows kept (no missing covariates)
     @test nrow(eval_data) == n
     # Missing Y coalesced to 0

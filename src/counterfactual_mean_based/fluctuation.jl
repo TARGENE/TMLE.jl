@@ -59,7 +59,6 @@ function initialize_observed_cache(model, X, y)
         ps_lowerbound=model.ps_lowerbound,
         weighted_fluctuation=model.weighted
     )
-    # IPCW: incorporate precomputed Δ/π weights
     if model.ipcw_weights !== nothing
         w .*= model.ipcw_weights
     end

@@ -58,12 +58,8 @@ function ∇YX(Ψ::StatisticalCMCompositeEstimand, Q, G, dataset; ps_lowerbound=
     y = float(dataset[!, Q.estimand.outcome])
     Ey = expected_value(Q, dataset)
     grad = ∇YX(H, y, Ey, w)
-    # IPCW: multiply by Δ/π to reweight for missing outcomes
     if censoring_score !== nothing
-        Δ = get_censoring_indicator(dataset, Q.estimand.outcome)
-        π = likelihood(censoring_score, dataset)
-        truncate!(π, ps_lowerbound)
-        grad .*= Δ ./ π
+        grad .*= compute_ipcw_weights(censoring_score, dataset, Q.estimand.outcome; ps_lowerbound=ps_lowerbound)
     end
     return grad
 end
