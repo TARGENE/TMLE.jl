@@ -230,7 +230,8 @@ end
     @test_throws ArgumentError("The dataset must contain more controls (0) than cases (1) when prevalence is provided.") TMLE.check_inputs(Ψ, dataset, prevalence)
 end
 
-@testset "Test get_fluctuation_dataset" begin
+@testset "Test get_evaluation_dataset" begin
+    # Non-IPCW: missing values relevant to the estimation process are filtered
     dataset = DataFrame(
         Y = categorical([1, 0, 1, 0, 0, 0, 0, 0]),
         T = categorical([1, 1, 0, 1, 0, 2, missing, 0]),
@@ -242,48 +243,50 @@ end
         treatment_confounders=[:W]
     )
     relevant_factors = TMLE.get_relevant_factors(Ψ)
-    # No prevalence: missing values relevant to the estimation process are filtered
-    prevalence = nothing
-    fluctuation_dataset = TMLE.get_fluctuation_dataset(dataset, relevant_factors; prevalence=prevalence)
-    @test fluctuation_dataset == dataset[Not([7]), :]
-    # Prevalence: the surplus of controls are dropped, 2 controls per case are inferred
+    eval_data = TMLE.get_evaluation_dataset(dataset, relevant_factors)
+    @test eval_data == dataset[Not([7]), :]
+
+    # Non-IPCW with prevalence: surplus controls are dropped
     prevalence = 0.1
     expected_log = (:info, "Dropping 1 control(s) to ensure equal number of controls per case (J=2). You can pre-drop these controls yourself to prevent this operation.")
-    fluctuation_dataset = @test_logs expected_log TMLE.get_fluctuation_dataset(dataset, relevant_factors; prevalence=prevalence, verbosity = 1)
-    @test nrow(fluctuation_dataset) == 6
-    # If no missing values are present and the number of controls per case is an integer, 
-    # these operations are no-ops, the dataframe will not be === because of column selection
-    # but each column is ===
+    eval_data = @test_logs expected_log TMLE.get_evaluation_dataset(dataset, relevant_factors; prevalence=prevalence, verbosity=1)
+    @test nrow(eval_data) == 6
+
+    # Non-IPCW no-op case: no missing, integer controls per case
     dataset = DataFrame(
         Y = categorical([1, 0, 1, 0]),
         T = categorical([1, 1, 0, 1]),
         W = rand(4)
     )
-    fluctuation_dataset = TMLE.get_fluctuation_dataset(dataset, relevant_factors; prevalence=prevalence)
-    @test fluctuation_dataset.Y === dataset.Y
-    @test fluctuation_dataset.T === dataset.T
-    @test fluctuation_dataset.W === dataset.W
-end
+    eval_data = TMLE.get_evaluation_dataset(dataset, relevant_factors; prevalence=prevalence)
+    @test eval_data.Y === dataset.Y
+    @test eval_data.T === dataset.T
+    @test eval_data.W === dataset.W
 
-@testset "Test choose_initial_dataset" begin
-    src_dataset = "src_dataset"
-    fluctuation_dataset = "fluctuation_dataset"
-    @test src_dataset === TMLE.choose_initial_dataset(src_dataset, fluctuation_dataset;
-        train_validation_indices=nothing, 
-        prevalence=nothing
+    # IPCW: keeps covariate-complete rows, coalesces missing Y to 0
+    n = 10
+    dataset_ipcw = DataFrame(
+        W = randn(n),
+        T = categorical(rand(0:1, n)),
+        Y = Vector{Union{Missing, Float64}}(randn(n)),
     )
-    @test fluctuation_dataset ===TMLE.choose_initial_dataset(src_dataset, fluctuation_dataset;
-        train_validation_indices=nothing, 
-        prevalence=0.1
+    dataset_ipcw.Y[3] = missing
+    dataset_ipcw.Y[7] = missing
+    TMLE.add_censoring_indicator!(dataset_ipcw, :Y)
+    rf_ipcw = TMLE.get_relevant_factors(
+        ATE(outcome=:Y, treatment_values=(T=(case=1, control=0),), treatment_confounders=(T=[:W],));
+        dataset=dataset_ipcw
     )
-    @test fluctuation_dataset === TMLE.choose_initial_dataset(src_dataset, fluctuation_dataset;
-        train_validation_indices=[], 
-        prevalence=nothing
-    )
-    @test fluctuation_dataset === TMLE.choose_initial_dataset(src_dataset, fluctuation_dataset;
-        train_validation_indices=[], 
-        prevalence=0.1
-    )
+    eval_data = TMLE.get_evaluation_dataset(dataset_ipcw, rf_ipcw)
+    # All rows kept (no missing covariates)
+    @test nrow(eval_data) == n
+    # Missing Y coalesced to 0
+    @test eval_data.Y[3] == 0.0
+    @test eval_data.Y[7] == 0.0
+    # Non-missing Y preserved
+    @test eval_data.Y[1] == dataset_ipcw.Y[1]
+    # No missing types remain
+    @test !any(TMLE.ismissingtype(eltype(c)) for c in eachcol(eval_data))
 end
 
 end;

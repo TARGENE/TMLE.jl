@@ -207,6 +207,41 @@ end
     test_coverage(result, 2.0)
 end
 
+@testset "IPCW + CV throws ArgumentError" begin
+    dataset, _ = ate_with_mcar_missingness(n=200)
+    Ψ = ATE(
+        outcome=:Y,
+        treatment_values=(T=(case=1, control=0),),
+        treatment_confounders=(T=[:W],)
+    )
+    # TMLE with CV + IPCW
+    tmle_cv = Tmle(resampling=CV(nfolds=3))
+    @test_throws ArgumentError("IPCW (missing outcomes) is not supported with cross-validation. Use vanilla TMLE (resampling=nothing) instead.") tmle_cv(Ψ, dataset; verbosity=0)
+
+    # OSE with CV + IPCW
+    dataset2, _ = ate_with_mcar_missingness(n=200)
+    ose_cv = Ose(resampling=CV(nfolds=3))
+    @test_throws ArgumentError("IPCW (missing outcomes) is not supported with cross-validation. Use vanilla OSE (resampling=nothing) instead.") ose_cv(Ψ, dataset2; verbosity=0)
+end
+
+@testset "IPCW + prevalence throws ArgumentError" begin
+    dataset, _ = ate_with_mcar_missingness(n=200)
+    # Make outcome binary for prevalence compatibility
+    dataset.Y = Vector{Union{Missing, Float64}}([ismissing(y) ? missing : Float64(y > 0) for y in dataset.Y])
+    Ψ = ATE(
+        outcome=:Y,
+        treatment_values=(T=(case=1, control=0),),
+        treatment_confounders=(T=[:W],)
+    )
+    tmle_prev = Tmle(prevalence=0.1)
+    @test_throws ArgumentError("IPCW (missing outcomes) is not supported with prevalence correction.") tmle_prev(Ψ, dataset; verbosity=0)
+
+    dataset2, _ = ate_with_mcar_missingness(n=200)
+    dataset2.Y = Vector{Union{Missing, Float64}}([ismissing(y) ? missing : Float64(y > 0) for y in dataset2.Y])
+    ose_prev = Ose(prevalence=0.1)
+    @test_throws ArgumentError("IPCW (missing outcomes) is not supported with prevalence correction.") ose_prev(Ψ, dataset2; verbosity=0)
+end
+
 end
 
 true

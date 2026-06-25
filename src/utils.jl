@@ -28,20 +28,6 @@ fit_string(estimand) = string("Estimating: ", string_repr(estimand))
 
 unique_sorted_tuple(iter) = Tuple(sort(unique(Symbol(x) for x in iter)))
 
-"""
-For cross-validated and prevalence based estimators, the fluctuation dataset (see get_fluctuation_dataset)is used to fit the initial factors. 
-This is to avoid the expensive complications of:
-    - Equally distributing missing across folds
-    - Tracking sample_ids
-"""
-function choose_initial_dataset(dataset, fluctuation_dataset; train_validation_indices=nothing, prevalence=nothing) 
-    # In CV mode or prevalence mode, we get back to the no fluctuation_dataset
-    if !isnothing(train_validation_indices) || !isnothing(prevalence)
-        return fluctuation_dataset
-    else
-        return dataset
-    end
-end
 
 """
 If no columns are provided, we return a single intercept column to accomodate marginal distribution fitting
@@ -94,13 +80,38 @@ function nomissing(dataset::DataFrame, colnames; disallowmissing=true, view=fals
 end
 
 
-function get_fluctuation_dataset(dataset, relevant_factors; prevalence=nothing, verbosity = 1)
+"""
+    get_evaluation_dataset(dataset, relevant_factors; prevalence=nothing, verbosity=1)
+
+Build the dataset used for IC/fluctuation evaluation from the original `dataset`.
+
+- **IPCW mode** (`relevant_factors.censoring_score !== nothing`): drops rows with missing
+  covariates but keeps rows where only the outcome is missing, coalescing missing Y to 0.
+  This ensures IPCW weights are non-trivial (Δ=0 zeroes the IC contribution for censored rows).
+- **Non-IPCW mode**: drops all rows with any missing relevant variable. If `prevalence` is
+  provided, additionally applies matched-controls subsampling via `get_matched_controls`.
+"""
+function get_evaluation_dataset(dataset, relevant_factors; prevalence=nothing, verbosity=1)
+    outcome = relevant_factors.outcome_mean.outcome
+    if relevant_factors.censoring_score !== nothing
+        # IPCW: keep covariate-complete rows, coalesce missing Y to 0
+        all_vars = collect(variables(relevant_factors))
+        covariate_vars = filter(v -> v != outcome, all_vars)
+        eval_data = DataFrames.select(dataset, all_vars, copycols=true)
+        dropmissing!(eval_data, covariate_vars)
+        y = eval_data[!, outcome]
+        if ismissingtype(eltype(y))
+            eval_data[!, outcome] = coalesce.(y, zero(nonmissingtype(eltype(y))))
+        end
+        disallowmissing!(eval_data)
+        return eval_data
+    end
+    # Non-IPCW: existing behavior
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
     if !isnothing(prevalence)
-        return get_matched_controls(nomissing_dataset, relevant_factors.outcome_mean.outcome; verbosity = verbosity)
-    else
-        return nomissing_dataset
+        return get_matched_controls(nomissing_dataset, outcome; verbosity=verbosity)
     end
+    return nomissing_dataset
 end
 
 
