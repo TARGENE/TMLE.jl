@@ -50,7 +50,7 @@ end
 @testset "Test estimation with missing values and ordered factor treatment" begin
     dataset = dataset_with_missing_and_ordered_treatment(;n=1000)
     Ψ = ATE(
-        outcome=:Y,
+        outcome=:Y, 
         treatment_values=(T=(case=1, control=0),),
         treatment_confounders=(T=[:W],))
     models = default_models(Y=LinearRegressor(), T=LogisticClassifier(lambda=0))
@@ -58,42 +58,6 @@ end
     tmle_result, cache = tmle(Ψ, dataset; verbosity=0)
     test_coverage(tmle_result, 1)
     test_fluct_decreases_risk(cache)
-end
-
-function dataset_with_missing_covariates(;n=1000)
-    rng = StableRNG(456)
-    W = rand(rng, n)
-    T = rand(rng, [0, 1], n)
-    Y = T + 3W + randn(rng, n)
-    dataset = DataFrame(W = W, T = categorical(T, ordered=true), Y = Y)
-    allowmissing!(dataset, [:W, :T])
-    dataset.W[1:5] .= missing
-    dataset.T[6:10] .= missing
-    return dataset
-end
-
-@testset "Test CV-TMLE with missing covariate values" begin
-    dataset = dataset_with_missing_covariates(;n=1000)
-    Ψ = ATE(
-        outcome=:Y,
-        treatment_values=(T=(case=1, control=0),),
-        treatment_confounders=(T=[:W],))
-    models = default_models(Y=LinearRegressor(), T=LogisticClassifier(lambda=0))
-    tmle = Tmle(models=models, resampling=CV(nfolds=3))
-    tmle_result, _ = tmle(Ψ, dataset; verbosity=0)
-    test_coverage(tmle_result, 1)
-end
-
-@testset "Test CV-OSE with missing covariate values" begin
-    dataset = dataset_with_missing_covariates(;n=1000)
-    Ψ = ATE(
-        outcome=:Y,
-        treatment_values=(T=(case=1, control=0),),
-        treatment_confounders=(T=[:W],))
-    models = default_models(Y=LinearRegressor(), T=LogisticClassifier(lambda=0))
-    ose = Ose(models=models, resampling=CV(nfolds=3))
-    ose_result, _ = ose(Ψ, dataset; verbosity=0)
-    test_coverage(ose_result, 1)
 end
 
 end

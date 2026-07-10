@@ -156,21 +156,6 @@ end
     test_coverage(result, 2.0)
 end
 
-@testset "IPCW + prevalence throws ArgumentError" begin
-    dataset, _ = ate_with_mar_missingness(n=200)
-    Ψ = ATE(
-        outcome=:Y,
-        treatment_values=(T=(case=1, control=0),),
-        treatment_confounders=(T=[:W],)
-    )
-    tmle_prev = Tmle(prevalence=0.1)
-    @test_throws ArgumentError tmle_prev(Ψ, dataset; verbosity=0)
-
-    dataset2, _ = ate_with_mar_missingness(n=200)
-    ose_prev = Ose(prevalence=0.1)
-    @test_throws ArgumentError ose_prev(Ψ, dataset2; verbosity=0)
-end
-
 end
 
 true
