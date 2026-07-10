@@ -264,6 +264,9 @@ end
     @test fluctuation_dataset.T === dataset.T
     @test fluctuation_dataset.W === dataset.W
 
+end
+
+@testset "Test get_ipcw_fluctuation_dataset" begin
     # IPCW: keeps covariate-complete rows, coalesces missing Y to 0
     n = 10
     dataset_ipcw = DataFrame(
