@@ -138,17 +138,15 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     # Make train-validation pairs from the evaluation dataset so fold indices align
     train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, fluctuation_dataset)
 
-    fitting_dataset = if ipcw
-        get_fitting_dataset(dataset, relevant_factors)
-    elseif train_validation_indices !== nothing || tmle.prevalence !== nothing
+    fitting_dataset = if train_validation_indices !== nothing || tmle.prevalence !== nothing || ipcw
         fluctuation_dataset
     else
         dataset
     end
 
     prevalence_weights = compute_prevalence_weights(tmle.prevalence, fitting_dataset[!, relevant_factors.outcome_mean.outcome])
-    initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy;
-        train_validation_indices=train_validation_indices,
+    initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
+        train_validation_indices=train_validation_indices, 
         models=tmle.models,
         prevalence_weights=prevalence_weights
     )
@@ -279,9 +277,7 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     # Make train-validation pairs from the evaluation dataset so fold indices align
     train_validation_indices = get_train_validation_indices(ose.resampling, Ψ, fluctuation_dataset)
 
-    fitting_dataset = if ipcw
-        get_fitting_dataset(dataset, initial_factors)
-    elseif train_validation_indices !== nothing || ose.prevalence !== nothing
+    fitting_dataset = if train_validation_indices !== nothing || ose.prevalence !== nothing || ipcw
         fluctuation_dataset
     else
         dataset

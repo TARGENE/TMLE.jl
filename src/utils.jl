@@ -90,7 +90,7 @@ Build the dataset used for IC/fluctuation evaluation from the original `dataset`
 
 - **IPCW mode** (`relevant_factors.censoring_score !== nothing`): drops rows with missing
   covariates but keeps rows where only the outcome is missing, coalescing missing Y to 0.
-  This ensures IPCW weights are non-trivial (Δ=0 zeroes the IC contribution for censored rows).
+  IPCW weights zero out censored rows' contributions.
 - **Non-IPCW mode**: drops all rows with any missing relevant variable. If `prevalence` is
   provided, additionally applies matched-controls subsampling via `get_matched_controls`.
 """
@@ -105,7 +105,6 @@ function get_fluctuation_dataset(dataset, relevant_factors; prevalence=nothing, 
         y = eval_data[!, outcome]
         if ismissingtype(eltype(y))
             if y isa CategoricalVector
-                # For categorical Y, replace missing in-place then rebuild without Missing
                 lvls = levels(y)
                 ord = isordered(y)
                 raw = [ismissing(v) ? lvls[1] : unwrap(v) for v in y]
@@ -123,26 +122,6 @@ function get_fluctuation_dataset(dataset, relevant_factors; prevalence=nothing, 
         return get_matched_controls(nomissing_dataset, outcome; verbosity=verbosity)
     end
     return nomissing_dataset
-end
-
-
-"""
-    get_fitting_dataset(dataset, relevant_factors)
-
-Build the dataset used for nuisance fitting in IPCW+CV mode. Same row filtering as
-`get_fluctuation_dataset` (drops covariate-missing rows) but keeps Y as `missing` instead of
-coalescing to 0. This way, per-fold `dropmissing` in the sample-split estimator correctly
-excludes censored rows when training Q, while G and C (whose variables don't include Y)
-train on all covariate-complete rows.
-"""
-function get_fitting_dataset(dataset, relevant_factors)
-    outcome = relevant_factors.outcome_mean.outcome
-    all_vars = collect(variables(relevant_factors))
-    covariate_vars = filter(v -> v != outcome, all_vars)
-    fit_data = DataFrames.select(dataset, all_vars, copycols=true)
-    dropmissing!(fit_data, covariate_vars)
-    disallowmissing!(fit_data, covariate_vars)
-    return fit_data
 end
 
 function indicator_values(indicators, T)
