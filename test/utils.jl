@@ -263,7 +263,6 @@ end
     @test fluctuation_dataset.Y === dataset.Y
     @test fluctuation_dataset.T === dataset.T
     @test fluctuation_dataset.W === dataset.W
-
 end
 
 @testset "Test get_ipcw_fluctuation_dataset" begin

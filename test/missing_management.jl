@@ -3,7 +3,6 @@ module TestMissingValues
 using Test
 using StableRNGs
 using Random
-using MLJBase
 using MLJLinearModels
 using TMLE
 using CategoricalArrays
@@ -53,7 +52,9 @@ end
         outcome=:Y, 
         treatment_values=(T=(case=1, control=0),),
         treatment_confounders=(T=[:W],))
-    models = default_models(Y=LinearRegressor(), T=LogisticClassifier(lambda=0))
+    models = Dict(:Y => with_encoder(LinearRegressor()),
+        :T => with_encoder(LogisticClassifier(lambda=0)),
+        Symbol("Δ_Y") => with_encoder(LinearBinaryClassifier()))
     tmle = Tmle(models=models, machine_cache=true)
     tmle_result, cache = tmle(Ψ, dataset; verbosity=0)
     test_coverage(tmle_result, 1)
