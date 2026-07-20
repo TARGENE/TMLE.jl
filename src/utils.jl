@@ -28,6 +28,19 @@ fit_string(estimand) = string("Estimating: ", string_repr(estimand))
 
 unique_sorted_tuple(iter) = Tuple(sort(unique(Symbol(x) for x in iter)))
 
+"""
+For cross-validated and prevalence based estimators, the fluctuation dataset (see get_fluctuation_dataset)is used to fit the initial factors. 
+This is to avoid the expensive complications of:
+    - Equally distributing missing across folds
+    - Tracking sample_ids
+"""
+function choose_initial_dataset(dataset, fluctuation_dataset; train_validation_indices=nothing, prevalence=nothing, ipcw=false)
+    if !isnothing(train_validation_indices) || !isnothing(prevalence) || ipcw
+        return fluctuation_dataset
+    else
+        return dataset
+    end
+end
 
 """
 If no columns are provided, we return a single intercept column to accomodate marginal distribution fitting
@@ -119,9 +132,10 @@ function get_fluctuation_dataset(dataset, relevant_factors; prevalence=nothing, 
     # Non-IPCW: existing behavior
     nomissing_dataset = nomissing(dataset, variables(relevant_factors))
     if !isnothing(prevalence)
-        return get_matched_controls(nomissing_dataset, outcome; verbosity=verbosity)
+        return get_matched_controls(nomissing_dataset, relevant_factors.outcome_mean.outcome; verbosity = verbosity)
+    else
+        return nomissing_dataset
     end
-    return nomissing_dataset
 end
 
 function indicator_values(indicators, T)

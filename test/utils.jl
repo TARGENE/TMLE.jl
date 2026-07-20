@@ -265,6 +265,26 @@ end
     @test fluctuation_dataset.W === dataset.W
 end
 
+@testset "Test choose_initial_dataset" begin
+    src_dataset = "src_dataset"
+    fluctuation_dataset = "fluctuation_dataset"
+    @test src_dataset === TMLE.choose_initial_dataset(src_dataset, fluctuation_dataset;
+        train_validation_indices=nothing, 
+        prevalence=nothing
+    )
+    @test fluctuation_dataset ===TMLE.choose_initial_dataset(src_dataset, fluctuation_dataset;
+        train_validation_indices=nothing, 
+        prevalence=0.1
+    )
+    @test fluctuation_dataset === TMLE.choose_initial_dataset(src_dataset, fluctuation_dataset;
+        train_validation_indices=[], 
+        prevalence=nothing
+    )
+    @test fluctuation_dataset === TMLE.choose_initial_dataset(src_dataset, fluctuation_dataset;
+        train_validation_indices=[], 
+        prevalence=0.1
+    )
+end
 @testset "Test get_ipcw_fluctuation_dataset" begin
     # IPCW: keeps covariate-complete rows, coalesces missing Y to 0
     n = 10

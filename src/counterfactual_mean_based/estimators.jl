@@ -74,9 +74,10 @@ The censoring model's covariates default to the same parents as the outcome mean
 custom censoring model, pass it via the `models` dict under the key `:C_default` or under the
 censoring indicator name (e.g. `Symbol("Δ_Y")`). See also `default_models`.
 
-The outcome mean (Q) is always fit on complete cases only, while the propensity score (G) and
-censoring model (π) are fit on all observations. The influence curve and plugin estimate are
-evaluated on all observations with non-missing covariates.
+The outcome mean (Q) is fit on complete cases only (observed outcomes), while the propensity
+score (G) and censoring model (π) are fit on all covariate-complete observations (including
+those with missing outcomes). The influence curve and plugin estimate are evaluated on all
+covariate-complete observations.
 
 # Run Argument
 
@@ -129,7 +130,7 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     if ipcw
         add_censoring_indicator!(dataset, Ψ.outcome)
     end
-    # Initial fit of the SCM's relevant factors (pass dataset for IPCW detection)
+    # Initial fit of the SCM's relevant factors
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy, dataset=ipcw ? dataset : nothing)
     fluctuation_dataset = get_fluctuation_dataset(dataset, relevant_factors;
         prevalence=tmle.prevalence, 
@@ -138,21 +139,18 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
     # Make train-validation pairs from the evaluation dataset so fold indices align
     train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, fluctuation_dataset)
 
-    fitting_dataset = if train_validation_indices !== nothing || tmle.prevalence !== nothing || ipcw
-        fluctuation_dataset
-    else
-        dataset
-    end
+    initial_factors_dataset = choose_initial_dataset(dataset, fluctuation_dataset;
+        train_validation_indices=train_validation_indices, prevalence=tmle.prevalence, ipcw=ipcw)
 
-    prevalence_weights = compute_prevalence_weights(tmle.prevalence, fitting_dataset[!, relevant_factors.outcome_mean.outcome])
+    prevalence_weights = compute_prevalence_weights(tmle.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 
         models=tmle.models,
         prevalence_weights=prevalence_weights
     )
     verbosity >= 1 && @info "Estimating nuisance parameters."
-
-    initial_factors_estimate = initial_factors_estimator(relevant_factors, fitting_dataset;
+    
+    initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
         verbosity=verbosity-1,
         machine_cache=tmle.machine_cache,
@@ -277,18 +275,15 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     # Make train-validation pairs from the evaluation dataset so fold indices align
     train_validation_indices = get_train_validation_indices(ose.resampling, Ψ, fluctuation_dataset)
 
-    fitting_dataset = if train_validation_indices !== nothing || ose.prevalence !== nothing || ipcw
-        fluctuation_dataset
-    else
-        dataset
-    end
+    initial_factors_dataset = choose_initial_dataset(dataset, fluctuation_dataset;
+        train_validation_indices=train_validation_indices, prevalence=ose.prevalence, ipcw=ipcw)
 
-    prevalence_weights = compute_prevalence_weights(ose.prevalence, fitting_dataset[!, initial_factors.outcome_mean.outcome])
+    prevalence_weights = compute_prevalence_weights(ose.prevalence, initial_factors_dataset[!, initial_factors.outcome_mean.outcome])
     initial_factors_estimator = CMRelevantFactorsEstimator(;models=ose.models, train_validation_indices=train_validation_indices, prevalence_weights=prevalence_weights)
     initial_factors_estimate = initial_factors_estimator(
-        initial_factors,
-        fitting_dataset;
-        cache=cache,
+        initial_factors, 
+        initial_factors_dataset;
+        cache=cache, 
         verbosity=verbosity,
         acceleration=acceleration
     )
