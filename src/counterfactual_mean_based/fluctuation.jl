@@ -7,11 +7,19 @@ mutable struct Fluctuation <: MLJBase.Supervised
     weighted::Bool
     cache::Bool
     prevalence_weights::Union{Nothing, Vector{Float64}}
-    ipcw_weights::Union{Nothing, Vector{Float64}}
 end
 
-Fluctuation(Ψ, initial_factors; tol=nothing, max_iter=1, ps_lowerbound=1e-8, weighted=false, cache=false, prevalence_weights=nothing, ipcw_weights=nothing) =
-    Fluctuation(Ψ, initial_factors, tol, max_iter, ps_lowerbound, weighted, cache, prevalence_weights, ipcw_weights)
+Fluctuation(Ψ, initial_factors; tol=nothing, max_iter=1, ps_lowerbound=1e-8, weighted=false, cache=false, prevalence_weights=nothing) =
+    Fluctuation(Ψ, initial_factors, tol, max_iter, ps_lowerbound, weighted, cache, prevalence_weights)
+
+"""
+The fluctuation reads the censoring indicator `Δ_Y` off the clever covariate (IPCW), so it must
+be kept in `X` even though it is not one of the outcome model's parents.
+"""
+function extra_fit_columns(model::Fluctuation, estimand)
+    cs = model.initial_factors.censoring_score
+    cs === nothing ? Symbol[] : [cs.estimand.outcome]
+end
 
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:MLJBase.Continuous} = LinearRegressor(fit_intercept=false, offsetcol = :offset)
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:Finite} = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
@@ -57,11 +65,9 @@ function initialize_observed_cache(model, X, y)
     H, w = clever_covariate_and_weights(
         model.Ψ, G⁰, X;
         ps_lowerbound=model.ps_lowerbound,
-        weighted_fluctuation=model.weighted
+        weighted_fluctuation=model.weighted,
+        censoring_score=model.initial_factors.censoring_score
     )
-    if model.ipcw_weights !== nothing
-        w .*= model.ipcw_weights
-    end
     ŷ = MLJBase.predict(Q⁰, X)
     return Dict{Symbol, Any}(:H => H, :w => w, :ŷ => ŷ, :y => float(y))
 end

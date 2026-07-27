@@ -64,10 +64,7 @@ end
 
 Calculates weights for a case-control study to use in the fitting of nuisance functions.
 - `prevalence`: The prevalence of the outcome in the population.
-- `y`: The outcome variable across observations, which should be binary vector.
-- `observed`: Optional boolean-like vector indicating which rows have observed outcomes
-  (e.g. censoring indicator Δ). When provided, case/control counts use only observed rows,
-  and unobserved rows get weight 1.0 (neutral; zeroed by IPCW's Δ/π).
+- `y`: The outcome variable across observations, which should be binary vector.`
 """
 function compute_prevalence_weights(prevalence::Float64, y::AbstractVector)
     J = sum(y .== 0) ÷ sum(y .== 1)
@@ -88,9 +85,19 @@ get_training_prevalence_weights(weights::AbstractVector, train_indices::Tuple) =
 
 get_training_prevalence_weights(weights::AbstractVector, train_indices::AbstractVector) = weights[train_indices]
 
-function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
-    cache=Dict(), 
-    verbosity=1, 
+"""
+    extra_fit_columns(model, estimand)
+
+Extra feature columns a model needs in `X` beyond `estimand.parents`. Empty by default; the
+`Fluctuation` overload adds the censoring indicator so IPCW can be read off the clever covariate.
+These columns are not passed as `parents`, so marginal-model detection and the model's own inputs
+are unaffected.
+"""
+extra_fit_columns(model, estimand) = Symbol[]
+
+function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
+    cache=Dict(),
+    verbosity=1,
     machine_cache=false,
     acceleration=CPU1()
     )
@@ -100,10 +107,11 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
 
     verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
     # Otherwise estimate
-    relevant_dataset = nomissing(dataset, variables(estimand))
+    extra = extra_fit_columns(estimator.model, estimand)
+    relevant_dataset = nomissing(dataset, (variables(estimand)..., extra...))
     relevant_dataset = training_rows(relevant_dataset, estimator.train_validation_indices)
     # Fit Conditional DIstribution using MLJ
-    X = TMLE.selectcols(relevant_dataset, estimand.parents)
+    X = TMLE.selectcols(relevant_dataset, (estimand.parents..., extra...))
     y = relevant_dataset[!, estimand.outcome]
     # If a prevalence weights are provided, we use it to fit the model
     weights = get_training_prevalence_weights(estimator.prevalence_weights, estimator.train_validation_indices)

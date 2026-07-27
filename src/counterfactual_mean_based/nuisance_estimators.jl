@@ -503,8 +503,7 @@ function get_targeted_estimator(
     weighted=true,
     machine_cache=false,
     models=nothing,
-    prevalence_weights=nothing,
-    ipcw_weights=nothing
+    prevalence_weights=nothing
     )
     fluctuation_model = Fluctuation(Ψ, initial_factors_estimate; 
         tol=tol,
@@ -512,8 +511,7 @@ function get_targeted_estimator(
         ps_lowerbound=ps_lowerbound, 
         weighted=weighted,
         cache=machine_cache,
-        prevalence_weights=prevalence_weights,
-        ipcw_weights=ipcw_weights
+        prevalence_weights=prevalence_weights
     )
     if collaborative_strategy isa CollaborativeStrategy
         return CMBasedCTMLE(fluctuation_model, collaborative_strategy, train_validation_indices, models)

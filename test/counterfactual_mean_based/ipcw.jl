@@ -25,18 +25,13 @@ include(joinpath(dirname(dirname(pathof(TMLE))), "test", "helper_fns.jl"))
     @test TMLE.has_missing_outcomes(df, :Y) == true
     @test TMLE.has_missing_outcomes(df, :X) == false
 
-    # Test add_censoring_indicator!
+    # Test add_censoring_indicator
     df = DataFrame(Y = Union{Missing, Float64}[1.0, missing, 3.0, missing, 5.0])
-    TMLE.add_censoring_indicator!(df, :Y)
+    df = TMLE.add_censoring_indicator(df, :Y)
     @test hasproperty(df, :Δ_Y)
     Δ = df[!, :Δ_Y]
     @test Δ isa CategoricalVector
     @test unwrap.(Δ) == [1, 0, 1, 0, 1]
-
-    # Test get_censoring_indicator
-    Δ_float = TMLE.get_censoring_indicator(df, :Y)
-    @test Δ_float == [1.0, 0.0, 1.0, 0.0, 1.0]
-    @test eltype(Δ_float) == Float64
 end
 
 @testset "CMRelevantFactors with censoring_score" begin
@@ -68,15 +63,12 @@ end
     rf = TMLE.get_relevant_factors(Ψ)
     @test rf.censoring_score === nothing
 
-    # Dataset without missing → no censoring
-    df = DataFrame(Y=randn(10), T=categorical(rand(0:1, 10)), W=randn(10))
-    rf = TMLE.get_relevant_factors(Ψ; dataset=df)
+    # ipcw=false → no censoring
+    rf = TMLE.get_relevant_factors(Ψ; ipcw=false)
     @test rf.censoring_score === nothing
 
-    # Dataset with missing outcome → censoring activated
-    allowmissing!(df, :Y)
-    df.Y[1] = missing
-    rf = TMLE.get_relevant_factors(Ψ; dataset=df)
+    # ipcw=true → censoring activated
+    rf = TMLE.get_relevant_factors(Ψ; ipcw=true)
     @test rf.censoring_score !== nothing
     @test rf.censoring_score.outcome == :Δ_Y
 end
@@ -132,28 +124,57 @@ end
     test_coverage(result, ATE_true)
 end
 
-@testset "No missingness: censoring_score is nothing" begin
-    # When no missing data, IPCW should not be triggered
-    rng = StableRNG(123)
-    n = 500
-    W = randn(rng, n)
-    T = categorical(Int.(rand(rng, n) .< 0.5))
-    Y = 2.0 .* Float64.(unwrap.(T)) .+ W .+ randn(rng, n)
-    dataset = DataFrame(W=W, T=T, Y=Y)
+"""
+Generate a continuous outcome ATE problem with MAR missing *outcomes* AND some missing
+*covariates*. Both W₁ and W₂ confound; W₂ is missing at random in a fraction of rows.
+"""
+function ate_with_missing_covariates(;n=5000)
+    rng = StableRNG(42)
+    W₁ = randn(rng, n)
+    W₂ = randn(rng, n)
+    T = rand(rng, n) .< LogExpFunctions.logistic.(0.5 .* W₁ .+ 0.3 .* W₂)
+    Y = 2.0 .* T .+ W₁ .+ W₂ .+ 0.5 .* randn(rng, n)
+    ATE_true = 2.0
 
+    dataset = DataFrame(
+        W₁ = W₁,
+        W₂ = Vector{Union{Missing, Float64}}(W₂),
+        T = categorical(Int.(T)),
+        Y = Vector{Union{Missing, Float64}}(Y)
+    )
+    # MAR missing outcomes (depend on W₁)
+    p_missing_Y = LogExpFunctions.logistic.(-1.0 .+ 0.8 .* W₁)
+    # Missing covariate W₂ (depend on W₁, independent of the Y-missingness draw)
+    p_missing_W₂ = LogExpFunctions.logistic.(-1.5 .+ 0.5 .* W₁)
+    for i in 1:n
+        rand(rng) < p_missing_Y[i] && (dataset.Y[i] = missing)
+        rand(rng) < p_missing_W₂[i] && (dataset.W₂[i] = missing)
+    end
+    return dataset, ATE_true
+end
+
+@testset "CV-IPCW TMLE with missing covariates" begin
+    dataset, ATE_true = ate_with_missing_covariates(n=5000)
     Ψ = ATE(
         outcome=:Y,
         treatment_values=(T=(case=1, control=0),),
-        treatment_confounders=(T=[:W],)
+        treatment_confounders=(T=[:W₁, :W₂],)
     )
-    tmle = Tmle()
-    result, cache = tmle(Ψ, dataset; verbosity=0)
-    # Verify censoring_score is nothing
-    targeted_factors = cache[:targeted_factors]
-    @test targeted_factors.censoring_score === nothing
-    # Verify no censoring indicator column added
-    @test !hasproperty(dataset, :Δ_Y)
-    test_coverage(result, 2.0)
+    tmle = Tmle(resampling=CV(nfolds=3))
+    result, _ = tmle(Ψ, dataset; verbosity=0)
+    test_coverage(result, ATE_true)
+end
+
+@testset "CV-IPCW OSE with missing covariates" begin
+    dataset, ATE_true = ate_with_missing_covariates(n=5000)
+    Ψ = ATE(
+        outcome=:Y,
+        treatment_values=(T=(case=1, control=0),),
+        treatment_confounders=(T=[:W₁, :W₂],)
+    )
+    ose = Ose(resampling=CV(nfolds=3))
+    result, _ = ose(Ψ, dataset; verbosity=0)
+    test_coverage(result, ATE_true)
 end
 
 end

@@ -152,30 +152,11 @@ end
 
 propensity_score_key(Ψ::StatisticalCMCompositeEstimand) = Tuple(variables(x) for x ∈ propensity_score(Ψ))
 
-"""
-    get_relevant_factors(Ψ; collaborative_strategy=nothing, dataset=nothing)
-
-Returns the `CMRelevantFactors` needed to estimate `Ψ`: an outcome mean, propensity score(s),
-and optionally a censoring score for IPCW.
-
-## IPCW for missing outcomes
-
-When `dataset` is provided and the outcome column contains missing values, a censoring score
-model is automatically included. This enables Inverse Probability of Censoring Weighting (IPCW)
-to correct for outcome missingness under a Missing at Random (MAR) assumption.
-
-The censoring model `P(Δ=1 | parents)` is a binary classifier predicting whether the outcome
-is observed (Δ=1) or missing (Δ=0). Its parents are set to the same variables as the outcome
-mean model (treatments + confounders + extra covariates). This is a conservative default that
-conditions on all available covariates; it does not derive the censoring parents from an SCM
-or causal graph. The censoring mechanism is treated as a statistical nuisance, not a structural
-feature of the causal model.
-"""
-function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand; collaborative_strategy=nothing, dataset=nothing)
+function get_relevant_factors(Ψ::StatisticalCMCompositeEstimand; collaborative_strategy=nothing, ipcw=false)
     outcome_model = outcome_mean(Ψ)
     treatment_factors = propensity_score(Ψ, collaborative_strategy)
     censoring_factor = nothing
-    if dataset !== nothing && has_missing_outcomes(dataset, Ψ.outcome)
+    if ipcw
         censoring_outcome = censoring_indicator_name(Ψ.outcome)
         censoring_parents = outcome_model.parents
         censoring_factor = ConditionalDistribution(censoring_outcome, censoring_parents)

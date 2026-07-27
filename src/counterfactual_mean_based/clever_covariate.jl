@@ -33,6 +33,7 @@ end
         Gs::Tuple{Vararg{ConditionalDistributionEstimate}}, 
         dataset; 
         ps_lowerbound=1e-8, 
+        censoring_score=nothing,
         weighted_fluctuation=false
     )
 
@@ -54,6 +55,7 @@ function clever_covariate_and_weights(
     Ψ::StatisticalCMCompositeEstimand, 
     G, 
     dataset; 
+    censoring_score=nothing,
     ps_lowerbound=1e-8, 
     weighted_fluctuation=false
     )
@@ -61,6 +63,8 @@ function clever_covariate_and_weights(
     T = selectcols(dataset, (p.estimand.outcome for p in G.components))
     indic_vals = indicator_values(indicator_fns(Ψ), T)
     weights = balancing_weights(G, dataset; ps_lowerbound=ps_lowerbound)
+    ipcw = compute_ipcw_weights(censoring_score, dataset; ps_lowerbound=ps_lowerbound)
+    ipcw != nothing && (weights .*= ipcw)
     if weighted_fluctuation
         return indic_vals, weights
     end
