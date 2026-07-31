@@ -236,6 +236,8 @@ function estimate_propensity_score_and_outcome_mean(
     return fetch.([propensity_score_estimate, outcome_mean_estimate])
 end
 
+estimate_censoring_score(censoring_score::Nothing, models, dataset; kwargs...) = nothing
+
 function estimate_censoring_score(censoring_score, models, dataset;
     train_validation_indices=nothing,
     cache=Dict(),
@@ -287,16 +289,13 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
 
     # Estimate censoring score if needed (no prevalence_weights: censoring
     # model should not be reweighted by case-control prevalence)
-    censoring_score_estimate = nothing
-    if estimand.censoring_score !== nothing
-        censoring_score_estimate = estimate_censoring_score(
-            estimand.censoring_score, models, dataset;
-            train_validation_indices=train_validation_indices,
-            cache=cache,
-            verbosity=verbosity,
-            machine_cache=machine_cache
-        )
-    end
+    censoring_score_estimate = estimate_censoring_score(
+        estimand.censoring_score, models, dataset;
+        train_validation_indices=train_validation_indices,
+        cache=cache,
+        verbosity=verbosity,
+        machine_cache=machine_cache
+    )
 
     # Build estimate
     estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate, censoring_score_estimate)

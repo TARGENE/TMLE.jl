@@ -32,6 +32,10 @@ include(joinpath(dirname(dirname(pathof(TMLE))), "test", "helper_fns.jl"))
     Δ = df[!, :Δ_Y]
     @test Δ isa CategoricalVector
     @test unwrap.(Δ) == [1, 0, 1, 0, 1]
+
+    # The censoring indicator must register as binary so nuisance model selection treats it as a
+    # classification target (see `is_binary` in nuisance_estimators.jl).
+    @test TMLE.is_binary(df, :Δ_Y)
 end
 
 @testset "CMRelevantFactors with censoring_score" begin
