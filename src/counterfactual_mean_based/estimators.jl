@@ -315,9 +315,9 @@ end
 
 function gradient_and_estimate(::Ose, Ψ, factors, dataset, prevalence_weights; ps_lowerbound=1e-8)
     Q = factors.outcome_mean
-    G = factors.propensity_score
+    G = getG(factors)
     ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
-    gradient_Y_X = ∇YX(Ψ, Q, G, dataset; censoring_score=factors.censoring_score, ps_lowerbound=ps_lowerbound)
+    gradient_Y_X = ∇YX(Ψ, Q, G, dataset; ps_lowerbound=ps_lowerbound)
     y = float(dataset[!, Q.estimand.outcome])
     IC, Ψ̂ = gradient_and_estimate(ctf_agg, gradient_Y_X, y, prevalence_weights)
     IC_mean = mean(IC)

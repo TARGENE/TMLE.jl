@@ -5,16 +5,21 @@
 """
 Holds a Sample Split Machine Learning set of estimates (outcome mean, propensity score) 
 for counterfactual mean based estimands' relevant factors.
+
 """
-struct MLCMRelevantFactors <: Estimate
+struct MLCMRelevantFactors{C <: Union{Nothing, <:ConditionalDistributionEstimate}} <: Estimate
     estimand::CMRelevantFactors
     outcome_mean::ConditionalDistributionEstimate
     propensity_score
-    censoring_score::Union{Nothing, ConditionalDistributionEstimate}
+    censoring_score::C
 end
 
 MLCMRelevantFactors(estimand, outcome_mean, propensity_score) =
     MLCMRelevantFactors(estimand, outcome_mean, propensity_score, nothing)
+
+getG(factors::MLCMRelevantFactors{Nothing}) = factors.propensity_score
+
+getG(factors::MLCMRelevantFactors{<:ConditionalDistributionEstimate}) = (factors.propensity_score, factors.censoring_score)
 
 """
     align_to_rows(factors::MLCMRelevantFactors, keep::Vector{Int})
