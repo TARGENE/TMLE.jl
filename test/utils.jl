@@ -201,11 +201,11 @@ end
     )
     # The treatment levels correctly appear in the dataset
     dataset = DataFrame(Y=rand(10), T=rand(0:1, 10), W=rand(10))
-    @test TMLE.check_inputs(Ψ, dataset, nothing) isa Any
+    @test TMLE.check_inputs(Ψ, dataset, nothing, false) isa Any
     # The treatment levels do not appear in the dataset
     dataset = DataFrame(Y=rand(10), T=rand(2:3, 10), W=rand(10))
     msg = "The treatment variable T's, 'control' level: '0' in Ψ does not match any level in the dataset: [2, 3]"
-    @test_throws ArgumentError(msg) TMLE.check_inputs(Ψ, dataset, nothing)
+    @test_throws ArgumentError(msg) TMLE.check_inputs(Ψ, dataset, nothing, false)
 
     # Check with prevalence
     prevalence = 0.1
@@ -220,14 +220,14 @@ end
         T = categorical([1, 1, 0, 1, 0, 2, 2]),
         W = rand(7)
     )
-    @test_throws ArgumentError("Outcome column must be binary when prevalence is specified.") TMLE.check_inputs(Ψ, dataset, prevalence)
+    @test_throws ArgumentError("Outcome column must be binary when prevalence is specified.") TMLE.check_inputs(Ψ, dataset, prevalence, false)
     ## The number of controls must be larger than the number of cases
     dataset = DataFrame(
         Y = categorical([1, 0, 1, 0, 1, 1, 0]),
         T = categorical([1, 1, 0, 1, 0, 2, 2]),
         W = rand(7)
     )
-    @test_throws ArgumentError("The dataset must contain more controls (0) than cases (1) when prevalence is provided.") TMLE.check_inputs(Ψ, dataset, prevalence)
+    @test_throws ArgumentError("The dataset must contain more controls (0) than cases (1) when prevalence is provided.") TMLE.check_inputs(Ψ, dataset, prevalence, false)
 end
 
 @testset "Test get_initial_dataset" begin

@@ -340,9 +340,12 @@ with_encoder(model; encoder=ContinuousEncoder(drop_last=true, one_hot_ordered_fa
 
 Evaluate if the dataset is suitable for the estimand Ψ.
 """
-function check_inputs(Ψ, dataset, prevalence)
+function check_inputs(Ψ, dataset, prevalence, ipcw)
     check_treatment_levels(Ψ, dataset)
     !isnothing(prevalence) && ccw_check(dataset, Ψ.outcome)
+    if ipcw && prevalence !== nothing
+        throw(ArgumentError("IPCW (missing outcomes) is not yet supported with prevalence correction. The interaction between case-control weights and censoring weights requires a specialized influence function."))
+    end
 end
 
 """

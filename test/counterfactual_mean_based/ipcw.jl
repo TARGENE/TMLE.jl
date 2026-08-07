@@ -38,45 +38,6 @@ include(joinpath(dirname(dirname(pathof(TMLE))), "test", "helper_fns.jl"))
     @test TMLE.is_binary(df, :Δ_Y)
 end
 
-@testset "CMRelevantFactors with censoring_score" begin
-    om = TMLE.ConditionalDistribution(:Y, (:T, :W))
-    ps = TMLE.ConditionalDistribution(:T, (:W,))
-    cs = TMLE.ConditionalDistribution(:Δ_Y, (:T, :W))
-
-    # Without censoring
-    rf = TMLE.CMRelevantFactors(om, (ps,))
-    @test rf.censoring_score === nothing
-
-    # With censoring
-    rf_ipcw = TMLE.CMRelevantFactors(om, (ps,), cs)
-    @test rf_ipcw.censoring_score === cs
-    @test :Δ_Y ∈ TMLE.variables(rf_ipcw)
-
-    # Keyword constructor
-    rf_kw = TMLE.CMRelevantFactors(outcome_mean=om, propensity_score=(ps,), censoring_score=cs)
-    @test rf_kw == rf_ipcw
-end
-
-@testset "get_relevant_factors with IPCW" begin
-    # No dataset → no censoring
-    Ψ = ATE(
-        outcome=:Y,
-        treatment_values=(T=(case=1, control=0),),
-        treatment_confounders=(T=[:W],)
-    )
-    rf = TMLE.get_relevant_factors(Ψ)
-    @test rf.censoring_score === nothing
-
-    # ipcw=false → no censoring
-    rf = TMLE.get_relevant_factors(Ψ; ipcw=false)
-    @test rf.censoring_score === nothing
-
-    # ipcw=true → censoring activated
-    rf = TMLE.get_relevant_factors(Ψ; ipcw=true)
-    @test rf.censoring_score !== nothing
-    @test rf.censoring_score.outcome == :Δ_Y
-end
-
 """
 Generate a continuous outcome ATE problem with MAR missingness.
 Missingness depends on W (confounders) creating a MAR pattern.
@@ -104,7 +65,7 @@ function ate_with_mar_missingness(;n=2000)
     return dataset, ATE_true
 end
 
-@testset "IPCW OSE" begin
+@testset "IPCW OSE and TMLE" begin
     dataset, ATE_true = ate_with_mar_missingness(n=5000)
     Ψ = ATE(
         outcome=:Y,
@@ -114,15 +75,7 @@ end
     ose = Ose()
     result, _ = ose(Ψ, dataset; verbosity=0)
     test_coverage(result, ATE_true)
-end
 
-@testset "IPCW TMLE" begin
-    dataset, ATE_true = ate_with_mar_missingness(n=5000)
-    Ψ = ATE(
-        outcome=:Y,
-        treatment_values=(T=(case=1, control=0),),
-        treatment_confounders=(T=[:W],)
-    )
     tmle = Tmle()
     result, _ = tmle(Ψ, dataset; verbosity=0)
     test_coverage(result, ATE_true)

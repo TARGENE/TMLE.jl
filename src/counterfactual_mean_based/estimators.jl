@@ -126,11 +126,9 @@ end
 function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
     # Detect missing outcomes
     ipcw = tmle.ipcw & has_missing_outcomes(dataset, Ψ.outcome)
-    if ipcw && tmle.prevalence !== nothing
-        throw(ArgumentError("IPCW (missing outcomes) is not yet supported with prevalence correction. The interaction between case-control weights and censoring weights requires a specialized influence function."))
-    end
+
     # Check if the inputs are suitable for the specified estimand
-    check_inputs(Ψ, dataset, tmle.prevalence)
+    check_inputs(Ψ, dataset, tmle.prevalence, ipcw)
     # Add censoring indicator if needed
     if ipcw
         dataset = add_censoring_indicator(dataset, Ψ.outcome)
@@ -264,7 +262,7 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
         throw(ArgumentError("IPCW (missing outcomes) is not yet supported with prevalence correction. The interaction between case-control weights and censoring weights requires a specialized influence function."))
     end
     # Check the estimand against the dataset
-    check_inputs(Ψ, dataset, ose.prevalence)
+    check_inputs(Ψ, dataset, ose.prevalence, ipcw)
     # Add censoring indicator if needed
     if ipcw
         dataset = add_censoring_indicator(dataset, Ψ.outcome)
