@@ -18,7 +18,7 @@ function truncate!(v::AbstractVector, ps_lowerbound::AbstractFloat)
     end
 end
 
-function balancing_weights(G, dataset; ps_lowerbound=1e-8)
+function balancing_weights(G::JointConditionalDistributionEstimate, dataset; ps_lowerbound=1e-8)
     jointlikelihood = ones(nrows(dataset))
     for Gᵢ ∈ G.components
         jointlikelihood .*= likelihood(Gᵢ, dataset)

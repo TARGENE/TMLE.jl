@@ -9,7 +9,7 @@ for counterfactual mean based estimands' relevant factors.
 struct MLCMRelevantFactors <: Estimate
     estimand::CMRelevantFactors
     outcome_mean::ConditionalDistributionEstimate
-    propensity_score
+    propensity_score:: JointConditionalDistributionEstimate
     censoring_score::Union{Nothing, ConditionalDistributionEstimate}
 end
 
