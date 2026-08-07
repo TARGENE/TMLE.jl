@@ -50,7 +50,7 @@ end
     cache = Dict()
     η̂ₙ = @test_logs fit_log... match_mode=:any η̂(η, dataset; cache=cache, verbosity=1)
     @test η̂ₙ isa TMLE.MLCMRelevantFactors{Nothing}
-    @test TMLE.getG(η̂ₙ) === η̂ₙ.propensity_score
+    @test TMLE.getG(η̂ₙ) === (propensity_score=η̂ₙ.propensity_score, censoring_score=nothing)
     # Test both sub estimands have been fitted
     @test η̂ₙ.outcome_mean isa TMLE.MLConditionalDistribution
     @test fitted_params(η̂ₙ.outcome_mean.machine) isa NamedTuple
@@ -105,7 +105,7 @@ end
     η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
     η̂ₙ = η̂(η, dataset;verbosity=0)
     @test η̂ₙ isa TMLE.MLCMRelevantFactors{TMLE.MLConditionalDistribution}
-    @test TMLE.getG(η̂ₙ) === (η̂ₙ.propensity_score, η̂ₙ.censoring_score)
+    @test TMLE.getG(η̂ₙ) === (propensity_score=η̂ₙ.propensity_score, censoring_score=η̂ₙ.censoring_score)
 end
 
 @testset "Test FitFailedError" begin

@@ -17,9 +17,14 @@ end
 MLCMRelevantFactors(estimand, outcome_mean, propensity_score) =
     MLCMRelevantFactors(estimand, outcome_mean, propensity_score, nothing)
 
-getG(factors::MLCMRelevantFactors{Nothing}) = factors.propensity_score
+"""
+    getG(factors::MLCMRelevantFactors)
 
-getG(factors::MLCMRelevantFactors{<:ConditionalDistributionEstimate}) = (factors.propensity_score, factors.censoring_score)
+The treatment mechanism used by the clever covariate: always a named tuple, whose
+`censoring_score` is `nothing` outside IPCW mode.
+"""
+getG(factors::MLCMRelevantFactors) =
+    (propensity_score=factors.propensity_score, censoring_score=factors.censoring_score)
 
 """
     align_to_rows(factors::MLCMRelevantFactors, keep::Vector{Int})

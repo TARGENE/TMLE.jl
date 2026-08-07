@@ -18,38 +18,30 @@ function truncate!(v::AbstractVector, ps_lowerbound::AbstractFloat)
     end
 end
 
-function balancing_weights(G::JointConditionalDistributionEstimate, dataset; ps_lowerbound=1e-8)
+"""
+    balancing_weights(G::NamedTuple, dataset; ps_lowerbound=1e-8)
+
+G always carries a `propensity_score` and a (possibly `nothing`) `censoring_score`. When the
+latter is present, the inverse probability of censoring weights are folded in.
+"""
+function balancing_weights(G::NamedTuple, dataset; ps_lowerbound=1e-8)
     jointlikelihood = ones(nrows(dataset))
-    for Gᵢ ∈ G.components
+    for Gᵢ ∈ G.propensity_score.components
         jointlikelihood .*= likelihood(Gᵢ, dataset)
     end
     truncate!(jointlikelihood, ps_lowerbound)
-    return 1. ./ jointlikelihood
-end
-
-"""
-    balancing_weights(G::Tuple, dataset; ps_lowerbound=1e-8)
-
-In the case where G contains both the propensity score and the censoring score, this function computes the balancing weights as the product of the two scores' likelihoods.
-"""
-function balancing_weights(G::Tuple, dataset; ps_lowerbound=1e-8)
-    propensity_score, censoring_score = G
-    weights = balancing_weights(propensity_score, dataset; ps_lowerbound=ps_lowerbound)
-    weights .*= compute_ipcw_weights(censoring_score, dataset; ps_lowerbound=ps_lowerbound)
+    weights = 1. ./ jointlikelihood
+    ipcw = compute_ipcw_weights(G.censoring_score, dataset; ps_lowerbound=ps_lowerbound)
+    ipcw === nothing || (weights .*= ipcw)
     return weights
 end
-
-retrieve_propensity_score(G::Tuple) = G[1]
-
-retrieve_propensity_score(G) = G
 
 """
     clever_covariate_and_weights(
         Ψ::StatisticalCMCompositeEstimand, 
-        Gs::Tuple{Vararg{ConditionalDistributionEstimate}}, 
+        G::NamedTuple, 
         dataset; 
         ps_lowerbound=1e-8, 
-        censoring_score=nothing,
         weighted_fluctuation=false
     )
 
@@ -69,13 +61,13 @@ where SpecialIndicator(t) is defined in `indicator_fns`.
 """
 function clever_covariate_and_weights(
     Ψ::StatisticalCMCompositeEstimand, 
-    G, 
+    G::NamedTuple, 
     dataset; 
     ps_lowerbound=1e-8, 
     weighted_fluctuation=false
     )
     # Compute the indicator values
-    T = selectcols(dataset, (p.estimand.outcome for p in retrieve_propensity_score(G).components))
+    T = selectcols(dataset, (p.estimand.outcome for p in G.propensity_score.components))
     indic_vals = indicator_values(indicator_fns(Ψ), T)
     weights = balancing_weights(G, dataset; ps_lowerbound=ps_lowerbound)
     if weighted_fluctuation
