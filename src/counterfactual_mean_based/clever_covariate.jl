@@ -28,6 +28,22 @@ function balancing_weights(G::JointConditionalDistributionEstimate, dataset; ps_
 end
 
 """
+    balancing_weights(G::Tuple, dataset; ps_lowerbound=1e-8)
+
+In the case where G contains both the propensity score and the censoring score, this function computes the balancing weights as the product of the two scores' likelihoods.
+"""
+function balancing_weights(G::Tuple, dataset; ps_lowerbound=1e-8)
+    propensity_score, censoring_score = G
+    weights = balancing_weights(propensity_score, dataset; ps_lowerbound=ps_lowerbound)
+    weights .*= compute_ipcw_weights(censoring_score, dataset; ps_lowerbound=ps_lowerbound)
+    return weights
+end
+
+retrieve_propensity_score(G::Tuple) = G[1]
+
+retrieve_propensity_score(G) = G
+
+"""
     clever_covariate_and_weights(
         Ψ::StatisticalCMCompositeEstimand, 
         Gs::Tuple{Vararg{ConditionalDistributionEstimate}}, 
@@ -55,16 +71,13 @@ function clever_covariate_and_weights(
     Ψ::StatisticalCMCompositeEstimand, 
     G, 
     dataset; 
-    censoring_score=nothing,
     ps_lowerbound=1e-8, 
     weighted_fluctuation=false
     )
     # Compute the indicator values
-    T = selectcols(dataset, (p.estimand.outcome for p in G.components))
+    T = selectcols(dataset, (p.estimand.outcome for p in retrieve_propensity_score(G).components))
     indic_vals = indicator_values(indicator_fns(Ψ), T)
     weights = balancing_weights(G, dataset; ps_lowerbound=ps_lowerbound)
-    ipcw = compute_ipcw_weights(censoring_score, dataset; ps_lowerbound=ps_lowerbound)
-    ipcw != nothing && (weights .*= ipcw)
     if weighted_fluctuation
         return indic_vals, weights
     end
