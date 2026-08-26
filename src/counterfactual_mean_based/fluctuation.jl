@@ -12,6 +12,18 @@ end
 Fluctuation(Ψ, initial_factors; tol=nothing, max_iter=1, ps_lowerbound=1e-8, weighted=false, cache=false, prevalence_weights=nothing) =
     Fluctuation(Ψ, initial_factors, tol, max_iter, ps_lowerbound, weighted, cache, prevalence_weights)
 
+
+getG(model::Fluctuation) = getG(model.initial_factors)
+
+"""
+The fluctuation reads the censoring indicator `Δ_Y` off the clever covariate (IPCW), so it must
+be kept in `X` even though it is not one of the outcome model's parents.
+"""
+function extra_fit_columns(model::Fluctuation, estimand)
+    cs = model.initial_factors.censoring_score
+    cs === nothing ? Symbol[] : [cs.estimand.outcome]
+end
+
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:MLJBase.Continuous} = LinearRegressor(fit_intercept=false, offsetcol = :offset)
 one_dimensional_path(target_scitype::Type{T}) where T <: AbstractVector{<:Finite} = LinearBinaryClassifier(fit_intercept=false, offsetcol = :offset)
 
@@ -52,11 +64,11 @@ If prevalence weights are provided, they are applied to the weights and normaliz
 """
 function initialize_observed_cache(model, X, y)
     Q⁰ = model.initial_factors.outcome_mean
-    G⁰ = model.initial_factors.propensity_score
+    G⁰ = getG(model)
     H, w = clever_covariate_and_weights(
         model.Ψ, G⁰, X;
         ps_lowerbound=model.ps_lowerbound,
-        weighted_fluctuation=model.weighted
+        weighted_fluctuation=model.weighted,
     )
     ŷ = MLJBase.predict(Q⁰, X)
     return Dict{Symbol, Any}(:H => H, :w => w, :ŷ => ŷ, :y => float(y))
@@ -75,7 +87,7 @@ These are used to evaluate the gradient and estimate
 """
 function initialize_counterfactual_cache(model, X)
     Q⁰ = model.initial_factors.outcome_mean
-    G⁰ = model.initial_factors.propensity_score
+    G⁰ = getG(model)
     Ψ = model.Ψ
     counterfactual_cache = (predictions=[], signs=[], covariates=[])
     Ttemplate = selectcols(X, treatments(Ψ))
@@ -308,7 +320,7 @@ Generates initial predictions and iteratively predicts from the fitted fluctuati
 """
 function MLJBase.predict(model::Fluctuation, machines, X) 
     covariate, _ = clever_covariate_and_weights(
-        model.Ψ, model.initial_factors.propensity_score, X;
+        model.Ψ, getG(model), X;
         ps_lowerbound=model.ps_lowerbound,
         weighted_fluctuation=model.weighted
     )

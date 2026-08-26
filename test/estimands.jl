@@ -30,6 +30,28 @@ end
     @test TMLE.variables(η) == (:Y, :T, :W, :T₁, :W₁, :T₂, :W₂₁, :W₂₂)
     # Test string representation
     @test TMLE.string_repr(η) == "Relevant Factors: \n- P₀(Y | T, W)\n- P₀(T₁ | W₁)\n- P₀(T₂ | W₂₁, W₂₂)"
+
+    η = TMLE.CMRelevantFactors(
+        outcome_mean=TMLE.ExpectedValue(:Y, [:T, :W]),
+        propensity_score=TMLE.ConditionalDistribution(:T, [:W]),
+        censoring_score=TMLE.ConditionalDistribution(:Δ_Y, (:T, :W))
+    )
+    @test :Δ_Y ∈ TMLE.variables(η)
+end
+
+@testset "get_relevant_factors with IPCW" begin
+    Ψ = ATE(
+        outcome=:Y,
+        treatment_values=(T=(case=1, control=0),),
+        treatment_confounders=(T=[:W],)
+    )
+    rf = TMLE.get_relevant_factors(Ψ)
+    @test rf.censoring_score === nothing
+
+    # ipcw=true → censoring activated
+    rf = TMLE.get_relevant_factors(Ψ; ipcw=true)
+    @test rf.censoring_score !== nothing
+    @test rf.censoring_score.outcome == :Δ_Y
 end
 
 @testset "Test JointEstimand and ComposedEstimand" begin

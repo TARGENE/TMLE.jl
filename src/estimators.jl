@@ -60,7 +60,7 @@ function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothi
 end
 
 """
-    compute_prevalence_weights(prevalence, y)
+    compute_prevalence_weights(prevalence, y; observed=nothing)
 
 Calculates weights for a case-control study to use in the fitting of nuisance functions.
 - `prevalence`: The prevalence of the outcome in the population.
@@ -85,9 +85,19 @@ get_training_prevalence_weights(weights::AbstractVector, train_indices::Tuple) =
 
 get_training_prevalence_weights(weights::AbstractVector, train_indices::AbstractVector) = weights[train_indices]
 
-function (estimator::MLConditionalDistributionEstimator)(estimand, dataset; 
-    cache=Dict(), 
-    verbosity=1, 
+"""
+    extra_fit_columns(model, estimand)
+
+Extra feature columns a model needs in `X` beyond `estimand.parents`. Empty by default; the
+`Fluctuation` overload adds the censoring indicator so IPCW can be read off the clever covariate.
+These columns are not passed as `parents`, so marginal-model detection and the model's own inputs
+are unaffected.
+"""
+extra_fit_columns(model, estimand) = Symbol[]
+
+function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
+    cache=Dict(),
+    verbosity=1,
     machine_cache=false,
     acceleration=CPU1()
     )
@@ -97,10 +107,11 @@ function (estimator::MLConditionalDistributionEstimator)(estimand, dataset;
 
     verbosity > 0 && @info(string("Estimating: ", string_repr(estimand)))
     # Otherwise estimate
-    relevant_dataset = nomissing(dataset, variables(estimand))
+    extra = extra_fit_columns(estimator.model, estimand)
+    relevant_dataset = nomissing(dataset, (variables(estimand)..., extra...))
     relevant_dataset = training_rows(relevant_dataset, estimator.train_validation_indices)
     # Fit Conditional DIstribution using MLJ
-    X = TMLE.selectcols(relevant_dataset, estimand.parents)
+    X = TMLE.selectcols(relevant_dataset, (estimand.parents..., extra...))
     y = relevant_dataset[!, estimand.outcome]
     # If a prevalence weights are provided, we use it to fit the model
     weights = get_training_prevalence_weights(estimator.prevalence_weights, estimator.train_validation_indices)
@@ -149,10 +160,19 @@ function update_sample_split_machines_with_fold!(machines::Vector{Machine},
     )
     train_indices, _ = estimator.train_validation_indices[fold_id]
     train_dataset = selectrows(dataset, train_indices)
+    # Track complete rows before dropping for weight alignment
+    complete_rows = completecases(train_dataset)
+    train_dataset = train_dataset[complete_rows, :]
+    disallowmissing!(train_dataset)
     Xtrain = selectcols(train_dataset, estimand.parents)
     ytrain = train_dataset[!, estimand.outcome]
-    
-    weights = get_training_prevalence_weights(estimator.prevalence_weights, train_indices)
+
+    weights = if estimator.prevalence_weights !== nothing
+        filtered = get_training_prevalence_weights(estimator.prevalence_weights, train_indices)
+        filtered[complete_rows]
+    else
+        nothing
+    end
     machines[fold_id] = fit_mlj_model(estimator.model, Xtrain, ytrain; 
         parents=estimand.parents, 
         cache=machine_cache,

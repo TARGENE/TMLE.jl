@@ -95,16 +95,23 @@ If there is a collaborative strategy, `train_validation_indices` are ignored to 
 """
 CMRelevantFactorsEstimator(collaborative_strategy; models, train_validation_indices=nothing, prevalence_weights=nothing) = CMRelevantFactorsEstimator(nothing, models, prevalence_weights)
 
-function acquire_model(models, key, dataset, is_propensity_score)
-    # If the model is in models return it
+"""
+    acquire_model(models, key, dataset, default_model_key=nothing)
+
+Look up a model from `models` for the variable `key`. If `key` is found directly, return it.
+Otherwise fall back to `default_model_key`. When `default_model_key` is `nothing`, the default
+is inferred from the data: `:Q_binary_default` or `:Q_continuous_default` depending on whether
+`key` is binary in `dataset`.
+
+If the default key is also missing from `models`, a `KeyError` is raised.
+"""
+function acquire_model(models, key, dataset, default_model_key::Union{Nothing, Symbol}=nothing)
     haskey(models, key) && return models[key]
-    # Otherwise, if the required model is for a propensity_score, return the default
-    model_default = :G_default
-    if !is_propensity_score
-        # Finally, if the required model is an outcome_mean, find the type from the data
-        model_default = is_binary(dataset, key) ? :Q_binary_default : :Q_continuous_default
+    if default_model_key === nothing
+        default_model_key = is_binary(dataset, key) ? :Q_binary_default : :Q_continuous_default
     end
-    return models[model_default]
+    haskey(models, default_model_key) && return models[default_model_key]
+    throw(KeyError(default_model_key))
 end
 
 function build_propensity_score_estimator(propensity_score, models, dataset;
@@ -114,7 +121,7 @@ function build_propensity_score_estimator(propensity_score, models, dataset;
     cd_estimators = Dict()
     for conditional_distribution in propensity_score
         outcome = conditional_distribution.outcome
-        model = acquire_model(models, outcome, dataset, true)
+        model = acquire_model(models, outcome, dataset, :G_default)
         cd_estimators[outcome] = ConditionalDistributionEstimator(model, train_validation_indices, prevalence_weights=prevalence_weights)
     end
     return JointConditionalDistributionEstimator(cd_estimators)
@@ -153,7 +160,7 @@ function estimate_outcome_mean(outcome_mean, models, dataset;
     acceleration=CPU1(),
     prevalence_weights=nothing
     )
-    outcome_model = acquire_model(models, outcome_mean.outcome, dataset, false)
+    outcome_model = acquire_model(models, outcome_mean.outcome, dataset)
     outcome_mean_estimator = ConditionalDistributionEstimator(
         outcome_model,
         train_validation_indices,
@@ -229,9 +236,28 @@ function estimate_propensity_score_and_outcome_mean(
     return fetch.([propensity_score_estimate, outcome_mean_estimate])
 end
 
-function (estimator::CMRelevantFactorsEstimator)(estimand, dataset; 
-    cache=Dict(), 
-    verbosity=1, 
+estimate_censoring_score(censoring_score::Nothing, models, dataset; kwargs...) = nothing
+
+function estimate_censoring_score(censoring_score, models, dataset;
+    train_validation_indices=nothing,
+    cache=Dict(),
+    verbosity=1,
+    machine_cache=false,
+    prevalence_weights=nothing
+    )
+    model = acquire_model(models, censoring_score.outcome, dataset, :C_default)
+    censoring_estimator = ConditionalDistributionEstimator(model, train_validation_indices, prevalence_weights=prevalence_weights)
+    return try_fit_ml_estimator(censoring_estimator, censoring_score, dataset;
+        error_fn=default_fit_error_msg,
+        cache=cache,
+        verbosity=verbosity,
+        machine_cache=machine_cache
+    )
+end
+
+function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
+    cache=Dict(),
+    verbosity=1,
     machine_cache=false,
     acceleration=CPU1()
     )
@@ -260,9 +286,19 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
         machine_cache=machine_cache,
         prevalence_weights=prevalence_weights
     )
-    
+
+    # Estimate censoring score if needed (no prevalence_weights: censoring
+    # model should not be reweighted by case-control prevalence)
+    censoring_score_estimate = estimate_censoring_score(
+        estimand.censoring_score, models, dataset;
+        train_validation_indices=train_validation_indices,
+        cache=cache,
+        verbosity=verbosity,
+        machine_cache=machine_cache
+    )
+
     # Build estimate
-    estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate)
+    estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate, censoring_score_estimate)
     # Update cache
     update_cache!(cache, estimand, estimator, estimate)
 
@@ -299,11 +335,12 @@ function (estimator::CMBasedTMLE)(estimand, dataset;
         verbosity=verbosity,
         machine_cache=machine_cache
     )
-    # Do not fluctuate propensity score
+    # Do not fluctuate propensity score or censoring score
     fluctuated_propensity_score = fluctuation_model.initial_factors.propensity_score
-    
+    censoring_score = fluctuation_model.initial_factors.censoring_score
+
     # Build estimate
-    estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score)
+    estimate = MLCMRelevantFactors(estimand, fluctuated_outcome_mean, fluctuated_propensity_score, censoring_score)
 
     return estimate
 end

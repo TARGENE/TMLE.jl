@@ -45,7 +45,7 @@ end
     η̂ₙ = η̂(η, dataset, verbosity = 0)
     # Retrieve conditional distributions and fitted_params
     Q = η̂ₙ.outcome_mean
-    G = η̂ₙ.propensity_score
+    G = TMLE.getG(η̂ₙ)
     linear_model = fitted_params(Q.machine).deterministic_pipeline.linear_regressor
     intercept = linear_model.intercept
     coefs = Dict(linear_model.coefs)
@@ -54,7 +54,7 @@ end
     expected_ctf_agg = (intercept .+ coefs[:T] .+ dataset.W.*coefs[:W] .+ dataset.W.*coefs[:T_W]) .- (intercept .+ dataset.W.*coefs[:W])
     @test ctf_agg ≈ expected_ctf_agg atol=1e-10
     # Gradient Y|X
-    ps_machine = only(G.components).machine
+    ps_machine = only(G.propensity_score.components).machine
     H = 1 ./ pdf.(predict(ps_machine), dataset.T) .* [t == 1 ? 1. : -1. for t in dataset.T]
     expected_∇YX = H .* (dataset.Y .- predict(Q.machine))
     ∇YX = TMLE.∇YX(Ψ, Q, G, dataset; ps_lowerbound=ps_lowerbound)

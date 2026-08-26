@@ -38,7 +38,7 @@ end
     )
     weighted_fluctuation = true
     ps_lowerbound = 1e-8
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset; 
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, (propensity_score=propensity_score_estimate, censoring_score=nothing), dataset; 
         ps_lowerbound=ps_lowerbound, 
         weighted_fluctuation=weighted_fluctuation
     )
@@ -47,7 +47,7 @@ end
     @test w == [1.75, 3.5, 7.0, 1.75, 1.75, 3.5, 1.75]
 
     weighted_fluctuation = false
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, (propensity_score=propensity_score_estimate, censoring_score=nothing), dataset;
         ps_lowerbound=ps_lowerbound,
         weighted_fluctuation=weighted_fluctuation
     )
@@ -80,11 +80,10 @@ end
         dataset,
         verbosity=0
     )
-
     ps_lowerbound = 1e-8
     weighted_fluctuation = false
 
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, (propensity_score=propensity_score_estimate, censoring_score=nothing), dataset;
         ps_lowerbound=ps_lowerbound,
         weighted_fluctuation=weighted_fluctuation
     )
@@ -129,7 +128,7 @@ end
         verbosity=0
     )
 
-    cov, w = TMLE.clever_covariate_and_weights(Ψ, propensity_score_estimate, dataset;
+    cov, w = TMLE.clever_covariate_and_weights(Ψ, (propensity_score=propensity_score_estimate, censoring_score=nothing), dataset;
         ps_lowerbound=ps_lowerbound, 
         weighted_fluctuation=weighted_fluctuation
     )

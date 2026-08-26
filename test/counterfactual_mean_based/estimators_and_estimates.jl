@@ -29,7 +29,7 @@ end
     @test NAIVE(LinearRegressor()) isa TMLE.Plugin
 end
 
-@testset "Test CMRelevantFactorsEstimator" begin
+@testset "Test CMRelevantFactorsEstimator{Nothing}" begin
     dataset = make_dataset()
     # Estimand
     Q = TMLE.ConditionalDistribution(:Y, [:T₁, :W])
@@ -49,6 +49,8 @@ end
     )
     cache = Dict()
     η̂ₙ = @test_logs fit_log... match_mode=:any η̂(η, dataset; cache=cache, verbosity=1)
+    @test η̂ₙ isa TMLE.MLCMRelevantFactors{Nothing}
+    @test TMLE.getG(η̂ₙ) === (propensity_score=η̂ₙ.propensity_score, censoring_score=nothing)
     # Test both sub estimands have been fitted
     @test η̂ₙ.outcome_mean isa TMLE.MLConditionalDistribution
     @test fitted_params(η̂ₙ.outcome_mean.machine) isa NamedTuple
@@ -83,6 +85,27 @@ end
     ps_component = only(η̂ₙ.propensity_score.components)
     @test length(ps_component.machines) == 3
     @test η̂ₙ.outcome_mean.train_validation_indices == ps_component.train_validation_indices
+end
+
+@testset "Test CMRelevantFactorsEstimator{ConditionalDistributionEstimate}" begin
+    dataset = make_dataset()
+    dataset[!, :Y] = [w > 0.5 ? missing : y  for (y, w) in zip(dataset[!, :Y], dataset[!, :W])]
+    dataset[!, :ΔY] = categorical(.!ismissing.(dataset[!, :Y]))
+    # Estimand
+    Q = TMLE.ConditionalDistribution(:Y, [:T₁, :W])
+    G = (TMLE.ConditionalDistribution(:T₁, [:W]),)
+    C = TMLE.ConditionalDistribution(:ΔY , [:W])
+    η = TMLE.CMRelevantFactors(outcome_mean=Q, propensity_score=G, censoring_score=C)
+    # Estimator
+    models = Dict(
+        :Y  => with_encoder(LinearRegressor()), 
+        :T₁ => LogisticClassifier(),
+        :C_default => LogisticClassifier()
+    )
+    η̂ = TMLE.CMRelevantFactorsEstimator(models=models)
+    η̂ₙ = η̂(η, dataset;verbosity=0)
+    @test η̂ₙ isa TMLE.MLCMRelevantFactors{TMLE.MLConditionalDistribution}
+    @test TMLE.getG(η̂ₙ) === (propensity_score=η̂ₙ.propensity_score, censoring_score=η̂ₙ.censoring_score)
 end
 
 @testset "Test FitFailedError" begin
