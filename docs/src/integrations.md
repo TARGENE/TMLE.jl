@@ -36,6 +36,10 @@ estimator = Tmle()
 Ψ̂, cache = estimator(Ψ, ct; verbosity=0)
 ```
 
+## CausalDynamics.jl
+
+[CausalDynamics.jl](https://simonab.github.io/CausalDynamics.jl/dev/) identifies adjustment sets from causal graphs (via `prepare_for_tmle`) for use with TMLE.jl's point-treatment CM / ATE / AIE estimators. Continuous MTP / LMTP and mediation live in neighbouring packages ([CausalTargeted.jl](https://simonab.github.io/CausalTargeted.jl/dev/), [CausalMediation.jl](https://simonab.github.io/CausalMediation.jl/dev/)); see the CausalDynamics [integration guide](https://simonab.github.io/CausalDynamics.jl/dev/integration/) for a worked example.
+
 ## Serialization to JSON / YAML
 
 Estimands and estimates can be serialized to disk in JSON or YAML format using `TMLE.write_json` or `TMLE.write_yaml`. Let's serialize the estimand and estimate from the previous example.
