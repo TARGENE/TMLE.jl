@@ -134,6 +134,40 @@ end
     test_coverage(result, ATE_true)
 end
 
+function ate_with_treatment_dependent_missingness(;n=8000)
+    rng = StableRNG(123)
+    W = randn(rng, n)
+    T = rand(rng, n) .< LogExpFunctions.logistic.(0.5 .* W)
+    # Heterogeneous effect: 2 + 2.5W, so the ATE is 2 since E[W] = 0.
+    Y = 2.0 .* T .+ W .+ 2.5 .* T .* W .+ 0.5 .* randn(rng, n)
+    dataset = DataFrame(
+        W = W,
+        T = categorical(Int.(T)),
+        Y = Vector{Union{Missing, Float64}}(Y)
+    )
+    p_missing = LogExpFunctions.logistic.(-0.5 .+ 1.2 .* W .+ 1.2 .* T)
+    dataset[!, :Y][rand(rng, n) .< p_missing] .= missing
+    return dataset, 2.0
+end
+
+@testset "Complete-case analysis is biased, IPCW is not" begin
+    dataset, ATE_true = ate_with_treatment_dependent_missingness()
+    Ψ = ATE(
+        outcome=:Y,
+        treatment_values=(T=(case=1, control=0),),
+        treatment_confounders=(T=[:W],)
+    )
+    # Classic estimator: drop the censored rows, no censoring model at all.
+    classic, _ = Tmle(ipcw=false)(Ψ, dataset; verbosity=0)
+    lb, ub = confint(OneSampleTTest(classic))
+    @test !(lb ≤ ATE_true ≤ ub)      # CI misses the truth entirely
+    @test TMLE.estimate(classic) < 1 # severe downward bias (truth is 2)
+
+    # IPCW estimator on the very same dataset, censored rows included.
+    ipcw, _ = Tmle()(Ψ, dataset; verbosity=0)
+    test_coverage(ipcw, ATE_true)
+end
+
 end
 
 true
