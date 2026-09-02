@@ -258,9 +258,6 @@ Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_ca
 function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
     # Detect missing outcomes
     ipcw = ose.ipcw & has_missing_outcomes(dataset, Ψ.outcome)
-    if ipcw && ose.prevalence !== nothing
-        throw(ArgumentError("IPCW (missing outcomes) is not yet supported with prevalence correction. The interaction between case-control weights and censoring weights requires a specialized influence function."))
-    end
     # Check the estimand against the dataset
     check_inputs(Ψ, dataset, ose.prevalence, ipcw)
     # Add censoring indicator if needed

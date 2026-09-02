@@ -299,6 +299,25 @@ end
     @test ismissing(initial_data.Y[3])
 end
 
+@testset "Test compute_ipcw_weights" begin
+    dataset = DataFrame(
+        T = categorical(["a", "b", "c", "a", "a", "b", "a"]),
+        Y = [1., 2., 3, missing, 5, 6, missing],
+        ΔY = categorical([1, 1, 1, 0, 1, 1, 0]),
+        W = rand(7),
+    )
+    censoring_score_estimator = TMLE.MLConditionalDistributionEstimator(ConstantClassifier())
+    censoring_score_estimate = censoring_score_estimator(
+        TMLE.ConditionalDistribution(:ΔY, [:W, :T]),
+        dataset,
+        verbosity=0
+    )
+    weights = ones(nrow(dataset))
+    TMLE.update_with_ipcw_weights!(weights, censoring_score_estimate, dataset)
+    @test weights == [1.4, 1.4, 1.4, 0., 1.4, 1.4, 0.]
+
+end
+
 end;
 
 true

@@ -60,7 +60,7 @@ function fit_mlj_model(model, X, y; parents=names(X), cache=false, weights=nothi
 end
 
 """
-    compute_prevalence_weights(prevalence, y; observed=nothing)
+    compute_prevalence_weights(prevalence, y)
 
 Calculates weights for a case-control study to use in the fitting of nuisance functions.
 - `prevalence`: The prevalence of the outcome in the population.

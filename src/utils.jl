@@ -50,32 +50,19 @@ censoring_indicator_name(outcome::Symbol) = Symbol(:Δ_, outcome)
 
 has_missing_outcomes(dataset, outcome::Symbol) = ismissingtype(eltype(dataset[!, outcome]))
 
-function add_censoring_indicator(dataset, outcome::Symbol)
-    col = dataset[!, outcome]
-    f(col) = categorical(ifelse.(ismissing.(col), 0, 1), ordered=true)
-    DataFrames.transform(dataset, outcome => f => censoring_indicator_name(outcome))
+function add_censoring_indicator!(dataset, outcome::Symbol)
+    dataset[!, censoring_indicator_name(outcome)] =
+        categorical(ifelse.(ismissing.(dataset[! outcome]), 0, 1), ordered=true)
 end
 
-function compute_ipcw_weights(censoring_score, dataset; ps_lowerbound=1e-8)
-    censoring_score === nothing && return nothing
-    outcome = selectcols(dataset, [censoring_score.estimand.outcome])
-    Δ = indicator_values(Dict((1,) => 1.), outcome)
+update_with_ipcw_weights!(weights, censoring_score::Nothing, dataset; ps_lowerbound=1e-8) = weights
+
+function update_with_ipcw_weights!(weights, censoring_score, dataset; ps_lowerbound=1e-8)
+    Δ = unwrap.(dataset[!, censoring_score.estimand.outcome])
     π = likelihood(censoring_score, dataset)
     truncate!(π, ps_lowerbound)
-    return Δ ./ π
-end
-
-"""
-    counterfactual_censoring_covariate(censoring_score, dataset; ps_lowerbound=1e-8)
-
-Censoring factor for the counterfactual censoring intervention `Δ=1`: `1/P(Δ=1 | parents)`.
-Unlike `compute_ipcw_weights` (which uses the observed `Δ`), this sets `Δ=1`, so it is the
-factor folded into the *counterfactual* clever covariate.
-"""
-function counterfactual_censoring_covariate(censoring_score, dataset; ps_lowerbound=1e-8)
-    π = expected_value(censoring_score, dataset)
-    truncate!(π, ps_lowerbound)
-    return 1 ./ π
+    weights .*= (Δ ./ π)
+    return weights
 end
 
 function nomissing(dataset::DataFrame, colnames; disallowmissing=true, view=false, copycols=false)
@@ -128,8 +115,45 @@ function get_fluctuation_dataset(initial_dataset, relevant_factors)
     relevant_factors.censoring_score === nothing && return initial_dataset
     outcome = relevant_factors.outcome_mean.outcome
     fluctuation_dataset = initial_dataset[fluctuation_row_mask(initial_dataset, relevant_factors), :]
-    fluctuation_dataset[!, outcome] = coalesce_outcome(fluctuation_dataset[!, outcome])
+    fluctuation_dataset[!, outcome] = maybe_coalesce_outcome(fluctuation_dataset[!, outcome])
     return fluctuation_dataset
+end
+
+"""
+    get_initial_and_fluctuation_datasets(dataset, relevant_factors; prevalence=nothing, ipcw=true, verbosity=1)
+
+This function manages how the dataset is used, we distinguish between the initial dataset and the fluctuation dataset. 
+The distinction arises from the requirement that the fluctuation fit cannot handle missing observations for any variable 
+while some nuisance factors can be fitted with some missing variables (e.g. the propensity score does not use the outcome variable). 
+"""
+function get_initial_and_fluctuation_datasets(dataset, relevant_factors; prevalence=nothing, ipcw=true, verbosity=1)
+    relevant_variables = variables(relevant_factors)
+    if prevalence !== nothing
+        # Missing variables are currently not supported in prevalence mode
+        dataset = get_matched_controls(
+            nomissing(dataset, relevant_variables), 
+            outcome; 
+            verbosity=verbosity
+        )
+        # Initial and Fluctuation datasets are the same
+        return dataset, copy(dataset, copycols=false)
+    else
+        outcome = relevant_factors.outcome_mean.outcome
+        initial_dataset = TMLE.selectcols(
+            dataset, 
+            relevant_variables
+        )
+        nomissing_variables = relevant_variables
+        # In the IPCW mode we add the censoring variable
+        if ipcw
+            add_censoring_indicator!(initial_dataset, outcome)
+            nomissing_variables = filter(!=(outcome), relevant_variables)
+        end
+        fluctuation_dataset = fluctuation_row_mask(initial_dataset, relevant_factors)
+        fluctuation_dataset[!, outcome] = maybe_coalesce_outcome(fluctuation_dataset[!, outcome])
+
+        return initial_dataset, fluctuation_dataset
+    end
 end
 
 """
@@ -146,12 +170,12 @@ function fluctuation_row_mask(initial_dataset, relevant_factors)
 end
 
 """
-    coalesce_outcome(y)
+    maybe_coalesce_outcome(y)
 
 Replace missing outcome values with a placeholder (first level for a categorical, `zero` for a
 numeric) and return a column with a non-missing element type.
 """
-function coalesce_outcome(y)
+function maybe_coalesce_outcome(y)
     ismissingtype(eltype(y)) || return y
     if y isa CategoricalVector
         lvls = levels(y)
