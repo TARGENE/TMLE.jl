@@ -301,7 +301,6 @@ function (estimator::CMRelevantFactorsEstimator)(estimand, dataset;
     estimate = MLCMRelevantFactors(estimand, outcome_mean_estimate, propensity_score_estimate, censoring_score_estimate)
     # Update cache
     update_cache!(cache, estimand, estimator, estimate)
-
     return estimate
 end
 

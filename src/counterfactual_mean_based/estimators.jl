@@ -129,46 +129,46 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
 
     # Check if the inputs are suitable for the specified estimand
     check_inputs(Ψ, dataset, tmle.prevalence, ipcw)
-    # Add censoring indicator if needed
-    if ipcw
-        dataset = add_censoring_indicator(dataset, Ψ.outcome)
-    end
+
     # Initial fit of the SCM's relevant factors
+    ## Defining the factors and dataset management variables
     relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy, ipcw=ipcw)
-    initial_factors_dataset = get_initial_dataset(dataset, relevant_factors;
-        prevalence=tmle.prevalence,
+    initial_factors_dataset, fluctuation_dataset, complete_rows = get_initial_and_fluctuation_datasets(
+        dataset, 
+        relevant_factors; 
+        prevalence=tmle.prevalence, 
         verbosity=verbosity
     )
-    # Fold indices are built on the initial (nuisance) dataset
-    train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, initial_factors_dataset)
-    fluctuation_dataset = get_fluctuation_dataset(initial_factors_dataset, relevant_factors)
 
+    ## Fold indices are built on the initial dataset
+    train_validation_indices = get_train_validation_indices(
+        tmle.resampling,
+        tmle.collaborative_strategy,
+        Ψ, 
+        initial_factors_dataset,
+        fluctuation_dataset,
+        complete_rows
+    )
+    ## Potential prevalence weights
     prevalence_weights = compute_prevalence_weights(tmle.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])
+    ## Fit of the nuisance factors
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
         train_validation_indices=train_validation_indices, 
         models=tmle.models,
         prevalence_weights=prevalence_weights
     )
     verbosity >= 1 && @info "Estimating nuisance parameters."
-    
     initial_factors_estimate = initial_factors_estimator(relevant_factors, initial_factors_dataset; 
         cache=cache, 
         verbosity=verbosity-1,
         machine_cache=tmle.machine_cache,
         acceleration=acceleration
     )
-    # Nuisances were fit on the full dataset (each model dropping only the rows it can't use), but
-    # the fluctuation/gradient runs on the covariate-complete subset. Realign CV fold indices to
-    # that subset so out-of-fold predictions land on the right rows. No-op without CV.
-    if train_validation_indices !== nothing
-        keep = findall(fluctuation_row_mask(initial_factors_dataset, relevant_factors))
-        initial_factors_estimate = align_to_rows(initial_factors_estimate, keep)
-    end
     # Get propensity score truncation threshold
     n = nrows(fluctuation_dataset)
     ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
 
-    # Fluctuation initial factors
+    # Fluctuation of the initial factors
     targeted_factors_estimator = get_targeted_estimator(
         Ψ, 
         tmle.collaborative_strategy, 
@@ -188,7 +188,7 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         machine_cache=tmle.machine_cache,
         acceleration=acceleration
     )
-    # Estimation results after TMLE
+    # Estimation results after TMLE (Simply retrieving from the cache)
     cache[:targeted_factors] = targeted_factors_estimate
     estimation_report = report(targeted_factors_estimate)
 
@@ -260,35 +260,42 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
     ipcw = ose.ipcw & has_missing_outcomes(dataset, Ψ.outcome)
     # Check the estimand against the dataset
     check_inputs(Ψ, dataset, ose.prevalence, ipcw)
-    # Add censoring indicator if needed
-    if ipcw
-        dataset = add_censoring_indicator(dataset, Ψ.outcome)
-    end
-    # Initial fit of the SCM's relevant factors (pass dataset for IPCW detection)
-    initial_factors = get_relevant_factors(Ψ; ipcw=ipcw)
-    initial_factors_dataset = get_initial_dataset(dataset, initial_factors;
-        prevalence=ose.prevalence,
+
+    # Initial fit of the SCM's relevant factors
+    ## Defining the factors and dataset management variables
+    relevant_factors = get_relevant_factors(Ψ; ipcw=ipcw)
+    initial_factors_dataset, fluctuation_dataset, complete_rows = get_initial_and_fluctuation_datasets(
+        dataset, 
+        relevant_factors; 
+        prevalence=ose.prevalence, 
         verbosity=verbosity
     )
-    # Fold indices are built on the initial (nuisance) dataset.
-    train_validation_indices = get_train_validation_indices(ose.resampling, Ψ, initial_factors_dataset)
-    fluctuation_dataset = get_fluctuation_dataset(initial_factors_dataset, initial_factors)
-
-    prevalence_weights = compute_prevalence_weights(ose.prevalence, initial_factors_dataset[!, initial_factors.outcome_mean.outcome])
-    initial_factors_estimator = CMRelevantFactorsEstimator(;models=ose.models, train_validation_indices=train_validation_indices, prevalence_weights=prevalence_weights)
+    ## Fold indices are built on the initial (nuisance) dataset.
+    train_validation_indices = get_train_validation_indices(
+        ose.resampling,
+        nothing,
+        Ψ,
+        initial_factors_dataset,
+        fluctuation_dataset,
+        complete_rows
+    )
+    ## Potential prevalence weights
+    prevalence_weights = compute_prevalence_weights(ose.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])
+    ## Fit of the nuisance factors
+    initial_factors_estimator = CMRelevantFactorsEstimator(;
+        models=ose.models, 
+        train_validation_indices=train_validation_indices, 
+        prevalence_weights=prevalence_weights
+    )
+    verbosity >= 1 && @info "Estimating nuisance parameters."
     initial_factors_estimate = initial_factors_estimator(
-        initial_factors, 
+        relevant_factors, 
         initial_factors_dataset;
         cache=cache, 
         verbosity=verbosity,
         acceleration=acceleration
     )
-    # Realign CV fold indices from the full dataset to the covariate-complete fluctuation subset
-    # (see the TMLE call method). No-op without CV.
-    if train_validation_indices !== nothing
-        keep = findall(fluctuation_row_mask(initial_factors_dataset, initial_factors))
-        initial_factors_estimate = align_to_rows(initial_factors_estimate, keep)
-    end
+
     # Get propensity score truncation threshold
     n = nrows(fluctuation_dataset)
     ps_lowerbound = ps_lower_bound(n, ose.ps_lowerbound)
