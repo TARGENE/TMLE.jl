@@ -72,13 +72,19 @@ end
         treatment_values=(T=(case=1, control=0),),
         treatment_confounders=(T=[:W],)
     )
-    ose = Ose()
-    result, _ = ose(Ψ, dataset; verbosity=0)
-    test_coverage(result, ATE_true)
+    ose_ipcw = Ose()
+    result_ipcw, _ = ose_ipcw(Ψ, dataset; verbosity=0)
+    test_coverage(result_ipcw, ATE_true)
+    ose_no_ipcw = Ose(ipcw=false)
+    result_no_ipcw, _ = ose_no_ipcw(Ψ, dataset; verbosity=0)
+    test_coverage(result_no_ipcw, ATE_true)
 
-    tmle = Tmle()
-    result, _ = tmle(Ψ, dataset; verbosity=0)
-    test_coverage(result, ATE_true)
+    tmle_ipcw = Tmle()
+    result_ipcw, _ = tmle_ipcw(Ψ, dataset; verbosity=0)
+    test_coverage(result_ipcw, ATE_true)
+    tmle_no_ipcw = Tmle(ipcw=false)
+    result_no_ipcw, _ = tmle_no_ipcw(Ψ, dataset; verbosity=0)
+    test_coverage(result_no_ipcw, ATE_true)
 end
 
 """
@@ -117,19 +123,12 @@ end
         treatment_values=(T=(case=1, control=0),),
         treatment_confounders=(T=[:W₁, :W₂],)
     )
-    tmle = Tmle(resampling=CV(nfolds=3))
+    ipcw = false
+    tmle = Tmle(resampling=CV(nfolds=3), ipcw=ipcw)
     result, _ = tmle(Ψ, dataset; verbosity=0)
     test_coverage(result, ATE_true)
-end
 
-@testset "CV-IPCW OSE with missing covariates" begin
-    dataset, ATE_true = ate_with_missing_covariates(n=5000)
-    Ψ = ATE(
-        outcome=:Y,
-        treatment_values=(T=(case=1, control=0),),
-        treatment_confounders=(T=[:W₁, :W₂],)
-    )
-    ose = Ose(resampling=CV(nfolds=3))
+    ose = Ose(resampling=CV(nfolds=3), ipcw=ipcw)
     result, _ = ose(Ψ, dataset; verbosity=0)
     test_coverage(result, ATE_true)
 end
@@ -160,7 +159,7 @@ end
     # Classic estimator: drop the censored rows, no censoring model at all.
     classic, _ = Tmle(ipcw=false)(Ψ, dataset; verbosity=0)
     lb, ub = confint(OneSampleTTest(classic))
-    @test !(lb ≤ ATE_true ≤ ub)      # CI misses the truth entirely
+    @test !(lb ≤ ATE_true ≤ ub)     # CI misses the truth entirely
     @test TMLE.estimate(classic) < 1 # severe downward bias (truth is 2)
 
     # IPCW estimator on the very same dataset, censored rows included.
