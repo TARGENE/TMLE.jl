@@ -107,7 +107,7 @@ In the case of a collaborative strategy, the train and validation pairs are buil
 """
 get_train_validation_indices(
     resampling::ResamplingStrategy, 
-    collaborative_strategy::CollaborativeStrategy, 
+    collaborative_strategy, 
     Ψ, 
     initial_factors_dataset, 
     fluctuation_dataset, 
