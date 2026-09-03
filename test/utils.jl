@@ -230,11 +230,11 @@ end
     @test_throws ArgumentError("The dataset must contain more controls (0) than cases (1) when prevalence is provided.") TMLE.check_inputs(Ψ, dataset, prevalence, false)
 end
 
-@testset "Test get_initial_dataset" begin
+@testset "Test get_initial_and_fluctuation_datasets" begin
     dataset = DataFrame(
-        Y = categorical([1, 0, 1, 0, 0, 0, 0, 0]),
-        T = categorical([1, 1, 0, 1, 0, 2, missing, 0]),
-        W = rand(8)
+        Y = categorical([1, 0, 1, 0, 0, 0, 0, 0, missing]),
+        T = categorical([1, 1, 0, 1, 0, 2, missing, 0, 1]),
+        W = rand(9)
     )
     Ψ = ATE(
         outcome=:Y,
@@ -242,61 +242,44 @@ end
         treatment_confounders=[:W]
     )
     relevant_factors = TMLE.get_relevant_factors(Ψ)
-    # No prevalence: missing values relevant to the estimation process are filtered
-    prevalence = nothing
-    initial_dataset = TMLE.get_initial_dataset(dataset, relevant_factors; prevalence=prevalence)
-    @test initial_dataset == dataset[Not([7]), :]
-    # Prevalence: the surplus of controls are dropped, 2 controls per case are inferred
+    # 1. Prevalence Mode
+    # - initial and fluctuation datasets are tghe same with missing data dropped
+    # - The surplus of controls are dropped, 2 controls per case are inferred
     prevalence = 0.1
     expected_log = (:info, "Dropping 1 control(s) to ensure equal number of controls per case (J=2). You can pre-drop these controls yourself to prevent this operation.")
-    initial_dataset = @test_logs expected_log TMLE.get_initial_dataset(dataset, relevant_factors; prevalence=prevalence, verbosity = 1)
-    @test nrow(initial_dataset) == 6
-    # If no missing values are present and the number of controls per case is an integer,
-    # these operations are no-ops, the dataframe will not be === because of column selection
-    # but each column is ===
-    dataset = DataFrame(
-        Y = categorical([1, 0, 1, 0]),
-        T = categorical([1, 1, 0, 1]),
-        W = rand(4)
+    initial_factors_dataset, fluctuation_dataset, complete_rows = @test_logs expected_log TMLE.get_initial_and_fluctuation_datasets(
+        dataset, 
+        relevant_factors; 
+        prevalence=prevalence, 
+        verbosity = 1
     )
-    initial_dataset = TMLE.get_initial_dataset(dataset, relevant_factors; prevalence=prevalence)
-    @test initial_dataset.Y === dataset.Y
-    @test initial_dataset.T === dataset.T
-    @test initial_dataset.W === dataset.W
-end
-
-@testset "Test get_fluctuation_dataset (IPCW coalescing)" begin
-    # IPCW: initial dataset keeps missing Y; the fluctuation dataset coalesces it to 0
-    n = 10
-    dataset_ipcw = DataFrame(
-        W = randn(n),
-        T = categorical(rand(0:1, n)),
-        Y = Vector{Union{Missing, Float64}}(randn(n)),
+    @test nrow(initial_factors_dataset) == 6
+    @test initial_factors_dataset == fluctuation_dataset
+    @test complete_rows == [1, 2, 3, 4, 5, 6, 8]
+    # 2. No IPCW, No prevalence
+    initial_factors_dataset, fluctuation_dataset, complete_rows = TMLE.get_initial_and_fluctuation_datasets(
+        dataset, 
+        relevant_factors; 
+        prevalence=nothing, 
+        verbosity = 0
     )
-    dataset_ipcw.Y[3] = missing
-    dataset_ipcw.Y[7] = missing
-    dataset_ipcw = TMLE.add_censoring_indicator(dataset_ipcw, :Y)
-    rf_ipcw = TMLE.get_relevant_factors(
-        ATE(outcome=:Y, treatment_values=(T=(case=1, control=0),), treatment_confounders=(T=[:W],));
-        ipcw=true
+    @test nrow(initial_factors_dataset) == 9
+    @test nrow(fluctuation_dataset) == 7
+    @test complete_rows == [1, 2, 3, 4, 5, 6, 8]
+    # 3. IPCW, No prevalence
+    relevant_factors = TMLE.get_relevant_factors(Ψ; ipcw=true)
+    initial_factors_dataset, fluctuation_dataset, complete_rows = TMLE.get_initial_and_fluctuation_datasets(
+        dataset, 
+        relevant_factors; 
+        prevalence=nothing, 
+        verbosity = 0
     )
-    # Initial dataset: all rows kept (no missing covariates), missing Y preserved
-    initial_data = TMLE.get_initial_dataset(dataset_ipcw, rf_ipcw)
-    @test nrow(initial_data) == n
-    @test ismissing(initial_data.Y[3]) && ismissing(initial_data.Y[7])
-    # Fluctuation dataset: same rows, missing Y coalesced to 0
-    eval_data = TMLE.get_fluctuation_dataset(initial_data, rf_ipcw)
-    @test nrow(eval_data) == n
-    @test eval_data.Y[3] == 0.0
-    @test eval_data.Y[7] == 0.0
-    # The indicator is retained for the IPCW clever covariate used by the fluctuation.
-    @test eval_data[!, :Δ_Y] == initial_data[!, :Δ_Y]
-    # Non-missing Y preserved
-    @test eval_data.Y[1] == dataset_ipcw.Y[1]
-    # No missing types remain
-    @test !any(TMLE.ismissingtype(eltype(c)) for c in eachcol(eval_data))
-    # Initial dataset is not mutated
-    @test ismissing(initial_data.Y[3])
+    @test nrow(initial_factors_dataset) == 9
+    @test initial_factors_dataset.Δ_Y == categorical([1, 1, 1, 1, 1, 1, 1, 1, 0]) 
+    @test nrow(fluctuation_dataset) == 8 # The outcome missingness is not considered
+    @test fluctuation_dataset.Δ_Y == categorical([1, 1, 1, 1, 1, 1, 1, 0])
+    @test fluctuation_dataset.Y == [1, 0, 1, 0, 0, 0, 0, 0] # outcome missing value has been set to 0
+    @test complete_rows == [1, 2, 3, 4, 5, 6, 8, 9]
 end
 
 @testset "Test compute_ipcw_weights" begin
@@ -315,7 +298,6 @@ end
     weights = ones(nrow(dataset))
     TMLE.update_with_ipcw_weights!(weights, censoring_score_estimate, dataset)
     @test weights == [1.4, 1.4, 1.4, 0., 1.4, 1.4, 0.]
-
 end
 
 end;

@@ -52,7 +52,7 @@ has_missing_outcomes(dataset, outcome::Symbol) = ismissingtype(eltype(dataset[!,
 
 function add_censoring_indicator!(dataset, outcome::Symbol)
     dataset[!, censoring_indicator_name(outcome)] =
-        categorical(ifelse.(ismissing.(dataset[! outcome]), 0, 1), ordered=true)
+        categorical(ifelse.(ismissing.(dataset[!, outcome]), 0, 1), ordered=true)
 end
 
 update_with_ipcw_weights!(weights, censoring_score::Nothing, dataset; ps_lowerbound=1e-8) = weights
@@ -82,10 +82,11 @@ The distinction arises from the requirement that the fluctuation fit cannot hand
 while some nuisance factors can be fitted with some missing variables (e.g. the propensity score does not use the outcome variable). 
 """
 function get_initial_and_fluctuation_datasets(dataset, relevant_factors; prevalence=nothing, verbosity=1)
-    relevant_variables = variables(relevant_factors)
+    relevant_variables = collect(variables(relevant_factors))
+    outcome = relevant_factors.outcome_mean.outcome
     if prevalence !== nothing
         # Missing variables are currently not supported in prevalence mode
-        complete_rows = findall(completecases(initial_dataset, relevant_variables))
+        complete_rows = findall(completecases(dataset, relevant_variables))
         initial_dataset = get_matched_controls(
             dataset[complete_rows, relevant_variables], 
             outcome; 
@@ -94,13 +95,11 @@ function get_initial_and_fluctuation_datasets(dataset, relevant_factors; prevale
         # Initial and Fluctuation datasets are the same
         return initial_dataset, copy(initial_dataset, copycols=false), complete_rows
     else
-        outcome = relevant_factors.outcome_mean.outcome
         initial_dataset = TMLE.selectcols(
-            dataset, 
-            relevant_variables
+            dataset,
+            filter(!=(TMLE.censoring_indicator_name(outcome)), relevant_variables)
         )
         nomissing_variables = relevant_variables
-
         # In the IPCW mode we add the censoring variable and the outcome variable is not included in
         # missing variables as it will be coalesced to avoid missing values in the fluctuation dataset
         if relevant_factors.censoring_score !== nothing
@@ -121,19 +120,6 @@ function get_initial_and_fluctuation_datasets(dataset, relevant_factors; prevale
 end
 
 """
-    fluctuation_row_mask(initial_dataset, relevant_factors)
-
-Boolean mask (over the full initial-dataset rows) selecting the covariate-complete rows that make
-up the fluctuation dataset — every nuisance must be predictable on these rows. Single source of
-truth shared by `get_fluctuation_dataset` and the CV fold realignment in the estimators.
-"""
-function fluctuation_row_mask(initial_dataset, relevant_factors)
-    outcome = relevant_factors.outcome_mean.outcome
-    covariate_vars = filter(!=(outcome), collect(variables(relevant_factors)))
-    return completecases(initial_dataset, covariate_vars)
-end
-
-"""
     maybe_coalesce_outcome(y)
 
 Replace missing outcome values with a placeholder (first level for a categorical, `zero` for a
@@ -148,7 +134,6 @@ function maybe_coalesce_outcome(y)
     end
     return coalesce.(y, zero(nonmissingtype(eltype(y))))
 end
-
 
 function indicator_values(indicators, T)
     indic = zeros(Float64, nrows(T))

@@ -68,8 +68,8 @@ end
         W = [0, missing, 1, 0, 1, 1, 0],
         Y_bin = categorical([1, 0, 1, 1, 0, 1, 1]),
     )
-    complete_rows = findall(completecases(dataset))
-    fluctuation_dataset = dataset[complete_rows, :]
+    complete_rows = findall(completecases(initial_factors_dataset))
+    fluctuation_dataset = initial_factors_dataset[complete_rows, :]
 
     # No resampling results in nothing
     @test TMLE.get_train_validation_indices(

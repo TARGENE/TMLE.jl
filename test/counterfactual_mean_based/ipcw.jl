@@ -27,7 +27,7 @@ include(joinpath(dirname(dirname(pathof(TMLE))), "test", "helper_fns.jl"))
 
     # Test add_censoring_indicator
     df = DataFrame(Y = Union{Missing, Float64}[1.0, missing, 3.0, missing, 5.0])
-    df = TMLE.add_censoring_indicator(df, :Y)
+    TMLE.add_censoring_indicator!(df, :Y)
     @test hasproperty(df, :Δ_Y)
     Δ = df[!, :Δ_Y]
     @test Δ isa CategoricalVector
