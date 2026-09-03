@@ -50,32 +50,19 @@ censoring_indicator_name(outcome::Symbol) = Symbol(:Δ_, outcome)
 
 has_missing_outcomes(dataset, outcome::Symbol) = ismissingtype(eltype(dataset[!, outcome]))
 
-function add_censoring_indicator(dataset, outcome::Symbol)
-    col = dataset[!, outcome]
-    f(col) = categorical(ifelse.(ismissing.(col), 0, 1), ordered=true)
-    DataFrames.transform(dataset, outcome => f => censoring_indicator_name(outcome))
+function add_censoring_indicator!(dataset, outcome::Symbol)
+    dataset[!, censoring_indicator_name(outcome)] =
+        categorical(ifelse.(ismissing.(dataset[!, outcome]), 0, 1), ordered=true)
 end
 
-function compute_ipcw_weights(censoring_score, dataset; ps_lowerbound=1e-8)
-    censoring_score === nothing && return nothing
-    outcome = selectcols(dataset, [censoring_score.estimand.outcome])
-    Δ = indicator_values(Dict((1,) => 1.), outcome)
+update_with_ipcw_weights!(weights, censoring_score::Nothing, dataset; ps_lowerbound=1e-8) = weights
+
+function update_with_ipcw_weights!(weights, censoring_score, dataset; ps_lowerbound=1e-8)
+    Δ = unwrap.(dataset[!, censoring_score.estimand.outcome])
     π = likelihood(censoring_score, dataset)
     truncate!(π, ps_lowerbound)
-    return Δ ./ π
-end
-
-"""
-    counterfactual_censoring_covariate(censoring_score, dataset; ps_lowerbound=1e-8)
-
-Censoring factor for the counterfactual censoring intervention `Δ=1`: `1/P(Δ=1 | parents)`.
-Unlike `compute_ipcw_weights` (which uses the observed `Δ`), this sets `Δ=1`, so it is the
-factor folded into the *counterfactual* clever covariate.
-"""
-function counterfactual_censoring_covariate(censoring_score, dataset; ps_lowerbound=1e-8)
-    π = expected_value(censoring_score, dataset)
-    truncate!(π, ps_lowerbound)
-    return 1 ./ π
+    weights .*= (Δ ./ π)
+    return weights
 end
 
 function nomissing(dataset::DataFrame, colnames; disallowmissing=true, view=false, copycols=false)
@@ -87,71 +74,58 @@ function nomissing(dataset::DataFrame, colnames; disallowmissing=true, view=fals
     end
 end
 
-
 """
-    get_initial_dataset(dataset, relevant_factors; prevalence=nothing, verbosity=1)
+    get_initial_and_fluctuation_datasets(dataset, relevant_factors; prevalence=nothing, ipcw=true, verbosity=1)
 
-Build the single dataset used for both fold construction and nuisance fitting. Keeping these on
-the same rows means the CV fold indices stay aligned with the fluctuation dataset (which is these
-same rows with missing outcomes coalesced, see `get_fluctuation_dataset`).
-
-- **IPCW mode** (`relevant_factors.censoring_score !== nothing`): keeps every row. Each nuisance
-  estimator drops the rows it can't use (missing among *its own* variables) when it fits, so the
-  propensity/censoring models are not penalised by rows another model happens to be missing. The
-  covariate-complete rows needed to predict *all* nuisances are selected separately by
-  `get_fluctuation_dataset`; under CV the fold indices are realigned to that subset via
-  `align_to_rows` in the estimators.
-- **Non-IPCW mode**: drops all rows with any missing relevant variable. If `prevalence` is
-  provided, additionally applies matched-controls subsampling via `get_matched_controls`.
+This function manages how the dataset is used, we distinguish between the initial dataset and the fluctuation dataset. 
+The distinction arises from the requirement that the fluctuation fit cannot handle missing observations for any variable 
+while some nuisance factors can be fitted with some missing variables (e.g. the propensity score does not use the outcome variable). 
 """
-function get_initial_dataset(dataset, relevant_factors; prevalence=nothing, verbosity=1)
-    relevant_factors.censoring_score !== nothing && return dataset
+function get_initial_and_fluctuation_datasets(dataset, relevant_factors; prevalence=nothing, verbosity=1)
+    relevant_variables = collect(variables(relevant_factors))
     outcome = relevant_factors.outcome_mean.outcome
-    nomissing_dataset = nomissing(dataset, variables(relevant_factors))
-    return isnothing(prevalence) ? nomissing_dataset : get_matched_controls(nomissing_dataset, outcome; verbosity=verbosity)
+    if prevalence !== nothing
+        # Missing variables are currently not supported in prevalence mode
+        complete_rows = findall(completecases(dataset, relevant_variables))
+        initial_dataset = get_matched_controls(
+            dataset[complete_rows, relevant_variables], 
+            outcome; 
+            verbosity=verbosity
+        )
+        # Initial and Fluctuation datasets are the same
+        return initial_dataset, copy(initial_dataset, copycols=false), complete_rows
+    else
+        initial_dataset = TMLE.selectcols(
+            dataset,
+            filter(!=(TMLE.censoring_indicator_name(outcome)), relevant_variables)
+        )
+        nomissing_variables = relevant_variables
+        # In the IPCW mode we add the censoring variable and the outcome variable is not included in
+        # missing variables as it will be coalesced to avoid missing values in the fluctuation dataset
+        if relevant_factors.censoring_score !== nothing
+            add_censoring_indicator!(initial_dataset, outcome)
+            nomissing_variables = filter(!=(outcome), relevant_variables)
+        end
+
+        complete_rows = findall(completecases(initial_dataset, nomissing_variables))
+        fluctuation_dataset = initial_dataset[complete_rows, :]
+
+        # In the IPCW mode: We coalesce the outcome variable to avoid missing values in the fluctuation dataset
+        if relevant_factors.censoring_score !== nothing
+            fluctuation_dataset[!, outcome] = maybe_coalesce_outcome(fluctuation_dataset[!, outcome])
+        end
+
+        return initial_dataset, fluctuation_dataset, complete_rows
+    end
 end
 
 """
-    get_fluctuation_dataset(initial_dataset, relevant_factors)
-
-Derive the dataset on which all nuisances are predicted to fit the fluctuation (epsilon) and
-evaluate the gradient. Under IPCW it (1) drops rows missing any covariate — every nuisance
-(Q, G, π) must be predictable on every row, which coalescing the outcome alone does not
-guarantee — and (2) coalesces missing outcomes to 0 so the fluctuation GLM has a numeric target;
-censored rows (Δ=0) are zeroed out by the clever covariate, so the imputed value is irrelevant.
-Outside IPCW the initial dataset is already complete and is returned unchanged.
-
-The kept rows are those flagged by `fluctuation_row_mask`; CV fold indices are realigned to this
-same subset via `align_to_rows`, so the two stay consistent.
-"""
-function get_fluctuation_dataset(initial_dataset, relevant_factors)
-    relevant_factors.censoring_score === nothing && return initial_dataset
-    outcome = relevant_factors.outcome_mean.outcome
-    fluctuation_dataset = initial_dataset[fluctuation_row_mask(initial_dataset, relevant_factors), :]
-    fluctuation_dataset[!, outcome] = coalesce_outcome(fluctuation_dataset[!, outcome])
-    return fluctuation_dataset
-end
-
-"""
-    fluctuation_row_mask(initial_dataset, relevant_factors)
-
-Boolean mask (over the full initial-dataset rows) selecting the covariate-complete rows that make
-up the fluctuation dataset — every nuisance must be predictable on these rows. Single source of
-truth shared by `get_fluctuation_dataset` and the CV fold realignment in the estimators.
-"""
-function fluctuation_row_mask(initial_dataset, relevant_factors)
-    outcome = relevant_factors.outcome_mean.outcome
-    covariate_vars = filter(!=(outcome), collect(variables(relevant_factors)))
-    return completecases(initial_dataset, covariate_vars)
-end
-
-"""
-    coalesce_outcome(y)
+    maybe_coalesce_outcome(y)
 
 Replace missing outcome values with a placeholder (first level for a categorical, `zero` for a
 numeric) and return a column with a non-missing element type.
 """
-function coalesce_outcome(y)
+function maybe_coalesce_outcome(y)
     ismissingtype(eltype(y)) || return y
     if y isa CategoricalVector
         lvls = levels(y)
@@ -160,7 +134,6 @@ function coalesce_outcome(y)
     end
     return coalesce.(y, zero(nonmissingtype(eltype(y))))
 end
-
 
 function indicator_values(indicators, T)
     indic = zeros(Float64, nrows(T))

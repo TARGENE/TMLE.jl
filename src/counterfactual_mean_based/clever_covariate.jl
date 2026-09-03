@@ -31,9 +31,7 @@ function balancing_weights(G::NamedTuple, dataset; ps_lowerbound=1e-8)
     end
     truncate!(jointlikelihood, ps_lowerbound)
     weights = 1. ./ jointlikelihood
-    ipcw = compute_ipcw_weights(G.censoring_score, dataset; ps_lowerbound=ps_lowerbound)
-    ipcw === nothing || (weights .*= ipcw)
-    return weights
+    return update_with_ipcw_weights!(weights, G.censoring_score, dataset; ps_lowerbound=ps_lowerbound)
 end
 
 """

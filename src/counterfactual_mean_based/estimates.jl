@@ -26,19 +26,6 @@ The treatment mechanism used by the clever covariate: always a named tuple, whos
 getG(factors::MLCMRelevantFactors) =
     (propensity_score=factors.propensity_score, censoring_score=factors.censoring_score)
 
-"""
-    align_to_rows(factors::MLCMRelevantFactors, keep::Vector{Int})
-
-Realign every nuisance's CV fold indices from the full initial-dataset row space to the
-covariate-complete fluctuation subset (see `align_to_rows` on the component estimates).
-"""
-align_to_rows(factors::MLCMRelevantFactors, keep) = MLCMRelevantFactors(
-    factors.estimand,
-    align_to_rows(factors.outcome_mean, keep),
-    align_to_rows(factors.propensity_score, keep),
-    factors.censoring_score === nothing ? nothing : align_to_rows(factors.censoring_score, keep)
-)
-
 function string_repr(estimate::MLCMRelevantFactors)
     parts = [
         "Composite Factor Estimate: \n",
@@ -126,7 +113,6 @@ Retrieves the final estimate: after the TMLE step.
 Distributions.estimate(Ψ̂::EICEstimate) = Ψ̂.estimate
 
 Statistics.std(Ψ̂::EICEstimate) = Ψ̂.std
-
 
 function print_header(io::IO, Ψ̂::TMLEstimate)
     println(io, "Targeted Minimum Loss Based Estimator")

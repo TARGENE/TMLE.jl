@@ -56,28 +56,86 @@ end
 #####################################################################
 
 """
+If no complete_rows are provided, the validation indices are not remapped and are returned as is (for CTMLE mode).
+"""
+remap_validation_indices(src_complete_rows_ids::Nothing, src_train_validation_indices) = src_train_validation_indices
+
+"""
+This function maps the validation indices from the initial dataset to the fluctuation dataset.
+It is based on the fact that `src_complete_rows_ids` was obtained from `findall(completecases(initial_factors_dataset))` 
+which is also used to build the fluctuation dataset.
+"""
+function remap_validation_indices(src_complete_rows_ids, src_train_validation_indices)
+    src_to_dest = Dict(src_id => dest_id for (dest_id, src_id) in enumerate(src_complete_rows_ids))
+    remap(idx) = [src_to_dest[src_id] for src_id in idx if haskey(src_to_dest, src_id)]
+    return [(src_train_idx, remap(src_val_idx)) for (src_train_idx, src_val_idx) in src_train_validation_indices]
+end
+
+"""
 Default fit does nothing.
 """
 MLJBase.fit!(resampling::ResamplingStrategy, Ψ, dataset) = nothing
 
-"""
-    get_train_validation_indices(resampling::ResamplingStrategy, Ψ, dataset)
+default_resampling(collaborative_strategy::Nothing) = nothing
 
-This function gets called within the estimation process. It introduces a `fit!` call to the resampling strategy, 
-to adapt the training and validation pairs based on the treatment variables defined in the estimand.
+default_resampling(collaborative_strategy) = CausalStratifiedCV()
+
 """
-function get_train_validation_indices(resampling::ResamplingStrategy, Ψ, dataset)
+    get_train_validation_indices(resampling::ResamplingStrategy, Ψ, dataset, complete_rows)
+
+The particularity of these indices is that:
+- The training indices are to be used on the initial_factors_dataset
+- The validation indices are to be used on the fluctuation_dataset
+
+As such, the validation indices are remapped to the fluctuation dataset
+"""
+function get_train_validation_indices(resampling::ResamplingStrategy, Ψ, dataset; complete_rows=nothing)
     MLJBase.fit!(resampling, Ψ, dataset)
-    return MLJBase.train_test_pairs(
+    train_validation_indices = MLJBase.train_test_pairs(
         resampling,
         1:nrows(dataset),
         dataset, 
         dataset[!, Ψ.outcome]
     )
+    return remap_validation_indices(complete_rows, train_validation_indices)
 end
+    
+"""
+    get_train_validation_indices(resampling::ResamplingStrategy, collaborative_strategy, Ψ, initial_factors_dataset, fluctuation_dataset, complete_rows)
 
-get_train_validation_indices(resampling::Nothing, Ψ, dataset) = nothing
+In the case of a collaborative strategy, the train and validation pairs are built from the complete case `fluctuation_dataset`.
+"""
+get_train_validation_indices(
+    resampling::ResamplingStrategy, 
+    collaborative_strategy, 
+    Ψ, 
+    initial_factors_dataset, 
+    fluctuation_dataset, 
+    complete_rows
+    ) = get_train_validation_indices(resampling, Ψ, fluctuation_dataset; complete_rows=nothing)
 
-default_resampling(collaborative_strategy::Nothing) = nothing
+"""
+    get_train_validation_indices(resampling::ResamplingStrategy, collaborative_strategy::Nothing, Ψ, initial_factors_dataset, fluctuation_dataset, complete_rows)
 
-default_resampling(collaborative_strategy) = CausalStratifiedCV()
+When there is no collaborative strategy, the train and validation pairs are built from the `initial_factors_dataset` and the `complete_rows`.
+"""
+get_train_validation_indices(
+    resampling::ResamplingStrategy, 
+    collaborative_strategy::Nothing, 
+    Ψ, 
+    initial_factors_dataset, 
+    fluctuation_dataset, 
+    complete_rows
+    ) = get_train_validation_indices(resampling, Ψ, initial_factors_dataset, complete_rows=complete_rows)
+
+"""
+When there is no resampling, regardless of the collaborative strategy, the train and validation pairs are just nothing.
+"""
+get_train_validation_indices(
+    resampling::Nothing, 
+    collaborative_strategy, 
+    Ψ, 
+    initial_factors_dataset, 
+    fluctuation_dataset, 
+    complete_rows
+    ) = nothing
