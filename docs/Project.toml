@@ -28,18 +28,23 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
+[sources]
+TMLE = {path = ".."}
+
 [compat]
 CSV = "0.10.11, 1"
-CairoMakie = "0.13.1"
+CategoricalArrays = "1"
 DataFrames = "1.5"
+DifferentiationInterface = "0.7"
 Distributions = "0.25"
 Documenter = "1"
 Literate = "2.13"
+LogExpFunctions = "1"
 MLJBase = "1.8"
 MLJLinearModels = "0.10.0"
 MLJModels = "0.17, 0.18"
 MLJXGBoostInterface = "0.3.8"
 NearestNeighborModels = "0.2"
 StableRNGs = "1.0"
-DifferentiationInterface = "0.7"
+StatisticalMeasures = "0.3"
 Zygote = "0.7"

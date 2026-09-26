@@ -40,6 +40,9 @@ DifferentiationInterfaceExt = "DifferentiationInterface"
 JSONExt = "JSON"
 YAMLExt = "YAML"
 
+[workspace]
+projects = ["test", "docs"]
+
 [compat]
 AutoHashEquals = "2.1.0"
 CategoricalArrays = "0.10, 1"
