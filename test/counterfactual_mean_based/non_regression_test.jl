@@ -62,7 +62,7 @@ end
     if VERSION >= v"1.9"
         jsonfile = mktemp()[1]
         TMLE.write_json(jsonfile, [tmle_result])
-        results_from_json = TMLE.read_json(jsonfile, use_mmap=false)
+        results_from_json = TMLE.read_json(jsonfile)
         regression_tests(results_from_json[1])
 
         yamlfile = mktemp()[1]

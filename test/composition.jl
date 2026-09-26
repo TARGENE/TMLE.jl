@@ -221,7 +221,7 @@ end
         using JSON
         filename, _ = mktemp()
         TMLE.write_json(filename, jointEstimate)
-        from_json = TMLE.read_json(filename, use_mmap=false)
+        from_json = TMLE.read_json(filename)
         @test jointEstimate.estimand == from_json.estimand
         @test jointEstimate.cov == from_json.cov
         @test estimate(jointEstimate) == estimate(from_json)
