@@ -63,7 +63,7 @@ end
 
 function gradient_and_plugin_estimate(Ψ::StatisticalCMCompositeEstimand, factors, dataset; ps_lowerbound=1e-8)
     Q = factors.outcome_mean
-    G = factors.propensity_score
+    G = getG(factors)
     ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
     Ψ̂ = plugin_estimate(ctf_agg)
     IC = ∇YX(Ψ, Q, G, dataset; ps_lowerbound = ps_lowerbound) .+ ∇W(ctf_agg, Ψ̂)

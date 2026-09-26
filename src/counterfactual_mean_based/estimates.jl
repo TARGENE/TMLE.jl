@@ -5,19 +5,52 @@
 """
 Holds a Sample Split Machine Learning set of estimates (outcome mean, propensity score) 
 for counterfactual mean based estimands' relevant factors.
+
 """
-struct MLCMRelevantFactors <: Estimate
+struct MLCMRelevantFactors{C <: Union{Nothing, <:ConditionalDistributionEstimate}} <: Estimate
     estimand::CMRelevantFactors
     outcome_mean::ConditionalDistributionEstimate
-    propensity_score
+    propensity_score:: JointConditionalDistributionEstimate
+    censoring_score::C
 end
 
-string_repr(estimate::MLCMRelevantFactors) = string(
-    "Composite Factor Estimate: \n",
-    "-------------------------\n- ",
-    string_repr(estimate.outcome_mean),"\n- ", 
-    join((string_repr(f) for f in estimate.propensity_score.components), "\n- ")
+MLCMRelevantFactors(estimand, outcome_mean, propensity_score) =
+    MLCMRelevantFactors(estimand, outcome_mean, propensity_score, nothing)
+
+"""
+    getG(factors::MLCMRelevantFactors)
+
+The treatment mechanism used by the clever covariate: always a named tuple, whose
+`censoring_score` is `nothing` outside IPCW mode.
+"""
+getG(factors::MLCMRelevantFactors) =
+    (propensity_score=factors.propensity_score, censoring_score=factors.censoring_score)
+
+"""
+    align_to_rows(factors::MLCMRelevantFactors, keep::Vector{Int})
+
+Realign every nuisance's CV fold indices from the full initial-dataset row space to the
+covariate-complete fluctuation subset (see `align_to_rows` on the component estimates).
+"""
+align_to_rows(factors::MLCMRelevantFactors, keep) = MLCMRelevantFactors(
+    factors.estimand,
+    align_to_rows(factors.outcome_mean, keep),
+    align_to_rows(factors.propensity_score, keep),
+    factors.censoring_score === nothing ? nothing : align_to_rows(factors.censoring_score, keep)
 )
+
+function string_repr(estimate::MLCMRelevantFactors)
+    parts = [
+        "Composite Factor Estimate: \n",
+        "-------------------------\n- ",
+        string_repr(estimate.outcome_mean), "\n- ",
+        join((string_repr(f) for f in estimate.propensity_score.components), "\n- ")
+    ]
+    if estimate.censoring_score !== nothing
+        push!(parts, "\n- ", string_repr(estimate.censoring_score))
+    end
+    return string(parts...)
+end
 
 #####################################################################
 ###                       FoldsMLCMRelevantFactors                     ###

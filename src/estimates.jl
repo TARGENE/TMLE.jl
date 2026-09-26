@@ -119,6 +119,38 @@ function MLJBase.predict(estimate::SampleSplitMLConditionalDistribution, dataset
     return cv_predict(estimate, X)
 end
 
+"""
+    align_train_validation_indices(train_validation_indices, keep::Vector{Int})
+
+Remap fold indices expressed in the full-dataset row space into the row space of the
+covariate-complete subset (`keep` lists the full-space positions of the subset rows, in order).
+Rows dropped from the subset are removed from their folds. Used to realign fitted CV nuisances so
+their out-of-fold predictions land on the correct rows of the fluctuation dataset (IPCW with
+missing covariates). When `keep == 1:n` this is the identity.
+"""
+function align_train_validation_indices(train_validation_indices, keep::AbstractVector{Int})
+    full_to_sub = Dict(full => sub for (sub, full) in enumerate(keep))
+    remap(idx) = [full_to_sub[i] for i in idx if haskey(full_to_sub, i)]
+    return [(remap(train_idx), remap(val_idx)) for (train_idx, val_idx) in train_validation_indices]
+end
+
+"""
+    align_to_rows(estimate, keep::Vector{Int})
+
+Return an estimate whose stored CV fold indices address the covariate-complete subset identified
+by `keep` instead of the full initial dataset. The per-fold machines are untouched (they were
+trained on the full dataset); only the indices used for out-of-fold prediction are remapped.
+Non sample-split estimates predict on any dataset directly and are returned unchanged.
+"""
+align_to_rows(estimate::MLConditionalDistribution, keep) = estimate
+
+align_to_rows(estimate::SampleSplitMLConditionalDistribution, keep) =
+    SampleSplitMLConditionalDistribution(
+        estimate.estimand,
+        align_train_validation_indices(estimate.train_validation_indices, keep),
+        estimate.machines
+    )
+
 #####################################################################
 ###               ConditionalDistributionEstimate                 ###
 #####################################################################
@@ -158,6 +190,9 @@ struct JointConditionalDistributionEstimate{T, N} <: Estimate
     estimand::Tuple{Vararg{ConditionalDistribution, N}}
     components::Tuple{Vararg{T, N}}
 end
+
+align_to_rows(estimate::JointConditionalDistributionEstimate, keep) =
+    JointConditionalDistributionEstimate(estimate.estimand, map(c -> align_to_rows(c, keep), estimate.components))
 
 #####################################################################
 ###                        Joint Estimate                         ###

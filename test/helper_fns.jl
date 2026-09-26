@@ -24,8 +24,12 @@ increase risk more than tol
 function test_fluct_decreases_risk(cache; atol=1e-6)
     fluctuated_mean_machine = cache[:targeted_factors].outcome_mean.machine
     initial_mean_machine = fluctuated_mean_machine.model.initial_factors.outcome_mean.machine
+    X = fluctuated_mean_machine.data[1]
     y = fluctuated_mean_machine.data[2]
-    initial_risk = risk(MLJBase.predict(initial_mean_machine), y)
+    # Predict the initial mean on the fluctuation's rows rather than the initial machine's own
+    # training rows: under IPCW the outcome mean is fit on complete cases only, so its training
+    # set is a strict subset of the fluctuation rows. Outside IPCW the two coincide.
+    initial_risk = risk(MLJBase.predict(initial_mean_machine, X), y)
     fluct_risk = risk(MLJBase.predict(fluctuated_mean_machine), y)
     @test initial_risk >= fluct_risk || isapprox(initial_risk, fluct_risk, atol=atol)
 end

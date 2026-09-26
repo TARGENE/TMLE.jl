@@ -12,30 +12,33 @@ mutable struct Tmle <: Estimator
     max_iter::Int
     machine_cache::Bool
     prevalence::Union{Nothing, Float64}
+    ipcw::Bool
     function Tmle(
-        models, 
-        resampling, 
-        collaborative_strategy, 
-        ps_lowerbound, 
-        weighted, 
-        tol, 
-        max_iter, 
+        models,
+        resampling,
+        collaborative_strategy,
+        ps_lowerbound,
+        weighted,
+        tol,
+        max_iter,
         machine_cache,
-        prevalence
+        prevalence,
+        ipcw
     )
         if resampling === nothing && collaborative_strategy !== nothing
             @warn("Collaborative TMLE requires a resampling strategy but none was provided. Using the default resampling strategy.")
             resampling = default_resampling(collaborative_strategy)
         end
         return new(
-            models, 
-            resampling, 
-            collaborative_strategy, 
-            ps_lowerbound, 
-            weighted, tol, 
-            max_iter, 
+            models,
+            resampling,
+            collaborative_strategy,
+            ps_lowerbound,
+            weighted, tol,
+            max_iter,
             machine_cache,
-            prevalence
+            prevalence,
+            ipcw
         )
     end
 end
@@ -59,7 +62,25 @@ been show to be more robust to positivity violation in practice.
 - tol (default: nothing): Convergence threshold for the TMLE algorithm iterations. If nothing (default), 1/(sample size) will be used. See also `max_iter`.
 - max_iter (default: 1): Maximum number of iterations for the TMLE algorithm.
 - machine_cache (default: false): Whether MLJ.machine created during estimation should cache data.
-- prevalence (default: nothing): If provided, the prevalence weights will be used to weight the observations to match the true prevalence of the source population. 
+- prevalence (default: nothing): If provided, the prevalence weights will be used to weight the observations to match the true prevalence of the source population.
+- ipcw (default: true): Whether or not to apply Inverse Probability of Censoring weighting if the outcome column contains `missing` values.
+
+# Missing outcomes (IPCW)
+
+If `tmle.ipcw == true` and the outcome column contains `missing` values, a binary censoring model `π(W) = P(Δ=1 | W)` is fit to predict
+whether the outcome is observed, and the efficient influence curve is reweighted by `Δ/π` to
+correct for outcome missingness. This is valid under a Missing at Random (MAR) assumption — i.e.
+the probability of observing the outcome may depend on treatments and covariates, but not on the
+(unobserved) outcome value itself.
+
+The censoring model's covariates default to the same parents as the outcome mean model. To use a
+custom censoring model, pass it via the `models` dict under the key `:C_default` or under the
+censoring indicator name (e.g. `Symbol("Δ_Y")`). See also `default_models`.
+
+The outcome mean (Q) is fit on complete cases only (observed outcomes), while the propensity
+score (G) and censoring model (π) are fit on all covariate-complete observations (including
+those with missing outcomes). The influence curve and plugin estimate are evaluated on all
+covariate-complete observations.
 
 # Run Argument
 
@@ -86,7 +107,8 @@ function Tmle(;
     tol=nothing, 
     max_iter=1, 
     machine_cache=false,
-    prevalence=nothing
+    prevalence=nothing,
+    ipcw=true
     )
     Tmle(
         models, 
@@ -96,26 +118,30 @@ function Tmle(;
         weighted, tol, 
         max_iter, 
         machine_cache,
-        prevalence
+        prevalence,
+        ipcw
     )
 end
 
 function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
+    # Detect missing outcomes
+    ipcw = tmle.ipcw & has_missing_outcomes(dataset, Ψ.outcome)
+
     # Check if the inputs are suitable for the specified estimand
-    check_inputs(Ψ, dataset, tmle.prevalence)
-    # Make train-validation pairs
-    train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, dataset)
+    check_inputs(Ψ, dataset, tmle.prevalence, ipcw)
+    # Add censoring indicator if needed
+    if ipcw
+        dataset = add_censoring_indicator(dataset, Ψ.outcome)
+    end
     # Initial fit of the SCM's relevant factors
-    relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy)
-    fluctuation_dataset = get_fluctuation_dataset(dataset, relevant_factors;
-        prevalence=tmle.prevalence, 
+    relevant_factors = get_relevant_factors(Ψ, collaborative_strategy=tmle.collaborative_strategy, ipcw=ipcw)
+    initial_factors_dataset = get_initial_dataset(dataset, relevant_factors;
+        prevalence=tmle.prevalence,
         verbosity=verbosity
     )
-
-    initial_factors_dataset = choose_initial_dataset(dataset, fluctuation_dataset; 
-        train_validation_indices=train_validation_indices, 
-        prevalence=tmle.prevalence
-    )
+    # Fold indices are built on the initial (nuisance) dataset
+    train_validation_indices = get_train_validation_indices(tmle.resampling, Ψ, initial_factors_dataset)
+    fluctuation_dataset = get_fluctuation_dataset(initial_factors_dataset, relevant_factors)
 
     prevalence_weights = compute_prevalence_weights(tmle.prevalence, initial_factors_dataset[!, relevant_factors.outcome_mean.outcome])
     initial_factors_estimator = CMRelevantFactorsEstimator(tmle.collaborative_strategy; 
@@ -131,6 +157,13 @@ function (tmle::Tmle)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(),
         machine_cache=tmle.machine_cache,
         acceleration=acceleration
     )
+    # Nuisances were fit on the full dataset (each model dropping only the rows it can't use), but
+    # the fluctuation/gradient runs on the covariate-complete subset. Realign CV fold indices to
+    # that subset so out-of-fold predictions land on the right rows. No-op without CV.
+    if train_validation_indices !== nothing
+        keep = findall(fluctuation_row_mask(initial_factors_dataset, relevant_factors))
+        initial_factors_estimate = align_to_rows(initial_factors_estimate, keep)
+    end
     # Get propensity score truncation threshold
     n = nrows(fluctuation_dataset)
     ps_lowerbound = ps_lower_bound(n, tmle.ps_lowerbound)
@@ -180,6 +213,7 @@ mutable struct Ose <: Estimator
     ps_lowerbound::Union{Float64, Nothing}
     machine_cache::Bool
     prevalence::Union{Nothing, Float64}
+    ipcw::Bool
 end
 
 """
@@ -198,6 +232,9 @@ result in a data adaptive definition as described in [here](https://pubmed.ncbi.
 - machine_cache: Whether MLJ.machine created during estimation should cache data.
 - prevalence: The prevalence of the outcome in the population. If provided, the estimator will use case control 
 weights to correct for biased sampling.
+- ipcw (default: true): Whether or not to apply Inverse Probability of Censoring weighting if the outcome column contains `missing` values.
+See the `Tmle` docstring for details on the IPCW mechanism, modeling assumptions, and how to customize the censoring model.
+
 # Run Argument
 
 - Ψ: parameter of interest
@@ -215,24 +252,31 @@ ose = Ose()
 Ψ̂ₙ, cache = ose(Ψ, dataset)
 ```
 """
-Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false, prevalence=nothing) = 
-    Ose(models, resampling, ps_lowerbound, machine_cache, prevalence)
+Ose(;models=default_models(), resampling=nothing, ps_lowerbound=1e-8, machine_cache=false, prevalence=nothing, ipcw=true) =
+    Ose(models, resampling, ps_lowerbound, machine_cache, prevalence, ipcw)
 
 function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), verbosity=1, acceleration=CPU1())
+    # Detect missing outcomes
+    ipcw = ose.ipcw & has_missing_outcomes(dataset, Ψ.outcome)
+    if ipcw && ose.prevalence !== nothing
+        throw(ArgumentError("IPCW (missing outcomes) is not yet supported with prevalence correction. The interaction between case-control weights and censoring weights requires a specialized influence function."))
+    end
     # Check the estimand against the dataset
-    check_inputs(Ψ, dataset, ose.prevalence)
-    # Make train-validation pairs
-    train_validation_indices = get_train_validation_indices(ose.resampling, Ψ, dataset)
-    # Initial fit of the SCM's relevant factors
-    initial_factors = get_relevant_factors(Ψ)
-    fluctuation_dataset = get_fluctuation_dataset(dataset, initial_factors;
+    check_inputs(Ψ, dataset, ose.prevalence, ipcw)
+    # Add censoring indicator if needed
+    if ipcw
+        dataset = add_censoring_indicator(dataset, Ψ.outcome)
+    end
+    # Initial fit of the SCM's relevant factors (pass dataset for IPCW detection)
+    initial_factors = get_relevant_factors(Ψ; ipcw=ipcw)
+    initial_factors_dataset = get_initial_dataset(dataset, initial_factors;
         prevalence=ose.prevalence,
         verbosity=verbosity
     )
-    initial_factors_dataset = choose_initial_dataset(dataset, fluctuation_dataset;
-        train_validation_indices=train_validation_indices, 
-        prevalence=ose.prevalence
-    )
+    # Fold indices are built on the initial (nuisance) dataset.
+    train_validation_indices = get_train_validation_indices(ose.resampling, Ψ, initial_factors_dataset)
+    fluctuation_dataset = get_fluctuation_dataset(initial_factors_dataset, initial_factors)
+
     prevalence_weights = compute_prevalence_weights(ose.prevalence, initial_factors_dataset[!, initial_factors.outcome_mean.outcome])
     initial_factors_estimator = CMRelevantFactorsEstimator(;models=ose.models, train_validation_indices=train_validation_indices, prevalence_weights=prevalence_weights)
     initial_factors_estimate = initial_factors_estimator(
@@ -242,6 +286,12 @@ function (ose::Ose)(Ψ::StatisticalCMCompositeEstimand, dataset; cache=Dict(), v
         verbosity=verbosity,
         acceleration=acceleration
     )
+    # Realign CV fold indices from the full dataset to the covariate-complete fluctuation subset
+    # (see the TMLE call method). No-op without CV.
+    if train_validation_indices !== nothing
+        keep = findall(fluctuation_row_mask(initial_factors_dataset, initial_factors))
+        initial_factors_estimate = align_to_rows(initial_factors_estimate, keep)
+    end
     # Get propensity score truncation threshold
     n = nrows(fluctuation_dataset)
     ps_lowerbound = ps_lower_bound(n, ose.ps_lowerbound)
@@ -263,7 +313,7 @@ end
 
 function gradient_and_estimate(::Ose, Ψ, factors, dataset, prevalence_weights; ps_lowerbound=1e-8)
     Q = factors.outcome_mean
-    G = factors.propensity_score
+    G = getG(factors)
     ctf_agg = counterfactual_aggregate(Ψ, Q, dataset)
     gradient_Y_X = ∇YX(Ψ, Q, G, dataset; ps_lowerbound=ps_lowerbound)
     y = float(dataset[!, Q.estimand.outcome])
