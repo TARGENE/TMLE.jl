@@ -9,6 +9,7 @@ using MLJModels
 using LogExpFunctions
 using Distributions
 using MLJLinearModels
+using CategoricalDistributions
 
 verbosity = 1
 n = 100

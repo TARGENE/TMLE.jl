@@ -10,6 +10,7 @@ using CategoricalArrays
 using Test
 using DataFrames
 using LogExpFunctions
+using MLJTransforms
 
 include(joinpath(dirname(dirname(pathof(TMLE))), "test", "helper_fns.jl"))
 

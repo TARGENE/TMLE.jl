@@ -29,10 +29,8 @@ TEST_DIR = joinpath(pkgdir(TMLE), "test")
     @test include(joinpath(TEST_DIR, "counterfactual_mean_based/covariate_based_strategies.jl"))
     
     # Test Extensions
-    if VERSION >= v"1.9"
-        @test include(joinpath(TEST_DIR, "configuration.jl"))
-        @test include(joinpath(TEST_DIR, "causaltables_interface.jl"))
-    end
+    @test include(joinpath(TEST_DIR, "configuration.jl"))
+    @test include(joinpath(TEST_DIR, "causaltables_interface.jl"))
 
     # Test Experimental
     @test include(joinpath(TEST_DIR, "estimand_ordering.jl"))

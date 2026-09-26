@@ -9,6 +9,7 @@ using Distributions
 using MLJLinearModels
 using MLJModels
 using DataFrames
+using MLJTransforms
 
 μY(T, W)  = 1 .+ 2T .- W.*T
 

@@ -6,6 +6,7 @@ using Tables
 using MLJModels
 using MLJLinearModels
 using MLJXGBoostInterface
+using MLJTransforms
 
 TEST_DIR = joinpath(pkgdir(TMLE), "test")
 

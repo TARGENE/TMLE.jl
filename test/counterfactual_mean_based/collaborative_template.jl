@@ -6,6 +6,7 @@ using MLJLinearModels
 using MLJBase
 using Distributions
 using StatisticalMeasures
+using CategoricalDistributions
 
 TEST_DIR = joinpath(pkgdir(TMLE), "test")
 include(joinpath(TEST_DIR, "counterfactual_mean_based", "aie_simulations.jl"))

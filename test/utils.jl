@@ -7,6 +7,7 @@ using CategoricalArrays
 using MLJLinearModels
 using MLJModels
 using DataFrames
+using MLJTransforms
 
 @testset "Test expected_value" begin
     n = 100

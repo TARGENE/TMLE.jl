@@ -22,6 +22,8 @@ using DataFrames
 using ComputationalResources
 using Base.Threads
 using Printf
+using MLJTransforms
+using CategoricalDistributions
 
 # #############################################################################
 # EXPORTS
