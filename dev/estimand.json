@@ -1,10 +1,10 @@
 {
- "type": "ATE",
+ "outcome": "Y",
  "treatment_values": {
   "A": {
    "control": 0,
    "case": 1
   }
  },
- "outcome": "Y"
+ "type": "ATE"
 }
