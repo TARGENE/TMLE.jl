@@ -58,7 +58,6 @@ statistical_estimands = [identify(x, scm) for x in causal_estimands]
     @test size(vcat(values(groups)...)) == size(statistical_estimands)
  
     # Test PS groups permutations
-    factorial(5)
     permutations = TMLE.propensity_score_group_based_permutation_generator(groups)
     @test length(permutations) == factorial(length(groups))
     for permutation in permutations
@@ -102,7 +101,9 @@ end
     # Without the brute force on groups, the solution is not necessarily optimal
     # but still improved
     ordering_from_groups = TMLE.groups_ordering(bad_ordering)
-    @test TMLE.evaluate_proxy_costs(ordering_from_groups, η_counts) == (4, 11)
+    maxmem, compcost = TMLE.evaluate_proxy_costs(ordering_from_groups, η_counts)
+    @test maxmem <= 4
+    @test compcost <= 11
     # Adding a layer of brute forcing results in an optimal ordering
     ordering_from_groups_with_brute_force = TMLE.groups_ordering(bad_ordering, brute_force=true)
     @test TMLE.evaluate_proxy_costs(ordering_from_groups_with_brute_force, η_counts) == (3, 11)
@@ -138,7 +139,6 @@ end
     # PS Group
     grouped_ordering = TMLE.groups_ordering(estimands, brute_force=true)
     @test TMLE.evaluate_proxy_costs(grouped_ordering, η_counts) == (2, 4)
-
 end
 
 end

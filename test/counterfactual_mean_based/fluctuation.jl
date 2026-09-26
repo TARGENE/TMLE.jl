@@ -7,6 +7,7 @@ using MLJBase
 using DataFrames
 using Distributions
 using MLJGLMInterface
+using CategoricalDistributions
 
 @testset "Test Fluctuation with 1 Treatments" begin
     Ψ = ATE(
@@ -42,11 +43,11 @@ using MLJGLMInterface
     counterfactual_cache = TMLE.initialize_counterfactual_cache(weighted_fluctuation, X)
     expected_value = [4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0] # Constant predictions of the mean as per Q⁰
     @test mean.(counterfactual_cache.predictions[1]) == mean.(counterfactual_cache.predictions[2]) == expected_value
-    @test counterfactual_cache.signs == [1., -1.]
-    @test counterfactual_cache.covariates == [
-        [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]
-    ]
+    @test Set(zip(counterfactual_cache.signs, counterfactual_cache.covariates)) == Set([
+        (-1.0, [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0]),
+        (1.0, [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    ])
+
     observed_cache = TMLE.initialize_observed_cache(weighted_fluctuation, X, y)
     @test observed_cache[:ŷ] isa Vector{<:Normal}
     @test observed_cache[:H] == [1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0] # This is used to fit, so weight has been removed
