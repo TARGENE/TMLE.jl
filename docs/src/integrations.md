@@ -38,7 +38,7 @@ estimator = Tmle()
 
 ## CausalDynamics.jl
 
-[CausalDynamics.jl](https://simonab.github.io/CausalDynamics.jl/dev/) identifies adjustment sets from causal graphs (via `prepare_for_tmle`) for use with TMLE.jl's point-treatment CM / ATE / AIE estimators. Continuous MTP / LMTP and mediation live in neighbouring packages ([CausalTargeted.jl](https://simonab.github.io/CausalTargeted.jl/dev/), [CausalMediation.jl](https://simonab.github.io/CausalMediation.jl/dev/)); see the CausalDynamics [integration guide](https://simonab.github.io/CausalDynamics.jl/dev/integration/) for a worked example.
+[CausalDynamics.jl](https://simonab.github.io/CausalDynamics.jl/dev/) identifies adjustment sets from causal graphs (via `prepare_for_tmle`) for use with TMLE.jl's point-treatment counterfactual mean (CM), average treatment effect (ATE), and average interaction effect (AIE) estimators. Continuous MTP / LMTP and mediation live in neighbouring packages ([CausalTargeted.jl](https://simonab.github.io/CausalTargeted.jl/dev/), [CausalMediation.jl](https://simonab.github.io/CausalMediation.jl/dev/)); see the CausalDynamics [integration guide](https://simonab.github.io/CausalDynamics.jl/dev/integration/) for a worked example.
 
 ## Serialization to JSON / YAML
 
